@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v9
+Utility Duniya Bot v10
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -56,7 +56,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v9"
+BOT_VERSION = "v10"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -2508,6 +2508,24 @@ async def _post_init(app: Application):
         log.warning("clear commands fail: %s", e)
 
 
+def _keepalive():
+    # Self-ping: free server ko sleep hone se rokta hai (UptimeRobot jaisa, bot ke andar hi)
+    import threading
+    def _loop():
+        while True:
+            try:
+                time.sleep(600)
+                if WEBHOOK_URL:
+                    requests.get(WEBHOOK_URL.rstrip("/"), timeout=10)
+            except Exception:
+                pass
+    try:
+        threading.Thread(target=_loop, daemon=True).start()
+        log.info("keepalive on (10 min self-ping)")
+    except Exception:
+        pass
+
+
 def main():
     if not BOT_TOKEN:
         raise SystemExit("❌ BOT_TOKEN nahi mila! Render Environment me BOT_TOKEN=... dalo.")
@@ -2562,6 +2580,7 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_error_handler(on_error)
 
+    _keepalive()
     if WEBHOOK_URL:
         port = int(os.getenv("PORT", "10000"))
         log.info("Webhook mode on port %s", port)
