@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v11
+Utility Duniya Bot v12
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -56,7 +56,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v11"
+BOT_VERSION = "v12"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1186,7 +1186,7 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         uses_line = f"{bar(uses_left / FREE_LIMIT)} {max(0, uses_left)}/{FREE_LIMIT}"
         tr_line = f"{bar(tr_left / TRIAL_LIMIT)} {max(0, tr_left)}/{TRIAL_LIMIT}"
     uname = f"@{update.effective_user.username}" if update.effective_user.username else "—"
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"👤 <b>MY ACCOUNT</b>\n"
         f"━━━━━━━━━━━━━━━\n"
         f"⭐ Plan: {badge}\n"
@@ -1215,7 +1215,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
                               url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 18 tools! QR, UPI QR, YT Download, Voice sab!")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"🎁 <b>REFER &amp; EARN</b> 💰\n"
         f"━━━━━━━━━━━━━━━\n"
         f"👥 Dost jodo → <b>30 din Premium FREE!</b>\n\n"
@@ -1231,7 +1231,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not UPI_ID:
-        await update.message.reply_text("💎 Premium jald aa raha hai! Tab tak /refer se FREE premium pao 🎁", reply_markup=BACK)
+        await update.effective_message.reply_text("💎 Premium jald aa raha hai! Tab tak /refer se FREE premium pao 🎁", reply_markup=BACK)
         return
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("⭐ SILVER 30 din - ₹49", callback_data="plan49")],
@@ -1239,7 +1239,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🎁 FREE me pao (Refer)", callback_data="ref")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "💎✨ <b>PREMIUM</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
         "✅ <b>Unlimited</b> saare 18 tools\n"
@@ -1357,7 +1357,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
     t, a, p = stats()
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"🛠️ <b>ADMIN PANEL</b> — full control!\n"
         f"━━━━━━━━━━━━━━━\n"
         f"👥 Total: <b>{t}</b> • 🟢 Aaj: <b>{a}</b> • 💎 Premium: <b>{p}</b>\n"
@@ -1516,7 +1516,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text("⛔ Sirf admin!")
             return
         parts = data.split(":")
-        target = int(parts[1])
+        try:
+            target = int(parts[1])
+        except Exception:
+            return
         if data.startswith("ap:"):
             days = int(parts[2]) if len(parts) > 2 else 30
             grant_premium(target, days)
@@ -1594,6 +1597,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             pdf = await asyncio.to_thread(pages_to_pdf, pages)
         except Exception:
+            refund_use(uid)
             await q.message.reply_text("⚠️ PDF banane me dikkat. Dusri photo try karo:")
             return
         bio = io.BytesIO(pdf)
@@ -1619,6 +1623,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         p = context.user_data.get("int_p", 0)
         r = context.user_data.get("int_r", 0)
         t = context.user_data.get("int_t", 0)
+        if not p:
+            await q.message.reply_text("⚠️ Server restart ho gaya tha. Interest grid se dobara shuru karo (limit nahi kata).")
+            for k in ("mode", "int_type", "int_p", "int_r", "int_t"):
+                context.user_data.pop(k, None)
+            return
         if not await use_or_block(uid, update):
             return
         await send_interest_result(update, p, r, t, f)
@@ -1806,6 +1815,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await use_or_block(uid, update):
             return
         if len(text) > 2000:
+            refund_use(uid)
             await update.message.reply_text("⚠️ Text thoda chhota bhejo (2000 letters tak).")
             return
         await act(context, update.effective_chat.id, "upload_photo")
@@ -1835,6 +1845,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await act(context, update.effective_chat.id, "typing")
         url = text if text.startswith(("http://", "https://")) else "https://" + text
         if "." not in urlparse(url).netloc:
+            refund_use(uid)
             await update.message.reply_text("⚠️ Sahi link bhejo (jaise google.com). Dobara try karo:")
             return
         s1, s2 = await asyncio.gather(asyncio.to_thread(shorten_isgd, url),
@@ -1859,6 +1870,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await act(context, update.effective_chat.id, "upload_photo")
         vid = yt_id(text)
         if not vid:
+            refund_use(uid)
             await update.message.reply_text("⚠️ Sahi YouTube link bhejo. Dobara try karo:")
             return
         res = await asyncio.to_thread(fetch_yt_best, vid)
@@ -1984,10 +1996,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text("⚠️ Sahi mahine bhejo (jaise 12):")
             return
-        if not await use_or_block(uid, update):
-            return
         p = context.user_data.get("emi_p", 0)
         r = context.user_data.get("emi_r", 0)
+        if not p:
+            await update.message.reply_text("⚠️ Server restart ho gaya tha. EMI grid se dobara shuru karo (limit nahi kata).")
+            context.user_data.pop("mode", None)
+            return
+        if not await use_or_block(uid, update):
+            return
         emi, rows = emi_schedule(p, r, n)
         total = emi * n
         tbl = "<pre>Saal | Asal   | Vyaaj  | Baki\n"
@@ -2065,6 +2081,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if mode == "upi_note":
         note = "" if text.lower() == "skip" else text[:40]
+        if not context.user_data.get("upi_id"):
+            await update.message.reply_text("⚠️ Server restart ho gaya tha. UPI QR grid se dobara banao (trial nahi kata).")
+            for k in ("mode", "upi_id", "upi_name", "upi_amt"):
+                context.user_data.pop(k, None)
+            return
         if not await trial_or_block(uid, update, "UPI QR"):
             context.user_data.pop("mode", None)
             return
@@ -2212,6 +2233,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await act(context, update.effective_chat.id, "typing")
         if " " in text or "." not in text:
+            refund_use(uid)
             await update.message.reply_text("⚠️ Sahi link bhejo:")
             return
         st = await update.message.reply_text("🔍 <i>Link check ho raha hai...</i>", parse_mode=HTML)
@@ -2233,6 +2255,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await act(context, update.effective_chat.id, "typing")
         if " " in text or "." not in text:
+            refund_use(uid)
             await update.message.reply_text("⚠️ Sahi link bhejo:")
             return
         st = await update.message.reply_text("🔓 <i>Original link nikal raha hoon...</i>", parse_mode=HTML)
@@ -2243,6 +2266,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🔀 {len(chain)} hops me khula\n👆 <i>Tap karke copy karo!</i>",
                 reply_markup=BACK, parse_mode=HTML)
         elif status == "ERR":
+            refund_use(uid)
             await st.edit_text(final)
         else:
             await st.edit_text(
@@ -2311,6 +2335,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         p = context.user_data.get("int_p", 0)
         r = context.user_data.get("int_r", 0)
+        if not p:
+            await update.message.reply_text("⚠️ Server restart ho gaya tha. Interest grid se dobara shuru karo (limit nahi kata).")
+            for k in ("mode", "int_type", "int_p", "int_r", "int_t"):
+                context.user_data.pop(k, None)
+            return
         if context.user_data.get("int_type") == "CI":
             context.user_data["int_t"] = t
             context.user_data["mode"] = "int_f"
@@ -2443,6 +2472,33 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📩 Kisi ka message FORWARD karo (photo wala bhi chalega), ya @username bhejo:")
         return
 
+    if mode == "setcookies":
+        if not is_admin(uid):
+            context.user_data.pop("mode", None)
+            return
+        doc = update.message.document
+        if not doc or not (doc.file_name or "").endswith(".txt"):
+            await update.message.reply_text("cookies.txt FILE bhejo (.txt document).")
+            return
+        try:
+            tf = await context.bot.get_file(doc.file_id)
+            cdata = bytes(await tf.download_as_bytearray())
+        except Exception:
+            await update.message.reply_text("Download fail, file dobara bhejo.")
+            return
+        if b"youtube" not in cdata.lower() and b"#HttpOnly" not in cdata:
+            await update.message.reply_text("Ye YouTube cookies file nahi lag rahi. Sahi file bhejo.")
+            return
+        try:
+            with open(COOKIE_FILE, "wb") as fh:
+                fh.write(cdata)
+        except Exception as e:
+            await update.message.reply_text("Save fail: " + str(e)[:120])
+            return
+        await update.message.reply_text("Cookies save ho gayi! Ab YT download try karo.")
+        context.user_data.pop("mode", None)
+        return
+
     if mode not in ("pdf", "pp"):
         await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!",
                                         reply_markup=kb_for(uid))
@@ -2489,6 +2545,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             single, sheet = await asyncio.to_thread(passport_make, data)
         except Exception:
+            refund_use(uid)
             await st.edit_text("⚠️ Photo samajh nahi aayi. Seedhi, saaf photo bhejo:")
             return
         b1 = io.BytesIO(single)
