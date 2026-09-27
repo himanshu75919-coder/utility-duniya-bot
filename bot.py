@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v15
+Utility Duniya Bot v16
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v15"
+BOT_VERSION = "v16"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1508,7 +1508,7 @@ async def cmd_setcookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["mode"] = "setcookies"
     await update.message.reply_text(
         "🍪 <b>YT Cookies Setup</b> (permanent download fix!) "
-        "PHONE: Firefox app + 'Cookie-Editor' addon se youtube cookies JSON me Export karo. PC: Chrome me <b>'Get cookies.txt LOCALLY'</b> lagao → youtube.com kholo → Export → jo file mile (.txt ya .json) wo yahan FILE bhej do. "
+        "PHONE: Firefox app + 'Cookie-Editor' addon se youtube cookies JSON me Export karo. PC: Chrome me <b>'Get cookies.txt LOCALLY'</b> lagao → youtube.com kholo → Export → jo file mile (.txt ya .json) wo yahan FILE bhejo ya TEXT paste kar do. "
         "⚠️ Note: deploy ke baad dobara bhejna padega (free server memory reset). Permanent ke liye Render me YT_COOKIES env me file ka text dalo.",
         parse_mode=HTML)
 
@@ -2212,22 +2212,25 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_admin(uid):
             context.user_data.pop("mode", None)
             return
-        try:
-            doc = update.message.document
-            if not doc or not (doc.file_name or "").lower().endswith((".txt", ".json")):
-                await update.message.reply_text("⚠️ cookies.txt FILE bhejo (.txt document).")
-                return
-            f = await context.bot.get_file(doc.file_id)
-            data = bytes(await f.download_as_bytearray())
-            if b"youtube" not in data.lower() and b"#HttpOnly" not in data:
-                await update.message.reply_text("⚠️ Ye YouTube cookies file nahi lag rahi. Sahi file bhejo.")
-                return
-            with open(COOKIE_FILE, "wb") as fh:
-                fh.write(data)
-            await update.message.reply_text(f"✅ Cookies save ho gayi! ({len(data)} bytes) Ab YT download try karo! ⬇️")
-        except Exception as e:
-            await update.message.reply_text(f"⚠️ Save fail: {str(e)[:150]}")
-        context.user_data.pop("mode", None)
+        t = (text or "")
+        low = t.lower()
+        tabs = t.count("	")
+        if ("youtube" in low or "netscape" in low) and (tabs >= 10 or "#HttpOnly" in t):
+            raw = t.encode("utf-8", "ignore")
+            if raw.lstrip()[:1] == b"[":
+                raw = cookies_json_to_netscape(raw)
+                if not raw:
+                    await update.message.reply_text("JSON samajh nahi aaya. Dobara Export karke bhejo.")
+                    return
+            try:
+                with open(COOKIE_FILE, "wb") as fh:
+                    fh.write(raw)
+                await update.message.reply_text("Cookies save ho gayi ✅ Ab YT Download try karo!")
+            except Exception as e:
+                await update.message.reply_text("Save fail: " + str(e)[:120])
+            context.user_data.pop("mode", None)
+            return
+        await update.message.reply_text("Cookies ka TEXT yahin paste karo (poora Netscape/JSON), ya .txt/.json FILE bhejo.")
         return
 
     if mode == "idfind":
