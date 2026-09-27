@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: tg-utility-bot
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: FORCE_CHANNEL
+        sync: false
+      - key: FORCE_CHANNEL_LINK
+        sync: false
+      - key: UPI_ID
+        sync: false
+      - key: UPI_NAME
+        value: UtilityBot
+      - key: WEBHOOK_URL
+        sync: false
+      - key: FREE_LIMIT
+        value: 15
+      - key: REFER_NEED
+        value: 5
