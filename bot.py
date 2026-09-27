@@ -330,23 +330,10 @@ def build_wa_link(num: str, msg: str) -> str:
     return base + (f"?text={quote(msg)}" if msg else "")
 
 # ---------------- UI ----------------
-MENU_BTNS = [
-    [("📷 QR Code", "qr"), ("✍️ Stylish Fonts", "font")],
-    [("🔐 Password", "pwd"), ("🖼️ Image→PDF", "pdf")],
-    [("🗜️ Compress Photo", "comp"), ("🔗 URL Short", "short")],
-    [("🎬 YT Thumbnail", "yt"), ("📝 Text Tools", "text")],
-    [("🧮 EMI Calc", "emi"), ("🎂 Age Calc", "age")],
-    [("💰 UPI QR 💎", "upi"), ("📱 WA Link 💎", "wa")],
-    [("💎 Premium", "prem"), ("🎁 Refer & Earn", "ref")],
-    [("👤 My Account", "acc")],
-]
+# (inline tools grid hata diya - saare tools ab Telegram ke Menu button me)
 
 
-def menu_markup():
-    return InlineKeyboardMarkup([[InlineKeyboardButton(t, callback_data=d) for t, d in row] for row in MENU_BTNS])
-
-
-BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Menu", callback_data="menu")]])
+BACK = InlineKeyboardMarkup([[InlineKeyboardButton("📋 All Tools", callback_data="menu")]])
 
 # Purana fixed keyboard hata diya - ab Telegram ka asli Menu button (grid) use hoga
 # BTN_MODE sirf un users ke liye rakha hai jinke paas purana keyboard bacha ho
@@ -384,6 +371,27 @@ WELCOME = (
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
     "📲 Neeche Menu button (4-dabbe wala) dabao — saare tools wahan milenge!\n📋 Ya /menu likho."
+)
+
+TOOLS_LIST = (
+    "📋 SAARE TOOLS (kisi par tap karo, turant chalega 👇)\n"
+    "\n📷 /qr - QR Code banao"
+    "\n✍️ /font - Stylish Fonts"
+    "\n🔐 /password - Strong Password"
+    "\n🖼️ /pdf - Photo ka PDF"
+    "\n🗜️ /compress - Photo Compress"
+    "\n🔗 /short - Link Short"
+    "\n🎬 /yt - YT Thumbnail"
+    "\n📝 /text - Text Tools"
+    "\n🧮 /emi - EMI Calculator"
+    "\n🎂 /age - Age Calculator"
+    "\n💰 /upi - UPI Payment QR 💎"
+    "\n📱 /wa - WhatsApp Link 💎"
+    "\n💎 /premium - Premium Plans"
+    "\n🎁 /refer - Refer & Earn"
+    "\n👤 /account - My Account"
+    "\n❓ /help - Help"
+    "\n\n📲 Ya neeche Menu button dabao!"
 )
 
 LIMIT_MSG = (
@@ -496,15 +504,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
     await update.message.reply_text(WELCOME, reply_markup=ReplyKeyboardRemove())
-    await update.message.reply_text("👇 Yahan se bhi tool chuno (ya neeche Menu button dabao):", reply_markup=menu_markup())
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text("👇 Koi tool chuno (Menu button se bhi kabhi bhi khol sakte ho):",
-                                    reply_markup=ReplyKeyboardRemove())
-    await update.message.reply_text("👇 Tools:", reply_markup=menu_markup())
+    await update.message.reply_text(TOOLS_LIST, reply_markup=ReplyKeyboardRemove())
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -681,12 +686,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "joincheck":
         if await ensure_joined(update, context):
             await q.message.reply_text(WELCOME, reply_markup=ReplyKeyboardRemove())
-            await q.message.reply_text("👇 Yahan se bhi tool chuno:", reply_markup=menu_markup())
         return
 
     if data == "menu":
         context.user_data.pop("mode", None)
-        await q.message.reply_text("👇 Koi tool chuno:", reply_markup=menu_markup())
+        await q.message.reply_text(TOOLS_LIST)
         return
 
     if data == "ref":
