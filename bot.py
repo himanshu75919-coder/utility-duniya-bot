@@ -25,7 +25,7 @@ load_dotenv()
 import qrcode
 import requests
 from PIL import Image
-from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -333,10 +333,31 @@ def build_wa_link(num: str, msg: str) -> str:
 # (inline tools grid hata diya - saare tools ab Telegram ke Menu button me)
 
 
-BACK = InlineKeyboardMarkup([[InlineKeyboardButton("📋 All Tools", callback_data="menu")]])
+BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")]])
 
 # Purana fixed keyboard hata diya - ab Telegram ka asli Menu button (grid) use hoga
 # BTN_MODE sirf un users ke liye rakha hai jinke paas purana keyboard bacha ho
+
+
+# Batch Hub style collapsible grid keyboard (grid icon se khulta/band hota hai)
+KB_BTNS = [
+    ["📷 QR Code", "✍️ Stylish Fonts"],
+    ["🔐 Password", "🖼️ Image→PDF"],
+    ["🗜️ Compress Photo", "🔗 URL Short"],
+    ["🎬 YT Thumbnail", "📝 Text Tools"],
+    ["🧮 EMI Calc", "🎂 Age Calc"],
+    ["💰 UPI QR 💎", "📱 WA Link 💎"],
+    ["💎 Premium", "🎁 Refer & Earn"],
+    ["👤 My Account"],
+]
+
+
+def main_keyboard():
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton(t) for t in row] for row in KB_BTNS],
+        resize_keyboard=True,
+        input_field_placeholder="Grid dabao, tool chuno 👇",
+    )
 
 
 BTN_MODE = {
@@ -370,28 +391,7 @@ WELCOME = (
     f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials.\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
-    "📲 Neeche Menu button (4-dabbe wala) dabao — saare tools wahan milenge!\n📋 Ya /menu likho."
-)
-
-TOOLS_LIST = (
-    "📋 SAARE TOOLS (kisi par tap karo, turant chalega 👇)\n"
-    "\n📷 /qr - QR Code banao"
-    "\n✍️ /font - Stylish Fonts"
-    "\n🔐 /password - Strong Password"
-    "\n🖼️ /pdf - Photo ka PDF"
-    "\n🗜️ /compress - Photo Compress"
-    "\n🔗 /short - Link Short"
-    "\n🎬 /yt - YT Thumbnail"
-    "\n📝 /text - Text Tools"
-    "\n🧮 /emi - EMI Calculator"
-    "\n🎂 /age - Age Calculator"
-    "\n💰 /upi - UPI Payment QR 💎"
-    "\n📱 /wa - WhatsApp Link 💎"
-    "\n💎 /premium - Premium Plans"
-    "\n🎁 /refer - Refer & Earn"
-    "\n👤 /account - My Account"
-    "\n❓ /help - Help"
-    "\n\n📲 Ya neeche Menu button dabao!"
+    "📲 Neeche grid icon (▦) dabao — saare tools khulenge!\nDubara dabao to band ho jayega. 👇"
 )
 
 LIMIT_MSG = (
@@ -488,7 +488,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if count:
                 await update.message.reply_text(
                     f"🎉 Welcome! Tum refer hokar aaye ho. Roz {FREE_LIMIT} FREE uses milenge!",
-                    reply_markup=ReplyKeyboardRemove())
+                    reply_markup=main_keyboard())
                 try:
                     if count % REFER_NEED == 0:
                         grant_premium(ref_id, 30)
@@ -503,13 +503,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text(WELCOME, reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text(WELCOME, reply_markup=main_keyboard())
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text(TOOLS_LIST, reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("⌨️ Neeche grid me saare tools hain — koi dabao 👇", reply_markup=main_keyboard())
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -519,7 +519,7 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "❓ HELP\n\n📲 Neeche Menu button (4-dabbe wala) dabao = saare tools!\n\n"
+        "❓ HELP\n\n📲 Neeche grid icon (▦) dabao = saare tools khulenge!\nKoi tool dabao, kaam shuru. ✅\n\n"
         "/menu - saare tools\n/premium - premium plans\n/refer - refer & earn\n/account - mera account\n/cancel - cancel\n\n"
         f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁")
 
@@ -597,34 +597,12 @@ async def cmd_password(update, context):
     await update.message.reply_text("🔐 Kitne character ka password chahiye?", reply_markup=kb)
 
 
-# Telegram Menu button (4-dabbe grid) me ye commands dikhenge
-COMMANDS = [
-    ("qr", "📷 QR Code banao"),
-    ("font", "✍️ Stylish Fonts"),
-    ("password", "🔐 Strong Password"),
-    ("pdf", "🖼️ Photo ka PDF"),
-    ("compress", "🗜️ Photo Compress"),
-    ("short", "🔗 Link Short"),
-    ("yt", "🎬 YT Thumbnail"),
-    ("text", "📝 Text Tools"),
-    ("emi", "🧮 EMI Calculator"),
-    ("age", "🎂 Age Calculator"),
-    ("upi", "💰 UPI Payment QR 💎"),
-    ("wa", "📱 WhatsApp Link 💎"),
-    ("premium", "💎 Premium Plans"),
-    ("refer", "🎁 Refer & Earn"),
-    ("account", "👤 My Account"),
-    ("menu", "📋 Tools Menu"),
-    ("help", "❓ Help"),
-]
-
-
 async def _post_init(app: Application):
     try:
-        await app.bot.set_my_commands([BotCommand(c, d) for c, d in COMMANDS])
-        log.info("Bot Menu commands set ho gaye")
+        await app.bot.set_my_commands([])  # hamburger menu hatao - sirf grid keyboard
+        log.info("Commands cleared - sirf grid keyboard rahega")
     except Exception as e:
-        log.warning("set commands fail: %s", e)
+        log.warning("clear commands fail: %s", e)
 
 # ---------------- ADMIN ----------------
 def is_admin(uid: int) -> bool:
@@ -685,12 +663,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "joincheck":
         if await ensure_joined(update, context):
-            await q.message.reply_text(WELCOME, reply_markup=ReplyKeyboardRemove())
+            await q.message.reply_text(WELCOME, reply_markup=main_keyboard())
         return
 
     if data == "menu":
         context.user_data.pop("mode", None)
-        await q.message.reply_text(TOOLS_LIST)
+        await q.message.reply_text("⌨️ Neeche grid me saare tools hain — koi dabao 👇", reply_markup=main_keyboard())
         return
 
     if data == "ref":
@@ -826,7 +804,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     mode = context.user_data.get("mode")
     if not mode:
-        await update.message.reply_text("👇 Menu button (neeche 4 dabbe) dabao ya /menu likho", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!", reply_markup=main_keyboard())
         return
     if not await ensure_joined(update, context):
         return
@@ -1054,7 +1032,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     mode = context.user_data.get("mode")
     if not mode:
-        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=main_keyboard())
         return
     if not await ensure_joined(update, context):
         return
@@ -1084,7 +1062,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode not in ("pdf", "comp"):
-        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=main_keyboard())
         return
     if not await use_or_block(uid, update):
         return
