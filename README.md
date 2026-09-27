@@ -1,6 +1,28 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v2)
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v6 MEGA)
 
-**12 tools • ₹0 kharcha • Telegram native keyboard • ₹200/day earning plan**
+**19 tools • Tap-to-copy results • Batch-Hub style grid • ₹200/day earning plan**
+
+| Tool | Kaam |
+|---|---|
+| 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
+| ✍️ Stylish Fonts | 15 aesthetic fonts (tap = copy) |
+| 🔐 Password | Random + naam wala, 3 options |
+| 🖼️ Image→PDF | Multi-page (10), lossless quality |
+| 🗜️ Compress Photo | 3 presets: High/Medium/Max |
+| 🔗 URL Short | 2 short links + QR |
+| 🎬 YT Thumbnail | Highest quality (auto-detect) |
+| ⬇️ YT Download | Shorts/videos HD download 💎 |
+| 🧮 EMI Calc | Advanced + saal-wise table |
+| 🎂 Age Calculator | Breakdown + weekday + rashi |
+| 💰 UPI QR Generator | Payment QR + amount + note 💎 |
+| 🆔 ID Finder | Forward/username se Telegram ID |
+| 🔊 Text to Speech | Hindi/English male+female voice 💎 |
+| 🏦 IFSC Info | Bank/branch/address live |
+| 📮 Pincode Info | District/state/post offices live |
+| 🪪 Passport Photo | HD single + 4×6 print sheet |
+| 🔍 Link Check | Safe/fraud redirect analysis |
+| 📈 Interest Calc | SI vs CI compare + samjhaya |
+| 🚗 RTO Vehicle Info | State + RTO office decoder |
 
 | Tool | Kaam |
 |---|---|
