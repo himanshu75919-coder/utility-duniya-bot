@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v17
+Utility Duniya Bot v18
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v17"
+BOT_VERSION = "v18"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -908,6 +908,42 @@ YTDL_BASE = {"quiet": True, "noplaylist": True, "socket_timeout": 25,
 COOKIE_FILE = "/tmp/yt_cookies.txt"
 
 
+def normalize_cookies(raw: bytes) -> bytes:
+    try:
+        txt = (raw or b"").decode("utf-8", "ignore")
+    except Exception:
+        return raw
+    if not txt.strip() or txt.lstrip()[:1] == "[":
+        return raw
+    out = []
+    for ln in txt.splitlines():
+        s = ln.strip()
+        if not s:
+            continue
+        if s.startswith("#") and "HttpOnly_" not in s:
+            out.append(ln)
+            continue
+        if "\t" in ln:
+            out.append(ln)
+            continue
+        parts = s.split()
+        if len(parts) >= 7 and ("." in parts[0] or parts[0].startswith("#HttpOnly_")):
+            out.append("\t".join(parts[:6] + [" ".join(parts[6:])]))
+        else:
+            out.append(ln)
+    return ("\n".join(out) + "\n").encode("utf-8")
+
+
+def cookies_jar_count(path: str) -> int:
+    try:
+        from http.cookiejar import MozillaCookieJar
+        j = MozillaCookieJar(path)
+        j.load(ignore_discard=True, ignore_expires=True)
+        return len(list(j))
+    except Exception:
+        return -1
+
+
 def cookies_json_to_netscape(raw: bytes):
     import json as _js
     try:
@@ -1456,6 +1492,33 @@ async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode=HTML)
     except Exception:
         pass
+
+
+async def cmd_cktest(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    lines = []
+    try:
+        ex = os.path.exists(COOKIE_FILE)
+        lines.append("EXISTS: " + str(ex))
+        if ex:
+            raw = open(COOKIE_FILE, "rb").read()
+            lines.append("SIZE: " + str(len(raw)))
+            lines.append("TABS: " + str(raw.count(b"\t")))
+            lines.append("JAR: " + str(cookies_jar_count(COOKIE_FILE)))
+    except Exception as e:
+        lines.append("ERR: " + str(e)[:100])
+    await update.message.reply_text("CKT" + chr(10) + chr(10).join(lines))
+    st = await update.message.reply_text("Probe chal raha (15-30s)...")
+    try:
+        r = await asyncio.to_thread(_yt_race_one, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", None)
+        if r and r[0]:
+            await st.edit_text("PROBE: OK - " + str(r[0].get("title", "?"))[:60])
+        else:
+            _e = str(r[2] if r and len(r) > 2 else "?")
+            await st.edit_text("PROBE-FAIL: " + _e[:200])
+    except Exception as e:
+        await st.edit_text("PROBE-ERR: " + str(e)[:150])
 
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2234,10 +2297,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Part " + str(len(_parts)) + " mil gaya (" + str(_total) + " chars). Aur ho to bhejo, warna DONE likho.")
             return
         low = t.lower()
-        if not (("youtube" in low or "netscape" in low) and (t.count("	") >= 10 or "#HttpOnly" in t or t.lstrip().startswith("["))):
+        if not (("youtube" in low or "netscape" in low) and (t.count("\t") >= 10 or "#HttpOnly" in t or t.lstrip().startswith("["))):
             await update.message.reply_text("Ye cookies nahi lag rahi. Poora text bhejo (2-3 message me), phir DONE likho.")
             return
-        raw = t.encode("utf-8", "ignore")
+        raw = normalize_cookies(t.encode("utf-8", "ignore"))
         if raw.lstrip()[:1] == b"[":
             raw = cookies_json_to_netscape(raw)
             if not raw:
@@ -2246,9 +2309,22 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             with open(COOKIE_FILE, "wb") as fh:
                 fh.write(raw)
-            await update.message.reply_text("Cookies save ho gayi ✅ Ab YT Download try karo!")
         except Exception as e:
             await update.message.reply_text("Save fail: " + str(e)[:120])
+            context.user_data.pop("mode", None)
+            context.user_data.pop("ck_parts", None)
+            return
+        _n = cookies_jar_count(COOKIE_FILE)
+        if _n <= 0:
+            try:
+                os.remove(COOKIE_FILE)
+            except Exception:
+                pass
+            await update.message.reply_text("Cookies TOOTI lag rahi (0 login mile). Cookie-Editor se dobara Export karke bhejo.")
+            context.user_data.pop("mode", None)
+            context.user_data.pop("ck_parts", None)
+            return
+        await update.message.reply_text("Cookies save ho gayi ✅ (" + str(_n) + " login) Ab YT Download try karo!")
         context.user_data.pop("mode", None)
         context.user_data.pop("ck_parts", None)
         return
@@ -2680,11 +2756,20 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         try:
             with open(COOKIE_FILE, "wb") as fh:
-                fh.write(cdata)
+                fh.write(normalize_cookies(cdata))
         except Exception as e:
             await update.message.reply_text("Save fail: " + str(e)[:120])
             return
-        await update.message.reply_text("Cookies save ho gayi! Ab YT download try karo.")
+        _n = cookies_jar_count(COOKIE_FILE)
+        if _n <= 0:
+            try:
+                os.remove(COOKIE_FILE)
+            except Exception:
+                pass
+            await update.message.reply_text("Cookies TOOTI lag rahi (0 login mile). Dobara Export karke bhejo.")
+            context.user_data.pop("mode", None)
+            return
+        await update.message.reply_text("Cookies save ho gayi ✅ (" + str(_n) + " login)! Ab YT download try karo.")
         context.user_data.pop("mode", None)
         return
 
@@ -2838,6 +2923,7 @@ def main():
     app.add_handler(CommandHandler("interest", int_entry))
     app.add_handler(CommandHandler("rto", cmd_rto))
     app.add_handler(CommandHandler("insta", cmd_insta))
+    app.add_handler(CommandHandler("cktest", cmd_cktest))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
