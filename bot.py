@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v16
+Utility Duniya Bot v17
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v16"
+BOT_VERSION = "v17"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1508,7 +1508,7 @@ async def cmd_setcookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["mode"] = "setcookies"
     await update.message.reply_text(
         "🍪 <b>YT Cookies Setup</b> (permanent download fix!) "
-        "PHONE: Firefox app + 'Cookie-Editor' addon se youtube cookies JSON me Export karo. PC: Chrome me <b>'Get cookies.txt LOCALLY'</b> lagao → youtube.com kholo → Export → jo file mile (.txt ya .json) wo yahan FILE bhejo ya TEXT paste kar do. "
+        "PHONE: Firefox app + 'Cookie-Editor' addon se youtube cookies JSON me Export karo. PC: Chrome me <b>'Get cookies.txt LOCALLY'</b> lagao → youtube.com kholo → Export → jo file mile (.txt ya .json) wo yahan 2-3 message me TEXT bhejo, phir DONE likho (ya FILE bhej do). "
         "⚠️ Note: deploy ke baad dobara bhejna padega (free server memory reset). Permanent ke liye Render me YT_COOKIES env me file ka text dalo.",
         parse_mode=HTML)
 
@@ -2211,26 +2211,46 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "setcookies":
         if not is_admin(uid):
             context.user_data.pop("mode", None)
+            context.user_data.pop("ck_parts", None)
             return
         t = (text or "")
-        low = t.lower()
-        tabs = t.count("	")
-        if ("youtube" in low or "netscape" in low) and (tabs >= 10 or "#HttpOnly" in t):
-            raw = t.encode("utf-8", "ignore")
-            if raw.lstrip()[:1] == b"[":
-                raw = cookies_json_to_netscape(raw)
-                if not raw:
-                    await update.message.reply_text("JSON samajh nahi aaya. Dobara Export karke bhejo.")
-                    return
-            try:
-                with open(COOKIE_FILE, "wb") as fh:
-                    fh.write(raw)
-                await update.message.reply_text("Cookies save ho gayi ✅ Ab YT Download try karo!")
-            except Exception as e:
-                await update.message.reply_text("Save fail: " + str(e)[:120])
-            context.user_data.pop("mode", None)
+        if t.strip().lower() in ("done", "bas", "hogaya", "ho gaya", "complete", "khatam"):
+            t = "".join(context.user_data.get("ck_parts", []))
+            context.user_data.pop("ck_parts", None)
+            if not t.strip():
+                await update.message.reply_text("Pehle cookies ka text bhejo (2-3 message me), phir DONE likho.")
+                return
+        else:
+            if len(t) < 50:
+                await update.message.reply_text("Cookies ka text bhejo (clipboard wala poora), phir DONE likho.")
+                return
+            _parts = context.user_data.setdefault("ck_parts", [])
+            _total = sum(len(x) for x in _parts) + len(t)
+            if _total > 120000:
+                context.user_data.pop("ck_parts", None)
+                await update.message.reply_text("Bahut lamba ho gaya. /cancel karke dobara chhote parts me bhejo.")
+                return
+            _parts.append(t)
+            await update.message.reply_text("Part " + str(len(_parts)) + " mil gaya (" + str(_total) + " chars). Aur ho to bhejo, warna DONE likho.")
             return
-        await update.message.reply_text("Cookies ka TEXT yahin paste karo (poora Netscape/JSON), ya .txt/.json FILE bhejo.")
+        low = t.lower()
+        if not (("youtube" in low or "netscape" in low) and (t.count("	") >= 10 or "#HttpOnly" in t or t.lstrip().startswith("["))):
+            await update.message.reply_text("Ye cookies nahi lag rahi. Poora text bhejo (2-3 message me), phir DONE likho.")
+            return
+        raw = t.encode("utf-8", "ignore")
+        if raw.lstrip()[:1] == b"[":
+            raw = cookies_json_to_netscape(raw)
+            if not raw:
+                await update.message.reply_text("JSON adhura lag raha hai. Poora bhejo phir DONE likho.")
+                return
+        try:
+            with open(COOKIE_FILE, "wb") as fh:
+                fh.write(raw)
+            await update.message.reply_text("Cookies save ho gayi ✅ Ab YT Download try karo!")
+        except Exception as e:
+            await update.message.reply_text("Save fail: " + str(e)[:120])
+        context.user_data.pop("mode", None)
+        context.user_data.pop("ck_parts", None)
         return
 
     if mode == "idfind":
