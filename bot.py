@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-All-in-One Utility Telegram Bot
-- 10 free tools (koi paid API nahi)
-- Referral system + UPI premium + force-join channel + admin panel
-- Deploy: Render.com free plan (webhook) ya apne PC/phone par (polling)
+Utility Duniya Bot v2
+- 12 tools (koi paid API nahi) + Telegram native bottom keyboard
+- UPI Payment QR (sahi wala, GPay/PhonePe me chalega) + WhatsApp Link Generator
+- Referral + UPI premium (screenshot direct ADMIN ko) + force-join + admin panel
 """
 
 import asyncio
@@ -16,6 +16,7 @@ import re
 import sqlite3
 import string
 from datetime import date, datetime, timedelta
+from urllib.parse import quote
 
 from dotenv import load_dotenv
 
@@ -24,7 +25,7 @@ load_dotenv()
 import qrcode
 import requests
 from PIL import Image
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -37,16 +38,19 @@ from telegram.ext import (
 # ---------------- CONFIG ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
-FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()          # jaise @MyChannel (khali = band)
-FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()  # jaise https://t.me/MyChannel
-UPI_ID = os.getenv("UPI_ID", "").strip()                        # jaise name@upi
+FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
+FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
+UPI_ID = os.getenv("UPI_ID", "").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityBot").strip()
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()              # Render URL, jaise https://xxx.onrender.com
-FREE_LIMIT = int(os.getenv("FREE_LIMIT", "15") or 15)           # free user: roz ke uses
-REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)             # itne refer = 30 din premium
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
+FREE_LIMIT = int(os.getenv("FREE_LIMIT", "15") or 15)
+REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
+TRIAL_LIMIT = 2  # premium tools ke roz free trials
 DB_PATH = os.getenv("DB_PATH", "botdata.db")
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
+logging.getLogger("httpx").setLevel(logging.WARNING)   # token logs me na dikhe
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("utility-bot")
 
 # ---------------- DATABASE ----------------
@@ -64,6 +68,17 @@ def db():
             joined_at TEXT DEFAULT ''
         )"""
     )
+    # v2 columns (purane users ka data safe rahega)
+    for stmt in ("ALTER TABLE users ADD COLUMN trial_date TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN trial_count INTEGER DEFAULT 0"):
+        try:
+            con.execute(stmt)
+        except Exception:
+            pass
+    try:
+        con.commit()
+    except Exception:
+        pass
     return con
 
 
@@ -81,14 +96,23 @@ def get_user(uid: int, name: str = "") -> dict:
         con.commit()
         con.close()
         return {"user_id": uid, "name": name, "uses_today": 0, "last_date": today,
-                "premium_until": "", "referred_by": 0, "referrals": 0}
+                "premium_until": "", "referred_by": 0, "referrals": 0,
+                "trial_date": today, "trial_count": 0}
     cols = [d[0] for d in cur.description]
     u = dict(zip(cols, row))
-    if u["last_date"] != today:
+    if u.get("last_date") != today:
         cur.execute("UPDATE users SET uses_today=0,last_date=? WHERE user_id=?", (today, uid))
         con.commit()
         u["uses_today"] = 0
         u["last_date"] = today
+    if u.get("trial_date") != today:
+        try:
+            cur.execute("UPDATE users SET trial_count=0,trial_date=? WHERE user_id=?", (today, uid))
+            con.commit()
+        except Exception:
+            pass
+        u["trial_count"] = 0
+        u["trial_date"] = today
     con.close()
     return u
 
@@ -96,6 +120,13 @@ def get_user(uid: int, name: str = "") -> dict:
 def add_use(uid: int):
     con = db()
     con.execute("UPDATE users SET uses_today=uses_today+1 WHERE user_id=?", (uid,))
+    con.commit()
+    con.close()
+
+
+def add_trial(uid: int):
+    con = db()
+    con.execute("UPDATE users SET trial_count=trial_count+1 WHERE user_id=?", (uid,))
     con.commit()
     con.close()
 
@@ -128,7 +159,6 @@ def grant_premium(uid: int, days: int) -> str:
 
 
 def add_referral(new_uid: int, ref_uid: int) -> int:
-    """Naye user ko referrer se jodo. Referrer ka naya count lautao (0 = invalid)."""
     if new_uid == ref_uid or ref_uid <= 0:
         return 0
     con = db()
@@ -173,7 +203,7 @@ def stats():
     con.close()
     return total, active, prem
 
-# ---------------- PURE HELPERS (testable) ----------------
+# ---------------- PURE HELPERS ----------------
 BOLD = {**{chr(97 + i): chr(0x1D41A + i) for i in range(26)},
         **{chr(65 + i): chr(0x1D400 + i) for i in range(26)},
         **{chr(48 + i): chr(0x1D7CE + i) for i in range(10)}}
@@ -255,13 +285,58 @@ def yt_id(link: str):
     m = YT_RE.search(link or "")
     return m.group(1) if m else None
 
-# ---------------- UI TEXT ----------------
+
+def fetch_yt_thumb(vid: str):
+    """Best quality thumbnail lao (khokhli/placeholder image ko reject karo)."""
+    for q in ("maxresdefault", "sddefault", "hqdefault"):
+        try:
+            r = requests.get(f"https://img.youtube.com/vi/{vid}/{q}.jpg", timeout=12)
+            if r.status_code == 200 and len(r.content) > 5000:
+                img = Image.open(io.BytesIO(r.content))
+                if img.width > 150:  # 120px wala nakli placeholder reject
+                    bio = io.BytesIO(r.content)
+                    bio.seek(0)
+                    return bio
+        except Exception:
+            continue
+    return None
+
+
+# ---- UPI payment QR (sahi format: upi://pay?pa=..&pn=..&cu=INR) ----
+UPI_RE = re.compile(r"^[\w.\-]{2,256}@[a-zA-Z]{2,64}$")
+
+
+def build_upi_link(pa: str, pn: str, amt=None) -> str:
+    link = f"upi://pay?pa={pa}&pn={quote(pn or 'User')}&cu=INR"
+    if amt:
+        link += f"&am={amt:.2f}"
+    return link
+
+
+# ---- WhatsApp link ----
+def normalize_phone(text: str):
+    d = re.sub(r"\D", "", text or "")
+    if len(d) == 12 and d.startswith("91"):
+        d = d[2:]
+    elif len(d) == 11 and d.startswith("0"):
+        d = d[1:]
+    if re.match(r"^[6-9]\d{9}$", d):
+        return d
+    return None
+
+
+def build_wa_link(num: str, msg: str) -> str:
+    base = f"https://wa.me/91{num}"
+    return base + (f"?text={quote(msg)}" if msg else "")
+
+# ---------------- UI ----------------
 MENU_BTNS = [
     [("📷 QR Code", "qr"), ("✍️ Stylish Fonts", "font")],
     [("🔐 Password", "pwd"), ("🖼️ Image→PDF", "pdf")],
     [("🗜️ Compress Photo", "comp"), ("🔗 URL Short", "short")],
     [("🎬 YT Thumbnail", "yt"), ("📝 Text Tools", "text")],
     [("🧮 EMI Calc", "emi"), ("🎂 Age Calc", "age")],
+    [("💰 UPI QR 💎", "upi"), ("📱 WA Link 💎", "wa")],
     [("💎 Premium", "prem"), ("🎁 Refer & Earn", "ref")],
     [("👤 My Account", "acc")],
 ]
@@ -273,16 +348,58 @@ def menu_markup():
 
 BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Menu", callback_data="menu")]])
 
+# Telegram ka apna bottom keyboard (hamesha dikhega)
+KB_BTNS = [
+    ["📷 QR Code", "✍️ Stylish Fonts"],
+    ["🔐 Password", "🖼️ Image→PDF"],
+    ["🗜️ Compress Photo", "🔗 URL Short"],
+    ["🎬 YT Thumbnail", "📝 Text Tools"],
+    ["🧮 EMI Calc", "🎂 Age Calc"],
+    ["💰 UPI QR 💎", "📱 WA Link 💎"],
+    ["💎 Premium", "🎁 Refer & Earn"],
+    ["👤 My Account"],
+]
+
+
+def main_keyboard():
+    return ReplyKeyboardMarkup(
+        [[KeyboardButton(t) for t in row] for row in KB_BTNS],
+        resize_keyboard=True, is_persistent=True,
+    )
+
+
+BTN_MODE = {
+    "📷 QR Code": "qr", "✍️ Stylish Fonts": "font",
+    "🖼️ Image→PDF": "pdf", "🗜️ Compress Photo": "comp",
+    "🔗 URL Short": "short", "🎬 YT Thumbnail": "yt",
+    "📝 Text Tools": "text", "🧮 EMI Calc": "emi",
+    "🎂 Age Calc": "age", "💰 UPI QR 💎": "upi", "📱 WA Link 💎": "wa",
+}
+
+PROMPTS = {
+    "qr": "📷 QR Code banane ke liye koi bhi TEXT ya LINK bhejo:",
+    "font": "✍️ Stylish banane ke liye apna naam/text bhejo:",
+    "pdf": "🖼️ Jiss PHOTO ka PDF banana hai, wo bhejo:",
+    "comp": "🗜️ Compress karne ke liye PHOTO bhejo:",
+    "short": "🔗 Chhota karne ke liye LAMBA LINK bhejo:",
+    "yt": "🎬 YouTube video ka LINK bhejo (HD thumbnail milega):",
+    "text": "📝 Apna TEXT bhejo (words count + UPPER/lower sab milega):",
+    "emi": "🧮 EMI Calculator\n\nLoan amount (₹) bhejo:\n(jaise: 100000)",
+    "age": "🎂 Age Calculator\n\nApni birth date bhejo (DD-MM-YYYY):\n(jaise: 15-08-2005)",
+    "upi": "💰 UPI Payment QR (💎 Premium tool — roz 2 FREE trial)\n\nApni UPI ID bhejo:\n(jaise: name@okhdfc)",
+    "wa": "📱 WhatsApp Link Generator (💎 Premium tool — roz 2 FREE trial)\n\nMobile number bhejo (10 digit):\n(jaise: 9876543210)",
+}
+
 WELCOME = (
-    "👋 Namaste! Main hoon Utility Bot\n\n"
-    "10 kaam ke tools, bilkul FREE:\n"
-    "📷 QR Code • ✍️ Stylish Fonts • 🔐 Password\n"
-    "🖼️ Image→PDF • 🗜️ Photo Compress • 🔗 URL Short\n"
-    "🎬 YT Thumbnail • 📝 Text Tools • 🧮 EMI • 🎂 Age\n\n"
-    f"🆓 Roz {FREE_LIMIT} FREE uses. Unlimited chahiye?\n"
+    "👋 Namaste! Main hoon Utility Duniya Bot 🌟\n\n"
+    "12 kaam ke tools, bilkul FREE:\n"
+    "📷 QR • ✍️ Fonts • 🔐 Password • 🖼️ PDF\n"
+    "🗜️ Compress • 🔗 Short • 🎬 YT • 📝 Text\n"
+    "🧮 EMI • 🎂 Age • 💰 UPI QR 💎 • 📱 WA Link 💎\n\n"
+    f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials.\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
-    "👇 Neeche se koi tool chuno:"
+    "⌨️ Neeche keyboard me saare tools hamesha milenge!"
 )
 
 LIMIT_MSG = (
@@ -293,9 +410,15 @@ LIMIT_MSG = (
     "Kal limit apne aap reset ho jayegi. 👍"
 )
 
+TRIAL_MSG = (
+    "🔒 {tool} Premium tool hai!\n\n"
+    f"Roz ke {TRIAL_LIMIT} FREE trials khatam. Unlimited pao:\n"
+    "💎 ₹49 me Premium lo\n"
+    "🎁 ya {need} refer = 30 din FREE"
+)
+
 # ---------------- GUARDS ----------------
 async def ensure_joined(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    """Force-join channel check. Fail-open: kuch gadbad ho to block mat karo."""
     if not FORCE_CHANNEL or not FORCE_CHANNEL_LINK:
         return True
     uid = update.effective_user.id
@@ -323,6 +446,17 @@ async def ensure_joined(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
     return False
 
 
+async def _send_limit_msg(update: Update, text: str):
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎁 Refer & Earn", callback_data="ref")],
+        [InlineKeyboardButton("💎 Premium (₹49)", callback_data="prem")],
+    ])
+    if update.callback_query:
+        await update.callback_query.message.reply_text(text, reply_markup=kb)
+    else:
+        await update.message.reply_text(text, reply_markup=kb)
+
+
 async def use_or_block(uid: int, update: Update) -> bool:
     u = get_user(uid)
     if is_premium(u):
@@ -330,28 +464,39 @@ async def use_or_block(uid: int, update: Update) -> bool:
     if u["uses_today"] < FREE_LIMIT:
         add_use(uid)
         return True
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎁 Refer & Earn", callback_data="ref")],
-        [InlineKeyboardButton("💎 Premium (₹49)", callback_data="prem")],
-    ])
-    txt = LIMIT_MSG.format(lim=FREE_LIMIT, need=REFER_NEED)
-    if update.callback_query:
-        await update.callback_query.message.reply_text(txt, reply_markup=kb)
-    else:
-        await update.message.reply_text(txt, reply_markup=kb)
+    await _send_limit_msg(update, LIMIT_MSG.format(lim=FREE_LIMIT, need=REFER_NEED))
+    return False
+
+
+async def trial_or_block(uid: int, update: Update, tool: str) -> bool:
+    """Premium tools: premium = unlimited, free = roz TRIAL_LIMIT trials."""
+    u = get_user(uid)
+    if is_premium(u):
+        return True
+    left = TRIAL_LIMIT - (u.get("trial_count") or 0)
+    if left > 0:
+        add_trial(uid)
+        note = f"🎁 FREE Trial use ho gaya ({left - 1} bache aaj). Unlimited ke liye Premium lo! 💎"
+        if update.callback_query:
+            await update.callback_query.message.reply_text(note)
+        else:
+            await update.message.reply_text(note)
+        return True
+    await _send_limit_msg(update, TRIAL_MSG.format(tool=tool, need=REFER_NEED))
     return False
 
 # ---------------- COMMANDS ----------------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     get_user(user.id, user.first_name or "")
-    # referral
     if context.args and context.args[0].startswith("ref_"):
         try:
             ref_id = int(context.args[0].split("_")[1])
             count = add_referral(user.id, ref_id)
             if count:
-                await update.message.reply_text(f"🎉 Welcome! Tum refer hokar aaye ho. Roz {FREE_LIMIT} FREE uses milenge!")
+                await update.message.reply_text(
+                    f"🎉 Welcome! Tum refer hokar aaye ho. Roz {FREE_LIMIT} FREE uses milenge!",
+                    reply_markup=main_keyboard())
                 try:
                     if count % REFER_NEED == 0:
                         grant_premium(ref_id, 30)
@@ -366,32 +511,37 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text(WELCOME, reply_markup=menu_markup())
+    await update.message.reply_text(WELCOME, reply_markup=main_keyboard())
+    await update.message.reply_text("👇 Yahan se bhi tool chuno:", reply_markup=menu_markup())
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text("👇 Koi tool chuno:", reply_markup=menu_markup())
+    await update.message.reply_text("⌨️ Keyboard ready! Neeche se ya yahan se tool chuno:",
+                                    reply_markup=main_keyboard())
+    await update.message.reply_text("👇 Tools:", reply_markup=menu_markup())
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("mode", None)
-    await update.message.reply_text("❌ Cancel ho gaya.", reply_markup=menu_markup())
+    await update.message.reply_text("❌ Cancel ho gaya. Neeche keyboard se tool chuno.")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "❓ HELP\n\n/menu - saare tools\n/premium - premium plans\n/refer - refer & earn\n/account - mera account\n/cancel - chal raha kaam cancel\n\n"
-        f"Roz {FREE_LIMIT} FREE uses. /refer se unlimited FREE pao! 🎁")
+        "❓ HELP\n\nNeeche keyboard me saare tools hain, bas dabao! ⌨️\n\n"
+        "/menu - saare tools\n/premium - premium plans\n/refer - refer & earn\n/account - mera account\n/cancel - cancel\n\n"
+        f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁")
 
 
 async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = get_user(update.effective_user.id)
     prem = "💎 ACTIVE" if is_premium(u) else "Free"
     left = "Unlimited ♾️" if is_premium(u) else f"{max(0, FREE_LIMIT - u['uses_today'])}/{FREE_LIMIT} bache"
+    trials = "Unlimited ♾️" if is_premium(u) else f"{max(0, TRIAL_LIMIT - (u.get('trial_count') or 0))}/{TRIAL_LIMIT} bache"
     await update.message.reply_text(
-        f"👤 MY ACCOUNT\n\n⭐ Plan: {prem}\n📊 Aaj ke uses: {left}\n🎁 Referrals: {u['referrals']}\n\n"
+        f"👤 MY ACCOUNT\n\n⭐ Plan: {prem}\n📊 Aaj ke uses: {left}\n💎 Premium trials: {trials}\n🎁 Referrals: {u['referrals']}\n\n"
         f"{REFER_NEED} referrals = 30 din Premium FREE! /refer", reply_markup=BACK)
 
 
@@ -401,7 +551,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     link = f"https://t.me/{me.username}?start=ref_{u['user_id']}"
     need = REFER_NEED - (u["referrals"] % REFER_NEED)
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📤 Doston ko Share Karo", url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - QR, Fonts, PDF sab kuch!")],
+        [InlineKeyboardButton("📤 Doston ko Share Karo", url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - QR, UPI QR, Fonts, PDF sab kuch!")],
         [InlineKeyboardButton("⬅️ Menu", callback_data="menu")],
     ])
     await update.message.reply_text(
@@ -422,13 +572,13 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
     await update.message.reply_text(
         "💎 PREMIUM PLANS\n\n⭐ 30 din = ₹49\n🔥 90 din = ₹99 (best value!)\n\n"
-        "Premium me: ♾️ Unlimited uses + jaldi naye tools\n\n"
-        "Plan chuno, UPI se pay karo, screenshot bhejo — 5 min me active! ⚡",
+        "Premium me:\n♾️ Unlimited saare uses\n💰 UPI QR + 📱 WA Link unlimited\n⚡ jaldi naye tools\n\n"
+        "Plan chuno, UPI se pay karo, screenshot bhejo — kuch min me active! ⚡",
         reply_markup=kb)
 
 # ---------------- ADMIN ----------------
 def is_admin(uid: int) -> bool:
-    return ADMIN_ID and uid == ADMIN_ID
+    return bool(ADMIN_ID) and uid == ADMIN_ID
 
 
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -485,7 +635,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "joincheck":
         if await ensure_joined(update, context):
-            await q.message.reply_text(WELCOME, reply_markup=menu_markup())
+            await q.message.reply_text(WELCOME, reply_markup=main_keyboard())
+            await q.message.reply_text("👇 Yahan se bhi tool chuno:", reply_markup=menu_markup())
         return
 
     if data == "menu":
@@ -505,17 +656,16 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         amt = "49" if data == "plan49" else "99"
         days = "30" if data == "plan49" else "90"
-        upi_link = f"upi://pay?pa={UPI_ID}&pn={UPI_NAME}&am={amt}&cu=INR&tn=UtilityBot{days}day"
+        upi_link = f"upi://pay?pa={UPI_ID}&pn={quote(UPI_NAME)}&am={amt}&cu=INR&tn=UtilityDuniyaPremium"
         context.user_data["mode"] = "pay"
         context.user_data["plan_days"] = int(days)
         await q.message.reply_photo(
             photo=make_qr_bytes(upi_link),
             caption=(f"💎 {days} din Premium = ₹{amt}\n\n1️⃣ UPI app se is QR par ₹{amt} pay karo\n"
-                     f"2️⃣ Payment ka SCREENSHOT yahin bhejo\n3️⃣ 5-10 min me Premium active! ⚡\n\nUPI ID: {UPI_ID}"),
+                     f"2️⃣ Payment ka SCREENSHOT yahin bhejo (photo)\n3️⃣ Admin verify karke kuch min me active karega! ⚡\n\nUPI ID: {UPI_ID}"),
             reply_markup=BACK)
         return
 
-    # admin approve buttons: ap:<uid>:<days> / dc:<uid>
     if data.startswith("ap:") or data.startswith("dc:"):
         if not is_admin(uid):
             await q.message.reply_text("⛔ Sirf admin!")
@@ -538,7 +688,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         return
 
-    # tool buttons need join check
     if not await ensure_joined(update, context):
         return
 
@@ -555,47 +704,102 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         n = int(data[1:])
         pw = gen_password(n)
-        await q.message.reply_text(f"🔐 Tumhara {n}-digit password:\n\n`{pw}`\n\n(Password ko dabakar copy karo. Kisi se share mat karo!)",
+        await q.message.reply_text(f"🔐 Tumhara {n}-digit password:\n\n{rech(pw)}\n\n(Dabakar copy karo. Kisi se share mat karo!)",
                                    reply_markup=BACK)
         return
 
-    prompts = {
-        "qr": "📷 QR Code banane ke liye koi bhi TEXT ya LINK bhejo:",
-        "font": "✍️ Stylish banane ke liye apna naam/text bhejo:",
-        "pdf": "🖼️ Jiss PHOTO ka PDF banana hai, wo bhejo:",
-        "comp": "🗜️ Compress karne ke liye PHOTO bhejo:",
-        "short": "🔗 Chhota karne ke liye LAMBA LINK bhejo:",
-        "yt": "🎬 YouTube video ka LINK bhejo (thumbnail milega):",
-        "text": "📝 Apna TEXT bhejo (words count + UPPER/lower sab milega):",
-        "emi": "🧮 EMI Calculator\n\nLoan amount (₹) bhejo:\n(jaise: 100000)",
-        "age": "🎂 Age Calculator\n\nApni birth date bhejo (DD-MM-YYYY):\n(jaise: 15-08-2005)",
-        "acc": None,
-    }
+    # QR smart choice: payment QR ya normal
+    if data == "upi_yes":
+        pending = context.user_data.get("qr_pending")
+        if not pending:
+            return
+        context.user_data["upi_id"] = pending
+        context.user_data["mode"] = "upi_name"
+        context.user_data.pop("qr_pending", None)
+        await q.message.reply_text(f"💰 Payment QR banate hain!\n✅ UPI ID: {pending}\n\nAb apna NAAM bhejo (QR par dikhega):\n(jaise: Ramesh Kumar)", reply_markup=BACK)
+        return
+    if data == "upi_no":
+        pending = context.user_data.get("qr_pending")
+        if not pending:
+            return
+        if not await use_or_block(uid, update):
+            return
+        context.user_data.pop("qr_pending", None)
+        context.user_data.pop("mode", None)
+        await q.message.reply_text("📝 Normal text QR bana diya (isme payment NAHI hoga):")
+        await q.message.reply_photo(photo=make_qr_bytes(pending), caption="📷 Tumhara QR ready! ✅", reply_markup=BACK)
+        return
+
     if data == "acc":
         await cmd_account(update, context)
         return
-    if data in prompts:
+    if data in PROMPTS:
         context.user_data["mode"] = data
-        await q.message.reply_text(prompts[data] + "\n\n/cancel kabhi bhi dabao.", reply_markup=BACK)
+        await q.message.reply_text(PROMPTS[data] + "\n\n/cancel kabhi bhi dabao.", reply_markup=BACK)
         return
+
+
+def rech(s: str) -> str:
+    return f"`{s}`"
 
 # ---------------- MESSAGE ROUTERS ----------------
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
+    text = (update.message.text or "").strip()
+
+    # --- bottom keyboard buttons ---
+    if text in BTN_MODE:
+        if not await ensure_joined(update, context):
+            return
+        mode = BTN_MODE[text]
+        context.user_data["mode"] = mode
+        await update.message.reply_text(PROMPTS[mode] + "\n\n/cancel kabhi bhi dabao.", reply_markup=BACK)
+        return
+    if text == "🔐 Password":
+        if not await ensure_joined(update, context):
+            return
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("8", callback_data="p8"), InlineKeyboardButton("12", callback_data="p12"),
+             InlineKeyboardButton("16", callback_data="p16"), InlineKeyboardButton("20", callback_data="p20")],
+            [InlineKeyboardButton("⬅️ Menu", callback_data="menu")],
+        ])
+        await update.message.reply_text("🔐 Kitne character ka password chahiye?", reply_markup=kb)
+        return
+    if text == "💎 Premium":
+        await cmd_premium(update, context)
+        return
+    if text == "🎁 Refer & Earn":
+        await cmd_refer(update, context)
+        return
+    if text == "👤 My Account":
+        await cmd_account(update, context)
+        return
+
     mode = context.user_data.get("mode")
     if not mode:
-        await update.message.reply_text("👇 Pehle Menu se koi tool chuno:", reply_markup=menu_markup())
+        await update.message.reply_text("👇 Neeche keyboard se koi tool dabao ⌨️", reply_markup=main_keyboard())
         return
     if not await ensure_joined(update, context):
         return
-    text = (update.message.text or "").strip()
 
-    # modes jo limit ke bahar (payment screenshot to photo me hai)
     if mode == "pay":
         await update.message.reply_text("📸 Payment ka SCREENSHOT photo ke roop me bhejo (text nahi).")
         return
 
     if mode == "qr":
+        nospace = text.replace(" ", "")
+        # UPI ID detect hui? to sahi payment QR ka option do
+        if UPI_RE.match(nospace):
+            context.user_data["qr_pending"] = nospace
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("💰 Payment QR (sahi wala ✅)", callback_data="upi_yes")],
+                [InlineKeyboardButton("📝 Normal text QR", callback_data="upi_no")],
+            ])
+            await update.message.reply_text(
+                "Ye to UPI ID lag rahi hai! 👇\n\n"
+                "💰 Payment QR = GPay/PhonePe se scan karke PAISA aayega ✅\n"
+                "📝 Normal QR = sirf text dikhega (payment NAHI hoga)\n\nKya banana hai?", reply_markup=kb)
+            return
         if not await use_or_block(uid, update):
             return
         if len(text) > 1000:
@@ -639,9 +843,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not vid:
             await update.message.reply_text("⚠️ Sahi YouTube link bhejo. Dobara try karo:")
             return
+        bio = fetch_yt_thumb(vid)
+        if not bio:
+            await update.message.reply_text("⚠️ Is video ka thumbnail nahi mila. Dusra link try karo:")
+            return
         await update.message.reply_photo(
-            photo=f"https://img.youtube.com/vi/{vid}/maxresdefault.jpg",
-            caption=f"🎬 Thumbnail mil gaya!\n🔗 https://youtu.be/{vid}", reply_markup=BACK)
+            photo=bio, caption=f"🎬 HD Thumbnail mil gaya!\n🔗 https://youtu.be/{vid}", reply_markup=BACK)
         context.user_data.pop("mode", None)
         return
 
@@ -725,6 +932,70 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
+    # ---- UPI payment QR flow ----
+    if mode == "upi":
+        upi = text.replace(" ", "")
+        if not UPI_RE.match(upi):
+            await update.message.reply_text("⚠️ Sahi UPI ID bhejo (jaise name@okhdfc ya number@ybl):")
+            return
+        context.user_data["upi_id"] = upi
+        context.user_data["mode"] = "upi_name"
+        await update.message.reply_text(f"✅ UPI ID: {upi}\n\nAb apna NAAM bhejo (payment par dikhega):\n(jaise: Ramesh Kumar)")
+        return
+
+    if mode == "upi_name":
+        context.user_data["upi_name"] = text[:40]
+        context.user_data["mode"] = "upi_amt"
+        await update.message.reply_text("💰 Fixed AMOUNT lagana hai? (dukandaaron ke liye best)\n\nAmount bhejo (jaise 100) ya skip likho:")
+        return
+
+    if mode == "upi_amt":
+        amt = None
+        if text.lower() not in ("skip", "0", "no", "n"):
+            try:
+                amt = round(float(text.replace("₹", "").replace(",", "").strip()), 2)
+            except Exception:
+                await update.message.reply_text("⚠️ Sahi amount bhejo (jaise 100) ya skip likho:")
+                return
+            if amt < 1 or amt > 1000000:
+                await update.message.reply_text("⚠️ Amount 1 se 1000000 tak rakho, ya skip likho:")
+                return
+        if not await trial_or_block(uid, update, "UPI QR"):
+            context.user_data.pop("mode", None)
+            return
+        link = build_upi_link(context.user_data.get("upi_id", ""), context.user_data.get("upi_name", "User"), amt)
+        cap = (f"💰 UPI Payment QR ready!\n\n🆔 {context.user_data.get('upi_id')}\n👤 {context.user_data.get('upi_name')}\n"
+               + (f"💵 Fixed amount: ₹{amt:,.0f}\n" if amt else "💵 Amount: customer khud bharega\n")
+               + "\n📲 GPay / PhonePe / Paytm se scan karo — payment seedha tumhe aayega! ✅")
+        await update.message.reply_photo(photo=make_qr_bytes(link), caption=cap, reply_markup=BACK)
+        for k in ("mode", "upi_id", "upi_name"):
+            context.user_data.pop(k, None)
+        return
+
+    # ---- WhatsApp link flow ----
+    if mode == "wa":
+        num = normalize_phone(text)
+        if not num:
+            await update.message.reply_text("⚠️ Sahi 10-digit mobile number bhejo (jaise 9876543210):")
+            return
+        context.user_data["wa_num"] = num
+        context.user_data["mode"] = "wa_msg"
+        await update.message.reply_text(f"✅ Number: +91 {num}\n\nAb default MESSAGE bhejo (jo chat khulne par likha aayega) ya skip likho:")
+        return
+
+    if mode == "wa_msg":
+        msg = "" if text.lower() == "skip" else text[:500]
+        if not await trial_or_block(uid, update, "WA Link"):
+            context.user_data.pop("mode", None)
+            return
+        link = build_wa_link(context.user_data.get("wa_num", ""), msg)
+        cap = (f"📱 WhatsApp Link ready!\n\n🔗 {link}\n\nIs link par click karte hi WhatsApp chat khulegi ✅\n"
+               "Bio / status / dukaan ke board par lagao! 🚀")
+        await update.message.reply_photo(photo=make_qr_bytes(link), caption=cap, reply_markup=BACK)
+        for k in ("mode", "wa_num"):
+            context.user_data.pop(k, None)
+        return
+
     if mode in ("pdf", "comp"):
         await update.message.reply_text("📸 Photo bhejo (text nahi). /cancel se wapas jao.")
         return
@@ -734,12 +1005,12 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     mode = context.user_data.get("mode")
     if not mode:
-        await update.message.reply_text("👇 Pehle Menu se tool chuno (Image→PDF / Compress):", reply_markup=menu_markup())
+        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=main_keyboard())
         return
     if not await ensure_joined(update, context):
         return
 
-    # payment screenshot
+    # payment screenshot -> DIRECT admin ko (tumhari personal ID par)
     if mode == "pay":
         if not ADMIN_ID:
             await update.message.reply_text("⚠️ Admin set nahi hai. /cancel dabao.")
@@ -749,26 +1020,35 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton(f"✅ Approve {days}din", callback_data=f"ap:{uid}:{days}"),
             InlineKeyboardButton("❌ Reject", callback_data=f"dc:{uid}"),
         ]])
+        uname = f"@{update.effective_user.username}" if update.effective_user.username else "(username nahi hai)"
         try:
             await update.message.forward(ADMIN_ID)
             await context.bot.send_message(
-                ADMIN_ID, f"💰 Naya payment!\nUser: {uid}\nNaam: {update.effective_user.first_name}\nPlan: {days} din",
+                ADMIN_ID,
+                f"💰 Naya Premium Payment!\n\n👤 Naam: {update.effective_user.first_name}\n🔗 {uname}\n🆔 ID: {uid}\n📦 Plan: {days} din\n\nUpar screenshot dekho, verify karke Approve/Reject dabao 👇",
                 reply_markup=kb)
-            await update.message.reply_text("✅ Screenshot mil gaya! 5-10 min me Premium active ho jayega. 🙏", reply_markup=BACK)
-        except Exception:
-            await update.message.reply_text("⚠️ Kuch gadbad hui, dobara bhejo.")
+            await update.message.reply_text("✅ Screenshot admin ko bhej diya! Verify hote hi Premium active ho jayega (kuch min). 🙏", reply_markup=BACK)
+        except Exception as e:
+            log.warning("admin forward fail: %s", e)
+            await update.message.reply_text("⚠️ Kuch gadbad hui, screenshot dobara bhejo.")
         context.user_data.pop("mode", None)
         return
 
     if mode not in ("pdf", "comp"):
-        await update.message.reply_text("👇 Pehle Menu se tool chuno:", reply_markup=menu_markup())
+        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=main_keyboard())
         return
     if not await use_or_block(uid, update):
         return
 
     try:
-        photo = update.message.photo[-1]
-        f = await context.bot.get_file(photo.file_id)
+        f = None
+        if update.message.photo:
+            f = await context.bot.get_file(update.message.photo[-1].file_id)
+        elif update.message.document and (update.message.document.mime_type or "").startswith("image/"):
+            f = await context.bot.get_file(update.message.document.file_id)
+        if not f:
+            await update.message.reply_text("⚠️ Photo bhejo (PDF/file nahi).")
+            return
         data = await f.download_as_bytearray()
         img = Image.open(io.BytesIO(bytes(data)))
     except Exception:
@@ -815,7 +1095,7 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- MAIN ----------------
 def main():
     if not BOT_TOKEN:
-        raise SystemExit("❌ BOT_TOKEN nahi mila! .env file me BOT_TOKEN=... likho (README dekho).")
+        raise SystemExit("❌ BOT_TOKEN nahi mila! Render Environment me BOT_TOKEN=... dalo.")
     db().close()
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -831,6 +1111,7 @@ def main():
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CallbackQueryHandler(on_cb))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
+    app.add_handler(MessageHandler(filters.ATTACHMENT, on_photo))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
     app.add_error_handler(on_error)
 
@@ -840,7 +1121,7 @@ def main():
         app.run_webhook(listen="0.0.0.0", port=port, url_path=BOT_TOKEN,
                         webhook_url=f"{WEBHOOK_URL.rstrip('/')}/{BOT_TOKEN}")
     else:
-        log.info("Polling mode (apne PC/phone par chal raha hai)")
+        log.info("Polling mode (WEBHOOK_URL khali hai - Render par WEBHOOK_URL dalo!)")
         app.run_polling()
 
 

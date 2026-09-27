@@ -1,6 +1,6 @@
-# 🤖 All-in-One Utility Telegram Bot
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v2)
 
-**10 tools • ₹0 kharcha • Bina coding ke live karo • ₹200/day earning plan**
+**12 tools • ₹0 kharcha • Telegram native keyboard • ₹200/day earning plan**
 
 | Tool | Kaam |
 |---|---|
@@ -14,6 +14,8 @@
 | 📝 Text Tools | Words count + UPPER/lower |
 | 🧮 EMI Calc | Loan EMI calculator |
 | 🎂 Age Calc | Umar calculator |
+| 💰 UPI QR 💎 | **Payment QR jo GPay/PhonePe me chale** (premium tool) |
+| 📱 WA Link 💎 | WhatsApp chat link + QR banao (premium tool) |
 
 **Earning features (built-in):**
 - 🎁 Refer & Earn — 5 refer = 30 din Premium FREE (yeh tumhara growth engine hai)
