@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v6 (MEGA)
-- 22 grid buttons | tap-to-copy results | 15 fonts | YT download | TTS |
-  IFSC | Pincode | Passport | Link check | Interest | RTO | ID finder
-- Referral + UPI premium (screenshot direct ADMIN) + force-join + admin panel
+Utility Duniya Bot v7
+- 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
+- Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
 
 import asyncio
@@ -51,6 +50,8 @@ REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 TRIAL_LIMIT = 2
 DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
+UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
+BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -59,7 +60,6 @@ log = logging.getLogger("utility-bot")
 
 
 def code(s) -> str:
-    """Tap-to-copy block."""
     return f"<code>{hesc(str(s))}</code>"
 
 
@@ -70,7 +70,6 @@ def bar(frac: float, n: int = 8) -> str:
 
 
 def inr(n) -> str:
-    """Indian number format: 100000 -> 1,00,000"""
     s = str(int(round(float(n))))
     if len(s) <= 3:
         return s
@@ -100,7 +99,8 @@ def db():
     )
     for stmt in ("ALTER TABLE users ADD COLUMN trial_date TEXT DEFAULT ''",
                  "ALTER TABLE users ADD COLUMN trial_count INTEGER DEFAULT 0",
-                 "ALTER TABLE users ADD COLUMN username TEXT DEFAULT ''"):
+                 "ALTER TABLE users ADD COLUMN username TEXT DEFAULT ''",
+                 "ALTER TABLE users ADD COLUMN banned INTEGER DEFAULT 0"):
         try:
             con.execute(stmt)
         except Exception:
@@ -127,7 +127,7 @@ def get_user(uid: int, name: str = "") -> dict:
         con.close()
         return {"user_id": uid, "name": name, "uses_today": 0, "last_date": today,
                 "premium_until": "", "referred_by": 0, "referrals": 0,
-                "trial_date": today, "trial_count": 0, "username": ""}
+                "trial_date": today, "trial_count": 0, "username": "", "banned": 0}
     cols = [d[0] for d in cur.description]
     u = dict(zip(cols, row))
     if u.get("last_date") != today:
@@ -171,6 +171,19 @@ def find_by_username(username: str):
         return None
 
 
+def get_user_row(uid: int):
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM users WHERE user_id=?", (uid,))
+        r = cur.fetchone()
+        cols = [d[0] for d in cur.description] if cur.description else []
+        con.close()
+        return dict(zip(cols, r)) if r else None
+    except Exception:
+        return None
+
+
 def top_referrers(n: int = 5):
     try:
         con = db()
@@ -181,6 +194,49 @@ def top_referrers(n: int = 5):
         return rows
     except Exception:
         return []
+
+
+def recent_users(n: int = 10):
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT user_id,name,username FROM users ORDER BY rowid DESC LIMIT ?", (n,))
+        rows = cur.fetchall()
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+
+def premium_users():
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT user_id,name,premium_until FROM users WHERE premium_until > ? ORDER BY premium_until DESC",
+                    (datetime.now().isoformat(timespec="seconds"),))
+        rows = cur.fetchall()
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+
+def set_ban(uid: int, val: int):
+    try:
+        con = db()
+        con.execute("UPDATE users SET banned=? WHERE user_id=?", (val, uid))
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+
+
+def is_banned(uid: int) -> bool:
+    try:
+        u = get_user(uid)
+        return bool(u.get("banned"))
+    except Exception:
+        return False
 
 
 def add_use(uid: int):
@@ -276,84 +332,6 @@ def stats():
     con.close()
     return total, active, prem
 
-# ---------------- FONTS (15) ----------------
-BOLD = {**{chr(97 + i): chr(0x1D41A + i) for i in range(26)},
-        **{chr(65 + i): chr(0x1D400 + i) for i in range(26)},
-        **{chr(48 + i): chr(0x1D7CE + i) for i in range(10)}}
-ITALIC = {**{chr(97 + i): chr(0x1D44E + i) for i in range(26)},
-          **{chr(65 + i): chr(0x1D434 + i) for i in range(26)}}
-BOLDITAL = {**{chr(97 + i): chr(0x1D482 + i) for i in range(26)},
-            **{chr(65 + i): chr(0x1D468 + i) for i in range(26)}}
-MONO = {**{chr(97 + i): chr(0x1D68A + i) for i in range(26)},
-        **{chr(65 + i): chr(0x1D670 + i) for i in range(26)},
-        **{chr(48 + i): chr(0x1D7F6 + i) for i in range(10)}}
-BUBBLE = {**{chr(97 + i): chr(0x24D0 + i) for i in range(26)},
-          **{chr(65 + i): chr(0x24B6 + i) for i in range(26)},
-          "0": "⓪", **{chr(49 + i): chr(0x2460 + i) for i in range(9)}}
-SMALL = {"a": "ᴀ", "b": "ʙ", "c": "ᴄ", "d": "ᴅ", "e": "ᴇ", "f": "ꜰ", "g": "ɢ",
-         "h": "ʜ", "i": "ɪ", "j": "ᴊ", "k": "ᴋ", "l": "ʟ", "m": "ᴍ", "n": "ɴ",
-         "o": "ᴏ", "p": "ᴘ", "q": "Q", "r": "ʀ", "s": "ꜱ", "t": "ᴛ", "u": "ᴜ",
-         "v": "ᴠ", "w": "ᴡ", "x": "x", "y": "ʏ", "z": "ᴢ"}
-DOUBLE = {chr(65 + i): chr(0x1D538 + i) for i in range(26)}
-DOUBLE.update({"C": "ℂ", "H": "ℍ", "N": "ℕ", "P": "ℙ", "Q": "ℚ", "R": "ℝ", "Z": "ℤ"})
-DOUBLE.update({chr(97 + i): chr(0x1D552 + i) for i in range(26)})
-DOUBLE.update({chr(48 + i): chr(0x1D7D8 + i) for i in range(10)})
-SCRIPT = {chr(65 + i): chr(0x1D4D0 + i) for i in range(26)}
-SCRIPT.update({"B": "ℬ", "E": "ℰ", "F": "ℱ", "H": "ℋ", "I": "ℐ", "L": "ℒ", "M": "ℳ", "R": "ℛ"})
-SCRIPT.update({chr(97 + i): chr(0x1D4EA + i) for i in range(26)})
-SCRIPT.update({"e": "ℯ", "g": "ℊ", "o": "ℴ"})
-FRAK = {chr(65 + i): chr(0x1D56C + i) for i in range(26)}
-FRAK.update({"C": "ℭ", "H": "ℌ", "I": "ℑ", "R": "ℜ", "Z": "ℨ"})
-FRAK.update({chr(97 + i): chr(0x1D586 + i) for i in range(26)})
-FULL = {chr(65 + i): chr(0xFF21 + i) for i in range(26)}
-FULL.update({chr(97 + i): chr(0xFF41 + i) for i in range(26)})
-FULL.update({chr(48 + i): chr(0xFF10 + i) for i in range(10)})
-FULL[" "] = "　"
-SQUARE = {chr(65 + i): chr(0x1F130 + i) for i in range(26)}
-TINY = {"a": "ᵃ", "b": "ᵇ", "c": "ᶜ", "d": "ᵈ", "e": "ᵉ", "f": "ᶠ", "g": "ᵍ", "h": "ʰ",
-        "i": "ⁱ", "j": "ʲ", "k": "ᵏ", "l": "ˡ", "m": "ᵐ", "n": "ⁿ", "o": "ᵒ", "p": "ᵖ",
-        "q": "q", "r": "ʳ", "s": "ˢ", "t": "ᵗ", "u": "ᵘ", "v": "ᵛ", "w": "ʷ", "x": "ˣ",
-        "y": "ʸ", "z": "ᶻ", "A": "ᴬ", "B": "ᴮ", "C": "ᶜ", "D": "ᴰ", "E": "ᴱ", "F": "ᶠ",
-        "G": "ᴳ", "H": "ᴴ", "I": "ᴵ", "J": "ᴶ", "K": "ᴷ", "L": "ᴸ", "M": "ᴹ", "N": "ᴺ",
-        "O": "ᴼ", "P": "ᴾ", "Q": "Q", "R": "ᴿ", "S": "ˢ", "T":"ᵀ", "U": "ᵁ", "V": "ⱽ",
-        "W": "ᵂ", "X": "X", "Y": "ʸ", "Z": "ᶻ", "0": "⁰", "1": "¹", "2": "²", "3": "³",
-        "4": "⁴", "5": "⁵", "6": "⁶", "7": "⁷", "8": "⁸", "9": "⁹"}
-FLIP = {"a": "ɐ", "b": "q", "c": "ɔ", "d": "p", "e": "ǝ", "f": "ɟ", "g": "ƃ", "h": "ɥ",
-        "i": "ᴉ", "j": "ɾ", "k": "ʞ", "l": "l", "m": "ɯ", "n": "u", "o": "o", "p": "d",
-        "q": "b", "r": "ɹ", "s": "s", "t": "ʇ", "u": "n", "v": "ʌ", "w": "ʍ", "x": "x",
-        "y": "ʎ", "z": "z", "A": "∀", "B": "𐐒", "C": "Ɔ", "D": "ᗡ", "E": "Ǝ", "F": "Ⅎ",
-        "G": "⅁", "H": "H", "I": "I", "J": "ᒿ", "K": "ʞ", "L": "⅂", "M": "W", "N": "N",
-        "O": "O", "P": "Ԁ", "Q": "Ό", "R": "ᴚ", "S": "S", "T": "⊥", "U": "∩", "V": "Λ",
-        "W": "M", "X": "X", "Y": "ʎ", "Z": "Z", "0": "0", "1": "Ɩ", "2": "ᄅ", "3": "Ɛ",
-        "4": "ᔭ", "5": "ϛ", "6": "9", "7": "Ɫ", "8": "8", "9": "6",
-        "?": "¿", "!": "¡", ".": "˙", ",": "'", "(": ")", ")": "("}
-
-FONTS = [
-    ("𝐁𝐨𝐥𝐝", ("map", BOLD)), ("𝐼𝑡𝑎𝑙𝑖𝑐", ("map", ITALIC)),
-    ("𝐁𝐨𝐥𝐝 𝐈𝐭𝐚𝐥𝐢𝐜", ("map", BOLDITAL)), ("𝙼𝚘𝚗𝚘", ("map", MONO)),
-    ("Ⓑⓤⓑⓑⓛⓔ", ("map", BUBBLE)), ("ꜱᴍᴀʟʟ ᴄᴀᴘꜱ", ("fold", SMALL)),
-    ("𝔻𝕠𝕦𝕓𝕝𝕖", ("map", DOUBLE)), ("𝒮𝒸𝓇𝒾𝓅𝓉", ("map", SCRIPT)),
-    ("𝔉𝔯𝔞𝔨𝔱𝔲𝔯", ("map", FRAK)), ("Ｆｕｌｌｗｉｄｔｈ", ("map", FULL)),
-    ("🅂🅀🅄🄰🅁🄴🄳", ("upperfold", SQUARE)), ("S̶t̶r̶i̶k̶e̶", ("comb", "̶")),
-    ("U̲n̲d̲e̲r̲l̲i̲n̲e̲", ("comb", "̲")), ("ᵀⁱⁿʸ", ("map", TINY)),
-    ("dılᖷ", ("flip", FLIP)),
-]
-
-
-def style_font(t: str, spec) -> str:
-    kind, data = spec
-    if kind == "map":
-        return "".join(data.get(c, c) for c in t)
-    if kind == "fold":
-        return "".join(data.get(c.lower(), c) for c in t)
-    if kind == "upperfold":
-        return "".join(data.get(c.upper(), c) for c in t)
-    if kind == "comb":
-        return "".join((c + data) if not c.isspace() else c for c in t)
-    if kind == "flip":
-        return "".join(data.get(c, c) for c in t[::-1])
-    return t
-
 # ---------------- PURE HELPERS ----------------
 def make_qr_bytes(text: str) -> io.BytesIO:
     qr = qrcode.QRCode(box_size=12, border=4, error_correction=qrcode.constants.ERROR_CORRECT_H)
@@ -444,7 +422,8 @@ def zodiac(d: int, m: int) -> str:
 
 def shorten_isgd(url: str):
     try:
-        r = requests.get("https://is.gd/create.php", params={"format": "simple", "url": url}, timeout=10)
+        r = requests.get("https://is.gd/create.php", params={"format": "simple", "url": url},
+                         timeout=10, headers=UA)
         s = r.text.strip()
         return s if s.startswith("http") else None
     except Exception:
@@ -453,7 +432,8 @@ def shorten_isgd(url: str):
 
 def shorten_tiny(url: str):
     try:
-        r = requests.get("https://tinyurl.com/api-create.php", params={"url": url}, timeout=10)
+        r = requests.get("https://tinyurl.com/api-create.php", params={"url": url},
+                         timeout=10, headers=UA)
         s = r.text.strip()
         return s if s.startswith("http") else None
     except Exception:
@@ -469,11 +449,10 @@ def yt_id(link: str):
 
 
 def fetch_yt_best(vid: str):
-    """Sabse badi (highest quality) thumbnail lao."""
     best = None
     for q in ("maxresdefault", "sddefault", "hq720", "hqdefault", "mqdefault"):
         try:
-            r = requests.get(f"https://img.youtube.com/vi/{vid}/{q}.jpg", timeout=12)
+            r = requests.get(f"https://img.youtube.com/vi/{vid}/{q}.jpg", timeout=12, headers=UA)
             if r.status_code != 200 or len(r.content) < 5000:
                 continue
             img = Image.open(io.BytesIO(r.content))
@@ -485,6 +464,21 @@ def fetch_yt_best(vid: str):
         except Exception:
             continue
     return best[1:] if best else None
+
+
+def enhance_thumb(data: bytes):
+    """720p se chhoti ho to HD enhance karo."""
+    img = Image.open(io.BytesIO(data)).convert("RGB")
+    w, h = img.size
+    if w >= 1280:
+        return data, w, h, False
+    nh = int(h * 1280 / w)
+    img = img.resize((1280, nh), Image.LANCZOS)
+    img = ImageEnhance.Sharpness(img).enhance(1.4)
+    img = ImageEnhance.Contrast(img).enhance(1.05)
+    bio = io.BytesIO()
+    img.save(bio, format="JPEG", quality=92)
+    return bio.getvalue(), 1280, nh, True
 
 
 UPI_RE = re.compile(r"^[\w.\-]{2,256}@[a-zA-Z]{2,64}$")
@@ -507,7 +501,6 @@ def si_result(p: float, r: float, t: float):
 def ci_result(p: float, r: float, t: float, f: int):
     a = p * (1 + r / (100 * f)) ** (f * t)
     return a - p, a
-
 
 # ---------------- RTO DATA ----------------
 RTO_STATE = {"AN": "Andaman & Nicobar", "AP": "Andhra Pradesh", "AR": "Arunachal Pradesh",
@@ -549,15 +542,13 @@ VEH_RE = re.compile(r"^([A-Z]{2})\s?\-?([0-9]{1,2})\s?\-?([A-Z]{1,3})\s?\-?([0-9
 
 
 def parse_vehicle(text: str):
-    m = VEH_RE.match((text or "").upper().replace(" ", "").replace("-", ""))
-    if not m:
-        m = VEH_RE.match((text or "").upper().strip())
+    t = (text or "").upper().replace(" ", "").replace("-", "")
+    m = VEH_RE.match(t) or VEH_RE.match((text or "").upper().strip())
     if not m:
         return None
     st, rto, series, num = m.group(1), m.group(2).zfill(2), m.group(3), m.group(4)
     return {"number": f"{st}-{rto} {series} {num}", "state": RTO_STATE.get(st),
             "rto": RTO_OFFICE.get(f"{st}{rto}"), "code": f"{st}{rto}"}
-
 
 # ---------------- LINK CHECK ----------------
 SHORTENERS = {"bit.ly", "tinyurl.com", "is.gd", "t.co", "goo.gl", "cutt.ly", "shorturl.at",
@@ -576,8 +567,7 @@ def link_check(url: str):
     chain = []
     final = url
     try:
-        r = requests.get(url, allow_redirects=True, timeout=8,
-                         headers={"User-Agent": "Mozilla/5.0"})
+        r = requests.get(url, allow_redirects=True, timeout=8, headers=UA)
         final = r.url
         chain = [(h.status_code, h.url) for h in r.history[:5]] + [(r.status_code, r.url)]
         if len(r.history) >= 3:
@@ -623,10 +613,47 @@ def link_check(url: str):
         verdict = "🟢 Looks SAFE (basic check me saaf)"
     return {"final": final, "chain": chain, "findings": findings, "verdict": verdict}
 
+# ---------------- LINK BYPASS (earn links -> original) ----------------
+BYPASS_DOMAINS = {"arolinks.com", "arlinks.in", "vplinks.in", "vplinks.com", "gplinks.com",
+    "gplinks.in", "earnlink.io", "earnlink.com", "droplink.co", "ouo.io", "ouo.press",
+    "linkvertise.com", "exlink.io", "tnlink.in", "rocklinks.net", "dulink.in",
+    "mdiskshortener.link", "mdiskshortener.com", "indianshortener.com", "blinks.in",
+    "shrinkearn.com", "shrinkme.io", "clk.sh", "aylink.co", "payskip.org"}
+
+
+def bypass_link(url: str):
+    url = (url or "").strip()
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    chain = []
+    try:
+        r = requests.get(url, headers=UA, timeout=12, allow_redirects=True)
+        chain = [h.url for h in r.history] + [r.url]
+        final = r.url
+    except Exception as e:
+        return ("ERR", f"⛔ Link khul nahi raha.\n({str(e)[:100]})", [])
+    host = (urlparse(final).hostname or "").lower().lstrip("www.")
+    if host not in BYPASS_DOMAINS and final.rstrip("/") != url.rstrip("/"):
+        return ("OK", final, chain)
+    # page ke andar asli link dhoondo (meta-refresh / JS / get-link button)
+    try:
+        html = r.text or ""
+        cands = []
+        m = re.search(r"<meta[^>]+http-equiv=[\"']?refresh[\"']?[^>]+url=([\"']?)([^\"'>\s]+)", html, re.I)
+        if m:
+            cands.append(m.group(2))
+        for m2 in re.finditer(r"window\.location(?:\.href)?\s*=\s*[\"']([^\"']+)[\"']", html):
+            cands.append(m2.group(1))
+        for m3 in re.finditer(r"<a[^>]*(?:get-link|getlink|continue|proceed|download-link)[^>]*href=[\"']([^\"']+)[\"']", html, re.I):
+            cands.append(m3.group(1))
+        for c in cands:
+            if c.startswith("http") and (urlparse(c).hostname or "").lower().lstrip("www.") not in BYPASS_DOMAINS:
+                return ("OK", c, chain + [c])
+    except Exception:
+        pass
+    return ("WAIT", final, chain)
+
 # ---------------- NETWORK APIS ----------------
-UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
-
-
 def ifsc_lookup(code: str):
     r = requests.get(f"https://ifsc.razorpay.com/{code}", timeout=12, headers=UA)
     if r.status_code != 200:
@@ -635,7 +662,7 @@ def ifsc_lookup(code: str):
 
 
 def pin_lookup(pin: str):
-    for _ in range(3):  # sarkari API kabhi slow hoti hai - 3 try
+    for _ in range(3):
         try:
             r = requests.get(f"https://api.postalpincode.in/pincode/{pin}", timeout=15, headers=UA)
             j = r.json()
@@ -646,12 +673,13 @@ def pin_lookup(pin: str):
             continue
     return None
 
-
 # ---------------- IMAGE TOOLS ----------------
 def normalize_page(img: Image.Image) -> bytes:
     if img.mode in ("RGBA", "LA", "P"):
         bg = Image.new("RGB", img.size, (255, 255, 255))
-        bg.paste(img.convert("RGB") if img.mode == "P" else img, mask=img.split()[-1] if "A" in img.getbands() else None)
+        bands = img.getbands()
+        bg.paste(img.convert("RGB") if img.mode == "P" else img,
+                 mask=img.split()[-1] if "A" in bands else None)
         img = bg
     else:
         img = img.convert("RGB")
@@ -670,15 +698,6 @@ def pages_to_pdf(pages: list) -> bytes:
         bio = io.BytesIO()
         imgs[0].save(bio, format="PDF", save_all=True, append_images=imgs[1:], resolution=300.0)
         return bio.getvalue()
-
-
-def compress_image(data: bytes, quality: int, maxdim: int):
-    img = Image.open(io.BytesIO(data))
-    img2 = img.copy()
-    img2.thumbnail((maxdim, maxdim))
-    bio = io.BytesIO()
-    img2.convert("RGB").save(bio, format="JPEG", quality=quality, optimize=True, subsampling=1)
-    return bio.getvalue()
 
 
 def passport_make(data: bytes):
@@ -701,19 +720,31 @@ def passport_make(data: bytes):
     thumb = single.resize((tw, th), Image.LANCZOS)
     for r in range(3):
         for c in range(3):
-            x = 30 + c * (tw + 15)
-            y = 60 + r * (th + 15)
-            sheet.paste(thumb, (x, y))
+            sheet.paste(thumb, (30 + c * (tw + 15), 60 + r * (th + 15)))
     b1, b2 = io.BytesIO(), io.BytesIO()
     single.save(b1, format="JPEG", quality=97, subsampling=0)
     sheet.save(b2, format="JPEG", quality=97, subsampling=0)
     return b1.getvalue(), b2.getvalue()
 
+# ---------------- TTS (10 voices) ----------------
+TTS_VOICES = [
+    ("swara", "👩 Hindi Female", "hi-IN-SwaraNeural", "+0%", "+0Hz"),
+    ("madhur", "👨 Hindi Male", "hi-IN-MadhurNeural", "+0%", "+0Hz"),
+    ("softf", "🌸 Soft Female", "hi-IN-SwaraNeural", "-12%", "-8Hz"),
+    ("deepm", "🎙️ Deep Male", "hi-IN-MadhurNeural", "-5%", "-25Hz"),
+    ("oldf", "👵 Old Female", "hi-IN-SwaraNeural", "-25%", "-30Hz"),
+    ("oldm", "👴 Old Male", "hi-IN-MadhurNeural", "-25%", "-35Hz"),
+    ("babyg", "👧 Baby Girl", "hi-IN-SwaraNeural", "+10%", "+120Hz"),
+    ("babyb", "👦 Baby Boy", "hi-IN-MadhurNeural", "+10%", "+100Hz"),
+    ("neerja", "👩 English Female", "en-IN-NeerjaNeural", "+0%", "+0Hz"),
+    ("prabhat", "👨 English Male", "en-IN-PrabhatNeural", "+0%", "+0Hz"),
+]
 
-async def tts_make(text: str, voice: str, outpath: str) -> bool:
+
+async def tts_make(text: str, voice: str, rate: str, pitch: str, outpath: str) -> bool:
     try:
         import edge_tts
-        await edge_tts.Communicate(text[:400], voice).save(outpath)
+        await edge_tts.Communicate(text[:400], voice, rate=rate, pitch=pitch).save(outpath)
         return True
     except Exception as e:
         log.warning("edge tts fail: %s", e)
@@ -726,13 +757,10 @@ async def tts_make(text: str, voice: str, outpath: str) -> bool:
         log.warning("gtts fail: %s", e)
         return False
 
-
-TTS_VOICES = [
-    ("tTTS", "swara", "👩 Hindi Female (Swara)", "hi-IN-SwaraNeural"),
-    ("tTTS", "madhur", "👨 Hindi Male (Madhur)", "hi-IN-MadhurNeural"),
-    ("tTTS", "neerja", "👩 English Female", "en-IN-NeerjaNeural"),
-    ("tTTS", "prabhat", "👨 English Male", "en-IN-PrabhatNeural"),
-]
+# ---------------- YT DOWNLOAD ----------------
+YTDL_BASE = {"quiet": True, "noplaylist": True, "socket_timeout": 25,
+             "retries": 3, "fragment_retries": 3,
+             "extractor_args": {"youtube": {"player_client": ["android", "ios", "mweb", "tv"]}}}
 
 
 def _ffmpeg_exe():
@@ -747,104 +775,108 @@ def _ffmpeg_exe():
 def ytdl_download(url: str):
     import yt_dlp
     tmpd = tempfile.mkdtemp(prefix="ytdl_")
-    info0 = None
-    with yt_dlp.YoutubeDL({"quiet": True, "noplaylist": True, "socket_timeout": 20}) as y:
-        try:
+    try:
+        with yt_dlp.YoutubeDL(dict(YTDL_BASE)) as y:
             info0 = y.extract_info(url, download=False)
-        except Exception as e:
-            return ("ERR", f"⛔ Video info nahi mili. Link private/delete ho sakta hai.\n({str(e)[:120]})", None)
+    except Exception:
+        return ("ERR", "⛔ Video info nahi mili. Link private/delete/blocked ho sakta hai. 🙏\nThodi der baad phir try karo, ya dusri video bhejo.", None)
     dur = info0.get("duration") or 0
     if dur > 600:
-        return ("ERR", f"⏳ Video {dur // 60} min ki hai. Max 10 min tak download hoga (Telegram limit).", None)
-    opts = {"format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best",
-            "merge_output_format": "mp4",
-            "outtmpl": os.path.join(tmpd, "%(id)s.%(ext)s"),
-            "quiet": True, "noplaylist": True, "socket_timeout": 30, "retries": 2}
+        return ("ERR", f"⏳ Video {dur // 60} min ki hai. Max 10 min tak download hoga (Telegram limit). Chhoti video bhejo! 🙏", None)
+    opts = dict(YTDL_BASE)
+    opts.update({"format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best",
+                 "merge_output_format": "mp4",
+                 "outtmpl": os.path.join(tmpd, "%(id)s.%(ext)s")})
     _ff = _ffmpeg_exe()
     if _ff:
         opts["ffmpeg_location"] = _ff
     try:
         with yt_dlp.YoutubeDL(opts) as y:
             info = y.extract_info(url, download=True)
-    except Exception as e:
-        return ("ERR", f"⛔ Download fail: YouTube ne block kiya ya link galat.\nThodi der baad try karo.\n({str(e)[:120]})", None)
-    files = glob.glob(os.path.join(tmpd, "*"))
-    files = [f for f in files if os.path.isfile(f) and not f.endswith(".part")]
+    except Exception:
+        return ("ERR", "⛔ Download fail — YouTube ne is waqt block kiya hai (bot protection). 🙏\n\n✅ 10-15 min baad try karo\n✅ Ya dusri video/Shorts link bhejo", None)
+    files = [f for f in glob.glob(os.path.join(tmpd, "*")) if os.path.isfile(f) and not f.endswith(".part")]
     if not files:
-        return ("ERR", "⛔ File nahi bani. Dusra link try karo.", None)
+        return ("ERR", "⛔ File nahi bani. Dusra link try karo. 🙏", None)
     path = max(files, key=os.path.getsize)
     if os.path.getsize(path) > 48 * 1024 * 1024:
         try:
             os.remove(path)
         except Exception:
             pass
-        return ("ERR", "📦 File 48MB se badi hai (Telegram limit). Chhoti video try karo.", None)
+        return ("ERR", "📦 File 48MB se badi hai (Telegram limit). Chhoti video try karo! 🙏", None)
     return ("OK", info, path)
 
 # ---------------- UI ----------------
 BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")]])
 
 KB_BTNS = [
-    ["📷 QR Code", "✍️ Stylish Fonts"],
-    ["🔐 Password", "🖼️ Image→PDF"],
-    ["🗜️ Compress Photo", "🔗 URL Short"],
+    ["📷 QR Code", "🔐 Password"],
+    ["🖼️ Image→PDF", "🔗 URL Short"],
     ["🎬 YT Thumbnail", "⬇️ YT Download"],
     ["🧮 EMI Calc", "🎂 Age Calculator"],
     ["💰 UPI QR Generator", "🆔 ID Finder"],
     ["🔊 Text to Speech", "🏦 IFSC Info"],
     ["📮 Pincode Info", "🪪 Passport Photo"],
-    ["🔍 Link Check", "📈 Interest Calc"],
-    ["🚗 RTO Vehicle Info", "💎 Premium"],
-    ["🎁 Refer & Earn", "👤 My Account"],
+    ["🔍 Link Check", "🔓 Link Bypass"],
+    ["📈 Interest Calc", "🚗 RTO Vehicle Info"],
+    ["💎 Premium", "🎁 Refer & Earn"],
+    ["👤 My Account"],
 ]
 
 
-def main_keyboard():
+def main_keyboard(admin: bool = False):
+    rows = [row[:] for row in KB_BTNS]
+    if admin:
+        rows.append(["🛠️ Admin Panel"])
     return ReplyKeyboardMarkup(
-        [[KeyboardButton(t) for t in row] for row in KB_BTNS],
+        [[KeyboardButton(t) for t in row] for row in rows],
         resize_keyboard=True,
         input_field_placeholder="Grid dabao, tool chuno 👇",
     )
 
 
+def kb_for(uid: int):
+    return main_keyboard(admin=is_admin(uid))
+
+
 BTN_MODE = {
-    "📷 QR Code": "qr", "✍️ Stylish Fonts": "font",
-    "🖼️ Image→PDF": "pdf", "🗜️ Compress Photo": "comp",
+    "📷 QR Code": "qr", "🖼️ Image→PDF": "pdf",
     "🔗 URL Short": "short", "🎬 YT Thumbnail": "yt",
     "⬇️ YT Download": "ytdl", "🧮 EMI Calc": "emi",
     "🎂 Age Calculator": "age", "💰 UPI QR Generator": "upi",
     "🆔 ID Finder": "idfind", "🏦 IFSC Info": "ifsc",
     "📮 Pincode Info": "pin", "🪪 Passport Photo": "pp",
-    "🔍 Link Check": "linkcheck", "🚗 RTO Vehicle Info": "rto",
+    "🔍 Link Check": "linkcheck", "🔓 Link Bypass": "linkbypass",
+    "🚗 RTO Vehicle Info": "rto",
 }
 
 PROMPTS = {
-    "qr": "📷 <b>QR Code Generator</b>\n\nKoi bhi TEXT ya LINK bhejo (high-quality QR banega):",
-    "font": "✍️ <b>Stylish Fonts (15 styles!)</b>\n\nApna naam/text bhejo (60 letters tak):",
-    "pdf": "🖼️ <b>Image→PDF (Full Quality, Multi-page!)</b>\n\n📸 PHOTO bhejo — ek-ek karke <b>10 tak</b> bhej sakte ho, phir ✅ dabao.\n\n💎 <b>Best quality tip:</b> photo ko 📎 attachment se <b>FILE/DOCUMENT</b> bana ke bhejo (compress nahi hogi, 4K/8K safe!)",
-    "comp": "🗜️ <b>Photo Compress (Advanced)</b>\n\n📸 PHOTO bhejo — phir quality chuno:\n📸 High • ⚖️ Medium • 📦 Maximum",
+    "qr": "📷 <b>QR Code Generator</b>\n\nKoi bhi TEXT ya LINK bhejo (HD QR banega):",
+    "pdf": "🖼️ <b>Image→PDF (Full Quality, Multi-page!)</b>\n\n📸 PHOTO bhejo — ek-ek karke <b>10 tak</b> bhej sakte ho, phir ✅ dabao.\n\n💎 <b>Best quality tip:</b> photo ko 📎 attachment se <b>FILE/DOCUMENT</b> bana ke bhejo (4K/8K safe!)",
     "short": "🔗 <b>URL Shortener (2 links!)</b>\n\nLamba LINK bhejo — 2 short links + QR milega:",
-    "yt": "🎬 <b>YT Thumbnail (Highest Quality)</b>\n\nYouTube video ka LINK bhejo:",
+    "yt": "🎬 <b>YT Thumbnail (720p+ HD)</b>\n\nYouTube video ka LINK bhejo:",
     "ytdl": "⬇️ <b>YT Video/Shorts Download (HD)</b> 💎 <i>roz 2 FREE trial</i>\n\nYouTube/Shorts ka LINK bhejo (max 10 min, 48MB):",
     "emi": "🧮 <b>EMI Calculator (Advanced)</b>\n\nLoan amount (₹) bhejo:\n(jaise: 100000)",
     "age": "🎂 <b>Age Calculator</b>\n\nApni birth date bhejo (DD-MM-YYYY):\n(jaise: 15-08-2005)",
     "upi": "💰 <b>UPI QR Generator</b> 💎 <i>roz 2 FREE trial</i>\n\nApni UPI ID bhejo:\n(jaise: name@okhdfc)",
-    "idfind": ("🆔 <b>ID Finder</b>\n\n3 tareeke:\n1️⃣ Kisi ka koi <b>message FORWARD</b> karo → uski ID (100% kaam karta hai ✅)\n2️⃣ <b>@username</b> bhejo → agar wo bot user hai to ID\n3️⃣ <b>me</b> likho → tumhari apni ID"),
+    "idfind": ("🆔 <b>ID Finder</b>\n\n3 tareeke:\n1️⃣ Kisi ka koi <b>message FORWARD</b> karo → uski ID (100% ✅)\n2️⃣ <b>@username</b> bhejo → agar wo bot user hai to ID\n3️⃣ <b>me</b> likho → tumhari apni ID"),
     "ifsc": "🏦 <b>IFSC Details</b>\n\nIFSC code bhejo:\n(jaise: HDFC0001234)",
     "pin": "📮 <b>Pincode Details</b>\n\n6-digit pincode bhejo:\n(jaise: 834001)",
     "pp": "🪪 <b>Passport Photo Maker (HD)</b>\n\n📸 Apni PHOTO bhejo (chehra beech me, seedhi photo).\nSingle HD photo + print sheet (9 copies) milegi! 🖨️",
     "linkcheck": "🔍 <b>Link Checker</b>\n\nKoi bhi LINK bhejo — safe hai ya fraud, check karunga:",
+    "linkbypass": "🔓 <b>Link Bypass</b>\n\narolinks / vplinks / gplinks jaisa EARN LINK bhejo — asli original link nikalunga:\n\n<i>Note: timer/JS wale kuch links browser me kholne padenge.</i>",
     "rto": "🚗 <b>RTO Vehicle Info</b>\n\nGaadi number bhejo:\n(jaise: JH01AB1234)",
 }
 
 WELCOME = (
     "👋 Namaste! Main hoon <b>Utility Duniya Bot</b> 🌟\n\n"
-    "🧰 <b>19 powerful tools</b>, bilkul FREE:\n"
-    "📷 QR • ✍️ 15 Fonts • 🔐 Password • 🖼️ PDF\n"
-    "🗜️ Compress • 🔗 Short • 🎬 YT • ⬇️ Download\n"
-    "🧮 EMI • 🎂 Age • 💰 UPI QR • 🆔 ID Finder\n"
-    "🔊 Voice • 🏦 IFSC • 📮 Pincode • 🪪 Passport\n"
-    "🔍 Link Check • 📈 Interest • 🚗 RTO\n\n"
+    "🧰 <b>18 powerful tools</b>, bilkul FREE:\n"
+    "📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short\n"
+    "🎬 YT • ⬇️ Download • 🧮 EMI • 🎂 Age\n"
+    "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC\n"
+    "📮 Pincode • 🪪 Passport • 🔍 Link Check\n"
+    "🔓 Bypass • 📈 Interest • 🚗 RTO\n\n"
     f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
@@ -908,6 +940,12 @@ async def _send_limit_msg(update: Update, text: str):
 
 
 async def use_or_block(uid: int, update: Update) -> bool:
+    if is_banned(uid):
+        if update.callback_query:
+            await update.callback_query.message.reply_text(BAN_MSG)
+        else:
+            await update.message.reply_text(BAN_MSG)
+        return False
     u = get_user(uid)
     if is_premium(u):
         return True
@@ -919,6 +957,12 @@ async def use_or_block(uid: int, update: Update) -> bool:
 
 
 async def trial_or_block(uid: int, update: Update, tool: str) -> bool:
+    if is_banned(uid):
+        if update.callback_query:
+            await update.callback_query.message.reply_text(BAN_MSG)
+        else:
+            await update.message.reply_text(BAN_MSG)
+        return False
     u = get_user(uid)
     if is_premium(u):
         return True
@@ -939,6 +983,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     get_user(user.id, user.first_name or "")
     save_username(user.id, user.username or "")
+    if is_banned(user.id):
+        await update.message.reply_text(BAN_MSG)
+        return
     if context.args and context.args[0].startswith("ref_"):
         try:
             ref_id = int(context.args[0].split("_")[1])
@@ -946,7 +993,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if count:
                 await update.message.reply_text(
                     f"🎉 Welcome! Tum refer hokar aaye ho. Roz {FREE_LIMIT} FREE uses milenge!",
-                    reply_markup=main_keyboard())
+                    reply_markup=kb_for(user.id))
                 try:
                     if count % REFER_NEED == 0:
                         grant_premium(ref_id, 30)
@@ -961,19 +1008,20 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text(WELCOME, reply_markup=main_keyboard(), parse_mode=HTML)
+    await update.message.reply_text(WELCOME, reply_markup=kb_for(user.id), parse_mode=HTML)
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
     await update.message.reply_text("⌨️ Neeche grid me saare tools hain — koi dabao 👇",
-                                    reply_markup=main_keyboard())
+                                    reply_markup=kb_for(update.effective_user.id))
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for k in ("mode", "pdf_pages", "comp_bytes", "upi_id", "upi_name", "emi_p", "emi_r",
-              "int_type", "int_p", "int_r", "int_t", "tts_voice", "wa_num", "qr_pending"):
+    for k in ("mode", "pdf_pages", "upi_id", "upi_name", "upi_amt", "emi_p", "emi_r",
+              "int_type", "int_p", "int_r", "int_t", "tts_voice", "tts_name", "tts_rate",
+              "tts_pitch", "qr_pending"):
         context.user_data.pop(k, None)
     await update.message.reply_text("❌ Cancel ho gaya. Grid se dobara chuno.")
 
@@ -996,7 +1044,7 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uses_left = FREE_LIMIT - u["uses_today"]
     tr_left = TRIAL_LIMIT - (u.get("trial_count") or 0)
     if prem:
-        uses_line = f"♾️ Unlimited"
+        uses_line = "♾️ Unlimited"
         tr_line = "♾️ Unlimited"
     else:
         uses_line = f"{bar(uses_left / FREE_LIMIT)} {max(0, uses_left)}/{FREE_LIMIT}"
@@ -1028,7 +1076,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     board = "".join(f"\n{i + 1}. {hesc((n or 'User')[:15])} — {c} 🎁" for i, (n, c) in enumerate(top)) or "\n—"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("📤 Doston ko Share Karo",
-                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 19 tools! QR, UPI QR, Fonts, YT Download sab!")],
+                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 18 tools! QR, UPI QR, YT Download, Voice sab!")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
     await update.message.reply_text(
@@ -1058,8 +1106,8 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "💎✨ <b>PREMIUM</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
-        "✅ <b>Unlimited</b> saare 19 tools\n"
-        "💰 UPI QR + ⬇️ YT Download + 🔊 Voice — bina limit!\n"
+        "✅ <b>Unlimited</b> saare 18 tools\n"
+        "💰 UPI QR + ⬇️ YT Download + 🔊 10 Voices — bina limit!\n"
         "⚡ Sabse pehle naye tools\n"
         "🚫 Roz ka limit khatam = tension khatam\n"
         "━━━━━━━━━━━━━━━\n"
@@ -1072,7 +1120,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🎁 <i>Paisa nahi? /refer se 5 dost = 30 din FREE!</i>",
         reply_markup=kb, parse_mode=HTML)
 
-# ---- tool entry points ----
+# ---- tool entries ----
 async def cmd_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str):
     if not await ensure_joined(update, context):
         return
@@ -1082,9 +1130,7 @@ async def cmd_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str
 
 
 async def cmd_qr(u, c): await cmd_tool(u, c, "qr")
-async def cmd_font(u, c): await cmd_tool(u, c, "font")
 async def cmd_pdf(u, c): await cmd_tool(u, c, "pdf")
-async def cmd_comp(u, c): await cmd_tool(u, c, "comp")
 async def cmd_short(u, c): await cmd_tool(u, c, "short")
 async def cmd_yt(u, c): await cmd_tool(u, c, "yt")
 async def cmd_ytdl(u, c): await cmd_tool(u, c, "ytdl")
@@ -1096,6 +1142,7 @@ async def cmd_ifsc(u, c): await cmd_tool(u, c, "ifsc")
 async def cmd_pin(u, c): await cmd_tool(u, c, "pin")
 async def cmd_pp(u, c): await cmd_tool(u, c, "pp")
 async def cmd_link(u, c): await cmd_tool(u, c, "linkcheck")
+async def cmd_bypass(u, c): await cmd_tool(u, c, "linkbypass")
 async def cmd_rto(u, c): await cmd_tool(u, c, "rto")
 
 
@@ -1115,16 +1162,16 @@ async def pwd_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def tts_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👩 Hindi Female", callback_data="tts_v:swara"),
-         InlineKeyboardButton("👨 Hindi Male", callback_data="tts_v:madhur")],
-        [InlineKeyboardButton("👩 English Female", callback_data="tts_v:neerja"),
-         InlineKeyboardButton("👨 English Male", callback_data="tts_v:prabhat")],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
-    ])
+    rows = []
+    for i in range(0, len(TTS_VOICES), 2):
+        row = [InlineKeyboardButton(TTS_VOICES[j][1], callback_data=f"tts_v:{TTS_VOICES[j][0]}")
+               for j in range(i, min(i + 2, len(TTS_VOICES)))]
+        rows.append(row)
+    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")])
     await update.message.reply_text(
-        "🔊 <b>Text to Speech</b> 💎 <i>roz 2 FREE trial</i>\n\nVoice chuno (Bhojpuri/Hinglish text bhi Hindi voice me bolegi ✅):",
-        reply_markup=kb, parse_mode=HTML)
+        "🔊 <b>Text to Speech (10 Voices!)</b> 💎 <i>roz 2 FREE trial</i>\n\n"
+        "Voice chuno 👇\n<i>Hindi text Hindi voice me, English text English voice me best lagegi! Bhojpuri/Hinglish bhi chalegi ✅</i>",
+        reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
 
 
 async def int_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1143,6 +1190,45 @@ def is_admin(uid: int) -> bool:
     return bool(ADMIN_ID) and uid == ADMIN_ID
 
 
+def admin_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📊 Stats", callback_data="adm_stats"),
+         InlineKeyboardButton("📢 Broadcast", callback_data="adm_bc")],
+        [InlineKeyboardButton("💎 Give Premium", callback_data="adm_prem"),
+         InlineKeyboardButton("🔍 User Info", callback_data="adm_info")],
+        [InlineKeyboardButton("👥 Recent Users", callback_data="adm_recent"),
+         InlineKeyboardButton("💎 Premium List", callback_data="adm_plist")],
+        [InlineKeyboardButton("🚫 Ban", callback_data="adm_ban"),
+         InlineKeyboardButton("✅ Unban", callback_data="adm_unban")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
+    ])
+
+
+async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    t, a, p = stats()
+    await update.message.reply_text(
+        f"🛠️ <b>ADMIN PANEL</b> — full control!\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"👥 Total: <b>{t}</b> • 🟢 Aaj: <b>{a}</b> • 💎 Premium: <b>{p}</b>\n"
+        f"━━━━━━━━━━━━━━━\nNeeche se action chuno 👇",
+        reply_markup=admin_kb(), parse_mode=HTML)
+
+
+async def do_broadcast(bot, text: str):
+    ids = all_user_ids()
+    ok = fail = 0
+    for uid in ids:
+        try:
+            await bot.send_message(uid, text)
+            ok += 1
+        except Exception:
+            fail += 1
+        await asyncio.sleep(0.05)
+    return len(ids), ok, fail
+
+
 async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
@@ -1155,19 +1241,11 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     text = update.message.text.partition(" ")[2].strip()
     if not text:
-        await update.message.reply_text("Use: /broadcast tumhara message")
+        await update.message.reply_text("Use: /broadcast tumhara message\nYa /admin → Broadcast dabao, phir message bhejo.")
         return
-    ids = all_user_ids()
-    ok = fail = 0
-    await update.message.reply_text(f"📢 {len(ids)} users ko bhej raha hoon...")
-    for uid in ids:
-        try:
-            await context.bot.send_message(uid, text)
-            ok += 1
-        except Exception:
-            fail += 1
-        await asyncio.sleep(0.05)
-    await update.message.reply_text(f"✅ Broadcast done! Success: {ok}, Fail: {fail}")
+    await update.message.reply_text("📢 Bhej raha hoon...")
+    n, ok, fail = await do_broadcast(context.bot, text)
+    await update.message.reply_text(f"✅ Broadcast done! Total: {n}, Success: {ok}, Fail: {fail}")
 
 
 async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1197,13 +1275,13 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "joincheck":
         if await ensure_joined(update, context):
-            await q.message.reply_text(WELCOME, reply_markup=main_keyboard(), parse_mode=HTML)
+            await q.message.reply_text(WELCOME, reply_markup=kb_for(uid), parse_mode=HTML)
         return
 
     if data == "menu":
         context.user_data.pop("mode", None)
         await q.message.reply_text("⌨️ Neeche grid me saare tools hain — koi dabao 👇",
-                                   reply_markup=main_keyboard())
+                                   reply_markup=kb_for(uid))
         return
 
     if data == "ref":
@@ -1212,6 +1290,48 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "prem":
         await cmd_premium(update, context)
         return
+    if data == "adm":
+        await cmd_admin(update, context)
+        return
+
+    # ---- admin callbacks ----
+    if data.startswith("adm_"):
+        if not is_admin(uid):
+            await q.message.reply_text("⛔ Sirf admin!")
+            return
+        if data == "adm_stats":
+            t, a, p = stats()
+            await q.message.reply_text(f"📊 <b>STATS</b>\n\n👥 Total: <b>{t}</b>\n🟢 Aaj active: <b>{a}</b>\n💎 Premium: <b>{p}</b>",
+                                       reply_markup=admin_kb(), parse_mode=HTML)
+        elif data == "adm_bc":
+            context.user_data["mode"] = "admin_bc"
+            await q.message.reply_text("📢 Jo message <b>sabko</b> bhejna hai, wo bhejo:\n(/cancel se wapas)", parse_mode=HTML)
+        elif data == "adm_prem":
+            context.user_data["mode"] = "admin_prem"
+            await q.message.reply_text("💎 Format me bhejo:\n<code>user_id din</code>\n(jaise: <code>123456 30</code>)\n\n/cancel se wapas", parse_mode=HTML)
+        elif data == "adm_info":
+            context.user_data["mode"] = "admin_info"
+            await q.message.reply_text("🔍 User ID bhejo (jaise: <code>123456</code>):", parse_mode=HTML)
+        elif data == "adm_recent":
+            rows = recent_users()
+            txt = "👥 <b>Recent 10 Users:</b>\n" + ("".join(
+                f"\n{i + 1}. {hesc(n or 'User')[:18]} — {code(i2)}" + (f" @{hesc(un)}" if un else "")
+                for i, (i2, n, un) in enumerate(rows)) or "\n—")
+            await q.message.reply_text(txt, reply_markup=admin_kb(), parse_mode=HTML)
+        elif data == "adm_plist":
+            rows = premium_users()
+            txt = f"💎 <b>Premium Users ({len(rows)}):</b>\n" + ("".join(
+                f"\n{i + 1}. {hesc(n or 'User')[:15]} — {code(i2)} (tak: {pu[:10]})"
+                for i, (i2, n, pu) in enumerate(rows[:20])) or "\n—")
+            await q.message.reply_text(txt, reply_markup=admin_kb(), parse_mode=HTML)
+        elif data == "adm_ban":
+            context.user_data["mode"] = "admin_ban"
+            await q.message.reply_text("🚫 Ban karne ke liye User ID bhejo:", parse_mode=HTML)
+        elif data == "adm_unban":
+            context.user_data["mode"] = "admin_unban"
+            await q.message.reply_text("✅ Unban ke liye User ID bhejo:", parse_mode=HTML)
+        return
+
     if data in ("plan49", "plan99"):
         if not UPI_ID:
             await q.message.reply_text("💎 Premium jald aa raha hai! /refer se FREE pao 🎁", reply_markup=BACK)
@@ -1256,7 +1376,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
 
-    # ---- password ----
     if data == "pwd_rand":
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("8", callback_data="p8"), InlineKeyboardButton("12", callback_data="p12"),
@@ -1281,7 +1400,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=BACK, parse_mode=HTML)
         return
 
-    # ---- QR smart choice ----
     if data == "upi_yes":
         pending = context.user_data.get("qr_pending")
         if not pending:
@@ -1305,34 +1423,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     reply_markup=BACK)
         return
 
-    # ---- compress presets ----
-    if data in ("comp_80", "comp_55", "comp_30"):
-        raw = context.user_data.get("comp_bytes")
-        if not raw:
-            await q.message.reply_text("⚠️ Photo expire ho gayi. Dobara bhejo:")
-            return
-        if not await use_or_block(uid, update):
-            return
-        qn, mx = {"comp_80": (80, 1600), "comp_55": (55, 1280), "comp_30": (30, 1024)}[data]
-        try:
-            out = compress_image(raw, qn, mx)
-        except Exception:
-            await q.message.reply_text("⚠️ Compress me dikkat. Dusri photo try karo:")
-            return
-        before, after = len(raw) / 1024, len(out) / 1024
-        bio = io.BytesIO(out)
-        bio.name = "compressed.jpg"
-        bio.seek(0)
-        lvl = {"comp_80": "📸 High", "comp_55": "⚖️ Medium", "comp_30": "📦 Maximum"}[data]
-        await q.message.reply_document(
-            document=bio,
-            caption=f"🗜️ {lvl} compress ✅\n📦 {before:.0f} KB → <b>{after:.0f} KB</b> ({100 * (1 - after / max(before, 1)):.0f}% chhota!)",
-            reply_markup=BACK, parse_mode=HTML)
-        context.user_data.pop("comp_bytes", None)
-        context.user_data.pop("mode", None)
-        return
-
-    # ---- pdf done ----
     if data == "pdf_done":
         pages = context.user_data.get("pdf_pages") or []
         if not pages:
@@ -1355,7 +1445,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- interest ----
     if data in ("int_si", "int_ci"):
         context.user_data["int_type"] = "SI" if data == "int_si" else "CI"
         context.user_data["mode"] = "int_p"
@@ -1371,21 +1460,23 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         t = context.user_data.get("int_t", 0)
         if not await use_or_block(uid, update):
             return
-        await send_interest_result(update, p, r, t, f, context)
+        await send_interest_result(update, p, r, t, f)
         for k in ("mode", "int_type", "int_p", "int_r", "int_t"):
             context.user_data.pop(k, None)
         return
 
-    # ---- tts voice ----
     if data.startswith("tts_v:"):
         v = data.split(":")[1]
-        voices = {x[1]: (x[2], x[3]) for x in TTS_VOICES}
+        voices = {x[0]: x for x in TTS_VOICES}
         if v not in voices:
             return
-        context.user_data["tts_voice"] = voices[v][1]
-        context.user_data["tts_name"] = voices[v][0]
+        _, label, voice, rate, pitch = voices[v]
+        context.user_data["tts_voice"] = voice
+        context.user_data["tts_name"] = label
+        context.user_data["tts_rate"] = rate
+        context.user_data["tts_pitch"] = pitch
         context.user_data["mode"] = "tts_text"
-        await q.message.reply_text(f"🔊 Voice: <b>{voices[v][0]}</b> ✅\n\nAb TEXT bhejo (400 letters tak) — Hindi/English/Bhojpuri sab chalega:",
+        await q.message.reply_text(f"🔊 Voice: <b>{label}</b> ✅\n\nAb TEXT bhejo (400 letters tak):",
                                    reply_markup=BACK, parse_mode=HTML)
         return
 
@@ -1394,12 +1485,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
-async def send_interest_result(update, p, r, t, f, context):
+async def send_interest_result(update, p, r, t, f):
     si_i, si_t = si_result(p, r, t)
     ci_i, ci_t = ci_result(p, r, t, f)
     fn = {1: "Yearly", 2: "Half-yearly", 4: "Quarterly", 12: "Monthly"}.get(f, f"{f}x")
-    extra = "💡 <b>Samjho:</b> SI me har saal same interest milta hai. CI me <b>interest par bhi interest</b> milta hai — isliye lamba time = CI king! 👑\n"
-    extra += "📌 Invest kar rahe ho → CI zyada dega ✅ | Loan le rahe ho → SI wala sasta padega ✅"
+    extra = "💡 <b>Samjho:</b> SI me har saal same interest milta hai. CI me <b>interest par bhi interest</b> — lamba time = CI king! 👑\n"
+    extra += "📌 Invest → CI zyada dega ✅ | Loan → SI wala sasta ✅"
     msg = update.callback_query.message if update.callback_query else update.message
     await msg.reply_text(
         f"📈 <b>INTEREST RESULT</b>\n━━━━━━━━━━━━━━━\n"
@@ -1413,6 +1504,9 @@ async def send_interest_result(update, p, r, t, f, context):
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     save_username(uid, update.effective_user.username or "")
+    if is_banned(uid):
+        await update.message.reply_text(BAN_MSG)
+        return
     text = (update.message.text or "").strip()
 
     if text in BTN_MODE:
@@ -1441,20 +1535,98 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "👤 My Account":
         await cmd_account(update, context)
         return
+    if text == "🛠️ Admin Panel":
+        await cmd_admin(update, context)
+        return
 
     mode = context.user_data.get("mode")
     if not mode:
         await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!",
-                                        reply_markup=main_keyboard())
+                                        reply_markup=kb_for(uid))
         return
     if not await ensure_joined(update, context):
+        return
+
+    # ---- ADMIN modes ----
+    if mode == "admin_bc":
+        if not is_admin(uid):
+            return
+        st = await update.message.reply_text("📢 Broadcasting...")
+        n, ok, fail = await do_broadcast(context.bot, text)
+        await st.edit_text(f"✅ Done! Total: {n}, Success: {ok}, Fail: {fail}")
+        context.user_data.pop("mode", None)
+        return
+    if mode == "admin_prem":
+        if not is_admin(uid):
+            return
+        try:
+            parts = text.split()
+            tuid, days = int(parts[0]), int(parts[1]) if len(parts) > 1 else 30
+        except Exception:
+            await update.message.reply_text("⚠️ Format: <code>user_id din</code> (jaise: <code>123456 30</code>)", parse_mode=HTML)
+            return
+        grant_premium(tuid, days)
+        await update.message.reply_text(f"✅ {tuid} ko {days} din premium de diya!", reply_markup=admin_kb())
+        try:
+            await context.bot.send_message(tuid, f"💎 Badhai! Tumhara {days} din ka Premium ACTIVE ho gaya! 🎉")
+        except Exception:
+            pass
+        context.user_data.pop("mode", None)
+        return
+    if mode == "admin_info":
+        if not is_admin(uid):
+            return
+        try:
+            tuid = int(text.strip().split()[0])
+        except Exception:
+            await update.message.reply_text("⚠️ Sahi user ID bhejo:")
+            return
+        r = get_user_row(tuid)
+        if not r:
+            await update.message.reply_text("😔 Ye user nahi mila.")
+            context.user_data.pop("mode", None)
+            return
+        prem = "💎 YES" if is_premium(r) else "Free"
+        await update.message.reply_text(
+            f"🔍 <b>USER INFO</b>\n\n👤 {hesc(r.get('name') or '-')}\n"
+            f"🔗 @{hesc(r.get('username') or '-')} • 🆔 {code(tuid)}\n"
+            f"⭐ {prem} (tak: {premium_expiry(r)})\n🎁 Referrals: {r.get('referrals', 0)} | "
+            f"📊 Uses: {r.get('uses_today', 0)} | 🚫 Ban: {r.get('banned', 0)}",
+            reply_markup=admin_kb(), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+    if mode == "admin_ban":
+        if not is_admin(uid):
+            return
+        try:
+            tuid = int(text.strip().split()[0])
+        except Exception:
+            await update.message.reply_text("⚠️ Sahi user ID bhejo:")
+            return
+        if tuid == ADMIN_ID:
+            await update.message.reply_text("😅 Khud ko ban nahi kar sakte!")
+            return
+        set_ban(tuid, 1)
+        await update.message.reply_text(f"🚫 {tuid} banned!", reply_markup=admin_kb())
+        context.user_data.pop("mode", None)
+        return
+    if mode == "admin_unban":
+        if not is_admin(uid):
+            return
+        try:
+            tuid = int(text.strip().split()[0])
+        except Exception:
+            await update.message.reply_text("⚠️ Sahi user ID bhejo:")
+            return
+        set_ban(tuid, 0)
+        await update.message.reply_text(f"✅ {tuid} unbanned!", reply_markup=admin_kb())
+        context.user_data.pop("mode", None)
         return
 
     if mode == "pay":
         await update.message.reply_text("📸 Payment ka SCREENSHOT photo ke roop me bhejo (text nahi).")
         return
 
-    # ---- QR ----
     if mode == "qr":
         nospace = text.replace(" ", "")
         if UPI_RE.match(nospace):
@@ -1479,25 +1651,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- FONTS (15, 5 per message) ----
-    if mode == "font":
-        if not await use_or_block(uid, update):
-            return
-        if len(text) > 60:
-            await update.message.reply_text("⚠️ 60 letters tak bhejo (best look ke liye).")
-            return
-        await update.message.reply_text("✍️ <b>15 Aesthetic Fonts</b> — tap = copy 👆", parse_mode=HTML)
-        for i in range(0, len(FONTS), 5):
-            chunk = FONTS[i:i + 5]
-            out = f"<b>Part {i // 5 + 1}/3:</b>\n"
-            for name, spec in chunk:
-                out += f"\n{name}:\n{code(style_font(text, spec))}\n"
-            await update.message.reply_text(out, reply_markup=BACK if i + 5 >= len(FONTS) else None,
-                                            parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        return
-
-    # ---- name password ----
     if mode == "pwd_name":
         name = re.sub(r"\s+", "", text)[:20]
         if not re.match(r"^[A-Za-z]{3,20}$", name):
@@ -1507,12 +1660,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         pws = name_passwords(name)
         await update.message.reply_text(
-            f"👤 <b>{hesc(name)} ke passwords</b> (tap = copy 👆):\n\n1️⃣ {code(pws[0])}\n\n2️⃣ {code(pws[1])}\n\n3️⃣ {code(pws[2])}\n\n💪 <i>Strong + yaad rakhne me aasaan!</i>",
+            f"👤 <b>{hesc(name)} ke passwords</b> (tap = copy 👆):\n\n1️⃣ {code(pws[0])}\n\n2️⃣ {code(pws[1])}\n\n3️⃣ {code(pws[2])}\n\n💪 <i>Strong + yaad me aasaan!</i>",
             reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
-    # ---- SHORT (dual + QR) ----
     if mode == "short":
         if not await use_or_block(uid, update):
             return
@@ -1530,13 +1682,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg += f"\n1️⃣ {code(s1)}"
         if s2:
             msg += f"\n\n2️⃣ {code(s2)}"
-        best = s1 or s2
-        await update.message.reply_photo(photo=make_qr_bytes(best), caption=msg,
+        await update.message.reply_photo(photo=make_qr_bytes(s1 or s2), caption=msg,
                                          reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
-    # ---- YT THUMB ----
     if mode == "yt":
         if not await use_or_block(uid, update):
             return
@@ -1549,17 +1699,21 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("⚠️ Is video ka thumbnail nahi mila. Dusra link try karo:")
             return
         data, w, h, q = res
+        try:
+            data, w, h, enh = await asyncio.to_thread(enhance_thumb, data)
+        except Exception:
+            enh = False
         bio = io.BytesIO(data)
         bio.name = f"thumbnail_{w}x{h}.jpg"
         bio.seek(0)
+        tag = "⬆️ <b>HD Enhanced 720p+</b> ✨" if enh else "🏆 <b>Original Highest Quality</b>"
         await update.message.reply_document(
             document=bio,
-            caption=f"🎬 <b>Highest Quality Thumbnail!</b>\n📐 Size: <b>{w}×{h}</b>\n🔗 https://youtu.be/{vid}",
+            caption=f"🎬 {tag}!\n📐 Size: <b>{w}×{h}</b>\n🔗 https://youtu.be/{vid}",
             reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
-    # ---- YT DOWNLOAD ----
     if mode == "ytdl":
         vid = yt_id(text)
         if not vid:
@@ -1568,7 +1722,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await trial_or_block(uid, update, "YT Download"):
             context.user_data.pop("mode", None)
             return
-        status = await update.message.reply_text("⏳ <b>Downloading...</b> (HD me thoda time lagega, ruko! ⏰)",
+        status = await update.message.reply_text("⏳ <b>Downloading HD...</b> (thoda time lagega, ruko! ⏰)",
                                                  parse_mode=HTML)
         st, info, path = await asyncio.to_thread(ytdl_download, text)
         if st != "OK":
@@ -1598,7 +1752,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- EMI ----
     if mode == "emi":
         try:
             p = float(text.replace(",", "").replace("₹", "").strip())
@@ -1653,7 +1806,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- AGE ----
     if mode == "age":
         m = re.match(r"^\s*(\d{1,2})[-/](\d{1,2})[-/](\d{4})\s*$", text)
         if not m:
@@ -1681,7 +1833,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- UPI ----
     if mode == "upi":
         upi = text.replace(" ", "")
         if not UPI_RE.match(upi):
@@ -1730,7 +1881,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop(k, None)
         return
 
-    # ---- ID FINDER ----
     if mode == "idfind":
         fo = getattr(update.message, "forward_origin", None)
         su = getattr(fo, "sender_user", None) if fo else None
@@ -1752,9 +1902,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not await use_or_block(uid, update):
                 return
             un = f"@{update.effective_user.username}" if update.effective_user.username else "—"
-            await update.message.reply_text(
-                f"👤 <b>Tumhari ID:</b>\n\n🆔 {code(uid)}\n🔗 {hesc(un)}",
-                reply_markup=BACK, parse_mode=HTML)
+            await update.message.reply_text(f"👤 <b>Tumhari ID:</b>\n\n🆔 {code(uid)}\n🔗 {hesc(un)}",
+                                            reply_markup=BACK, parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
         un = t[1:] if t.startswith("@") else t
@@ -1777,7 +1926,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Koi message FORWARD karo, @username bhejo, ya 'me' likho:")
         return
 
-    # ---- IFSC ----
     if mode == "ifsc":
         c = text.replace(" ", "").upper()
         if not re.match(r"^[A-Z]{4}0[A-Z0-9]{6}$", c):
@@ -1798,13 +1946,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏢 Branch: <b>{hesc(d.get('BRANCH', '-'))}</b>\n"
             f"🔖 IFSC: {code(c)}\n"
             f"🏙️ City: {hesc(d.get('CITY', '-'))} • {hesc(d.get('STATE', '-'))}\n"
-            f"📍 {hesc(d.get('ADDRESS', '-')[:300])}\n"
-            f"📞 {hesc(d.get('CONTACT', '-') or '-')}",
+            f"📍 {hesc(str(d.get('ADDRESS', '-'))[:300])}\n"
+            f"📞 {hesc(str(d.get('CONTACT', '-') or '-'))}",
             reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
-    # ---- PINCODE ----
     if mode == "pin":
         p = text.replace(" ", "")
         if not re.match(r"^[1-9][0-9]{5}$", p):
@@ -1833,7 +1980,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- LINK CHECK ----
     if mode == "linkcheck":
         if not await use_or_block(uid, update):
             return
@@ -1854,7 +2000,30 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- RTO ----
+    if mode == "linkbypass":
+        if not await use_or_block(uid, update):
+            return
+        if " " in text or "." not in text:
+            await update.message.reply_text("⚠️ Sahi link bhejo:")
+            return
+        st = await update.message.reply_text("🔓 <i>Original link nikal raha hoon...</i>", parse_mode=HTML)
+        status, final, chain = await asyncio.to_thread(bypass_link, text)
+        if status == "OK":
+            await st.edit_text(
+                f"🔓 <b>ORIGINAL LINK MIL GAYA!</b> ✅\n\n🎯 {code(final[:300])}\n\n"
+                f"🔀 {len(chain)} hops me khula\n👆 <i>Tap karke copy karo!</i>",
+                reply_markup=BACK, parse_mode=HTML)
+        elif status == "ERR":
+            await st.edit_text(final)
+        else:
+            await st.edit_text(
+                "⏳ <b>Ye link timer/JS protected hai</b> (arolinks/vplinks style) — bot se bypass nahi hua.\n\n"
+                "✅ <b>Tareeka:</b>\n1️⃣ Link ko Chrome me kholo\n2️⃣ 5-10 sec wait → Continue dabao\n"
+                "3️⃣ Jo final link mile, wo yahan bhejo — main check/download kar dunga! 🙏",
+                reply_markup=BACK, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+
     if mode == "rto":
         v = parse_vehicle(text)
         if not v:
@@ -1879,7 +2048,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ---- INTEREST ----
     if mode == "int_p":
         try:
             p = float(text.replace(",", "").replace("₹", "").strip())
@@ -1927,12 +2095,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if not await use_or_block(uid, update):
             return
-        await send_interest_result(update, p, r, t, 1, context)
+        await send_interest_result(update, p, r, t, 1)
         for k in ("mode", "int_type", "int_p", "int_r", "int_t"):
             context.user_data.pop(k, None)
         return
 
-    # ---- TTS ----
     if mode == "tts_text":
         if len(text) < 2:
             await update.message.reply_text("⚠️ Thoda lamba text bhejo:")
@@ -1942,17 +2109,26 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         voice = context.user_data.get("tts_voice", "hi-IN-SwaraNeural")
         vname = context.user_data.get("tts_name", "Voice")
+        rate = context.user_data.get("tts_rate", "+0%")
+        pitch = context.user_data.get("tts_pitch", "+0Hz")
         st = await update.message.reply_text(f"🔊 <i>{hesc(vname)} bol rahi hai... thoda ruko! 🎙️</i>", parse_mode=HTML)
         path = os.path.join(tempfile.gettempdir(), f"tts_{uid}_{random.randint(1, 99999)}.mp3")
-        ok = await tts_make(text, voice, path)
+        ok = await tts_make(text, voice, rate, pitch, path)
         if not ok or not os.path.exists(path):
             await st.edit_text("⛔ Voice nahi ban payi. Thodi der baad try karo.")
             context.user_data.pop("mode", None)
             return
+        has_dev = bool(re.search(r"[\u0900-\u097F]", text))
+        is_hv = voice.startswith("hi-")
+        hint = ""
+        if has_dev and not is_hv:
+            hint = "\n💡 <i>Hindi text Hindi voice me best lagegi!</i>"
+        elif not has_dev and is_hv and re.search(r"[A-Za-z]", text):
+            hint = "\n💡 <i>English text English voice me best lagega!</i>"
         try:
             await update.message.reply_audio(
                 audio=open(path, "rb"), title=f"{vname} - Utility Duniya",
-                caption=f"🔊 <b>Voice ready!</b> ({hesc(vname)})\n📝 {hesc(text[:150])}",
+                caption=f"🔊 <b>Voice ready!</b> ({hesc(vname)})\n📝 {hesc(text[:150])}{hint}",
                 reply_markup=BACK, parse_mode=HTML)
             try:
                 await st.delete()
@@ -1968,7 +2144,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    if mode in ("pdf", "comp", "pp"):
+    if mode in ("pdf", "pp"):
         await update.message.reply_text("📸 Photo bhejo (text nahi). /cancel se wapas jao.")
         return
 
@@ -1976,10 +2152,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     save_username(uid, update.effective_user.username or "")
+    if is_banned(uid):
+        await update.message.reply_text(BAN_MSG)
+        return
     mode = context.user_data.get("mode")
     if not mode:
         await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!",
-                                        reply_markup=main_keyboard())
+                                        reply_markup=kb_for(uid))
         return
     if not await ensure_joined(update, context):
         return
@@ -2007,7 +2186,6 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    # ID finder via forwarded photo
     if mode == "idfind":
         fo = getattr(update.message, "forward_origin", None)
         su = getattr(fo, "sender_user", None) if fo else None
@@ -2024,9 +2202,9 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📩 Kisi ka message FORWARD karo (photo wala bhi chalega), ya @username bhejo:")
         return
 
-    if mode not in ("pdf", "comp", "pp"):
+    if mode not in ("pdf", "pp"):
         await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!",
-                                        reply_markup=main_keyboard())
+                                        reply_markup=kb_for(uid))
         return
 
     try:
@@ -2047,7 +2225,6 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Photo kholne me dikkat. Dusri photo bhejo:")
         return
 
-    # ---- PDF multi-page ----
     if mode == "pdf":
         pages = context.user_data.setdefault("pdf_pages", [])
         if len(pages) >= 10:
@@ -2063,19 +2240,6 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"📄 Page {len(pages)} add ho gaya! ✅\n\nAur photo bhejo ya neeche ✅ dabao 👇", reply_markup=kb)
         return
 
-    # ---- COMPRESS presets ----
-    if mode == "comp":
-        context.user_data["comp_bytes"] = data
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📸 High (best look)", callback_data="comp_80")],
-            [InlineKeyboardButton("⚖️ Medium (balanced)", callback_data="comp_55")],
-            [InlineKeyboardButton("📦 Maximum (sabse chhota)", callback_data="comp_30")],
-        ])
-        kb_size = len(data) / 1024
-        await update.message.reply_text(f"🗜️ Photo mili! ({kb_size:.0f} KB)\n\nQuality chuno 👇", reply_markup=kb)
-        return
-
-    # ---- PASSPORT ----
     if mode == "pp":
         if not await use_or_block(uid, update):
             return
@@ -2131,10 +2295,8 @@ def main():
     app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))
     app.add_handler(CommandHandler("qr", cmd_qr))
-    app.add_handler(CommandHandler("font", cmd_font))
     app.add_handler(CommandHandler("password", pwd_entry))
     app.add_handler(CommandHandler("pdf", cmd_pdf))
-    app.add_handler(CommandHandler("compress", cmd_comp))
     app.add_handler(CommandHandler("short", cmd_short))
     app.add_handler(CommandHandler("yt", cmd_yt))
     app.add_handler(CommandHandler("ytdl", cmd_ytdl))
@@ -2147,8 +2309,10 @@ def main():
     app.add_handler(CommandHandler("pin", cmd_pin))
     app.add_handler(CommandHandler("pp", cmd_pp))
     app.add_handler(CommandHandler("link", cmd_link))
+    app.add_handler(CommandHandler("bypass", cmd_bypass))
     app.add_handler(CommandHandler("interest", int_entry))
     app.add_handler(CommandHandler("rto", cmd_rto))
+    app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("approve", cmd_approve))

@@ -1,43 +1,27 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v6 MEGA)
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v7)
 
-**19 tools • Tap-to-copy results • Batch-Hub style grid • ₹200/day earning plan**
+**18 tools • 10 TTS voices • YT HD download • Link bypass • Admin panel**
 
 | Tool | Kaam |
 |---|---|
 | 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
-| ✍️ Stylish Fonts | 15 aesthetic fonts (tap = copy) |
 | 🔐 Password | Random + naam wala, 3 options |
 | 🖼️ Image→PDF | Multi-page (10), lossless quality |
-| 🗜️ Compress Photo | 3 presets: High/Medium/Max |
 | 🔗 URL Short | 2 short links + QR |
-| 🎬 YT Thumbnail | Highest quality (auto-detect) |
+| 🎬 YT Thumbnail | 720p+ HD (auto-enhance) |
 | ⬇️ YT Download | Shorts/videos HD download 💎 |
 | 🧮 EMI Calc | Advanced + saal-wise table |
 | 🎂 Age Calculator | Breakdown + weekday + rashi |
 | 💰 UPI QR Generator | Payment QR + amount + note 💎 |
 | 🆔 ID Finder | Forward/username se Telegram ID |
-| 🔊 Text to Speech | Hindi/English male+female voice 💎 |
+| 🔊 Text to Speech | 10 voices: Hindi/English/Old/Baby 💎 |
 | 🏦 IFSC Info | Bank/branch/address live |
 | 📮 Pincode Info | District/state/post offices live |
 | 🪪 Passport Photo | HD single + 4×6 print sheet |
 | 🔍 Link Check | Safe/fraud redirect analysis |
+| 🔓 Link Bypass | Earn links → original link |
 | 📈 Interest Calc | SI vs CI compare + samjhaya |
 | 🚗 RTO Vehicle Info | State + RTO office decoder |
-
-| Tool | Kaam |
-|---|---|
-| 📷 QR Code | Text/link ka QR banao |
-| ✍️ Stylish Fonts | Naam 5 style me (WhatsApp/Instagram bio ke liye) |
-| 🔐 Password | Strong password generator |
-| 🖼️ Image→PDF | Photo ka PDF banao |
-| 🗜️ Compress Photo | Photo ka size chhota karo |
-| 🔗 URL Short | Lamba link chhota karo |
-| 🎬 YT Thumbnail | YouTube thumbnail download |
-| 📝 Text Tools | Words count + UPPER/lower |
-| 🧮 EMI Calc | Loan EMI calculator |
-| 🎂 Age Calc | Umar calculator |
-| 💰 UPI QR 💎 | **Payment QR jo GPay/PhonePe me chale** (premium tool) |
-| 📱 WA Link 💎 | WhatsApp chat link + QR banao (premium tool) |
 
 **Earning features (built-in):**
 - 🎁 Refer & Earn — 5 refer = 30 din Premium FREE (yeh tumhara growth engine hai)
