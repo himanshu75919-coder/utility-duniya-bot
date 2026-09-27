@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v12
+Utility Duniya Bot v13
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -56,7 +56,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v12"
+BOT_VERSION = "v13"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -859,9 +859,9 @@ def _yt_race_one(url: str, client: str):
             o["cookiefile"] = COOKIE_FILE
         with yt_dlp.YoutubeDL(o) as y:
             info = y.extract_info(url, download=False)
-        return (info, client) if info else None
-    except Exception:
-        return None
+        return (info, client, "") if info else (None, client, "noinfo")
+    except Exception as e:
+        return (None, client, str(e)[:200])
 
 
 def yt_race_info(url: str):
@@ -869,6 +869,7 @@ def yt_race_info(url: str):
     with ThreadPoolExecutor(max_workers=8) as ex:
         futs = [ex.submit(_yt_race_one, url, c) for c in YT_CLIENTS]
         futs.append(ex.submit(_yt_race_one, url, None))
+        _first_err = ""
         try:
             for f in cf.as_completed(futs, timeout=75):
                 try:
@@ -879,9 +880,11 @@ def yt_race_info(url: str):
                     for g in futs:
                         g.cancel()
                     return r
+                if r and len(r) > 2 and r[2] and not _first_err:
+                    _first_err = r[2]
         except Exception:
             pass
-    return (None, None)
+    return (None, None, _first_err)
 
 
 def _ffmpeg_exe():
@@ -897,8 +900,12 @@ def ytdl_download(url: str):
     import yt_dlp
     tmpd = tempfile.mkdtemp(prefix="ytdl_")
     try:
-        info0, _win = yt_race_info(url)
+        info0, _win, _err = yt_race_info(url)
         if not info0:
+            _e = (_err or "").lower()
+            _bw = ("bot" in _e or "sign in" in _e or "reload" in _e or "format is not available" in _e or "only images" in _e or "403" in _e or "429" in _e or "forbidden" in _e or "rate-limit" in _e or "login" in _e or "confirm" in _e)
+            if _bw:
+                return ("ERR", "YouTube ne server ko bot samajh ke ROKA hai. FIX: Admin /setcookies likhke YouTube login cookies lagaye - phir turant chalega!", None)
             raise RuntimeError("ytinfo")
     except Exception:
         return ("ERR", "⛔ Video info nahi mili. Link private/delete/blocked ho sakta hai. 🙏\nThodi der baad phir try karo, ya dusri video bhejo.", None)
