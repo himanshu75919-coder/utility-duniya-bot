@@ -25,7 +25,7 @@ load_dotenv()
 import qrcode
 import requests
 from PIL import Image
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update
+from telegram import BotCommand, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove, Update
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -348,24 +348,8 @@ def menu_markup():
 
 BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⬅️ Menu", callback_data="menu")]])
 
-# Telegram ka apna bottom keyboard (hamesha dikhega)
-KB_BTNS = [
-    ["📷 QR Code", "✍️ Stylish Fonts"],
-    ["🔐 Password", "🖼️ Image→PDF"],
-    ["🗜️ Compress Photo", "🔗 URL Short"],
-    ["🎬 YT Thumbnail", "📝 Text Tools"],
-    ["🧮 EMI Calc", "🎂 Age Calc"],
-    ["💰 UPI QR 💎", "📱 WA Link 💎"],
-    ["💎 Premium", "🎁 Refer & Earn"],
-    ["👤 My Account"],
-]
-
-
-def main_keyboard():
-    return ReplyKeyboardMarkup(
-        [[KeyboardButton(t) for t in row] for row in KB_BTNS],
-        resize_keyboard=True, is_persistent=True,
-    )
+# Purana fixed keyboard hata diya - ab Telegram ka asli Menu button (grid) use hoga
+# BTN_MODE sirf un users ke liye rakha hai jinke paas purana keyboard bacha ho
 
 
 BTN_MODE = {
@@ -399,7 +383,7 @@ WELCOME = (
     f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials.\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
-    "⌨️ Neeche keyboard me saare tools hamesha milenge!"
+    "📲 Neeche Menu button (4-dabbe wala) dabao — saare tools wahan milenge!\n📋 Ya /menu likho."
 )
 
 LIMIT_MSG = (
@@ -496,7 +480,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if count:
                 await update.message.reply_text(
                     f"🎉 Welcome! Tum refer hokar aaye ho. Roz {FREE_LIMIT} FREE uses milenge!",
-                    reply_markup=main_keyboard())
+                    reply_markup=ReplyKeyboardRemove())
                 try:
                     if count % REFER_NEED == 0:
                         grant_premium(ref_id, 30)
@@ -511,26 +495,26 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text(WELCOME, reply_markup=main_keyboard())
-    await update.message.reply_text("👇 Yahan se bhi tool chuno:", reply_markup=menu_markup())
+    await update.message.reply_text(WELCOME, reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("👇 Yahan se bhi tool chuno (ya neeche Menu button dabao):", reply_markup=menu_markup())
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text("⌨️ Keyboard ready! Neeche se ya yahan se tool chuno:",
-                                    reply_markup=main_keyboard())
+    await update.message.reply_text("👇 Koi tool chuno (Menu button se bhi kabhi bhi khol sakte ho):",
+                                    reply_markup=ReplyKeyboardRemove())
     await update.message.reply_text("👇 Tools:", reply_markup=menu_markup())
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.pop("mode", None)
-    await update.message.reply_text("❌ Cancel ho gaya. Neeche keyboard se tool chuno.")
+    await update.message.reply_text("❌ Cancel ho gaya. /menu se dobara chuno.")
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "❓ HELP\n\nNeeche keyboard me saare tools hain, bas dabao! ⌨️\n\n"
+        "❓ HELP\n\n📲 Neeche Menu button (4-dabbe wala) dabao = saare tools!\n\n"
         "/menu - saare tools\n/premium - premium plans\n/refer - refer & earn\n/account - mera account\n/cancel - cancel\n\n"
         f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁")
 
@@ -575,6 +559,67 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Premium me:\n♾️ Unlimited saare uses\n💰 UPI QR + 📱 WA Link unlimited\n⚡ jaldi naye tools\n\n"
         "Plan chuno, UPI se pay karo, screenshot bhejo — kuch min me active! ⚡",
         reply_markup=kb)
+
+# ---- Har tool ka apna /command (Telegram ke Menu/grid button me dikhega) ----
+async def cmd_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str):
+    if not await ensure_joined(update, context):
+        return
+    context.user_data["mode"] = mode
+    await update.message.reply_text(PROMPTS[mode] + "\n\n/cancel kabhi bhi dabao.", reply_markup=BACK)
+
+
+async def cmd_qr(update, context): await cmd_tool(update, context, "qr")
+async def cmd_font(update, context): await cmd_tool(update, context, "font")
+async def cmd_pdf(update, context): await cmd_tool(update, context, "pdf")
+async def cmd_comp(update, context): await cmd_tool(update, context, "comp")
+async def cmd_short(update, context): await cmd_tool(update, context, "short")
+async def cmd_yt(update, context): await cmd_tool(update, context, "yt")
+async def cmd_text(update, context): await cmd_tool(update, context, "text")
+async def cmd_emi(update, context): await cmd_tool(update, context, "emi")
+async def cmd_age(update, context): await cmd_tool(update, context, "age")
+async def cmd_upi(update, context): await cmd_tool(update, context, "upi")
+async def cmd_wa(update, context): await cmd_tool(update, context, "wa")
+
+
+async def cmd_password(update, context):
+    if not await ensure_joined(update, context):
+        return
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("8", callback_data="p8"), InlineKeyboardButton("12", callback_data="p12"),
+         InlineKeyboardButton("16", callback_data="p16"), InlineKeyboardButton("20", callback_data="p20")],
+        [InlineKeyboardButton("⬅️ Menu", callback_data="menu")],
+    ])
+    await update.message.reply_text("🔐 Kitne character ka password chahiye?", reply_markup=kb)
+
+
+# Telegram Menu button (4-dabbe grid) me ye commands dikhenge
+COMMANDS = [
+    ("qr", "📷 QR Code banao"),
+    ("font", "✍️ Stylish Fonts"),
+    ("password", "🔐 Strong Password"),
+    ("pdf", "🖼️ Photo ka PDF"),
+    ("compress", "🗜️ Photo Compress"),
+    ("short", "🔗 Link Short"),
+    ("yt", "🎬 YT Thumbnail"),
+    ("text", "📝 Text Tools"),
+    ("emi", "🧮 EMI Calculator"),
+    ("age", "🎂 Age Calculator"),
+    ("upi", "💰 UPI Payment QR 💎"),
+    ("wa", "📱 WhatsApp Link 💎"),
+    ("premium", "💎 Premium Plans"),
+    ("refer", "🎁 Refer & Earn"),
+    ("account", "👤 My Account"),
+    ("menu", "📋 Tools Menu"),
+    ("help", "❓ Help"),
+]
+
+
+async def _post_init(app: Application):
+    try:
+        await app.bot.set_my_commands([BotCommand(c, d) for c, d in COMMANDS])
+        log.info("Bot Menu commands set ho gaye")
+    except Exception as e:
+        log.warning("set commands fail: %s", e)
 
 # ---------------- ADMIN ----------------
 def is_admin(uid: int) -> bool:
@@ -635,7 +680,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "joincheck":
         if await ensure_joined(update, context):
-            await q.message.reply_text(WELCOME, reply_markup=main_keyboard())
+            await q.message.reply_text(WELCOME, reply_markup=ReplyKeyboardRemove())
             await q.message.reply_text("👇 Yahan se bhi tool chuno:", reply_markup=menu_markup())
         return
 
@@ -777,7 +822,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     mode = context.user_data.get("mode")
     if not mode:
-        await update.message.reply_text("👇 Neeche keyboard se koi tool dabao ⌨️", reply_markup=main_keyboard())
+        await update.message.reply_text("👇 Menu button (neeche 4 dabbe) dabao ya /menu likho", reply_markup=ReplyKeyboardRemove())
         return
     if not await ensure_joined(update, context):
         return
@@ -1005,7 +1050,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     mode = context.user_data.get("mode")
     if not mode:
-        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=main_keyboard())
+        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=ReplyKeyboardRemove())
         return
     if not await ensure_joined(update, context):
         return
@@ -1035,7 +1080,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode not in ("pdf", "comp"):
-        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=main_keyboard())
+        await update.message.reply_text("👇 Neeche keyboard se tool dabao ⌨️", reply_markup=ReplyKeyboardRemove())
         return
     if not await use_or_block(uid, update):
         return
@@ -1097,10 +1142,22 @@ def main():
     if not BOT_TOKEN:
         raise SystemExit("❌ BOT_TOKEN nahi mila! Render Environment me BOT_TOKEN=... dalo.")
     db().close()
-    app = Application.builder().token(BOT_TOKEN).build()
+    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
+    app.add_handler(CommandHandler("qr", cmd_qr))
+    app.add_handler(CommandHandler("font", cmd_font))
+    app.add_handler(CommandHandler("password", cmd_password))
+    app.add_handler(CommandHandler("pdf", cmd_pdf))
+    app.add_handler(CommandHandler("compress", cmd_comp))
+    app.add_handler(CommandHandler("short", cmd_short))
+    app.add_handler(CommandHandler("yt", cmd_yt))
+    app.add_handler(CommandHandler("text", cmd_text))
+    app.add_handler(CommandHandler("emi", cmd_emi))
+    app.add_handler(CommandHandler("age", cmd_age))
+    app.add_handler(CommandHandler("upi", cmd_upi))
+    app.add_handler(CommandHandler("wa", cmd_wa))
     app.add_handler(CommandHandler("help", cmd_help))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(CommandHandler("account", cmd_account))
