@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v7
+Utility Duniya Bot v9
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -10,6 +10,7 @@ import asyncio
 import glob
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+import concurrent.futures as cf
 import io
 import logging
 import os
@@ -18,6 +19,7 @@ import re
 import sqlite3
 import string
 import tempfile
+import time
 from datetime import date, datetime, timedelta
 from html import escape as hesc
 from urllib.parse import quote, urlparse
@@ -54,6 +56,8 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
+BOT_VERSION = "v9"
+START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -83,6 +87,26 @@ def inr(n) -> str:
     if rest:
         parts.append(rest)
     return ",".join(reversed(parts)) + "," + last3
+
+# ---------------- SPEED CACHE (repeat sawal = instant jawab) ----------------
+_CACHE = {}
+
+def cache_get(key):
+    try:
+        exp, val = _CACHE.get(key, (0, None))
+        if exp > time.time():
+            return (True, val)
+    except Exception:
+        pass
+    return (False, None)
+
+def cache_put(key, val, ttl=21600):
+    try:
+        if len(_CACHE) > 500:
+            _CACHE.clear()
+        _CACHE[key] = (time.time() + ttl, val)
+    except Exception:
+        pass
 
 # ---------------- DATABASE ----------------
 def db():
@@ -584,6 +608,9 @@ def link_check(url: str):
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+    _hit, _val = cache_get(("lc", url))
+    if _hit:
+        return _val
     findings = []
     bad = warn = 0
     chain = []
@@ -633,7 +660,9 @@ def link_check(url: str):
         verdict = "🟡 Thoda saavdhaan raho"
     else:
         verdict = "🟢 Looks SAFE (basic check me saaf)"
-    return {"final": final, "chain": chain, "findings": findings, "verdict": verdict}
+    _out = {"final": final, "chain": chain, "findings": findings, "verdict": verdict}
+    cache_put(("lc", url), _out)
+    return _out
 
 # ---------------- LINK BYPASS (earn links -> original) ----------------
 BYPASS_DOMAINS = {"arolinks.com", "arlinks.in", "vplinks.in", "vplinks.com", "gplinks.com",
@@ -647,6 +676,9 @@ def bypass_link(url: str):
     url = (url or "").strip()
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
+    _hit, _val = cache_get(("bp", url))
+    if _hit:
+        return _val
     chain = []
     try:
         r = requests.get(url, headers=UA, timeout=12, allow_redirects=True)
@@ -656,7 +688,9 @@ def bypass_link(url: str):
         return ("ERR", f"⛔ Link khul nahi raha.\n({str(e)[:100]})", [])
     host = (urlparse(final).hostname or "").lower().lstrip("www.")
     if host not in BYPASS_DOMAINS and final.rstrip("/") != url.rstrip("/"):
-        return ("OK", final, chain)
+        _r = ("OK", final, chain)
+        cache_put(("bp", url), _r)
+        return _r
     # page ke andar asli link dhoondo (meta-refresh / JS / get-link button)
     try:
         html = r.text or ""
@@ -670,25 +704,39 @@ def bypass_link(url: str):
             cands.append(m3.group(1))
         for c in cands:
             if c.startswith("http") and (urlparse(c).hostname or "").lower().lstrip("www.") not in BYPASS_DOMAINS:
-                return ("OK", c, chain + [c])
+                _r = ("OK", c, chain + [c])
+                cache_put(("bp", url), _r)
+                return _r
     except Exception:
         pass
     return ("WAIT", final, chain)
 
 # ---------------- NETWORK APIS ----------------
 def ifsc_lookup(code: str):
+    _hit, _val = cache_get(("ifsc", code))
+    if _hit:
+        return _val
     r = requests.get(f"https://ifsc.razorpay.com/{code}", timeout=12, headers=UA)
     if r.status_code != 200:
         return None
-    return r.json()
+    try:
+        j = r.json()
+    except Exception:
+        return None
+    cache_put(("ifsc", code), j)
+    return j
 
 
 def pin_lookup(pin: str):
+    _hit, _val = cache_get(("pin", pin))
+    if _hit:
+        return _val
     for _ in range(3):
         try:
             r = requests.get(f"https://api.postalpincode.in/pincode/{pin}", timeout=15, headers=UA)
             j = r.json()
             if isinstance(j, list) and j and j[0].get("Status") == "Success":
+                cache_put(("pin", pin), j[0])
                 return j[0]
             return None
         except Exception:
@@ -780,12 +828,50 @@ async def tts_make(text: str, voice: str, rate: str, pitch: str, outpath: str) -
         return False
 
 # ---------------- YT DOWNLOAD ----------------
+YT_CLIENTS = ["web", "web_embedded", "android", "ios", "mweb", "tv"]
 YTDL_BASE = {"quiet": True, "noplaylist": True, "socket_timeout": 25,
              "retries": 3, "fragment_retries": 3,
-             "extractor_args": {"youtube": {"player_client": ["web", "web_embedded", "tv_embedded", "android", "ios", "mweb", "tv"]}}}
+             "extractor_args": {"youtube": {"player_client": YT_CLIENTS}}}
+# NOTE: impersonate REMOVED (v9 test: curl_cffi breaks YT requests). Clients+cookies only.
 
 
 COOKIE_FILE = "/tmp/yt_cookies.txt"
+
+
+def _yt_race_one(url: str, client: str):
+    import yt_dlp
+    try:
+        o = {"quiet": True, "noplaylist": True, "socket_timeout": 15,
+             "retries": 1, "fragment_retries": 1}
+        if client:
+            o["extractor_args"] = {"youtube": {"player_client": [client]}}
+        if os.path.exists(COOKIE_FILE):
+            o["cookiefile"] = COOKIE_FILE
+        with yt_dlp.YoutubeDL(o) as y:
+            info = y.extract_info(url, download=False)
+        return (info, client) if info else None
+    except Exception:
+        return None
+
+
+def yt_race_info(url: str):
+    """7 clients ek saath race - jo pehle info laaye wahi winner."""
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        futs = [ex.submit(_yt_race_one, url, c) for c in YT_CLIENTS]
+        futs.append(ex.submit(_yt_race_one, url, None))
+        try:
+            for f in cf.as_completed(futs, timeout=75):
+                try:
+                    r = f.result()
+                except Exception:
+                    continue
+                if r and r[0]:
+                    for g in futs:
+                        g.cancel()
+                    return r
+        except Exception:
+            pass
+    return (None, None)
 
 
 def _ffmpeg_exe():
@@ -801,8 +887,9 @@ def ytdl_download(url: str):
     import yt_dlp
     tmpd = tempfile.mkdtemp(prefix="ytdl_")
     try:
-        with yt_dlp.YoutubeDL(dict(YTDL_BASE)) as y:
-            info0 = y.extract_info(url, download=False)
+        info0, _win = yt_race_info(url)
+        if not info0:
+            raise RuntimeError("ytinfo")
     except Exception:
         return ("ERR", "⛔ Video info nahi mili. Link private/delete/blocked ho sakta hai. 🙏\nThodi der baad phir try karo, ya dusri video bhejo.", None)
     dur = info0.get("duration") or 0
@@ -815,6 +902,11 @@ def ytdl_download(url: str):
     _ff = _ffmpeg_exe()
     if _ff:
         opts["ffmpeg_location"] = _ff
+    try:
+        if _win:
+            opts["extractor_args"] = {"youtube": {"player_client": [_win] + [c for c in YT_CLIENTS if c != _win]}}
+    except Exception:
+        pass
     if os.path.exists(COOKIE_FILE):
         opts["cookiefile"] = COOKIE_FILE
     try:
@@ -1238,6 +1330,17 @@ def admin_kb():
          InlineKeyboardButton("✅ Unban", callback_data="adm_unban")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
+
+
+async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        secs = int((datetime.now() - START_TIME).total_seconds())
+        h = secs // 3600
+        m = (secs % 3600) // 60
+        msg = "Pong! Bot LIVE hai ⚡\n📌 Version: <b>" + BOT_VERSION + "</b>\n⏱️ Uptime: " + str(h) + "h " + str(m) + "m"
+        await update.message.reply_text(msg, parse_mode=HTML)
+    except Exception:
+        pass
 
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2452,6 +2555,7 @@ def main():
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("approve", cmd_approve))
     app.add_handler(CommandHandler("setcookies", cmd_setcookies))
+    app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CallbackQueryHandler(on_cb))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.ATTACHMENT, on_photo))
