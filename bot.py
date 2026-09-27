@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v14
+Utility Duniya Bot v15
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -20,6 +20,7 @@ import sqlite3
 import string
 import tempfile
 import time
+import threading
 from datetime import date, datetime, timedelta
 from html import escape as hesc
 from urllib.parse import quote, urlparse
@@ -56,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v14"
+BOT_VERSION = "v15"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -753,6 +754,65 @@ def pin_lookup(pin: str):
             continue
     return None
 
+_IG_LOCK = threading.Lock()
+_IG_LAST = [0.0]
+
+
+def _ig_fetch(u: str):
+    with _IG_LOCK:
+        wait = 8 - (time.time() - _IG_LAST[0])
+        if wait > 0:
+            time.sleep(wait)
+        try:
+            r = requests.get("https://i.instagram.com/api/v1/users/web_profile_info/",
+                             params={"username": u},
+                             headers={"User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
+                                      "x-ig-app-id": "936619743392459"},
+                             timeout=12)
+            return (r.status_code, r)
+        finally:
+            _IG_LAST[0] = time.time()
+
+
+def insta_lookup(username: str):
+    _parts = ((username or "").strip().lstrip("@").split() or [""])
+    u = _parts[0][:30]
+    if not u or not all(ch.isalnum() or ch in "._" for ch in u):
+        return None
+    _hit, _val = cache_get(("ig", u.lower()))
+    if _hit:
+        return _val
+    for _att in (1, 2):
+        try:
+            _code, _r = _ig_fetch(u)
+        except Exception:
+            return None
+        if _code == 429:
+            if _att == 1:
+                time.sleep(8)
+                continue
+            return "RATELIMIT"
+        if _code != 200:
+            return None
+        try:
+            usr = _r.json().get("data", {}).get("user") or {}
+        except Exception:
+            return None
+        if not usr.get("username"):
+            return None
+        d = {"username": usr.get("username"), "name": usr.get("full_name") or "-",
+             "uid": str(usr.get("id") or "-"), "private": bool(usr.get("is_private")),
+             "verified": bool(usr.get("is_verified")),
+             "followers": (usr.get("edge_followed_by") or {}).get("count", 0),
+             "following": (usr.get("edge_follow") or {}).get("count", 0),
+             "posts": (usr.get("edge_owner_to_timeline_media") or {}).get("count", 0),
+             "bio": (usr.get("biography") or "").strip(),
+             "pic": usr.get("profile_pic_url_hd") or usr.get("profile_pic_url") or ""}
+        cache_put(("ig", u.lower()), d, ttl=3600)
+        return d
+    return "RATELIMIT"
+
+
 # ---------------- IMAGE TOOLS ----------------
 def normalize_page(img: Image.Image) -> bytes:
     if img.mode in ("RGBA", "LA", "P"):
@@ -992,7 +1052,7 @@ KB_BTNS = [
     ["🔍 Link Check", "🔓 Link Bypass"],
     ["📈 Interest Calc", "🚗 RTO Vehicle Info"],
     ["💎 Premium", "🎁 Refer & Earn"],
-    ["👤 My Account"],
+    ["📸 Insta Info", "👤 My Account"],
 ]
 
 
@@ -1020,6 +1080,7 @@ BTN_MODE = {
     "📮 Pincode Info": "pin", "🪪 Passport Photo": "pp",
     "🔍 Link Check": "linkcheck", "🔓 Link Bypass": "linkbypass",
     "🚗 RTO Vehicle Info": "rto",
+    "📸 Insta Info": "insta",
 }
 
 PROMPTS = {
@@ -1037,6 +1098,7 @@ PROMPTS = {
     "pp": "🪪 <b>Passport Photo Maker (HD)</b>\n\n📸 Apni PHOTO bhejo (chehra beech me, seedhi photo).\nSingle HD photo + print sheet (9 copies) milegi! 🖨️",
     "linkcheck": "🔍 <b>Link Checker</b>\n\nKoi bhi LINK bhejo — safe hai ya fraud, check karunga:",
     "linkbypass": "🔓 <b>Link Bypass</b>\n\narolinks / vplinks / gplinks jaisa EARN LINK bhejo — asli original link nikalunga:\n\n<i>Note: timer/JS wale kuch links browser me kholne padenge.</i>",
+    "insta": ("📸 <b>Insta Info</b>" + chr(10) + chr(10) + "Insta username bhejo (bina @):" + chr(10) + "(jaise: virat.kohli)"),
     "rto": "🚗 <b>RTO Vehicle Info</b>\n\nGaadi number bhejo:\n(jaise: JH01AB1234)",
 }
 
@@ -1324,6 +1386,7 @@ async def cmd_pp(u, c): await cmd_tool(u, c, "pp")
 async def cmd_link(u, c): await cmd_tool(u, c, "linkcheck")
 async def cmd_bypass(u, c): await cmd_tool(u, c, "linkbypass")
 async def cmd_rto(u, c): await cmd_tool(u, c, "rto")
+async def cmd_insta(u, c): await cmd_tool(u, c, "insta")
 
 
 async def pwd_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2212,6 +2275,60 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Koi message FORWARD karo, @username bhejo, ya 'me' likho:")
         return
 
+    if mode == "insta":
+        _u = ((text or "").strip().lstrip("@").split() or [""])
+        u = _u[0][:30]
+        if not u or not all(ch.isalnum() or ch in "._" for ch in u):
+            await update.message.reply_text("Sahi Insta username bhejo (bina @). Dobara try karo:")
+            return
+        if not await trial_or_block(uid, update, "Insta Info"):
+            context.user_data.pop("mode", None)
+            return
+        await act(context, update.effective_chat.id, "typing")
+        st = await update.message.reply_text("Report nikal raha hoon...")
+        d = await asyncio.to_thread(insta_lookup, u)
+        if d == "RATELIMIT":
+            refund_trial(uid)
+            await st.edit_text("Instagram busy hai (limit lag gayi). 1 min baad dobara bhejo (trial wapas).")
+            context.user_data.pop("mode", None)
+            return
+        if not d:
+            refund_trial(uid)
+            await st.edit_text("Ye username nahi mila. Sahi username bhejo (trial wapas).")
+            context.user_data.pop("mode", None)
+            return
+        NL = chr(10)
+        pv = "PRIVATE" if d["private"] else "PUBLIC"
+        vf = "VERIFIED ✅" if d["verified"] else "NOT VERIFIED ❌"
+        cap = NL.join(["📸 <b>INSTAGRAM REPORT</b>",
+            "Username: @" + hesc(d["username"]),
+            "Name: " + hesc(d["name"]),
+            "ID: " + code(d["uid"]),
+            pv + " | " + vf,
+            "Followers: " + str(d["followers"]) + " | Following: " + str(d["following"]) + " | Posts: " + str(d["posts"]),
+            "Bio: " + (hesc(d["bio"][:300]) if d["bio"] else "-")])
+        pic = None
+        if d["pic"]:
+            try:
+                _r = await asyncio.to_thread(lambda: requests.get(d["pic"], timeout=15))
+                if _r.status_code == 200 and len(_r.content) > 5000:
+                    pic = _r.content
+            except Exception:
+                pic = None
+        if pic:
+            bio = io.BytesIO(pic)
+            bio.name = "insta_dp.jpg"
+            bio.seek(0)
+            await update.message.reply_photo(photo=bio, caption=cap, reply_markup=BACK, parse_mode=HTML)
+            try:
+                await st.delete()
+            except Exception:
+                pass
+        else:
+            await st.edit_text(cap, reply_markup=BACK, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+
     if mode == "ifsc":
         c = text.replace(" ", "").upper()
         if not re.match(r"^[A-Z]{4}0[A-Z0-9]{6}$", c):
@@ -2697,6 +2814,7 @@ def main():
     app.add_handler(CommandHandler("bypass", cmd_bypass))
     app.add_handler(CommandHandler("interest", int_entry))
     app.add_handler(CommandHandler("rto", cmd_rto))
+    app.add_handler(CommandHandler("insta", cmd_insta))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
