@@ -8,6 +8,8 @@ Utility Duniya Bot v7
 
 import asyncio
 import glob
+import subprocess
+from concurrent.futures import ThreadPoolExecutor
 import io
 import logging
 import os
@@ -246,6 +248,26 @@ def add_use(uid: int):
     con.close()
 
 
+def refund_use(uid: int):
+    try:
+        con = db()
+        con.execute("UPDATE users SET uses_today=CASE WHEN uses_today>0 THEN uses_today-1 ELSE 0 END WHERE user_id=?", (uid,))
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+
+
+def refund_trial(uid: int):
+    try:
+        con = db()
+        con.execute("UPDATE users SET trial_count=CASE WHEN trial_count>0 THEN trial_count-1 ELSE 0 END WHERE user_id=?", (uid,))
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+
+
 def add_trial(uid: int):
     con = db()
     con.execute("UPDATE users SET trial_count=trial_count+1 WHERE user_id=?", (uid,))
@@ -449,21 +471,21 @@ def yt_id(link: str):
 
 
 def fetch_yt_best(vid: str):
-    best = None
-    for q in ("maxresdefault", "sddefault", "hq720", "hqdefault", "mqdefault"):
+    def one(q):
         try:
-            r = requests.get(f"https://img.youtube.com/vi/{vid}/{q}.jpg", timeout=12, headers=UA)
+            r = requests.get(f"https://img.youtube.com/vi/{vid}/{q}.jpg", timeout=10, headers=UA)
             if r.status_code != 200 or len(r.content) < 5000:
-                continue
+                return None
             img = Image.open(io.BytesIO(r.content))
             w, h = img.size
             if w <= 150:
-                continue
-            if not best or w * h > best[0]:
-                best = (w * h, r.content, w, h, q)
+                return None
+            return (w * h, r.content, w, h, q)
         except Exception:
-            continue
-    return best[1:] if best else None
+            return None
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        res = [x for x in ex.map(one, ("maxresdefault", "sddefault", "hq720", "hqdefault", "mqdefault")) if x]
+    return max(res)[1:] if res else None
 
 
 def enhance_thumb(data: bytes):
@@ -760,7 +782,10 @@ async def tts_make(text: str, voice: str, rate: str, pitch: str, outpath: str) -
 # ---------------- YT DOWNLOAD ----------------
 YTDL_BASE = {"quiet": True, "noplaylist": True, "socket_timeout": 25,
              "retries": 3, "fragment_retries": 3,
-             "extractor_args": {"youtube": {"player_client": ["android", "ios", "mweb", "tv"]}}}
+             "extractor_args": {"youtube": {"player_client": ["web", "web_embedded", "tv_embedded", "android", "ios", "mweb", "tv"]}}}
+
+
+COOKIE_FILE = "/tmp/yt_cookies.txt"
 
 
 def _ffmpeg_exe():
@@ -790,6 +815,8 @@ def ytdl_download(url: str):
     _ff = _ffmpeg_exe()
     if _ff:
         opts["ffmpeg_location"] = _ff
+    if os.path.exists(COOKIE_FILE):
+        opts["cookiefile"] = COOKIE_FILE
     try:
         with yt_dlp.YoutubeDL(opts) as y:
             info = y.extract_info(url, download=True)
@@ -928,6 +955,13 @@ async def ensure_joined(update: Update, context: ContextTypes.DEFAULT_TYPE) -> b
     return False
 
 
+async def act(context: ContextTypes.DEFAULT_TYPE, chat_id: int, action: str):
+    try:
+        await context.bot.send_chat_action(chat_id, action)
+    except Exception:
+        pass
+
+
 async def _send_limit_msg(update: Update, text: str):
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🎁 Refer & Earn", callback_data="ref")],
@@ -1021,7 +1055,7 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for k in ("mode", "pdf_pages", "upi_id", "upi_name", "upi_amt", "emi_p", "emi_r",
               "int_type", "int_p", "int_r", "int_t", "tts_voice", "tts_name", "tts_rate",
-              "tts_pitch", "qr_pending"):
+              "tts_pitch", "qr_pending", "setcookies"):
         context.user_data.pop(k, None)
     await update.message.reply_text("❌ Cancel ho gaya. Grid se dobara chuno.")
 
@@ -1125,6 +1159,8 @@ async def cmd_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str
     if not await ensure_joined(update, context):
         return
     context.user_data["mode"] = mode
+    if mode == "pdf":
+        context.user_data["pdf_pages"] = []
     await update.message.reply_text(PROMPTS[mode] + "\n\n/cancel kabhi bhi dabao.",
                                     reply_markup=BACK, parse_mode=HTML)
 
@@ -1246,6 +1282,17 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📢 Bhej raha hoon...")
     n, ok, fail = await do_broadcast(context.bot, text)
     await update.message.reply_text(f"✅ Broadcast done! Total: {n}, Success: {ok}, Fail: {fail}")
+
+
+async def cmd_setcookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    context.user_data["mode"] = "setcookies"
+    await update.message.reply_text(
+        "🍪 <b>YT Cookies Setup</b> (permanent download fix!) "
+        "PC Chrome me <b>'Get cookies.txt LOCALLY'</b> extension lagao → youtube.com kholo → Export → jo <b>cookies.txt</b> mile wo yahan FILE bhej do. "
+        "⚠️ Note: deploy ke baad dobara bhejna padega (free server memory reset). Permanent ke liye Render me YT_COOKIES env me file ka text dalo.",
+        parse_mode=HTML)
 
 
 async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1430,6 +1477,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "upload_document")
         try:
             pdf = await asyncio.to_thread(pages_to_pdf, pages)
         except Exception:
@@ -1514,6 +1562,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         mode = BTN_MODE[text]
         context.user_data["mode"] = mode
+        if mode == "pdf":
+            context.user_data["pdf_pages"] = []
         await update.message.reply_text(PROMPTS[mode] + "\n\n/cancel kabhi bhi dabao.",
                                         reply_markup=BACK, parse_mode=HTML)
         return
@@ -1645,6 +1695,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(text) > 2000:
             await update.message.reply_text("⚠️ Text thoda chhota bhejo (2000 letters tak).")
             return
+        await act(context, update.effective_chat.id, "upload_photo")
         await update.message.reply_photo(photo=make_qr_bytes(text),
                                          caption=f"📷 HD QR ready! ✅\n\n📝 Data: {code(text[:200])}",
                                          reply_markup=BACK, parse_mode=HTML)
@@ -1668,14 +1719,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "short":
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "typing")
         url = text if text.startswith(("http://", "https://")) else "https://" + text
         if "." not in urlparse(url).netloc:
             await update.message.reply_text("⚠️ Sahi link bhejo (jaise google.com). Dobara try karo:")
             return
-        s1 = await asyncio.to_thread(shorten_isgd, url)
-        s2 = await asyncio.to_thread(shorten_tiny, url)
+        s1, s2 = await asyncio.gather(asyncio.to_thread(shorten_isgd, url),
+                                            asyncio.to_thread(shorten_tiny, url))
         if not s1 and not s2:
-            await update.message.reply_text("⚠️ Short nahi ho paya. Sahi link bhejo:")
+            refund_use(uid)
+            await update.message.reply_text("⚠️ Short nahi ho paya (net slow?). Dobara try karo — limit wapas kar di! ✅")
             return
         msg = "🔗 <b>Short links ready!</b> (tap = copy 👆)\n"
         if s1:
@@ -1690,13 +1743,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "yt":
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "upload_photo")
         vid = yt_id(text)
         if not vid:
             await update.message.reply_text("⚠️ Sahi YouTube link bhejo. Dobara try karo:")
             return
         res = await asyncio.to_thread(fetch_yt_best, vid)
         if not res:
-            await update.message.reply_text("⚠️ Is video ka thumbnail nahi mila. Dusra link try karo:")
+            refund_use(uid)
+            await update.message.reply_text("⚠️ Is video ka thumbnail nahi mila. Dusra link try karo (limit wapas ✅):")
             return
         data, w, h, q = res
         try:
@@ -1722,21 +1777,48 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not await trial_or_block(uid, update, "YT Download"):
             context.user_data.pop("mode", None)
             return
+        await act(context, update.effective_chat.id, "upload_video")
         status = await update.message.reply_text("⏳ <b>Downloading HD...</b> (thoda time lagega, ruko! ⏰)",
                                                  parse_mode=HTML)
         st, info, path = await asyncio.to_thread(ytdl_download, text)
         if st != "OK":
-            await status.edit_text(info)
+            refund_trial(uid)
+            try:
+                thumb = await asyncio.to_thread(fetch_yt_best, vid)
+            except Exception:
+                thumb = None
+            if thumb:
+                data, w, h, _q = thumb
+                bio = io.BytesIO(data)
+                bio.name = "thumbnail.jpg"
+                bio.seek(0)
+                await update.message.reply_photo(
+                    photo=bio,
+                    caption=f"{info} 🎬 Video nahi aayi to thumbnail le lo! ({w}x{h})",
+                    reply_markup=BACK, parse_mode=HTML)
+                try:
+                    await status.delete()
+                except Exception:
+                    pass
+            else:
+                await status.edit_text(info)
             context.user_data.pop("mode", None)
             return
         try:
             title = (info.get("title") or "video")[:80]
             dur = info.get("duration") or 0
             res = info.get("height") or "?"
-            await update.message.reply_video(
-                video=open(path, "rb"),
+            vf = open(path, "rb")
+            try:
+                await update.message.reply_video(
+                    video=vf,
                 caption=f"⬇️ <b>{hesc(title)}</b>\n⏱️ {dur // 60}:{dur % 60:02d} min • 📐 {res}p • 💾 {os.path.getsize(path) / 1048576:.1f} MB\n\n✅ Download karke chill karo! 🎬",
-                reply_markup=BACK, parse_mode=HTML)
+                    reply_markup=BACK, parse_mode=HTML)
+            finally:
+                try:
+                    vf.close()
+                except Exception:
+                    pass
             try:
                 await status.delete()
             except Exception:
@@ -1875,10 +1957,33 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                + (f"💵 Fixed: ₹{inr(context.user_data.get('upi_amt') or 0)}\n" if context.user_data.get("upi_amt") else "💵 Amount: customer khud bharega\n")
                + (f"📝 Note: {hesc(note)}\n" if note else "")
                + f"\n🔗 Link: {code(link)}\n\n📲 GPay / PhonePe / Paytm se scan karo! ✅")
+        await act(context, update.effective_chat.id, "upload_photo")
         await update.message.reply_photo(photo=make_qr_bytes(link), caption=cap,
                                          reply_markup=BACK, parse_mode=HTML)
         for k in ("mode", "upi_id", "upi_name", "upi_amt"):
             context.user_data.pop(k, None)
+        return
+
+    if mode == "setcookies":
+        if not is_admin(uid):
+            context.user_data.pop("mode", None)
+            return
+        try:
+            doc = update.message.document
+            if not doc or not (doc.file_name or "").endswith(".txt"):
+                await update.message.reply_text("⚠️ cookies.txt FILE bhejo (.txt document).")
+                return
+            f = await context.bot.get_file(doc.file_id)
+            data = bytes(await f.download_as_bytearray())
+            if b"youtube" not in data.lower() and b"#HttpOnly" not in data:
+                await update.message.reply_text("⚠️ Ye YouTube cookies file nahi lag rahi. Sahi file bhejo.")
+                return
+            with open(COOKIE_FILE, "wb") as fh:
+                fh.write(data)
+            await update.message.reply_text(f"✅ Cookies save ho gayi! ({len(data)} bytes) Ab YT download try karo! ⬇️")
+        except Exception as e:
+            await update.message.reply_text(f"⚠️ Save fail: {str(e)[:150]}")
+        context.user_data.pop("mode", None)
         return
 
     if mode == "idfind":
@@ -1933,12 +2038,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "typing")
         try:
             d = await asyncio.to_thread(ifsc_lookup, c)
         except Exception:
             d = None
         if not d:
-            await update.message.reply_text("⚠️ Ye IFSC galat lag raha hai. Sahi code bhejo:")
+            refund_use(uid)
+            await update.message.reply_text("⚠️ Ye IFSC galat lag raha hai. Sahi code bhejo (limit wapas ✅):")
             return
         await update.message.reply_text(
             f"🏦 <b>IFSC DETAILS</b> ✅\n━━━━━━━━━━━━━━━\n"
@@ -1959,12 +2066,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "typing")
         try:
             d = await asyncio.to_thread(pin_lookup, p)
         except Exception:
             d = None
         if not d:
-            await update.message.reply_text("⚠️ Pincode nahi mila. Sahi pincode bhejo:")
+            refund_use(uid)
+            await update.message.reply_text("⚠️ Pincode nahi mila. Sahi pincode bhejo (limit wapas ✅):")
             return
         offices = d.get("PostOffice", []) or []
         o0 = offices[0] if offices else {}
@@ -1983,6 +2092,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "linkcheck":
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "typing")
         if " " in text or "." not in text:
             await update.message.reply_text("⚠️ Sahi link bhejo:")
             return
@@ -2003,6 +2113,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "linkbypass":
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "typing")
         if " " in text or "." not in text:
             await update.message.reply_text("⚠️ Sahi link bhejo:")
             return
@@ -2111,11 +2222,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         vname = context.user_data.get("tts_name", "Voice")
         rate = context.user_data.get("tts_rate", "+0%")
         pitch = context.user_data.get("tts_pitch", "+0Hz")
+        await act(context, update.effective_chat.id, "upload_voice")
         st = await update.message.reply_text(f"🔊 <i>{hesc(vname)} bol rahi hai... thoda ruko! 🎙️</i>", parse_mode=HTML)
         path = os.path.join(tempfile.gettempdir(), f"tts_{uid}_{random.randint(1, 99999)}.mp3")
         ok = await tts_make(text, voice, rate, pitch, path)
         if not ok or not os.path.exists(path):
-            await st.edit_text("⛔ Voice nahi ban payi. Thodi der baad try karo.")
+            refund_trial(uid)
+            await st.edit_text("⛔ Voice nahi ban payi. Thodi der baad try karo (trial wapas ✅).")
             context.user_data.pop("mode", None)
             return
         has_dev = bool(re.search(r"[\u0900-\u097F]", text))
@@ -2126,10 +2239,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif not has_dev and is_hv and re.search(r"[A-Za-z]", text):
             hint = "\n💡 <i>English text English voice me best lagega!</i>"
         try:
-            await update.message.reply_audio(
-                audio=open(path, "rb"), title=f"{vname} - Utility Duniya",
+            af = open(path, "rb")
+            try:
+                await update.message.reply_audio(
+                    audio=af, title=f"{vname} - Utility Duniya",
                 caption=f"🔊 <b>Voice ready!</b> ({hesc(vname)})\n📝 {hesc(text[:150])}{hint}",
-                reply_markup=BACK, parse_mode=HTML)
+                    reply_markup=BACK, parse_mode=HTML)
+            finally:
+                try:
+                    af.close()
+                except Exception:
+                    pass
             try:
                 await st.delete()
             except Exception:
@@ -2144,6 +2264,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
+    if mode == "int_f":
+        await update.message.reply_text("🔁 Upar buttons se compounding chuno (Yearly/Monthly...).")
+        return
     if mode in ("pdf", "pp"):
         await update.message.reply_text("📸 Photo bhejo (text nahi). /cancel se wapas jao.")
         return
@@ -2243,6 +2366,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "pp":
         if not await use_or_block(uid, update):
             return
+        await act(context, update.effective_chat.id, "upload_photo")
         st = await update.message.reply_text("🪪 <i>Passport photo ban rahi hai...</i>", parse_mode=HTML)
         try:
             single, sheet = await asyncio.to_thread(passport_make, data)
@@ -2284,8 +2408,19 @@ async def _post_init(app: Application):
 def main():
     if not BOT_TOKEN:
         raise SystemExit("❌ BOT_TOKEN nahi mila! Render Environment me BOT_TOKEN=... dalo.")
+    _ck = os.getenv("YT_COOKIES", "")
+    if _ck.strip():
+        try:
+            with open(COOKIE_FILE, "w", encoding="utf-8") as fh:
+                fh.write(_ck.replace("\\n", "\n"))
+            log.info("YT cookies loaded from env")
+        except Exception as e:
+            log.warning("cookies env fail: %s", e)
     db().close()
-    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
+    app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
+           .concurrent_updates(True)
+           .connect_timeout(20).read_timeout(60).write_timeout(180).pool_timeout(60)
+           .build())
 
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
@@ -2316,6 +2451,7 @@ def main():
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("approve", cmd_approve))
+    app.add_handler(CommandHandler("setcookies", cmd_setcookies))
     app.add_handler(CallbackQueryHandler(on_cb))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))
     app.add_handler(MessageHandler(filters.ATTACHMENT, on_photo))
