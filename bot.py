@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v13
+Utility Duniya Bot v14
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -56,7 +56,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v13"
+BOT_VERSION = "v14"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -848,6 +848,41 @@ YTDL_BASE = {"quiet": True, "noplaylist": True, "socket_timeout": 25,
 COOKIE_FILE = "/tmp/yt_cookies.txt"
 
 
+def cookies_json_to_netscape(raw: bytes):
+    import json as _js
+    try:
+        arr = _js.loads((raw or b"").decode("utf-8", "ignore"))
+    except Exception:
+        return None
+    if not isinstance(arr, list):
+        return None
+    out = ["# Netscape HTTP Cookie File"]
+    for c in arr:
+        try:
+            if not isinstance(c, dict):
+                continue
+            dom = str(c.get("domain", "") or "")
+            if not dom:
+                continue
+            fl = "TRUE" if dom.startswith(".") else "FALSE"
+            ph = str(c.get("path", "/") or "/")
+            sc = "TRUE" if c.get("secure") else "FALSE"
+            try:
+                ex = int(float(c.get("expirationDate") or 0))
+            except Exception:
+                ex = 0
+            nm = str(c.get("name", "") or "")
+            vl = str(c.get("value", "") or "")
+            if c.get("httpOnly") and not nm.startswith("#HttpOnly_"):
+                nm = "#HttpOnly_" + nm
+            out.append("\t".join([dom, fl, ph, sc, str(ex), nm, vl]))
+        except Exception:
+            continue
+    if len(out) < 2:
+        return None
+    return ("\n".join(out) + "\n").encode("utf-8")
+
+
 def _yt_race_one(url: str, client: str):
     import yt_dlp
     try:
@@ -1410,7 +1445,7 @@ async def cmd_setcookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data["mode"] = "setcookies"
     await update.message.reply_text(
         "🍪 <b>YT Cookies Setup</b> (permanent download fix!) "
-        "PC Chrome me <b>'Get cookies.txt LOCALLY'</b> extension lagao → youtube.com kholo → Export → jo <b>cookies.txt</b> mile wo yahan FILE bhej do. "
+        "PHONE: Firefox app + 'Cookie-Editor' addon se youtube cookies JSON me Export karo. PC: Chrome me <b>'Get cookies.txt LOCALLY'</b> lagao → youtube.com kholo → Export → jo file mile (.txt ya .json) wo yahan FILE bhej do. "
         "⚠️ Note: deploy ke baad dobara bhejna padega (free server memory reset). Permanent ke liye Render me YT_COOKIES env me file ka text dalo.",
         parse_mode=HTML)
 
@@ -2116,7 +2151,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         try:
             doc = update.message.document
-            if not doc or not (doc.file_name or "").endswith(".txt"):
+            if not doc or not (doc.file_name or "").lower().endswith((".txt", ".json")):
                 await update.message.reply_text("⚠️ cookies.txt FILE bhejo (.txt document).")
                 return
             f = await context.bot.get_file(doc.file_id)
@@ -2484,8 +2519,8 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             return
         doc = update.message.document
-        if not doc or not (doc.file_name or "").endswith(".txt"):
-            await update.message.reply_text("cookies.txt FILE bhejo (.txt document).")
+        if not doc or not (doc.file_name or "").lower().endswith((".txt", ".json")):
+            await update.message.reply_text("cookies FILE bhejo (.txt ya .json document).")
             return
         try:
             tf = await context.bot.get_file(doc.file_id)
@@ -2493,6 +2528,13 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             await update.message.reply_text("Download fail, file dobara bhejo.")
             return
+        _fn = (doc.file_name or "").lower()
+        if _fn.endswith(".json") or cdata.lstrip()[:1] == b"[":
+            _conv = cookies_json_to_netscape(cdata)
+            if not _conv:
+                await update.message.reply_text("JSON samajh nahi aaya. Cookie-Editor se dobara Export karke bhejo.")
+                return
+            cdata = _conv
         if b"youtube" not in cdata.lower() and b"#HttpOnly" not in cdata:
             await update.message.reply_text("Ye YouTube cookies file nahi lag rahi. Sahi file bhejo.")
             return
@@ -2613,6 +2655,14 @@ def main():
         try:
             with open(COOKIE_FILE, "w", encoding="utf-8") as fh:
                 fh.write(_ck.replace("\\n", "\n"))
+            try:
+                _raw = open(COOKIE_FILE, "rb").read()
+                if _raw.lstrip()[:1] == b"[":
+                    _conv = cookies_json_to_netscape(_raw)
+                    if _conv:
+                        open(COOKIE_FILE, "wb").write(_conv)
+            except Exception:
+                pass
             log.info("YT cookies loaded from env")
         except Exception as e:
             log.warning("cookies env fail: %s", e)
