@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v10
+Utility Duniya Bot v11
 - 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
@@ -56,7 +56,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v10"
+BOT_VERSION = "v11"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -492,6 +492,16 @@ YT_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/|live/)([A-Za-z0-9_-]{11})")
 def yt_id(link: str):
     m = YT_RE.search(link or "")
     return m.group(1) if m else None
+
+
+def yt_exists(vid: str) -> bool:
+    try:
+        r = requests.get("https://www.youtube.com/oembed",
+                         params={"url": "https://www.youtube.com/watch?v=" + vid, "format": "json"},
+                         timeout=8, headers=UA)
+        return r.status_code != 404
+    except Exception:
+        return True
 
 
 def fetch_yt_best(vid: str):
@@ -1877,6 +1887,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not vid:
             await update.message.reply_text("⚠️ Sahi YouTube/Shorts link bhejo:")
             return
+        if not await asyncio.to_thread(yt_exists, vid):
+            await update.message.reply_text("⛔ Ye video YouTube par NAHI mili (delete/private). Dusra link bhejo! Trial kata hi nahi.")
+            context.user_data.pop("mode", None)
+            return
         if not await trial_or_block(uid, update, "YT Download"):
             context.user_data.pop("mode", None)
             return
@@ -1886,6 +1900,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         st, info, path = await asyncio.to_thread(ytdl_download, text)
         if st != "OK":
             refund_trial(uid)
+            info = str(info) + " Trial wapas kar diya."
             try:
                 thumb = await asyncio.to_thread(fetch_yt_best, vid)
             except Exception:
