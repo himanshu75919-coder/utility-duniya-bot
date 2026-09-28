@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v23
-- 24 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
-- Naye: Web Search, Weather, Unit Converter, Crypto Price (free APIs, no key)
+Utility Duniya Bot v24
+- 22 tools grid | 10 TTS voices | AI Chat + AI Image + App Finder + Screenshot
+- Removed: Weather/Crypto/YT/Insta/Unit — premium magnets: AI Chat + AI Image
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 - Per-user network rate-limit + flood-safe broadcast + commands menu set
 """
 
 import asyncio
 import base64
-import glob
-import subprocess
-from concurrent.futures import ThreadPoolExecutor
-import concurrent.futures as cf
 import io
+import json
+import logging
 import logging
 import os
 import random
@@ -39,8 +37,8 @@ from telegram import (
     BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    KeyboardButton,
-    LinkPreviewOptions,
+    InputMediaPhoto,
+    KeyboardButton,    LinkPreviewOptions,
     ReplyKeyboardMarkup,
     Update,
 )
@@ -69,7 +67,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v23"
+BOT_VERSION = "v24"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -517,60 +515,6 @@ def shorten_tiny(url: str):
         return None
 
 
-YT_RE = re.compile(r"(?:v=|youtu\.be/|shorts/|embed/|live/)([A-Za-z0-9_-]{11})")
-
-
-def yt_id(link: str):
-    m = YT_RE.search(link or "")
-    return m.group(1) if m else None
-
-
-def yt_exists(vid: str) -> bool:
-    try:
-        r = requests.get("https://www.youtube.com/oembed",
-                         params={"url": "https://www.youtube.com/watch?v=" + vid, "format": "json"},
-                         timeout=8, headers=UA)
-        return r.status_code != 404
-    except Exception:
-        return True
-
-
-def fetch_yt_best(vid: str):
-    def one(q):
-        try:
-            r = requests.get(f"https://img.youtube.com/vi/{vid}/{q}.jpg", timeout=10, headers=UA)
-            if r.status_code != 200 or len(r.content) < 5000:
-                return None
-            img = Image.open(io.BytesIO(r.content))
-            w, h = img.size
-            if w <= 150:
-                return None
-            return (w * h, r.content, w, h, q)
-        except Exception:
-            return None
-    with ThreadPoolExecutor(max_workers=5) as ex:
-        res = [x for x in ex.map(one, ("maxresdefault", "sddefault", "hq720", "hqdefault", "mqdefault")) if x]
-    return max(res)[1:] if res else None
-
-
-def enhance_thumb(data: bytes):
-    """720p se chhoti ho to HD enhance karo."""
-    img = Image.open(io.BytesIO(data)).convert("RGB")
-    w, h = img.size
-    if w >= 1280:
-        return data, w, h, False
-    nh = int(h * 1280 / w)
-    img = img.resize((1280, nh), Image.LANCZOS)
-    img = ImageEnhance.Sharpness(img).enhance(1.4)
-    img = ImageEnhance.Contrast(img).enhance(1.05)
-    bio = io.BytesIO()
-    img.save(bio, format="JPEG", quality=92)
-    return bio.getvalue(), 1280, nh, True
-
-
-UPI_RE = re.compile(r"^[\w.\-]{2,256}@[a-zA-Z]{2,64}$")
-
-
 def build_upi_link(pa: str, pn: str, amt=None, note: str = "") -> str:
     link = f"upi://pay?pa={pa}&pn={quote(pn or 'User')}&cu=INR"
     if amt:
@@ -817,7 +761,7 @@ def _ddg_lite(q: str):
     out = []
     blocks = re.findall(r'<td class="result-link">(.*?)</td>', t, re.I | re.S)
     if blocks:
-        for i, blk in enumerate(blocks[:5]):
+        for i, blk in enumerate(blocks[:10]):
             m = re.search(r'<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>', blk, re.I | re.S)
             if not m:
                 continue
@@ -847,9 +791,9 @@ def _ddg_lite(q: str):
                 url = unquote(um.group(1))
             if url.startswith("http"):
                 out.append([title, url, snips[i] if i < len(snips) else ""])
-            if len(out) >= 5:
+            if len(out) >= 10:
                 break
-    return out
+    return out[:10]
 
 
 def _bing_decode(u: str) -> str:
@@ -881,7 +825,7 @@ def _bing(q: str):
         sm = re.search(r'<p[^>]*>(.*?)</p>', m.group(3), re.I | re.S)
         snip = _strip_html(_fix_entities(sm.group(1))) if sm else ""
         out.append([title, url, snip])
-        if len(out) >= 5:
+        if len(out) >= 10:
             break
     return out
 
@@ -901,306 +845,132 @@ def web_search(q: str):
             errs += 1
     if not out and errs >= 2:
         return None
-    result = [{"title": t[:130], "url": u[:300], "snip": s[:230]} for t, u, s in out[:5]]
+    result = [{"title": t[:130], "url": u[:300], "snip": s[:230]} for t, u, s in out[:6]]
     cache_put(("ws", q.lower()), result, ttl=21600)
     return result
 
 
-# ---------------- WEATHER (Open-Meteo — no API key) ----------------
-WMO_CODES = {
-    0: ("☀️", "Saaf aasman"), 1: ("🌤️", "Mostly clear"), 2: ("⛅", "Halka badal"),
-    3: ("☁️", "Chhaya hua aasman"), 45: ("🌫️", "Kohra"), 48: ("🌫️", "Jama kohra"),
-    51: ("🌦️", "Halki boond-baandi"), 53: ("🌦️", "Boond-baandi"), 55: ("🌧️", "Tez boond-baandi"),
-    56: ("🌧️", "Jami hui boond"), 57: ("🌧️", "Jami tez boond"),
-    61: ("🌦️", "Halki barish"), 63: ("🌧️", "Medium barish"), 65: ("🌧️", "Tez barish"),
-    66: ("🌧️", "Jami barish"), 67: ("🌧️", "Tez jami barish"),
-    71: ("🌨️", "Halki barf"), 73: ("🌨️", "Barf"), 75: ("❄️", "Tez barf"), 77: ("❄️", "Barf ke kan"),
-    80: ("🌦️", "Chhant-tez barish"), 81: ("🌧️", "Barish fuware"), 82: ("⛈️", "Tez fuware"),
-    85: ("🌨️", "Barf wali fuwar"), 86: ("🌨️", "Tez barf wali fuwar"),
-    95: ("⛈️", "Garaj ke saath barish"), 96: ("⛈️", "Ola (garaj)"), 99: ("⛈️", "Tez ola"),
-}
-
-
-def wmo_desc(code) -> tuple:
-    try:
-        return WMO_CODES.get(int(code), ("🌡️", "Pata nahi"))
-    except Exception:
-        return ("🌡️", "Pata nahi")
-
-
-def weather_lookup(city: str):
-    key = city.lower().strip()
-    _hit, _val = cache_get(("wx", key))
+# ---------------- BING IMAGES (visual results) ----------------
+def bing_images(q: str):
+    _hit, _val = cache_get(("img", q.lower()))
     if _hit:
         return _val
-    g = requests.get("https://geocoding-api.open-meteo.com/v1/search",
-                     params={"name": city, "count": 1, "language": "en", "format": "json"},
-                     timeout=12, headers=UA).json()
-    rs = g.get("results") or []
-    if not rs:
-        cache_put(("wx", key), None, ttl=1800)
-        return None
-    loc = rs[0]
-    f = requests.get("https://api.open-meteo.com/v1/forecast",
-                     params={"latitude": loc["latitude"], "longitude": loc["longitude"],
-                             "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
-                             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-                             "timezone": "auto", "forecast_days": 4},
-                     timeout=12, headers=UA).json()
-    place = ", ".join(x for x in [str(loc.get("name") or ""), str(loc.get("admin1") or ""),
-                                  str(loc.get("country") or "")] if x)
-    out = {"place": place, "cur": f.get("current") or {}, "daily": f.get("daily") or {}}
-    cache_put(("wx", key), out, ttl=900)
+    r = requests.get("https://www.bing.com/images/search", params={"q": q},
+                     headers=_SEARCH_HEADERS, timeout=12)
+    out = []
+    for b in re.findall(r'\sm="(\{[^"]+\})"', r.text or "")[:15]:
+        try:
+            d = json.loads(_fix_entities(b))
+        except Exception:
+            continue
+        img = d.get("turl") or d.get("murl") or ""
+        if img.startswith("http"):
+            out.append({"img": img, "page": _fix_entities(d.get("purl") or ""),
+                        "title": _fix_entities(d.get("t") or "")[:120]})
+    out = out[:6]
+    cache_put(("img", q.lower()), out, ttl=21600)
     return out
 
 
-# ---------------- CRYPTO PRICE (CoinGecko — no API key) ----------------
-COIN_ALIAS = {
-    "btc": "bitcoin", "eth": "ethereum", "usdt": "tether", "bnb": "binancecoin",
-    "sol": "solana", "xrp": "ripple", "doge": "dogecoin", "ada": "cardano",
-    "trx": "tron", "shib": "shiba-inu", "dot": "polkadot", "avax": "avalanche-2",
-    "link": "chainlink", "matic": "matic-network", "pol": "matic-network",
-    "ltc": "litecoin", "ton": "the-open-network", "pepe": "pepe", "sui": "sui",
-    "near": "near", "atom": "cosmos", "xlm": "stellar", "etc": "ethereum-classic",
-    "bch": "bitcoin-cash", "uni": "uniswap", "apt": "aptos", "arbi": "arbitrum",
-    "inj": "injective-protocol", "hbar": "hedera-hashgraph", "vet": "vechain",
-    "icp": "internet-computer", "algo": "algorand", "xdc": "xdc-network",
-}
-
-
-def crypto_price(q: str):
-    key = q.lower().strip()
-    _hit, _val = cache_get(("cg", key))
+# ---------------- APP FINDER (legal: official store links) ----------------
+def app_finder(name: str):
+    key = name.lower().strip()
+    _hit, _val = cache_get(("app", key))
     if _hit:
         return _val
-    out = None
-    if key in ("top", "list", "top10", "market", "markets"):
-        rows = requests.get(
-            "https://api.coingecko.com/api/v3/coins/markets",
-            params={"vs_currency": "inr", "order": "market_cap_desc", "per_page": 10,
-                    "page": 1, "price_change_percentage": "24h"},
-            timeout=12, headers=UA).json()
-        if isinstance(rows, list) and rows:
-            out = {"type": "top", "rows": [
-                {"name": x.get("name") or "?", "sym": (x.get("symbol") or "?").upper(),
-                 "price": x.get("current_price") or 0,
-                 "chg": x.get("price_change_percentage_24h") or 0.0,
-                 "rank": x.get("market_cap_rank") or i + 1}
-                for i, x in enumerate(rows[:10])]}
-    else:
-        cid = COIN_ALIAS.get(key)
-        if not cid:
-            try:
-                s = requests.get("https://api.coingecko.com/api/v3/search",
-                                 params={"query": key}, timeout=10, headers=UA).json()
-                cs = s.get("coins") or []
-                if cs:
-                    cid = cs[0].get("id")
-            except Exception:
-                cid = None
-        if cid:
-            try:
-                d = (requests.get(
-                    "https://api.coingecko.com/api/v3/simple/price",
-                    params={"ids": cid, "vs_currencies": "inr",
-                            "include_24hr_change": "true", "include_market_cap": "true"},
-                    timeout=12, headers=UA).json() or {}).get(cid) or {}
-            except Exception:
-                d = {}
-            if "inr" in d:
-                out = {"type": "one", "name": cid.replace("-", " ").title(),
-                       "price": d.get("inr") or 0, "chg": d.get("inr_24h_change") or 0.0,
-                       "cap": d.get("inr_market_cap")}
-    cache_put(("cg", key), out, ttl=120)
+    web = []
+    for qq in (f"{name} android app download", f"{name} apk download uptodown apkpure"):
+        try:
+            web += _bing(qq) or []
+        except Exception:
+            pass
+    pref = ("play.google.com", "apkmirror.com", "uptodown.com", "apkpure.com",
+            "aptoide.com", "f-droid.org", "apkcombo.com")
+
+    def score(u):
+        host = (urlparse(u).hostname or "").lower()
+        for i, d in enumerate(pref):
+            if d in host:
+                return i
+        return len(pref)
+
+    seen, links = set(), []
+    for t, u, sn in sorted(web, key=lambda x: score(x[1])):
+        dom = (urlparse(u).hostname or "").lower().lstrip("www.")
+        if not dom or dom in seen:
+            continue
+        seen.add(dom)
+        links.append({"title": t, "url": u, "dom": dom})
+        if len(links) >= 6:
+            break
+    imgs = []
+    try:
+        for x in bing_images(f"{name} app logo"):
+            if x.get("img"):
+                imgs.append(x)
+            if len(imgs) >= 4:
+                break
+    except Exception:
+        pass
+    out = {"links": links, "imgs": imgs}
+    cache_put(("app", key), out, ttl=7200)
     return out
 
 
-def money(n) -> str:
-    n = float(n or 0)
-    if abs(n) >= 1:
-        return "₹" + inr(n)
-    if abs(n) >= 0.01:
-        return f"₹{n:,.4f}"
-    return f"₹{n:,.8f}"
-
-
-# ---------------- UNIT CONVERTER (offline) ----------------
-_UNIT_ALIASES = {
-    # length (base: meter)
-    "m": ("len", 1.0), "meter": ("len", 1.0), "meters": ("len", 1.0),
-    "metre": ("len", 1.0), "metres": ("len", 1.0),
-    "km": ("len", 1000.0), "kilometer": ("len", 1000.0), "kilometers": ("len", 1000.0),
-    "kilometre": ("len", 1000.0), "kilometres": ("len", 1000.0),
-    "cm": ("len", 0.01), "centimeter": ("len", 0.01), "centimeters": ("len", 0.01),
-    "mm": ("len", 0.001), "millimeter": ("len", 0.001), "millimeters": ("len", 0.001),
-    "mi": ("len", 1609.344), "mile": ("len", 1609.344), "miles": ("len", 1609.344),
-    "ft": ("len", 0.3048), "feet": ("len", 0.3048), "foot": ("len", 0.3048),
-    "in": ("len", 0.0254), "inch": ("len", 0.0254), "inches": ("len", 0.0254),
-    "yd": ("len", 0.9144), "yard": ("len", 0.9144), "yards": ("len", 0.9144),
-    "nmi": ("len", 1852.0),
-    # mass (base: kg)
-    "kg": ("mass", 1.0), "kilo": ("mass", 1.0), "kilos": ("mass", 1.0),
-    "kilogram": ("mass", 1.0), "kilograms": ("mass", 1.0),
-    "g": ("mass", 0.001), "gram": ("mass", 0.001), "grams": ("mass", 0.001),
-    "mg": ("mass", 0.000001), "milligram": ("mass", 0.000001), "milligrams": ("mass", 0.000001),
-    "lb": ("mass", 0.45359237), "lbs": ("mass", 0.45359237),
-    "pound": ("mass", 0.45359237), "pounds": ("mass", 0.45359237),
-    "oz": ("mass", 0.028349523), "ounce": ("mass", 0.028349523), "ounces": ("mass", 0.028349523),
-    "ton": ("mass", 1000.0), "tonne": ("mass", 1000.0), "quintal": ("mass", 100.0),
-    # volume (base: liter)
-    "l": ("vol", 1.0), "liter": ("vol", 1.0), "liters": ("vol", 1.0),
-    "litre": ("vol", 1.0), "litres": ("vol", 1.0),
-    "ml": ("vol", 0.001), "milliliter": ("vol", 0.001), "milliliters": ("vol", 0.001),
-    "millilitre": ("vol", 0.001), "millilitres": ("vol", 0.001),
-    "gal": ("vol", 3.785411784), "gallon": ("vol", 3.785411784), "gallons": ("vol", 3.785411784),
-    "cup": ("vol", 0.2365882365), "cups": ("vol", 0.2365882365),
-    "tbsp": ("vol", 0.014786765), "tsp": ("vol", 0.004928922),
-    # speed (base: m/s)
-    "mps": ("speed", 1.0), "m/s": ("speed", 1.0),
-    "kmh": ("speed", 1 / 3.6), "km/h": ("speed", 1 / 3.6), "kph": ("speed", 1 / 3.6),
-    "mph": ("speed", 0.44704), "knot": ("speed", 0.514444), "knots": ("speed", 0.514444),
-    # data (base: byte)
-    "b": ("data", 1.0), "byte": ("data", 1.0), "bytes": ("data", 1.0),
-    "kb": ("data", 1000.0), "mb": ("data", 1e6), "gb": ("data", 1e9), "tb": ("data", 1e12),
-    # area (base: m²)
-    "m2": ("area", 1.0), "m\u00b2": ("area", 1.0), "km2": ("area", 1e6), "km\u00b2": ("area", 1e6),
-    "ft2": ("area", 0.09290304), "ft\u00b2": ("area", 0.09290304),
-    "acre": ("area", 4046.8564224), "hectare": ("area", 10000.0), "ha": ("area", 10000.0),
-}
-_TEMP_U = {"c", "celsius", "\u00b0c", "centigrade", "f", "fahrenheit", "\u00b0f", "k", "kelvin", "\u00b0k"}
-
-
-def _num_fmt(x: float) -> str:
-    try:
-        x = float(x)
-    except Exception:
-        return str(x)
-    if abs(x - round(x)) < 1e-9:
-        return f"{round(x):,}"
-    s = f"{x:,.6f}".rstrip("0").rstrip(".")
-    return s or "0"
-
-
-def unit_convert(text: str):
-    t = re.sub(r"\s+", " ", (text or "").strip().lower())
-    m = re.match(r"^([-+]?\d+(?:[.,]\d+)?)\s*(.+?)\s+(?:to|into|->|\u2192|as|=|:|on|in|me|se)\s+(.+)$", t)
-    if not m:
-        return None
-    try:
-        val = float(m.group(1).replace(",", ""))
-    except Exception:
-        return None
-    fu, tu = m.group(2).strip(), m.group(3).strip().rstrip(".")
-    if fu in _TEMP_U and tu in _TEMP_U:
-        if fu in ("c", "celsius", "\u00b0c", "centigrade"):
-            c = val
-        elif fu in ("f", "fahrenheit", "\u00b0f"):
-            c = (val - 32) * 5 / 9
-        else:
-            c = val - 273.15
-        if tu in ("c", "celsius", "\u00b0c", "centigrade"):
-            out = c
-        elif tu in ("f", "fahrenheit", "\u00b0f"):
-            out = c * 9 / 5 + 32
-        else:
-            out = c + 273.15
-        return {"val": val, "fu": fu, "tu": tu, "out": out, "cat": "temperature"}
-    uf, ut = _UNIT_ALIASES.get(fu), _UNIT_ALIASES.get(tu)
-    if not uf or not ut:
-        return {"err": "unit"}
-    if uf[0] != ut[0]:
-        return {"err": "cat"}
-    return {"val": val, "fu": fu, "tu": tu, "out": val * uf[1] / ut[1], "cat": uf[0]}
-
-
-_IG_LOCK = threading.Lock()
-_IG_LAST = [0.0]
-
-
-def _ig_fetch(u: str):
-    with _IG_LOCK:
-        wait = 8 - (time.time() - _IG_LAST[0])
-        if wait > 0:
-            time.sleep(wait)
+# ---------------- WEBSITE SCREENSHOT (mShots - free, no key) ----------------
+def site_screenshot(url: str):
+    u = "https://s0.wp.com/mshots/v1/" + quote(url, safe="") + "?w=1080"
+    for attempt in (1, 2):
         try:
-            r = requests.get("https://i.instagram.com/api/v1/users/web_profile_info/",
-                             params={"username": u},
-                             headers={"User-Agent": "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36",
-                                      "x-ig-app-id": "936619743392459"},
-                             timeout=12)
-            return (r.status_code, r)
-        finally:
-            _IG_LAST[0] = time.time()
-
-
-def restore_md_marks(msg) -> str:
-    """Telegram '__x__' ko underline bana ke markers KHA jata hai.
-    Single-token username me underline->'__' , italic->'_' wapas lagao."""
-    try:
-        t = msg.text or ""
-        ents = getattr(msg, "entities", None) or []
-        if not t or " " in t.strip() or "\n" in t:
-            return t
-        spans = []
-        for e in ents:
-            try:
-                ty = getattr(e, "type", "")
-                mk = "__" if ty == "underline" else ("_" if ty == "italic" else None)
-                if not mk:
-                    continue
-                o, l = int(e.offset), int(e.length)
-                if o < 0 or l <= 0 or o + l > len(t):
-                    continue
-                spans.append((o, o + l, mk))
-            except Exception:
-                continue
-        for a, b, mk in sorted(spans, reverse=True):
-            t = t[:a] + mk + t[a:b] + mk + t[b:]
-        return t
-    except Exception:
-        try:
-            return msg.text or ""
-        except Exception:
-            return ""
-
-
-def insta_lookup(username: str):
-    _parts = ((username or "").strip().lstrip("@").split() or [""])
-    u = _parts[0][:30]
-    if not u or not all(ch.isalnum() or ch in "._" for ch in u):
-        return None
-    _hit, _val = cache_get(("ig", u.lower()))
-    if _hit:
-        return _val
-    for _att in (1, 2):
-        try:
-            _code, _r = _ig_fetch(u)
+            r = requests.get(u, headers=_SEARCH_HEADERS, timeout=25)
+            ct = (r.headers.get("content-type") or "").lower()
+            if r.status_code == 200 and "image" in ct and len(r.content) > 15000:
+                return r.content
         except Exception:
             return None
-        if _code == 429:
-            if _att == 1:
-                time.sleep(8)
-                continue
-            return "RATELIMIT"
-        if _code != 200:
-            return None
-        try:
-            usr = _r.json().get("data", {}).get("user") or {}
-        except Exception:
-            return None
-        if not usr.get("username"):
-            return None
-        d = {"username": usr.get("username"), "name": usr.get("full_name") or "-",
-             "uid": str(usr.get("id") or "-"), "private": bool(usr.get("is_private")),
-             "verified": bool(usr.get("is_verified")),
-             "followers": (usr.get("edge_followed_by") or {}).get("count", 0),
-             "following": (usr.get("edge_follow") or {}).get("count", 0),
-             "posts": (usr.get("edge_owner_to_timeline_media") or {}).get("count", 0),
-             "bio": (usr.get("biography") or "").strip(),
-             "pic": usr.get("profile_pic_url_hd") or usr.get("profile_pic_url") or ""}
-        cache_put(("ig", u.lower()), d, ttl=3600)
-        return d
-    return "RATELIMIT"
+        if attempt == 1:
+            time.sleep(4)  # mshots pehli baar render karta hai
+    return None
+
+
+# ---------------- AI CHAT (Pollinations - free, no key) ----------------
+def ai_chat(user_text: str, history: list):
+    msgs = [{"role": "system",
+             "content": ("Tum 'Utility Duniya Bot' ke friendly AI assistant ho. "
+                         "Jawab Hinglish (Hindi-English mix) me chhota, useful aur "
+                         "seedha point par do. Max 400 words. HTML tags mat likho.")}]
+    msgs.extend(history[-6:])
+    msgs.append({"role": "user", "content": user_text})
+    try:
+        r = requests.post("https://text.pollinations.ai/",
+                          json={"messages": msgs, "model": "openai"},
+                          headers={"User-Agent": _SEARCH_HEADERS["User-Agent"],
+                                   "Content-Type": "application/json"}, timeout=50)
+    except Exception:
+        return None
+    if r.status_code != 200:
+        return None
+    txt = (r.text or "").strip()
+    low = txt[:300].lower()
+    if not txt or txt.startswith("<!") or "budget" in low or "api key" in low:
+        return None
+    return txt[:3800]
+
+
+# ---------------- AI IMAGE (Pollinations - free, no key) ----------------
+def ai_image(prompt: str):
+    seed = random.randint(1, 999999)
+    url = ("https://image.pollinations.ai/prompt/" + quote(prompt[:280])
+           + f"?width=1024&height=1024&nologo=true&seed={seed}")
+    try:
+        r = requests.get(url, headers={"User-Agent": _SEARCH_HEADERS["User-Agent"]},
+                         timeout=80)
+    except Exception:
+        return None
+    ct = (r.headers.get("content-type") or "").lower()
+    if r.status_code == 200 and "image" in ct and len(r.content) > 8000:
+        return r.content
+    return None
 
 
 # ---------------- IMAGE TOOLS ----------------
@@ -1287,203 +1057,23 @@ async def tts_make(text: str, voice: str, rate: str, pitch: str, outpath: str) -
         log.warning("gtts fail: %s", e)
         return False
 
-# ---------------- YT DOWNLOAD ----------------
-YT_CLIENTS = ["web", "web_embedded", "android", "ios", "mweb", "tv"]
-YTDL_BASE = {"quiet": True, "noplaylist": True, "socket_timeout": 25,
-             "retries": 3, "fragment_retries": 3,
-             "extractor_args": {"youtube": {"player_client": YT_CLIENTS}}}
-# NOTE: impersonate REMOVED (v9 test: curl_cffi breaks YT requests). Clients+cookies only.
-
-
-COOKIE_FILE = "/tmp/yt_cookies.txt"
-
-
-def normalize_cookies(raw: bytes) -> bytes:
-    try:
-        txt = (raw or b"").decode("utf-8", "ignore")
-    except Exception:
-        return raw
-    if not txt.strip() or txt.lstrip()[:1] == "[":
-        return raw
-    out = []
-    for ln in txt.splitlines():
-        s = ln.strip()
-        if not s:
-            continue
-        if s.startswith("#") and "HttpOnly_" not in s:
-            out.append(ln)
-            continue
-        if "\t" in ln:
-            out.append(ln)
-            continue
-        parts = s.split()
-        if len(parts) >= 7 and ("." in parts[0] or parts[0].startswith("#HttpOnly_")):
-            out.append("\t".join(parts[:6] + [" ".join(parts[6:])]))
-        else:
-            out.append(ln)
-    return ("\n".join(out) + "\n").encode("utf-8")
-
-
-def cookies_jar_count(path: str) -> int:
-    try:
-        from http.cookiejar import MozillaCookieJar
-        j = MozillaCookieJar(path)
-        j.load(ignore_discard=True, ignore_expires=True)
-        return len(list(j))
-    except Exception:
-        return -1
-
-
-def cookies_json_to_netscape(raw: bytes):
-    import json as _js
-    try:
-        arr = _js.loads((raw or b"").decode("utf-8", "ignore"))
-    except Exception:
-        return None
-    if not isinstance(arr, list):
-        return None
-    out = ["# Netscape HTTP Cookie File"]
-    for c in arr:
-        try:
-            if not isinstance(c, dict):
-                continue
-            dom = str(c.get("domain", "") or "")
-            if not dom:
-                continue
-            fl = "TRUE" if dom.startswith(".") else "FALSE"
-            ph = str(c.get("path", "/") or "/")
-            sc = "TRUE" if c.get("secure") else "FALSE"
-            try:
-                ex = int(float(c.get("expirationDate") or 0))
-            except Exception:
-                ex = 0
-            nm = str(c.get("name", "") or "")
-            vl = str(c.get("value", "") or "")
-            if c.get("httpOnly") and not nm.startswith("#HttpOnly_"):
-                nm = "#HttpOnly_" + nm
-            out.append("\t".join([dom, fl, ph, sc, str(ex), nm, vl]))
-        except Exception:
-            continue
-    if len(out) < 2:
-        return None
-    return ("\n".join(out) + "\n").encode("utf-8")
-
-
-def _yt_race_one(url: str, client: str):
-    import yt_dlp
-    try:
-        o = {"quiet": True, "noplaylist": True, "socket_timeout": 15,
-             "retries": 1, "fragment_retries": 1}
-        if client:
-            o["extractor_args"] = {"youtube": {"player_client": [client]}}
-        if os.path.exists(COOKIE_FILE):
-            o["cookiefile"] = COOKIE_FILE
-        with yt_dlp.YoutubeDL(o) as y:
-            info = y.extract_info(url, download=False)
-        return (info, client, "") if info else (None, client, "noinfo")
-    except Exception as e:
-        return (None, client, str(e)[:200])
-
-
-def yt_race_info(url: str):
-    """7 clients ek saath race - jo pehle info laaye wahi winner."""
-    with ThreadPoolExecutor(max_workers=8) as ex:
-        futs = [ex.submit(_yt_race_one, url, c) for c in YT_CLIENTS]
-        futs.append(ex.submit(_yt_race_one, url, None))
-        _first_err = ""
-        try:
-            for f in cf.as_completed(futs, timeout=45):
-                try:
-                    r = f.result()
-                except Exception:
-                    continue
-                if r and r[0]:
-                    for g in futs:
-                        g.cancel()
-                    return r
-                if r and len(r) > 2 and r[2] and not _first_err:
-                    _first_err = r[2]
-        except Exception:
-            pass
-    return (None, None, _first_err)
-
-
-def _ffmpeg_exe():
-    try:
-        import imageio_ffmpeg
-        p = imageio_ffmpeg.get_ffmpeg_exe()
-        return p if p and os.path.exists(p) else None
-    except Exception:
-        return None
-
-
-def ytdl_download(url: str):
-    import yt_dlp
-    tmpd = tempfile.mkdtemp(prefix="ytdl_")
-    try:
-        info0, _win, _err = yt_race_info(url)
-        if not info0:
-            _e = (_err or "").lower()
-            _bw = ("bot" in _e or "sign in" in _e or "reload" in _e or "format is not available" in _e or "only images" in _e or "403" in _e or "429" in _e or "forbidden" in _e or "rate-limit" in _e or "login" in _e or "confirm" in _e)
-            if _bw:
-                if os.path.exists(COOKIE_FILE):
-                    return ("ERR", "\U0001F36A Cookies LAGI hain, phir bhi YouTube ne server-IP ko ROKA hai (bot protection). 10-15 min baad ya dusri video try karo.", None)
-                return ("ERR", "YouTube ne server ko bot samajh ke ROKA hai. FIX: Admin /setcookies likhke YouTube login cookies lagaye - phir turant chalega!", None)
-            raise RuntimeError("ytinfo")
-    except Exception:
-        return ("ERR", "⛔ Video info nahi mili. Link private/delete/blocked ho sakta hai. 🙏\nThodi der baad phir try karo, ya dusri video bhejo.", None)
-    dur = info0.get("duration") or 0
-    if dur > 600:
-        return ("ERR", f"⏳ Video {dur // 60} min ki hai. Max 10 min tak download hoga (Telegram limit). Chhoti video bhejo! 🙏", None)
-    opts = dict(YTDL_BASE)
-    opts.update({"format": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=m4a]/bestvideo[height<=720]+bestaudio/best",
-                 "merge_output_format": "mp4",
-                 "outtmpl": os.path.join(tmpd, "%(id)s.%(ext)s")})
-    _ff = _ffmpeg_exe()
-    if _ff:
-        opts["ffmpeg_location"] = _ff
-    try:
-        if _win:
-            opts["extractor_args"] = {"youtube": {"player_client": [_win] + [c for c in YT_CLIENTS if c != _win]}}
-    except Exception:
-        pass
-    if os.path.exists(COOKIE_FILE):
-        opts["cookiefile"] = COOKIE_FILE
-    try:
-        with yt_dlp.YoutubeDL(opts) as y:
-            info = y.extract_info(url, download=True)
-    except Exception:
-        return ("ERR", "⛔ Download fail — YouTube ne is waqt block kiya hai (bot protection). 🙏\n\n✅ 10-15 min baad try karo\n✅ Ya dusri video/Shorts link bhejo", None)
-    files = [f for f in glob.glob(os.path.join(tmpd, "*")) if os.path.isfile(f) and not f.endswith(".part")]
-    if not files:
-        return ("ERR", "⛔ File nahi bani. Dusra link try karo. 🙏", None)
-    path = max(files, key=os.path.getsize)
-    if os.path.getsize(path) > 48 * 1024 * 1024:
-        try:
-            os.remove(path)
-        except Exception:
-            pass
-        return ("ERR", "📦 File 48MB se badi hai (Telegram limit). Chhoti video try karo! 🙏", None)
-    return ("OK", info, path)
-
 # ---------------- UI ----------------
 BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")]])
 
 KB_BTNS = [
     ["📷 QR Code", "🔐 Password"],
     ["🖼️ Image→PDF", "🔗 URL Short"],
-    ["🔎 Web Search", "🌦️ Weather"],
-    ["🔄 Unit Converter", "🪙 Crypto Price"],
-    ["🎬 YT Thumbnail", "⬇️ YT Download"],
-    ["🧮 EMI Calc", "🎂 Age Calculator"],
-    ["💰 UPI QR Generator", "🆔 ID Finder"],
-    ["🔊 Text to Speech", "🏦 IFSC Info"],
-    ["📮 Pincode Info", "🪪 Passport Photo"],
-    ["🔍 Link Check", "🔓 Link Bypass"],
-    ["📈 Interest Calc", "🚗 RTO Vehicle Info"],
+    ["🔎 Web Search", "📦 App Finder"],
+    ["🤖 AI Chat", "🎨 AI Image"],
+    ["🖼️ Site Screenshot", "🧮 EMI Calc"],
+    ["🎂 Age Calculator", "💰 UPI QR Generator"],
+    ["🆔 ID Finder", "🔊 Text to Speech"],
+    ["🏦 IFSC Info", "📮 Pincode Info"],
+    ["🪪 Passport Photo", "🔍 Link Check"],
+    ["🔓 Link Bypass", "📈 Interest Calc"],
+    ["🚗 RTO Vehicle Info", "📱 Number Info"],
     ["💎 Premium", "🎁 Refer & Earn"],
-    ["📸 Insta Info", "👤 My Account"],
-    ["📱 Number Info"],
+    ["👤 My Account"],
 ]
 
 
@@ -1504,25 +1094,21 @@ def kb_for(uid: int):
 
 BTN_MODE = {
     "📷 QR Code": "qr", "🖼️ Image→PDF": "pdf",
-    "🔗 URL Short": "short", "🎬 YT Thumbnail": "yt",
-    "⬇️ YT Download": "ytdl", "🧮 EMI Calc": "emi",
+    "🔗 URL Short": "short", "🧮 EMI Calc": "emi",
     "🎂 Age Calculator": "age", "💰 UPI QR Generator": "upi",
     "🆔 ID Finder": "idfind", "🏦 IFSC Info": "ifsc",
     "📮 Pincode Info": "pin", "🪪 Passport Photo": "pp",
     "🔍 Link Check": "linkcheck", "🔓 Link Bypass": "linkbypass",
-    "🚗 RTO Vehicle Info": "rto",
-    "📸 Insta Info": "insta",
-    "📱 Number Info": "numinfo", "🔎 Web Search": "search",
-    "🌦️ Weather": "weather", "🔄 Unit Converter": "unit",
-    "🪙 Crypto Price": "crypto",
+    "🚗 RTO Vehicle Info": "rto", "📱 Number Info": "numinfo",
+    "🔎 Web Search": "search", "📦 App Finder": "appfind",
+    "🤖 AI Chat": "aichat", "🎨 AI Image": "aiimg",
+    "🖼️ Site Screenshot": "shot",
 }
 
 PROMPTS = {
     "qr": "📷 <b>QR Code Generator</b>\n\nKoi bhi TEXT ya LINK bhejo (HD QR banega):",
     "pdf": "🖼️ <b>Image→PDF (Full Quality, Multi-page!)</b>\n\n📸 PHOTO bhejo — ek-ek karke <b>10 tak</b> bhej sakte ho, phir ✅ dabao.\n\n💎 <b>Best quality tip:</b> photo ko 📎 attachment se <b>FILE/DOCUMENT</b> bana ke bhejo (4K/8K safe!)",
     "short": "🔗 <b>URL Shortener (2 links!)</b>\n\nLamba LINK bhejo — 2 short links + QR milega:",
-    "yt": "🎬 <b>YT Thumbnail (720p+ HD)</b>\n\nYouTube video ka LINK bhejo:",
-    "ytdl": "⬇️ <b>YT Video/Shorts Download (HD)</b> 💎 <i>roz 2 FREE trial</i>\n\nYouTube/Shorts ka LINK bhejo (max 10 min, 48MB):",
     "emi": "🧮 <b>EMI Calculator (Advanced)</b>\n\nLoan amount (₹) bhejo:\n(jaise: 100000)",
     "age": "🎂 <b>Age Calculator</b>\n\nApni birth date bhejo (DD-MM-YYYY):\n(jaise: 15-08-2005)",
     "upi": "💰 <b>UPI QR Generator</b> 💎 <i>roz 2 FREE trial</i>\n\nApni UPI ID bhejo:\n(jaise: name@okhdfc)",
@@ -1532,24 +1118,24 @@ PROMPTS = {
     "pp": "🪪 <b>Passport Photo Maker (HD)</b>\n\n📸 Apni PHOTO bhejo (chehra beech me, seedhi photo).\nSingle HD photo + print sheet (9 copies) milegi! 🖨️",
     "linkcheck": "🔍 <b>Link Checker</b>\n\nKoi bhi LINK bhejo — safe hai ya fraud, check karunga:",
     "linkbypass": "🔓 <b>Link Bypass</b>\n\narolinks / vplinks / gplinks jaisa EARN LINK bhejo — asli original link nikalunga:\n\n<i>Note: timer/JS wale kuch links browser me kholne padenge.</i>",
-    "insta": ("📸 <b>Insta Info</b>" + chr(10) + chr(10) + "Insta username bhejo (bina @):" + chr(10) + "(jaise: virat.kohli)"),
     "numinfo": "📱 <b>Number Info (Circle + Operator)</b>\n\n10-digit mobile number bhejo:\n(jaise: 9876543210)",
     "search": "🔎 <b>Web Search</b>\n\nKuch bhi search karo — top 5 links turant:\n(jaise: <b>juice recipe hindi me</b>)",
-    "weather": "🌦️ <b>Weather Info</b>\n\nShehar ka naam bhejo:\n(jaise: Ranchi, Patna, Delhi, Mumbai)",
-    "unit": "🔄 <b>Unit Converter</b>\n\nFormat: <code>value from to to</code>\n(jaise: <code>75 kg to lbs</code>, <code>10 km to miles</code>, <code>100 f to c</code>, <code>2 gb to mb</code>)\n\n📏 Length • ⚖️ Weight • 🌡️ Temp • 🧪 Volume • 🏁 Speed • 💾 Data • 📐 Area\n<i>Jitna chaaho convert karo — /cancel se band.</i>",
-    "crypto": "🪙 <b>Crypto Price (INR)</b>\n\nCoin naam/symbol bhejo:\n(jaise: <b>btc</b>, <b>eth</b>, <b>doge</b>)\nya <b>top</b> likho → TOP 10 list 📈",
+    "appfind": "📦 <b>App Finder (Official Stores)</b>\n\nApp ka naam bhejo — icon + top 5 download links turant:\n(jaise: <b>Vidmate</b>, <b>Spotify</b>, <b>WhatsApp</b>)",
+    "aichat": "🤖 <b>AI Chat (ChatGPT style!)</b> 💎 <i>roz FREE trials</i>\n\nKuch bhi poochho — idea, essay, code, translation, gyan!\nBaat karte raho — /cancel se band.\n\n<i>Hindi/English/Hinglish — jo samajh aaye likho 👇</i>",
+    "aiimg": "🎨 <b>AI Image Generator</b> 💎 <i>roz FREE trials</i>\n\nPhoto ka description bhejo (English best):\n(jaise: <b>tiger wearing headphones, cyberpunk city</b>)\n\n<i>Aur banwana ho to naya description likh do — /cancel se band</i>",
+    "shot": "🖼️ <b>Website Screenshot</b>\n\nKoi bhi website ka LINK bhejo — live screenshot turant:\n(jaise: <b>github.com</b> ya <b>https://netflix.com</b>)",
     "rto": "🚗 <b>RTO Vehicle Info</b>\n\nGaadi number bhejo:\n(jaise: JH01AB1234)",
 }
 
 WELCOME = (
     "👋 Namaste! Main hoon <b>Utility Duniya Bot</b> 🌟\n\n"
-    "🧰 <b>24 powerful tools</b>, bilkul FREE:\n"
-    "🔎 Search • 🌦️ Weather • 🔄 Unit Convert • 🪙 Crypto\n"
-    "📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short\n"
-    "🎬 YT • ⬇️ Download • 🧮 EMI • 🎂 Age\n"
+    "💡 <b>22 tools bilkul FREE</b> + 🤖 AI magic 💎\n"
+    "🔎 Search • 📦 App Finder • 🖼️ Screenshot • 📷 QR\n"
+    "🔐 Password • 🖼️ PDF • 🔗 Short • 🧮 EMI • 🎂 Age\n"
     "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC\n"
-    "📮 Pincode • 🪪 Passport • 🔍 Link Check\n"
-    "🔓 Bypass • 📈 Interest • 🚗 RTO • 📱 Number\n\n"
+    "📮 Pincode • 🪪 Passport • 🔍 Check • 🔓 Bypass\n"
+    "📈 Interest • 🚗 RTO • 📱 Number\n"
+    "🤖 AI Chat + 🎨 AI Image — roz FREE trial, unlimited Premium 💎\n\n"
     f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
@@ -1705,7 +1291,7 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for k in ("mode", "pdf_pages", "upi_id", "upi_name", "upi_amt", "emi_p", "emi_r",
               "int_type", "int_p", "int_r", "int_t", "tts_voice", "tts_name", "tts_rate",
-              "tts_pitch", "qr_pending", "setcookies", "plan_days", "pwd_name"):
+              "tts_pitch", "qr_pending", "plan_days", "pwd_name", "ai_hist"):
         context.user_data.pop(k, None)
     await update.message.reply_text("❌ Cancel ho gaya. Grid se dobara chuno.")
 
@@ -1715,7 +1301,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "❓ <b>HELP</b>\n\n📲 Neeche grid icon (▦) dabao = saare tools khulenge!\n"
         "Koi tool dabao, bot jo mange wo bhejo. ✅\n\n"
         "👆 <b>Har result tap karke copy hota hai!</b>\n\n"
-        "/menu - tools grid\n/search • /weather • /unit • /crypto - naye tools\n"
+        "/menu - tools grid\n/ai • /image • /app • /shot - AI naye tools\n"
         "/premium - premium plans\n/refer - refer & earn\n"
         "/account - mera account\n/cancel - cancel\n\n"
         f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁",
@@ -1761,7 +1347,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     board = "".join(f"\n{i + 1}. {hesc((n or 'User')[:15])} — {c} 🎁" for i, (n, c) in enumerate(top)) or "\n—"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("📤 Doston ko Share Karo",
-                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 24 tools! QR, UPI QR, YT Download, Voice sab!")],
+                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 22 tools! AI Image, QR, UPI QR, Voice sab!")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
     await update.effective_message.reply_text(
@@ -1791,7 +1377,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "💎✨ <b>PREMIUM</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
-        "✅ <b>Unlimited</b> saare 24 tools\n"
+        "✅ <b>Unlimited</b> saare 22 tools\n"
         "💰 UPI QR + ⬇️ YT Download + 🔊 10 Voices — bina limit!\n"
         "⚡ Sabse pehle naye tools\n"
         "🚫 Roz ka limit khatam = tension khatam\n"
@@ -1819,8 +1405,6 @@ async def cmd_tool(update: Update, context: ContextTypes.DEFAULT_TYPE, mode: str
 async def cmd_qr(u, c): await cmd_tool(u, c, "qr")
 async def cmd_pdf(u, c): await cmd_tool(u, c, "pdf")
 async def cmd_short(u, c): await cmd_tool(u, c, "short")
-async def cmd_yt(u, c): await cmd_tool(u, c, "yt")
-async def cmd_ytdl(u, c): await cmd_tool(u, c, "ytdl")
 async def cmd_emi(u, c): await cmd_tool(u, c, "emi")
 async def cmd_age(u, c): await cmd_tool(u, c, "age")
 async def cmd_upi(u, c): await cmd_tool(u, c, "upi")
@@ -1831,11 +1415,11 @@ async def cmd_pp(u, c): await cmd_tool(u, c, "pp")
 async def cmd_link(u, c): await cmd_tool(u, c, "linkcheck")
 async def cmd_bypass(u, c): await cmd_tool(u, c, "linkbypass")
 async def cmd_rto(u, c): await cmd_tool(u, c, "rto")
-async def cmd_insta(u, c): await cmd_tool(u, c, "insta")
 async def cmd_search(u, c): await cmd_tool(u, c, "search")
-async def cmd_weather(u, c): await cmd_tool(u, c, "weather")
-async def cmd_unit(u, c): await cmd_tool(u, c, "unit")
-async def cmd_crypto(u, c): await cmd_tool(u, c, "crypto")
+async def cmd_appfind(u, c): await cmd_tool(u, c, "appfind")
+async def cmd_ai(u, c): await cmd_tool(u, c, "aichat")
+async def cmd_image(u, c): await cmd_tool(u, c, "aiimg")
+async def cmd_shot(u, c): await cmd_tool(u, c, "shot")
 
 
 async def pwd_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1907,33 +1491,6 @@ async def cmd_ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
-async def cmd_cktest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    lines = []
-    try:
-        ex = os.path.exists(COOKIE_FILE)
-        lines.append("EXISTS: " + str(ex))
-        if ex:
-            raw = open(COOKIE_FILE, "rb").read()
-            lines.append("SIZE: " + str(len(raw)))
-            lines.append("TABS: " + str(raw.count(b"\t")))
-            lines.append("JAR: " + str(cookies_jar_count(COOKIE_FILE)))
-    except Exception as e:
-        lines.append("ERR: " + str(e)[:100])
-    await update.message.reply_text("CKT" + chr(10) + chr(10).join(lines))
-    st = await update.message.reply_text("Probe chal raha (15-30s)...")
-    try:
-        r = await asyncio.to_thread(_yt_race_one, "https://www.youtube.com/watch?v=dQw4w9WgXcQ", None)
-        if r and r[0]:
-            await st.edit_text("PROBE: OK - " + str(r[0].get("title", "?"))[:60])
-        else:
-            _e = str(r[2] if r and len(r) > 2 else "?")
-            await st.edit_text("PROBE-FAIL: " + _e[:200])
-    except Exception as e:
-        await st.edit_text("PROBE-ERR: " + str(e)[:150])
-
-
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(update.effective_user.id):
         return
@@ -1988,17 +1545,6 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("📢 Bhej raha hoon...")
     n, ok, fail = await do_broadcast(context.bot, text)
     await update.message.reply_text(f"✅ Broadcast done! Total: {n}, Success: {ok}, Fail: {fail}")
-
-
-async def cmd_setcookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    context.user_data["mode"] = "setcookies"
-    await update.message.reply_text(
-        "🍪 <b>YT Cookies Setup</b> (permanent download fix!) "
-        "PHONE: Firefox app + 'Cookie-Editor' addon se youtube cookies JSON me Export karo. PC: Chrome me <b>'Get cookies.txt LOCALLY'</b> lagao → youtube.com kholo → Export → jo file mile (.txt ya .json) wo yahan 2-3 message me TEXT bhejo, phir DONE likho (ya FILE bhej do). "
-        "⚠️ Note: deploy ke baad dobara bhejna padega (free server memory reset). Permanent ke liye Render me YT_COOKIES env me file ka text dalo.",
-        parse_mode=HTML)
 
 
 async def cmd_approve(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2461,114 +2007,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    if mode == "yt":
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await use_or_block(uid, update):
-            return
-        await act(context, update.effective_chat.id, "upload_photo")
-        vid = yt_id(text)
-        if not vid:
-            refund_use(uid)
-            await update.message.reply_text("⚠️ Sahi YouTube link bhejo. Dobara try karo:")
-            return
-        res = await asyncio.to_thread(fetch_yt_best, vid)
-        if not res:
-            refund_use(uid)
-            await update.message.reply_text("⚠️ Is video ka thumbnail nahi mila. Dusra link try karo (limit wapas ✅):")
-            return
-        data, w, h, q = res
-        try:
-            data, w, h, enh = await asyncio.to_thread(enhance_thumb, data)
-        except Exception:
-            enh = False
-        bio = io.BytesIO(data)
-        bio.name = f"thumbnail_{w}x{h}.jpg"
-        bio.seek(0)
-        tag = "⬆️ <b>HD Enhanced 720p+</b> ✨" if enh else "🏆 <b>Original Highest Quality</b>"
-        await update.message.reply_document(
-            document=bio,
-            caption=f"🎬 {tag}!\n📐 Size: <b>{w}×{h}</b>\n🔗 https://youtu.be/{vid}",
-            reply_markup=BACK, parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        return
-
-    if mode == "ytdl":
-        vid = yt_id(text)
-        if not vid:
-            await update.message.reply_text("⚠️ Sahi YouTube/Shorts link bhejo:")
-            return
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await asyncio.to_thread(yt_exists, vid):
-            await update.message.reply_text("⛔ Ye video YouTube par NAHI mili (delete/private). Dusra link bhejo! Trial kata hi nahi.")
-            context.user_data.pop("mode", None)
-            return
-        if not await trial_or_block(uid, update, "YT Download"):
-            context.user_data.pop("mode", None)
-            return
-        await act(context, update.effective_chat.id, "upload_video")
-        status = await update.message.reply_text("⏳ <b>Downloading HD...</b> (thoda time lagega, ruko! ⏰)",
-                                                 parse_mode=HTML)
-        st, info, path = await asyncio.to_thread(ytdl_download, text)
-        if st != "OK":
-            refund_trial(uid)
-            info = str(info) + " Trial wapas kar diya."
-            try:
-                thumb = await asyncio.to_thread(fetch_yt_best, vid)
-            except Exception:
-                thumb = None
-            if thumb:
-                data, w, h, _q = thumb
-                bio = io.BytesIO(data)
-                bio.name = "thumbnail.jpg"
-                bio.seek(0)
-                await update.message.reply_photo(
-                    photo=bio,
-                    caption=f"{info} 🎬 Video nahi aayi to thumbnail le lo! ({w}x{h})",
-                    reply_markup=BACK, parse_mode=HTML)
-                try:
-                    await status.delete()
-                except Exception:
-                    pass
-            else:
-                await status.edit_text(info)
-            context.user_data.pop("mode", None)
-            return
-        try:
-            title = (info.get("title") or "video")[:80]
-            dur = info.get("duration") or 0
-            res = info.get("height") or "?"
-            vf = open(path, "rb")
-            try:
-                await update.message.reply_video(
-                    video=vf,
-                caption=f"⬇️ <b>{hesc(title)}</b>\n⏱️ {dur // 60}:{dur % 60:02d} min • 📐 {res}p • 💾 {os.path.getsize(path) / 1048576:.1f} MB\n\n✅ Download karke chill karo! 🎬",
-                    reply_markup=BACK, parse_mode=HTML)
-            finally:
-                try:
-                    vf.close()
-                except Exception:
-                    pass
-            try:
-                await status.delete()
-            except Exception:
-                pass
-        except Exception as e:
-            await status.edit_text(f"⛔ Bhejne me dikkat: {str(e)[:150]}")
-        finally:
-            try:
-                os.remove(path)
-                os.rmdir(os.path.dirname(path))
-            except Exception:
-                pass
-        context.user_data.pop("mode", None)
-        return
-
     if mode == "emi":
         try:
             p = float(text.replace(",", "").replace("₹", "").strip())
@@ -2708,64 +2146,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop(k, None)
         return
 
-    if mode == "setcookies":
-        if not is_admin(uid):
-            context.user_data.pop("mode", None)
-            context.user_data.pop("ck_parts", None)
-            return
-        t = (text or "")
-        if t.strip().lower() in ("done", "bas", "hogaya", "ho gaya", "complete", "khatam"):
-            t = "".join(context.user_data.get("ck_parts", []))
-            context.user_data.pop("ck_parts", None)
-            if not t.strip():
-                await update.message.reply_text("Pehle cookies ka text bhejo (2-3 message me), phir DONE likho.")
-                return
-        else:
-            if len(t) < 50:
-                await update.message.reply_text("Cookies ka text bhejo (clipboard wala poora), phir DONE likho.")
-                return
-            _parts = context.user_data.setdefault("ck_parts", [])
-            _total = sum(len(x) for x in _parts) + len(t)
-            if _total > 120000:
-                context.user_data.pop("ck_parts", None)
-                await update.message.reply_text("Bahut lamba ho gaya. /cancel karke dobara chhote parts me bhejo.")
-                return
-            _parts.append(t)
-            await update.message.reply_text("Part " + str(len(_parts)) + " mil gaya (" + str(_total) + " chars). Aur ho to bhejo, warna DONE likho.")
-            return
-        low = t.lower()
-        if not (("youtube" in low or "netscape" in low) and (t.count("\t") >= 10 or "#HttpOnly" in t or t.lstrip().startswith("["))):
-            await update.message.reply_text("Ye cookies nahi lag rahi. Poora text bhejo (2-3 message me), phir DONE likho.")
-            return
-        raw = normalize_cookies(t.encode("utf-8", "ignore"))
-        if raw.lstrip()[:1] == b"[":
-            raw = cookies_json_to_netscape(raw)
-            if not raw:
-                await update.message.reply_text("JSON adhura lag raha hai. Poora bhejo phir DONE likho.")
-                return
-        try:
-            with open(COOKIE_FILE, "wb") as fh:
-                fh.write(raw)
-        except Exception as e:
-            await update.message.reply_text("Save fail: " + str(e)[:120])
-            context.user_data.pop("mode", None)
-            context.user_data.pop("ck_parts", None)
-            return
-        _n = cookies_jar_count(COOKIE_FILE)
-        if _n <= 0:
-            try:
-                os.remove(COOKIE_FILE)
-            except Exception:
-                pass
-            await update.message.reply_text("Cookies TOOTI lag rahi (0 login mile). Cookie-Editor se dobara Export karke bhejo.")
-            context.user_data.pop("mode", None)
-            context.user_data.pop("ck_parts", None)
-            return
-        await update.message.reply_text("Cookies save ho gayi ✅ (" + str(_n) + " login) Ab YT Download try karo!")
-        context.user_data.pop("mode", None)
-        context.user_data.pop("ck_parts", None)
-        return
-
     if mode == "idfind":
         fo = getattr(update.message, "forward_origin", None)
         su = getattr(fo, "sender_user", None) if fo else None
@@ -2841,65 +2221,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "\nOperator: " + hesc(_op) + "\nCircle/Region: " + hesc(_rg) +
             "\n\n<i>Note: number port (MNP) hua ho to operator purana dikh sakta hai.</i>",
             reply_markup=BACK, parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        return
-
-    if mode == "insta":
-        _rt = restore_md_marks(update.message)
-        _u = ((_rt or "").strip().lstrip("@").split() or [""])
-        u = _u[0][:30]
-        if not u or not all(ch.isalnum() or ch in "._" for ch in u):
-            await update.message.reply_text("Sahi Insta username bhejo (bina @). Dobara try karo:")
-            return
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await trial_or_block(uid, update, "Insta Info"):
-            context.user_data.pop("mode", None)
-            return
-        await act(context, update.effective_chat.id, "typing")
-        st = await update.message.reply_text("\U0001F50E @" + code(u) + " ki report nikal raha hoon...", parse_mode=HTML)
-        d = await asyncio.to_thread(insta_lookup, u)
-        if d == "RATELIMIT":
-            refund_trial(uid)
-            await st.edit_text("Instagram busy hai (server-limit lag gayi). Trial WAPAS kar diya. 2-3 ghante baad dobara bhejo - limit khulne par report aa jayegi!")
-            context.user_data.pop("mode", None)
-            return
-        if not d:
-            refund_trial(uid)
-            await st.edit_text("@" + code(u) + " nahi mila. Sahi username bhejo (trial wapas).", parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        NL = chr(10)
-        pv = "PRIVATE" if d["private"] else "PUBLIC"
-        vf = "VERIFIED ✅" if d["verified"] else "NOT VERIFIED ❌"
-        cap = NL.join(["📸 <b>INSTAGRAM REPORT</b>",
-            "Username: @" + hesc(d["username"]),
-            "Name: " + hesc(d["name"]),
-            "ID: " + code(d["uid"]),
-            pv + " | " + vf,
-            "Followers: " + str(d["followers"]) + " | Following: " + str(d["following"]) + " | Posts: " + str(d["posts"]),
-            "Bio: " + (hesc(d["bio"][:300]) if d["bio"] else "-")])
-        pic = None
-        if d["pic"]:
-            try:
-                _r = await asyncio.to_thread(lambda: requests.get(d["pic"], timeout=15))
-                if _r.status_code == 200 and len(_r.content) > 5000:
-                    pic = _r.content
-            except Exception:
-                pic = None
-        if pic:
-            bio = io.BytesIO(pic)
-            bio.name = "insta_dp.jpg"
-            bio.seek(0)
-            await update.message.reply_photo(photo=bio, caption=cap, reply_markup=BACK, parse_mode=HTML)
-            try:
-                await st.delete()
-            except Exception:
-                pass
-        else:
-            await st.edit_text(cap, reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -3026,10 +2347,147 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
+    if mode == "appfind":
+        name = text.strip()
+        if not (2 <= len(name) <= 50) or name.startswith("http"):
+            await update.message.reply_text("⚠️ App ka NAAM bhejo (jaise: Vidmate, Spotify):")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await use_or_block(uid, update):
+            return
+        await act(context, update.effective_chat.id, "typing")
+        try:
+            d = await asyncio.to_thread(app_finder, name)
+        except Exception:
+            d = None
+        links = (d or {}).get("links") or []
+        if not links:
+            refund_use(uid)
+            await update.message.reply_text(
+                f"😕 <b>{hesc(name)}</b> nahi mila. Doosra naam likho (limit wapas ✅):",
+                parse_mode=HTML)
+            return
+        imgs = (d or {}).get("imgs") or []
+        if imgs:
+            try:
+                media = [InputMediaPhoto(media=x["img"],
+                                         caption=(f"📦 {hesc(name)}" if i == 1 else None))
+                         for i, x in enumerate(imgs[:4], 1)]
+                await context.bot.send_media_group(update.effective_chat.id, media=media)
+            except Exception:
+                pass
+        txt = f"📦 <b>APP FINDER</b> — {hesc(name)}\n━━━━━━━━━━━━━━━\n"
+        for i, L in enumerate(links, 1):
+            txt += (f"\n{i}. <a href=\"{hesc(L['url'])}\">{hesc(L['title'][:80])}</a>"
+                    f"\n   🌐 {hesc(L['dom'])}")
+        txt += "\n\n<i>Link tap = direct download page 👆 (official stores se)</i>"
+        await update.message.reply_text(
+            txt, reply_markup=BACK, parse_mode=HTML,
+            link_preview_options=LinkPreviewOptions(is_disabled=True))
+        context.user_data.pop("mode", None)
+        return
+
+    if mode == "shot":
+        url = text.strip()
+        if not re.match(r"^https?://", url):
+            url = "https://" + url.lstrip("/")
+        if " " in url or "." not in urlparse(url).netloc or len(url) > 300:
+            await update.message.reply_text("⚠️ Sahi website link bhejo (jaise github.com):")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await use_or_block(uid, update):
+            return
+        await act(context, update.effective_chat.id, "upload_photo")
+        data = await asyncio.to_thread(site_screenshot, url)
+        if not data:
+            refund_use(uid)
+            await update.message.reply_text(
+                "⚠️ Screenshot nahi ban paya (site slow/redirect). Limit wapas ✅ — dobara try karo:")
+            return
+        bio = io.BytesIO(data)
+        bio.name = "screenshot.jpg"
+        bio.seek(0)
+        host = urlparse(url).netloc
+        await update.message.reply_photo(
+            photo=bio,
+            caption=f"🖼️ <b>LIVE SCREENSHOT</b> — {hesc(host)}\n👆 Photo dabake save karo",
+            reply_markup=BACK, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+
+    if mode == "aichat":
+        prompt = text.strip()
+        if not (1 <= len(prompt) <= 700):
+            await update.message.reply_text("⚠️ Thoda chhota message bhejo (700 letters tak):")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await trial_or_block(uid, update, "AI Chat"):
+            return
+        await act(context, update.effective_chat.id, "typing")
+        hist = context.user_data.get("ai_hist") or []
+        try:
+            ans = await asyncio.to_thread(ai_chat, prompt, hist)
+        except Exception:
+            ans = None
+        if not ans:
+            refund_trial(uid)
+            await update.message.reply_text(
+                "⚠️ AI abhi busy hai — 1 min ruk ke dobara bhejo (trial wapas ✅):")
+            return
+        hist = (hist + [{"role": "user", "content": prompt},
+                        {"role": "assistant", "content": ans}])[-8:]
+        context.user_data["ai_hist"] = hist
+        await update.message.reply_text(
+            f"🤖 <b>AI</b>\n━━━━━━━━━━━━━━━\n{hesc(ans)}",
+            reply_markup=BACK, parse_mode=HTML)
+        # mode rehta hai — aur baat karte raho (/cancel tak)
+        return
+
+    if mode == "aiimg":
+        prompt = text.strip()
+        if not (3 <= len(prompt) <= 300):
+            await update.message.reply_text(
+                "⚠️ Photo ka description bhejo (3-300 letters), English best:\n"
+                "(jaise: <b>tiger wearing headphones, cyberpunk city</b>)", parse_mode=HTML)
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await trial_or_block(uid, update, "AI Image Generator"):
+            context.user_data.pop("mode", None)
+            return
+        await act(context, update.effective_chat.id, "upload_photo")
+        data = await asyncio.to_thread(ai_image, prompt)
+        if not data:
+            refund_trial(uid)
+            await update.message.reply_text(
+                "⚠️ Image ban nahi payi (API busy). Dobara try karo (trial wapas ✅):")
+            return
+        bio = io.BytesIO(data)
+        bio.name = "ai_image.jpg"
+        bio.seek(0)
+        await update.message.reply_photo(
+            photo=bio,
+            caption=f"🎨 <b>AI IMAGE</b>\n💬 {hesc(prompt[:250])}\n\n"
+                    f"<i>Aur banwana ho to naya description likh do — /cancel se band</i>",
+            reply_markup=BACK, parse_mode=HTML)
+        # mode rehta hai — naye prompt pe nayi image
+        return
+
     if mode == "search":
         q = text.strip()
         if not (2 <= len(q) <= 150):
-            await update.message.reply_text("⚠️ Kam se kam 2 letters ka sawal bhejo (jaise juicer recipe hindi me):")
+            await update.message.reply_text("⚠️ Kam se kam 2 letters ka sawal bhejo (jaise: netflix):")
             return
         wg = net_gate(uid)
         if wg > 0:
@@ -3044,7 +2502,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             res = None
         if res is None:
             refund_use(uid)
-            await update.message.reply_text("⚠️ Search me dikkat aayi (net slow?). Limit wapas ✅ — dobara try karo:")
+            await update.message.reply_text(
+                "⚠️ Search me dikkat aayi (net slow?). Limit wapas ✅ — dobara try karo:")
             return
         if not res:
             await update.message.reply_text(
@@ -3052,133 +2511,30 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=BACK, parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
+        try:
+            imgs = await asyncio.to_thread(bing_images, q)
+        except Exception:
+            imgs = []
+        if imgs:
+            try:
+                media = []
+                for i, x in enumerate(imgs[:5], 1):
+                    cap = f"{i}. {x['title']}" if x.get("title") else f"{i}. 🖼️"
+                    if x.get("page"):
+                        cap += f"\n{x['page'][:250]}"
+                    media.append(InputMediaPhoto(media=x["img"], caption=cap[:1000]))
+                await context.bot.send_media_group(update.effective_chat.id, media=media)
+            except Exception:
+                pass
         parts = []
-        for i, r0 in enumerate(res, 1):
+        for i, r0 in enumerate(res[:6], 1):
             sn = f"\n<i>{hesc(r0.get('snip') or '')}</i>" if r0.get("snip") else ""
-            parts.append(
-                f"\n{i}. <a href=\"{hesc(r0['url'])}\">{hesc(r0['title'])}</a>{sn}")
+            parts.append(f"\n{i}. <a href=\"{hesc(r0['url'])}\">{hesc(r0['title'])}</a>{sn}")
         await update.message.reply_text(
-            f"🔎 <b>RESULTS</b> — <i>{hesc(q)}</i>\n" + "".join(parts) +
-            "\n\n<i>Title par tap = website khulegi 👆 (top 5)</i>",
+            f"🔎 <b>TOP RESULTS</b> — <i>{hesc(q)}</i>\n" + "".join(parts) +
+            "\n\n<i>Upar images = visual results • Title tap = website 👆</i>",
             reply_markup=BACK, parse_mode=HTML,
             link_preview_options=LinkPreviewOptions(is_disabled=True))
-        context.user_data.pop("mode", None)
-        return
-
-    if mode == "weather":
-        city = text.strip()
-        if not (2 <= len(city) <= 60):
-            await update.message.reply_text("⚠️ Sahi shehar ka naam bhejo (jaise Ranchi, Delhi):")
-            return
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await use_or_block(uid, update):
-            return
-        await act(context, update.effective_chat.id, "typing")
-        try:
-            d = await asyncio.to_thread(weather_lookup, city)
-        except Exception:
-            d = None
-        if not d:
-            refund_use(uid)
-            await update.message.reply_text(
-                f"😕 <b>{hesc(city)}</b> nahi mila. Sahi shehar/naam likho (limit wapas ✅):",
-                parse_mode=HTML)
-            return
-        cur, daily = d.get("cur") or {}, d.get("daily") or {}
-        e0, d0 = wmo_desc(cur.get("weather_code", 0))
-        days = ""
-        ts = daily.get("time") or []
-        for i in range(1, min(4, len(ts))):
-            de, dd = wmo_desc((daily.get("weather_code") or [0] * 8)[i])
-            mx = (daily.get("temperature_2m_max") or ["?"] * 8)[i]
-            mn = (daily.get("temperature_2m_min") or ["?"] * 8)[i]
-            pr = (daily.get("precipitation_probability_max") or [None] * 8)[i]
-            days += (f"\n• {ts[i]} {de} {hesc(dd)}: {mn}\u00b0 \u2192 {mx}\u00b0"
-                     + (f" ☔{pr}%" if pr is not None else ""))
-        rain = cur.get("precipitation") or 0
-        await update.message.reply_text(
-            f"🌦️ <b>MAUSAM</b> — {hesc(d.get('place') or city)}\n━━━━━━━━━━━━━━━\n"
-            f"{e0} <b>{cur.get('temperature_2m', '?')}\u00b0C</b> — {hesc(d0)}\n"
-            f"🌡️ Feels like: {cur.get('apparent_temperature', '?')}\u00b0C\n"
-            f"💧 Humidity: {cur.get('relative_humidity_2m', '?')}%  •  💨 Wind: {cur.get('wind_speed_10m', '?')} km/h\n"
-            f"🌧️ Abhi barish: {rain} mm\n\n"
-            f"📅 <b>Agle 3 din:</b>{days}\n\n<i>Open-Meteo • cache 15 min</i>",
-            reply_markup=BACK, parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        return
-
-    if mode == "unit":
-        r = unit_convert(text)
-        if r is None:
-            await update.message.reply_text(
-                "⚠️ Format: <code>value from to to</code>\n"
-                "(jaise: <code>75 kg to lbs</code>, <code>10 km to miles</code>, <code>100 f to c</code>)",
-                reply_markup=BACK, parse_mode=HTML)
-            return
-        if r.get("err") == "unit":
-            await update.message.reply_text(
-                "⚠️ Ye unit samajh nahi aaya. Example:\n"
-                "km/m/cm/ft/in/yd/mi • kg/g/lb/oz/quintal • c/f/k • l/ml/gal • kmh/mph • kb/mb/gb • acre/ha",
-                reply_markup=BACK)
-            return
-        if r.get("err") == "cat":
-            await update.message.reply_text(
-                "⚠️ Dono units alag category ke hain (kg \u2192 km nahi chalega). Dobara try karo:",
-                reply_markup=BACK)
-            return
-        if not await use_or_block(uid, update):
-            return
-        catn = {"temperature": "🌡️ TEMPERATURE", "len": "📏 LENGTH", "mass": "⚖️ WEIGHT",
-                "vol": "🧪 VOLUME", "speed": "🏁 SPEED", "data": "💾 DATA",
-                "area": "📐 AREA"}.get(r["cat"], "UNIT")
-        await update.message.reply_text(
-            f"🔄 <b>{catn} CONVERT</b>\n━━━━━━━━━━━━━━━\n"
-            f"<code>{_num_fmt(r['val'])} {hesc(r['fu'])}</code> = <b>{_num_fmt(r['out'])} {hesc(r['tu'])}</b>\n\n"
-            f"👆 <i>Tap = copy. Aur convert karna ho to seedha likh do (jaise 5 mi to km) — /cancel se band.</i>",
-            reply_markup=BACK, parse_mode=HTML)
-        return
-
-    if mode == "crypto":
-        q = text.strip()
-        if not (1 <= len(q) <= 40):
-            await update.message.reply_text("⚠️ Coin ka naam/symbol bhejo (jaise btc, eth) ya top likho:")
-            return
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await use_or_block(uid, update):
-            return
-        await act(context, update.effective_chat.id, "typing")
-        try:
-            d = await asyncio.to_thread(crypto_price, q)
-        except Exception:
-            d = None
-        if not d:
-            refund_use(uid)
-            await update.message.reply_text(
-                "⚠️ Coin nahi mila / API busy. Jaise <code>btc</code>, <code>eth</code>, "
-                "<code>doge</code> ya <code>top</code> likho (limit wapas ✅):", parse_mode=HTML)
-            return
-        if d.get("type") == "top":
-            txt = "🪙 <b>TOP 10 CRYPTO (INR)</b>\n━━━━━━━━━━━━━━━\n"
-            for x in d.get("rows") or []:
-                ar = "🟢" if (x.get("chg") or 0) >= 0 else "🔴"
-                txt += (f"\n{x.get('rank')}. <b>{hesc(x.get('name'))}</b> ({hesc(x.get('sym'))}) — "
-                        f"{money(x.get('price'))} {ar} {(x.get('chg') or 0):+.1f}%")
-            txt += "\n\n<i>CoinGecko • price cache 2 min</i>"
-        else:
-            chg = d.get("chg") or 0
-            ar = "📈" if chg >= 0 else "📉"
-            cap = f"\n🏦 Market Cap: {money(d.get('cap'))}" if d.get("cap") else ""
-            txt = (f"🪙 <b>{hesc(d.get('name'))} PRICE</b>\n━━━━━━━━━━━━━━━\n"
-                   f"💰 Price: <b>{money(d.get('price'))}</b>\n"
-                   f"{ar} 24h change: <b>{chg:+.2f}%</b>{cap}\n\n"
-                   f"<i>INR me • CoinGecko • cache 2 min</i>")
-        await update.message.reply_text(txt, reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -3377,72 +2733,6 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("📩 Kisi ka message FORWARD karo (photo wala bhi chalega), ya @username bhejo:")
         return
 
-    if mode == "setcookies":
-        if not is_admin(uid):
-            context.user_data.pop("mode", None)
-            return
-        doc = update.message.document
-        if not doc or not (doc.file_name or "").lower().endswith((".txt", ".json")):
-            await update.message.reply_text("cookies FILE bhejo (.txt ya .json document).")
-            return
-        try:
-            tf = await context.bot.get_file(doc.file_id)
-            cdata = bytes(await tf.download_as_bytearray())
-        except Exception:
-            await update.message.reply_text("Download fail, file dobara bhejo.")
-            return
-        _fn = (doc.file_name or "").lower()
-        if _fn.endswith(".json") or cdata.lstrip()[:1] == b"[":
-            _conv = cookies_json_to_netscape(cdata)
-            if not _conv:
-                await update.message.reply_text("JSON samajh nahi aaya. Cookie-Editor se dobara Export karke bhejo.")
-                return
-            cdata = _conv
-        if b"youtube" not in cdata.lower() and b"#HttpOnly" not in cdata:
-            await update.message.reply_text("Ye YouTube cookies file nahi lag rahi. Sahi file bhejo.")
-            return
-        try:
-            with open(COOKIE_FILE, "wb") as fh:
-                fh.write(normalize_cookies(cdata))
-        except Exception as e:
-            await update.message.reply_text("Save fail: " + str(e)[:120])
-            return
-        _n = cookies_jar_count(COOKIE_FILE)
-        if _n <= 0:
-            try:
-                os.remove(COOKIE_FILE)
-            except Exception:
-                pass
-            await update.message.reply_text("Cookies TOOTI lag rahi (0 login mile). Dobara Export karke bhejo.")
-            context.user_data.pop("mode", None)
-            return
-        await update.message.reply_text("Cookies save ho gayi ✅ (" + str(_n) + " login)! Ab YT download try karo.")
-        context.user_data.pop("mode", None)
-        return
-
-    if mode not in ("pdf", "pp"):
-        await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!",
-                                        reply_markup=kb_for(uid))
-        return
-
-    try:
-        f = None
-        if update.message.photo:
-            f = await context.bot.get_file(update.message.photo[-1].file_id)
-        elif update.message.document and (update.message.document.mime_type or "").startswith("image/"):
-            if (update.message.document.file_size or 0) > 12 * 1024 * 1024:
-                await update.message.reply_text("⚠️ Photo 12MB se chhoti bhejo.")
-                return
-            f = await context.bot.get_file(update.message.document.file_id)
-        if not f:
-            await update.message.reply_text("⚠️ Photo bhejo (PDF/file nahi).")
-            return
-        data = bytes(await f.download_as_bytearray())
-        Image.open(io.BytesIO(data)).verify()
-    except Exception:
-        await update.message.reply_text("⚠️ Photo kholne me dikkat. Dusri photo bhejo:")
-        return
-
     if mode == "pdf":
         pages = context.user_data.setdefault("pdf_pages", [])
         if len(pages) >= 10:
@@ -3498,12 +2788,12 @@ async def _post_init(app: Application):
         await app.bot.set_my_commands([
             BotCommand("start", "👋 Welcome + tools grid"),
             BotCommand("menu", "⌨️ Tools grid"),
-            BotCommand("search", "🔎 Web search"),
-            BotCommand("weather", "🌦️ Weather"),
-            BotCommand("unit", "🔄 Unit converter"),
-            BotCommand("crypto", "🪙 Crypto price"),
+            BotCommand("search", "🔎 Web search + images"),
+            BotCommand("app", "📦 App Finder"),
+            BotCommand("ai", "🤖 AI Chat"),
+            BotCommand("image", "🎨 AI Image Generator"),
+            BotCommand("shot", "🖼️ Website screenshot"),
             BotCommand("qr", "📷 QR code"),
-            BotCommand("ytdl", "⬇️ YT download"),
             BotCommand("tts", "🔊 Text to speech"),
             BotCommand("emi", "🧮 EMI calculator"),
             BotCommand("premium", "💎 Premium plans"),
@@ -3543,25 +2833,6 @@ def _keepalive():
 def main():
     if not BOT_TOKEN:
         raise SystemExit("❌ BOT_TOKEN nahi mila! Render Environment me BOT_TOKEN=... dalo.")
-    _ck = os.getenv("YT_COOKIES", "")
-    if _ck.strip():
-        try:
-            with open(COOKIE_FILE, "w", encoding="utf-8") as fh:
-                fh.write(_ck.replace("\\n", "\n"))
-            try:
-                _raw = open(COOKIE_FILE, "rb").read()
-                if _raw.lstrip()[:1] == b"[":
-                    _conv = cookies_json_to_netscape(_raw)
-                    if _conv:
-                        open(COOKIE_FILE, "wb").write(_conv)
-            except Exception:
-                pass
-            _raw0 = open(COOKIE_FILE, "rb").read()
-            _raw0 = normalize_cookies(_raw0)
-            open(COOKIE_FILE, "wb").write(_raw0)
-            log.info("YT cookies env jar=%s", cookies_jar_count(COOKIE_FILE))
-        except Exception as e:
-            log.warning("cookies env fail: %s", e)
     db().close()
     app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
            .concurrent_updates(True)
@@ -3579,8 +2850,6 @@ def main():
     app.add_handler(CommandHandler("password", pwd_entry))
     app.add_handler(CommandHandler("pdf", cmd_pdf))
     app.add_handler(CommandHandler("short", cmd_short))
-    app.add_handler(CommandHandler("yt", cmd_yt))
-    app.add_handler(CommandHandler("ytdl", cmd_ytdl))
     app.add_handler(CommandHandler("emi", cmd_emi))
     app.add_handler(CommandHandler("age", cmd_age))
     app.add_handler(CommandHandler("upi", cmd_upi))
@@ -3593,17 +2862,15 @@ def main():
     app.add_handler(CommandHandler("bypass", cmd_bypass))
     app.add_handler(CommandHandler("interest", int_entry))
     app.add_handler(CommandHandler("rto", cmd_rto))
-    app.add_handler(CommandHandler("insta", cmd_insta))
     app.add_handler(CommandHandler("search", cmd_search))
-    app.add_handler(CommandHandler("weather", cmd_weather))
-    app.add_handler(CommandHandler("unit", cmd_unit))
-    app.add_handler(CommandHandler("crypto", cmd_crypto))
-    app.add_handler(CommandHandler("cktest", cmd_cktest))
+    app.add_handler(CommandHandler("app", cmd_appfind))
+    app.add_handler(CommandHandler("ai", cmd_ai))
+    app.add_handler(CommandHandler("image", cmd_image))
+    app.add_handler(CommandHandler("shot", cmd_shot))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("approve", cmd_approve))
-    app.add_handler(CommandHandler("setcookies", cmd_setcookies))
     app.add_handler(CommandHandler("ping", cmd_ping))
     app.add_handler(CallbackQueryHandler(on_cb))
     app.add_handler(MessageHandler(filters.PHOTO, on_photo))

@@ -1,19 +1,18 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v23)
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v24)
 
-**24 tools • 10 TTS voices • YT HD download • Link bypass • Admin panel**
+**22 tools • 🤖 AI Chat + 🎨 AI Image • App Finder • Screenshot • Admin panel**
 
 | Tool | Kaam |
 |---|---|
-| 🔎 Web Search | DuckDuckGo + Bing se top 5 links (no API key) |
-| 🌦️ Weather | Shehar ka live mausam + 3 din forecast (Open-Meteo) |
-| 🔄 Unit Converter | Length/Weight/Temp/Volume/Speed/Data/Area |
-| 🪙 Crypto Price | BTC/ETH live price INR me + TOP 10 (CoinGecko) |
+| 🔎 Web Search | Top 6 links + 5 images album (no API key) |
+| 📦 App Finder | App search → icon + 5 official store links (Play/Uptodown/APKPure) |
+| 🤖 AI Chat | ChatGPT-style Hinglish AI — roz FREE trials, unlimited Premium 💎 |
+| 🎨 AI Image Generator | Text se HD photo — roz FREE trials, unlimited Premium 💎 |
+| 🖼️ Site Screenshot | Koi bhi URL → live website screenshot |
 | 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
 | 🔐 Password | Random + naam wala, 3 options |
 | 🖼️ Image→PDF | Multi-page (10), lossless quality |
 | 🔗 URL Short | 2 short links + QR |
-| 🎬 YT Thumbnail | 720p+ HD (auto-enhance) |
-| ⬇️ YT Download | Shorts/videos HD download 💎 |
 | 🧮 EMI Calc | Advanced + saal-wise table |
 | 🎂 Age Calculator | Breakdown + weekday + rashi |
 | 💰 UPI QR Generator | Payment QR + amount + note 💎 |
@@ -26,7 +25,6 @@
 | 🔓 Link Bypass | Earn links → original link |
 | 📈 Interest Calc | SI vs CI compare + samjhaya |
 | 🚗 RTO Vehicle Info | State + RTO office decoder |
-| 📸 Insta Info | Profile info + followers |
 | 📱 Number Info | Circle + operator (offline) |
 
 **Earning features (built-in):**

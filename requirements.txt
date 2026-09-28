@@ -3,9 +3,7 @@ qrcode[pil]
 Pillow
 requests
 python-dotenv
-yt-dlp
 edge-tts
 gtts
 img2pdf
-imageio-ffmpeg
 phonenumbers
