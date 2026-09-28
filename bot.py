@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v20"
+BOT_VERSION = "v21"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1033,7 +1033,7 @@ def yt_race_info(url: str):
         futs.append(ex.submit(_yt_race_one, url, None))
         _first_err = ""
         try:
-            for f in cf.as_completed(futs, timeout=75):
+            for f in cf.as_completed(futs, timeout=45):
                 try:
                     r = f.result()
                 except Exception:
