@@ -408,7 +408,7 @@ def stats():
 
 # ---------------- PURE HELPERS ----------------
 def make_qr_bytes(text: str) -> io.BytesIO:
-    qr = qrcode.QRCode(box_size=12, border=4, error_correction=qrcode.constants.ERROR_CORRECT_H)
+    qr = qrcode.QRCode(box_size=22, border=4, error_correction=qrcode.constants.ERROR_CORRECT_H)
     qr.add_data(text)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white").convert("RGB")
@@ -1019,7 +1019,7 @@ def app_finder(name: str):
 
 # ---------------- WEBSITE SCREENSHOT (mShots - free, no key) ----------------
 def site_screenshot(url: str):
-    u = "https://s0.wp.com/mshots/v1/" + quote(url, safe="") + "?w=1080"
+    u = "https://s0.wp.com/mshots/v1/" + quote(url, safe="") + "?w=1920"
     for attempt in (1, 2):
         try:
             r = requests.get(u, headers=_SEARCH_HEADERS, timeout=25)
@@ -1072,15 +1072,15 @@ def passport_make(data: bytes):
         nh = int(w / target)
         y = max(0, (h - nh) // 3)
         img = img.crop((0, y, w, min(h, y + nh)))
-    single = img.resize((700, 900), Image.LANCZOS)
+    single = img.resize((1400, 1800), Image.LANCZOS)
     single = ImageEnhance.Contrast(single).enhance(1.05)
     single = ImageEnhance.Sharpness(single).enhance(1.3)
-    sheet = Image.new("RGB", (1200, 1800), "white")
-    tw, th = 360, 463
+    sheet = Image.new("RGB", (2400, 3600), "white")
+    tw, th = 720, 926
     thumb = single.resize((tw, th), Image.LANCZOS)
     for r in range(3):
         for c in range(3):
-            sheet.paste(thumb, (30 + c * (tw + 15), 60 + r * (th + 15)))
+            sheet.paste(thumb, (60 + c * (tw + 30), 120 + r * (th + 30)))
     b1, b2 = io.BytesIO(), io.BytesIO()
     single.save(b1, format="JPEG", quality=97, subsampling=0)
     sheet.save(b2, format="JPEG", quality=97, subsampling=0)
@@ -1197,100 +1197,13 @@ PROMPTS = {
 }
 
 WELCOME = (
-    "╭━━━━━━━━━━━━━━━━━━━━╮\n"
-    "\n"
-    "⚡ UTILITY DUNIYA\n"
-    "\n"
-    "\"v26.0\"\n"
-    "\n"
-    "╰━━━━━━━━━━━━━━━━━━━━╯\n"
-    "\n"
-    "\n"
-    "🟢 SYSTEM ONLINE\n"
-    "\n"
-    "🔓 ACCESS : \"GRANTED\"\n"
-    "\n"
-    "⚙️ MODULES : \"21 / 21\"\n"
-    "\n"
-    "♾️ STATUS : \"UNLIMITED\"\n"
-    "\n"
-    "\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "\n"
-    "\n"
-    "🧰 AVAILABLE TOOLS\n"
-    "\n"
-    "\"01\" 🌐 Virtual Numbers\n"
-    "\n"
-    "\"02\" 📷 QR Generator\n"
-    "\n"
-    "\"03\" 🔐 Password Generator\n"
-    "\n"
-    "\"04\" 🖼️ PDF Tools\n"
-    "\n"
-    "\"05\" 🔗 URL Shortener\n"
-    "\n"
-    "\"06\" 🔎 Search Tool\n"
-    "\n"
-    "\"07\" 📦 App Finder\n"
-    "\n"
-    "\"08\" 📸 Screenshot Tool\n"
-    "\n"
-    "\"09\" 🧮 EMI Calculator\n"
-    "\n"
-    "\"10\" 🎂 Age Calculator\n"
-    "\n"
-    "\"11\" 💳 UPI QR Generator\n"
-    "\n"
-    "\"12\" 🆔 ID Finder\n"
-    "\n"
-    "\"13\" 🔊 Voice Tools\n"
-    "\n"
-    "\"14\" 🏦 IFSC Finder\n"
-    "\n"
-    "\"15\" 📮 Pincode Finder\n"
-    "\n"
-    "\"16\" 🪪 Passport Tools\n"
-    "\n"
-    "\"17\" 🔍 Information Checker\n"
-    "\n"
-    "\"18\" 🔓 Bypass Tools\n"
-    "\n"
-    "\"19\" 📈 Interest Calculator\n"
-    "\n"
-    "\"20\" 🚗 RTO Information\n"
-    "\n"
-    "\"21\" 📱 Number Information\n"
-    "\n"
-    "\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "\n"
-    "\n"
-    "💎 ACCESS INFORMATION\n"
-    "\n"
-    "🟢 20+ Tools → FREE &amp; UNLIMITED\n"
-    "\n"
-    "⚡ Fast Response • Clean Results\n"
-    "\n"
-    "📋 One-Tap Copy\n"
-    "\n"
-    "🎁 Refer &amp; Unlock Premium Rewards\n"
-    "\n"
-    "\n"
-    "🔒 VIRTUAL NUMBERS\n"
-    "\n"
-    "«Premium / Paid Service»\n"
-    "\n"
-    "\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "\n"
-    "\n"
-    "▣ OPEN TOOL PANEL\n"
-    "\n"
-    "👇 Neeche Grid Menu (▦) par tap karein\n"
-    "\n"
-    "\n"
-    "⚡ \"UTILITY DUNIYA // READY\""
+    "⚡ <b>UTILITY DUNIYA</b> ⚡\n"
+    "<blockquote>21 tools • sab FREE • sirf ek paid — 🌐 Virtual Numbers</blockquote>\n\n"
+    "🌐 OTP numbers — <b>Get Number</b> se shuru karo\n"
+    "📋 Har result par <b>Copy button</b> — ek tap me copy\n"
+    "♾️ No limit • No trial • No charge 🎉\n"
+    "🎁 Refer karo = 30 din Premium FREE\n\n"
+    "⌨️ <b>Grid (▦) dabao — tools ready hain 👇</b>"
 )
 
 LIMIT_MSG = (
@@ -1475,6 +1388,32 @@ async def trial_or_block(uid: int, update: Update, tool: str) -> bool:
     await _send_limit_msg(update, TRIAL_MSG.format(tool=tool))
     return False
 
+# ---------------- WELCOME (4K banner + caption) ----------------
+def _welcome_img():
+    """Repo ki welcome banner image; missing ho to None."""
+    try:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "welcome_banner.jpg")
+        with open(p, "rb") as fh:
+            b = io.BytesIO(fh.read())
+        b.name = "welcome.jpg"
+        return b
+    except Exception:
+        return None
+
+
+async def send_welcome(msg, uid: int):
+    """Photo banner + short caption; photo fail ho to text-only."""
+    img = _welcome_img()
+    try:
+        if img is not None:
+            await msg.reply_photo(photo=img, caption=WELCOME,
+                                  reply_markup=kb_for(uid), parse_mode=HTML)
+            return
+    except Exception:
+        pass
+    await msg.reply_text(WELCOME, reply_markup=kb_for(uid), parse_mode=HTML)
+
+
 # ---------------- COMMANDS ----------------
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -1489,7 +1428,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             count = add_referral(user.id, ref_id)
             if count:
                 await update.message.reply_text(
-                    f"🎉 Welcome! Tum refer hokar aaye ho. Roz {FREE_LIMIT} FREE uses milenge!",
+                    "🎉 Welcome! Tum refer hokar aaye ho — saare tools FREE hain!",
                     reply_markup=kb_for(user.id))
                 try:
                     if count % REFER_NEED == 0:
@@ -1505,7 +1444,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
     if not await ensure_joined(update, context):
         return
-    await update.message.reply_text(WELCOME, reply_markup=kb_for(user.id), parse_mode=HTML)
+    await send_welcome(update.message, user.id)
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1789,7 +1728,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "joincheck":
         if await ensure_joined(update, context):
-            await q.message.reply_text(WELCOME, reply_markup=kb_for(uid), parse_mode=HTML)
+            await send_welcome(q.message, uid)
         return
 
     if data == "menu":
