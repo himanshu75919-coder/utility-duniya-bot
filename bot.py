@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v18
-- 19 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
+Utility Duniya Bot v23
+- 24 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
+- Naye: Web Search, Weather, Unit Converter, Crypto Price (free APIs, no key)
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
+- Per-user network rate-limit + flood-safe broadcast + commands menu set
 """
 
 import asyncio
+import base64
 import glob
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
@@ -23,7 +26,7 @@ import time
 import threading
 from datetime import date, datetime, timedelta
 from html import escape as hesc
-from urllib.parse import quote, urlparse
+from urllib.parse import quote, unquote, urlparse
 
 from dotenv import load_dotenv
 
@@ -32,7 +35,16 @@ load_dotenv()
 import qrcode
 import requests
 from PIL import Image, ImageEnhance
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup, Update
+from telegram import (
+    BotCommand,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    KeyboardButton,
+    LinkPreviewOptions,
+    ReplyKeyboardMarkup,
+    Update,
+)
+from telegram.error import RetryAfter
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -57,7 +69,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v22"
+BOT_VERSION = "v23"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -108,6 +120,24 @@ def cache_put(key, val, ttl=21600):
         _CACHE[key] = (time.time() + ttl, val)
     except Exception:
         pass
+
+
+# ---------------- NETWORK RATE LIMIT (spam -> API/IP block se bachav) --------
+_NET_LAST = {}
+NET_COOLDOWN = 2.0
+
+
+def net_gate(uid: int) -> float:
+    """Per-user network cooldown. 0.0 = jaane do, warna wait seconds."""
+    now = time.time()
+    if len(_NET_LAST) > 3000:
+        for k in [k for k, v in _NET_LAST.items() if now - v > NET_COOLDOWN]:
+            _NET_LAST.pop(k, None)
+    last = _NET_LAST.get(uid, 0.0)
+    if now - last < NET_COOLDOWN:
+        return round(NET_COOLDOWN - (now - last), 1)
+    _NET_LAST[uid] = now
+    return 0.0
 
 # ---------------- DATABASE ----------------
 def db():
@@ -754,6 +784,335 @@ def pin_lookup(pin: str):
             continue
     return None
 
+# ---------------- WEB SEARCH (DDG Lite + Bing fallback — no API key) --------
+_SEARCH_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Referer": "https://www.bing.com/",  # bina iske Bing decoy results deta hai!
+}
+
+
+def _strip_html(s: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", s or "")).strip()
+
+
+def _fix_entities(s: str) -> str:
+    s = s or ""
+    for a, b in (("&nbsp;", " "), ("&#0183;", " · "), ("&middot;", " · "),
+                 ("&quot;", '"'), ("&#39;", "'"), ("&amp;", "&")):
+        s = s.replace(a, b)
+    return s
+
+
+def _ddg_lite(q: str):
+    r = requests.get("https://lite.duckduckgo.com/lite/", params={"q": q},
+                     headers=_SEARCH_HEADERS, timeout=12)
+    if r.status_code != 200:
+        return []
+    t = r.text
+    snips = [_strip_html(_fix_entities(x)) for x in
+             re.findall(r'<td class="result-snippet">(.*?)</td>', t, re.I | re.S)]
+    out = []
+    blocks = re.findall(r'<td class="result-link">(.*?)</td>', t, re.I | re.S)
+    if blocks:
+        for i, blk in enumerate(blocks[:5]):
+            m = re.search(r'<a\b[^>]*href="([^"]+)"[^>]*>(.*?)</a>', blk, re.I | re.S)
+            if not m:
+                continue
+            title = _strip_html(_fix_entities(m.group(2)))
+            url = _fix_entities(m.group(1))
+            if url.startswith("//"):
+                url = "https:" + url
+            um = re.search(r"[?&]uddg=([^&]+)", url)
+            if um:
+                url = unquote(um.group(1))
+            if url.startswith("http") and title:
+                out.append([title, url, snips[i] if i < len(snips) else ""])
+    else:
+        # fallback: class kabhi anchor par hota hai
+        for i, m in enumerate(re.finditer(r"<a\b([^>]*)>(.*?)</a>", t, re.I | re.S)):
+            attrs, title = m.group(1), _strip_html(_fix_entities(m.group(2)))
+            if "result-link" not in attrs or not title:
+                continue
+            hm = re.search(r'href="([^"]+)"', attrs)
+            if not hm:
+                continue
+            url = _fix_entities(hm.group(1))
+            if url.startswith("//"):
+                url = "https:" + url
+            um = re.search(r"[?&]uddg=([^&]+)", url)
+            if um:
+                url = unquote(um.group(1))
+            if url.startswith("http"):
+                out.append([title, url, snips[i] if i < len(snips) else ""])
+            if len(out) >= 5:
+                break
+    return out
+
+
+def _bing_decode(u: str) -> str:
+    m = re.search(r"[?&]u=a1([A-Za-z0-9_\-]+)", u)
+    if not m:
+        return u
+    s = m.group(1) + "=" * (-len(m.group(1)) % 4)
+    try:
+        d = base64.urlsafe_b64decode(s).decode("utf-8", "ignore")
+        return d if d.startswith("http") else u
+    except Exception:
+        return u
+
+
+def _bing(q: str):
+    r = requests.get("https://www.bing.com/search", params={"q": q, "setlang": "en"},
+                     headers=_SEARCH_HEADERS, timeout=12)
+    if r.status_code != 200:
+        return []
+    out = []
+    pat = re.compile(
+        r'<li class="b_algo".*?<h2[^>]*><a[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)</li>',
+        re.I | re.S)
+    for m in pat.finditer(r.text):
+        url = _bing_decode(_fix_entities(m.group(1)))
+        title = _strip_html(_fix_entities(m.group(2)))
+        if not (url.startswith("http") and title):
+            continue
+        sm = re.search(r'<p[^>]*>(.*?)</p>', m.group(3), re.I | re.S)
+        snip = _strip_html(_fix_entities(sm.group(1))) if sm else ""
+        out.append([title, url, snip])
+        if len(out) >= 5:
+            break
+    return out
+
+
+def web_search(q: str):
+    _hit, _val = cache_get(("ws", q.lower()))
+    if _hit:
+        return _val
+    out, errs = [], 0
+    for fn in (_ddg_lite, _bing):
+        try:
+            got = fn(q)
+            if got:
+                out = got
+                break
+        except Exception:
+            errs += 1
+    if not out and errs >= 2:
+        return None
+    result = [{"title": t[:130], "url": u[:300], "snip": s[:230]} for t, u, s in out[:5]]
+    cache_put(("ws", q.lower()), result, ttl=21600)
+    return result
+
+
+# ---------------- WEATHER (Open-Meteo — no API key) ----------------
+WMO_CODES = {
+    0: ("☀️", "Saaf aasman"), 1: ("🌤️", "Mostly clear"), 2: ("⛅", "Halka badal"),
+    3: ("☁️", "Chhaya hua aasman"), 45: ("🌫️", "Kohra"), 48: ("🌫️", "Jama kohra"),
+    51: ("🌦️", "Halki boond-baandi"), 53: ("🌦️", "Boond-baandi"), 55: ("🌧️", "Tez boond-baandi"),
+    56: ("🌧️", "Jami hui boond"), 57: ("🌧️", "Jami tez boond"),
+    61: ("🌦️", "Halki barish"), 63: ("🌧️", "Medium barish"), 65: ("🌧️", "Tez barish"),
+    66: ("🌧️", "Jami barish"), 67: ("🌧️", "Tez jami barish"),
+    71: ("🌨️", "Halki barf"), 73: ("🌨️", "Barf"), 75: ("❄️", "Tez barf"), 77: ("❄️", "Barf ke kan"),
+    80: ("🌦️", "Chhant-tez barish"), 81: ("🌧️", "Barish fuware"), 82: ("⛈️", "Tez fuware"),
+    85: ("🌨️", "Barf wali fuwar"), 86: ("🌨️", "Tez barf wali fuwar"),
+    95: ("⛈️", "Garaj ke saath barish"), 96: ("⛈️", "Ola (garaj)"), 99: ("⛈️", "Tez ola"),
+}
+
+
+def wmo_desc(code) -> tuple:
+    try:
+        return WMO_CODES.get(int(code), ("🌡️", "Pata nahi"))
+    except Exception:
+        return ("🌡️", "Pata nahi")
+
+
+def weather_lookup(city: str):
+    key = city.lower().strip()
+    _hit, _val = cache_get(("wx", key))
+    if _hit:
+        return _val
+    g = requests.get("https://geocoding-api.open-meteo.com/v1/search",
+                     params={"name": city, "count": 1, "language": "en", "format": "json"},
+                     timeout=12, headers=UA).json()
+    rs = g.get("results") or []
+    if not rs:
+        cache_put(("wx", key), None, ttl=1800)
+        return None
+    loc = rs[0]
+    f = requests.get("https://api.open-meteo.com/v1/forecast",
+                     params={"latitude": loc["latitude"], "longitude": loc["longitude"],
+                             "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,precipitation",
+                             "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                             "timezone": "auto", "forecast_days": 4},
+                     timeout=12, headers=UA).json()
+    place = ", ".join(x for x in [str(loc.get("name") or ""), str(loc.get("admin1") or ""),
+                                  str(loc.get("country") or "")] if x)
+    out = {"place": place, "cur": f.get("current") or {}, "daily": f.get("daily") or {}}
+    cache_put(("wx", key), out, ttl=900)
+    return out
+
+
+# ---------------- CRYPTO PRICE (CoinGecko — no API key) ----------------
+COIN_ALIAS = {
+    "btc": "bitcoin", "eth": "ethereum", "usdt": "tether", "bnb": "binancecoin",
+    "sol": "solana", "xrp": "ripple", "doge": "dogecoin", "ada": "cardano",
+    "trx": "tron", "shib": "shiba-inu", "dot": "polkadot", "avax": "avalanche-2",
+    "link": "chainlink", "matic": "matic-network", "pol": "matic-network",
+    "ltc": "litecoin", "ton": "the-open-network", "pepe": "pepe", "sui": "sui",
+    "near": "near", "atom": "cosmos", "xlm": "stellar", "etc": "ethereum-classic",
+    "bch": "bitcoin-cash", "uni": "uniswap", "apt": "aptos", "arbi": "arbitrum",
+    "inj": "injective-protocol", "hbar": "hedera-hashgraph", "vet": "vechain",
+    "icp": "internet-computer", "algo": "algorand", "xdc": "xdc-network",
+}
+
+
+def crypto_price(q: str):
+    key = q.lower().strip()
+    _hit, _val = cache_get(("cg", key))
+    if _hit:
+        return _val
+    out = None
+    if key in ("top", "list", "top10", "market", "markets"):
+        rows = requests.get(
+            "https://api.coingecko.com/api/v3/coins/markets",
+            params={"vs_currency": "inr", "order": "market_cap_desc", "per_page": 10,
+                    "page": 1, "price_change_percentage": "24h"},
+            timeout=12, headers=UA).json()
+        if isinstance(rows, list) and rows:
+            out = {"type": "top", "rows": [
+                {"name": x.get("name") or "?", "sym": (x.get("symbol") or "?").upper(),
+                 "price": x.get("current_price") or 0,
+                 "chg": x.get("price_change_percentage_24h") or 0.0,
+                 "rank": x.get("market_cap_rank") or i + 1}
+                for i, x in enumerate(rows[:10])]}
+    else:
+        cid = COIN_ALIAS.get(key)
+        if not cid:
+            try:
+                s = requests.get("https://api.coingecko.com/api/v3/search",
+                                 params={"query": key}, timeout=10, headers=UA).json()
+                cs = s.get("coins") or []
+                if cs:
+                    cid = cs[0].get("id")
+            except Exception:
+                cid = None
+        if cid:
+            try:
+                d = (requests.get(
+                    "https://api.coingecko.com/api/v3/simple/price",
+                    params={"ids": cid, "vs_currencies": "inr",
+                            "include_24hr_change": "true", "include_market_cap": "true"},
+                    timeout=12, headers=UA).json() or {}).get(cid) or {}
+            except Exception:
+                d = {}
+            if "inr" in d:
+                out = {"type": "one", "name": cid.replace("-", " ").title(),
+                       "price": d.get("inr") or 0, "chg": d.get("inr_24h_change") or 0.0,
+                       "cap": d.get("inr_market_cap")}
+    cache_put(("cg", key), out, ttl=120)
+    return out
+
+
+def money(n) -> str:
+    n = float(n or 0)
+    if abs(n) >= 1:
+        return "₹" + inr(n)
+    if abs(n) >= 0.01:
+        return f"₹{n:,.4f}"
+    return f"₹{n:,.8f}"
+
+
+# ---------------- UNIT CONVERTER (offline) ----------------
+_UNIT_ALIASES = {
+    # length (base: meter)
+    "m": ("len", 1.0), "meter": ("len", 1.0), "meters": ("len", 1.0),
+    "metre": ("len", 1.0), "metres": ("len", 1.0),
+    "km": ("len", 1000.0), "kilometer": ("len", 1000.0), "kilometers": ("len", 1000.0),
+    "kilometre": ("len", 1000.0), "kilometres": ("len", 1000.0),
+    "cm": ("len", 0.01), "centimeter": ("len", 0.01), "centimeters": ("len", 0.01),
+    "mm": ("len", 0.001), "millimeter": ("len", 0.001), "millimeters": ("len", 0.001),
+    "mi": ("len", 1609.344), "mile": ("len", 1609.344), "miles": ("len", 1609.344),
+    "ft": ("len", 0.3048), "feet": ("len", 0.3048), "foot": ("len", 0.3048),
+    "in": ("len", 0.0254), "inch": ("len", 0.0254), "inches": ("len", 0.0254),
+    "yd": ("len", 0.9144), "yard": ("len", 0.9144), "yards": ("len", 0.9144),
+    "nmi": ("len", 1852.0),
+    # mass (base: kg)
+    "kg": ("mass", 1.0), "kilo": ("mass", 1.0), "kilos": ("mass", 1.0),
+    "kilogram": ("mass", 1.0), "kilograms": ("mass", 1.0),
+    "g": ("mass", 0.001), "gram": ("mass", 0.001), "grams": ("mass", 0.001),
+    "mg": ("mass", 0.000001), "milligram": ("mass", 0.000001), "milligrams": ("mass", 0.000001),
+    "lb": ("mass", 0.45359237), "lbs": ("mass", 0.45359237),
+    "pound": ("mass", 0.45359237), "pounds": ("mass", 0.45359237),
+    "oz": ("mass", 0.028349523), "ounce": ("mass", 0.028349523), "ounces": ("mass", 0.028349523),
+    "ton": ("mass", 1000.0), "tonne": ("mass", 1000.0), "quintal": ("mass", 100.0),
+    # volume (base: liter)
+    "l": ("vol", 1.0), "liter": ("vol", 1.0), "liters": ("vol", 1.0),
+    "litre": ("vol", 1.0), "litres": ("vol", 1.0),
+    "ml": ("vol", 0.001), "milliliter": ("vol", 0.001), "milliliters": ("vol", 0.001),
+    "millilitre": ("vol", 0.001), "millilitres": ("vol", 0.001),
+    "gal": ("vol", 3.785411784), "gallon": ("vol", 3.785411784), "gallons": ("vol", 3.785411784),
+    "cup": ("vol", 0.2365882365), "cups": ("vol", 0.2365882365),
+    "tbsp": ("vol", 0.014786765), "tsp": ("vol", 0.004928922),
+    # speed (base: m/s)
+    "mps": ("speed", 1.0), "m/s": ("speed", 1.0),
+    "kmh": ("speed", 1 / 3.6), "km/h": ("speed", 1 / 3.6), "kph": ("speed", 1 / 3.6),
+    "mph": ("speed", 0.44704), "knot": ("speed", 0.514444), "knots": ("speed", 0.514444),
+    # data (base: byte)
+    "b": ("data", 1.0), "byte": ("data", 1.0), "bytes": ("data", 1.0),
+    "kb": ("data", 1000.0), "mb": ("data", 1e6), "gb": ("data", 1e9), "tb": ("data", 1e12),
+    # area (base: m²)
+    "m2": ("area", 1.0), "m\u00b2": ("area", 1.0), "km2": ("area", 1e6), "km\u00b2": ("area", 1e6),
+    "ft2": ("area", 0.09290304), "ft\u00b2": ("area", 0.09290304),
+    "acre": ("area", 4046.8564224), "hectare": ("area", 10000.0), "ha": ("area", 10000.0),
+}
+_TEMP_U = {"c", "celsius", "\u00b0c", "centigrade", "f", "fahrenheit", "\u00b0f", "k", "kelvin", "\u00b0k"}
+
+
+def _num_fmt(x: float) -> str:
+    try:
+        x = float(x)
+    except Exception:
+        return str(x)
+    if abs(x - round(x)) < 1e-9:
+        return f"{round(x):,}"
+    s = f"{x:,.6f}".rstrip("0").rstrip(".")
+    return s or "0"
+
+
+def unit_convert(text: str):
+    t = re.sub(r"\s+", " ", (text or "").strip().lower())
+    m = re.match(r"^([-+]?\d+(?:[.,]\d+)?)\s*(.+?)\s+(?:to|into|->|\u2192|as|=|:|on|in|me|se)\s+(.+)$", t)
+    if not m:
+        return None
+    try:
+        val = float(m.group(1).replace(",", ""))
+    except Exception:
+        return None
+    fu, tu = m.group(2).strip(), m.group(3).strip().rstrip(".")
+    if fu in _TEMP_U and tu in _TEMP_U:
+        if fu in ("c", "celsius", "\u00b0c", "centigrade"):
+            c = val
+        elif fu in ("f", "fahrenheit", "\u00b0f"):
+            c = (val - 32) * 5 / 9
+        else:
+            c = val - 273.15
+        if tu in ("c", "celsius", "\u00b0c", "centigrade"):
+            out = c
+        elif tu in ("f", "fahrenheit", "\u00b0f"):
+            out = c * 9 / 5 + 32
+        else:
+            out = c + 273.15
+        return {"val": val, "fu": fu, "tu": tu, "out": out, "cat": "temperature"}
+    uf, ut = _UNIT_ALIASES.get(fu), _UNIT_ALIASES.get(tu)
+    if not uf or not ut:
+        return {"err": "unit"}
+    if uf[0] != ut[0]:
+        return {"err": "cat"}
+    return {"val": val, "fu": fu, "tu": tu, "out": val * uf[1] / ut[1], "cat": uf[0]}
+
+
 _IG_LOCK = threading.Lock()
 _IG_LAST = [0.0]
 
@@ -1113,6 +1472,8 @@ BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⌨️ Tools Grid", callback
 KB_BTNS = [
     ["📷 QR Code", "🔐 Password"],
     ["🖼️ Image→PDF", "🔗 URL Short"],
+    ["🔎 Web Search", "🌦️ Weather"],
+    ["🔄 Unit Converter", "🪙 Crypto Price"],
     ["🎬 YT Thumbnail", "⬇️ YT Download"],
     ["🧮 EMI Calc", "🎂 Age Calculator"],
     ["💰 UPI QR Generator", "🆔 ID Finder"],
@@ -1151,7 +1512,9 @@ BTN_MODE = {
     "🔍 Link Check": "linkcheck", "🔓 Link Bypass": "linkbypass",
     "🚗 RTO Vehicle Info": "rto",
     "📸 Insta Info": "insta",
-    "📱 Number Info": "numinfo",
+    "📱 Number Info": "numinfo", "🔎 Web Search": "search",
+    "🌦️ Weather": "weather", "🔄 Unit Converter": "unit",
+    "🪙 Crypto Price": "crypto",
 }
 
 PROMPTS = {
@@ -1171,12 +1534,17 @@ PROMPTS = {
     "linkbypass": "🔓 <b>Link Bypass</b>\n\narolinks / vplinks / gplinks jaisa EARN LINK bhejo — asli original link nikalunga:\n\n<i>Note: timer/JS wale kuch links browser me kholne padenge.</i>",
     "insta": ("📸 <b>Insta Info</b>" + chr(10) + chr(10) + "Insta username bhejo (bina @):" + chr(10) + "(jaise: virat.kohli)"),
     "numinfo": "📱 <b>Number Info (Circle + Operator)</b>\n\n10-digit mobile number bhejo:\n(jaise: 9876543210)",
+    "search": "🔎 <b>Web Search</b>\n\nKuch bhi search karo — top 5 links turant:\n(jaise: <b>juice recipe hindi me</b>)",
+    "weather": "🌦️ <b>Weather Info</b>\n\nShehar ka naam bhejo:\n(jaise: Ranchi, Patna, Delhi, Mumbai)",
+    "unit": "🔄 <b>Unit Converter</b>\n\nFormat: <code>value from to to</code>\n(jaise: <code>75 kg to lbs</code>, <code>10 km to miles</code>, <code>100 f to c</code>, <code>2 gb to mb</code>)\n\n📏 Length • ⚖️ Weight • 🌡️ Temp • 🧪 Volume • 🏁 Speed • 💾 Data • 📐 Area\n<i>Jitna chaaho convert karo — /cancel se band.</i>",
+    "crypto": "🪙 <b>Crypto Price (INR)</b>\n\nCoin naam/symbol bhejo:\n(jaise: <b>btc</b>, <b>eth</b>, <b>doge</b>)\nya <b>top</b> likho → TOP 10 list 📈",
     "rto": "🚗 <b>RTO Vehicle Info</b>\n\nGaadi number bhejo:\n(jaise: JH01AB1234)",
 }
 
 WELCOME = (
     "👋 Namaste! Main hoon <b>Utility Duniya Bot</b> 🌟\n\n"
-    "🧰 <b>19 powerful tools</b>, bilkul FREE:\n"
+    "🧰 <b>24 powerful tools</b>, bilkul FREE:\n"
+    "🔎 Search • 🌦️ Weather • 🔄 Unit Convert • 🪙 Crypto\n"
     "📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short\n"
     "🎬 YT • ⬇️ Download • 🧮 EMI • 🎂 Age\n"
     "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC\n"
@@ -1337,7 +1705,7 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for k in ("mode", "pdf_pages", "upi_id", "upi_name", "upi_amt", "emi_p", "emi_r",
               "int_type", "int_p", "int_r", "int_t", "tts_voice", "tts_name", "tts_rate",
-              "tts_pitch", "qr_pending", "setcookies"):
+              "tts_pitch", "qr_pending", "setcookies", "plan_days", "pwd_name"):
         context.user_data.pop(k, None)
     await update.message.reply_text("❌ Cancel ho gaya. Grid se dobara chuno.")
 
@@ -1347,7 +1715,8 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "❓ <b>HELP</b>\n\n📲 Neeche grid icon (▦) dabao = saare tools khulenge!\n"
         "Koi tool dabao, bot jo mange wo bhejo. ✅\n\n"
         "👆 <b>Har result tap karke copy hota hai!</b>\n\n"
-        "/menu - tools grid\n/premium - premium plans\n/refer - refer & earn\n"
+        "/menu - tools grid\n/search • /weather • /unit • /crypto - naye tools\n"
+        "/premium - premium plans\n/refer - refer & earn\n"
         "/account - mera account\n/cancel - cancel\n\n"
         f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁",
         parse_mode=HTML)
@@ -1392,7 +1761,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     board = "".join(f"\n{i + 1}. {hesc((n or 'User')[:15])} — {c} 🎁" for i, (n, c) in enumerate(top)) or "\n—"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("📤 Doston ko Share Karo",
-                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 19 tools! QR, UPI QR, YT Download, Voice sab!")],
+                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 24 tools! QR, UPI QR, YT Download, Voice sab!")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
     await update.effective_message.reply_text(
@@ -1422,7 +1791,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "💎✨ <b>PREMIUM</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
-        "✅ <b>Unlimited</b> saare 19 tools\n"
+        "✅ <b>Unlimited</b> saare 24 tools\n"
         "💰 UPI QR + ⬇️ YT Download + 🔊 10 Voices — bina limit!\n"
         "⚡ Sabse pehle naye tools\n"
         "🚫 Roz ka limit khatam = tension khatam\n"
@@ -1463,6 +1832,10 @@ async def cmd_link(u, c): await cmd_tool(u, c, "linkcheck")
 async def cmd_bypass(u, c): await cmd_tool(u, c, "linkbypass")
 async def cmd_rto(u, c): await cmd_tool(u, c, "rto")
 async def cmd_insta(u, c): await cmd_tool(u, c, "insta")
+async def cmd_search(u, c): await cmd_tool(u, c, "search")
+async def cmd_weather(u, c): await cmd_tool(u, c, "weather")
+async def cmd_unit(u, c): await cmd_tool(u, c, "unit")
+async def cmd_crypto(u, c): await cmd_tool(u, c, "crypto")
 
 
 async def pwd_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1577,10 +1950,22 @@ async def do_broadcast(bot, text: str):
     ids = all_user_ids()
     ok = fail = 0
     for uid in ids:
-        try:
-            await bot.send_message(uid, text)
-            ok += 1
-        except Exception:
+        sent = False
+        for _attempt in (1, 2):
+            try:
+                await bot.send_message(uid, text)
+                ok += 1
+                sent = True
+                break
+            except RetryAfter as e:
+                # Telegram flood limit — itna raho aur ek baar dobara try karo
+                try:
+                    await asyncio.sleep(int(e.retry_after) + 1)
+                except Exception:
+                    await asyncio.sleep(3)
+            except Exception:
+                break
+        if not sent:
             fail += 1
         await asyncio.sleep(0.05)
     return len(ids), ok, fail
@@ -2048,6 +2433,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "short":
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await use_or_block(uid, update):
             return
         await act(context, update.effective_chat.id, "typing")
@@ -2073,6 +2462,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "yt":
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await use_or_block(uid, update):
             return
         await act(context, update.effective_chat.id, "upload_photo")
@@ -2106,6 +2499,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         vid = yt_id(text)
         if not vid:
             await update.message.reply_text("⚠️ Sahi YouTube/Shorts link bhejo:")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
             return
         if not await asyncio.to_thread(yt_exists, vid):
             await update.message.reply_text("⛔ Ye video YouTube par NAHI mili (delete/private). Dusra link bhejo! Trial kata hi nahi.")
@@ -2454,6 +2851,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not u or not all(ch.isalnum() or ch in "._" for ch in u):
             await update.message.reply_text("Sahi Insta username bhejo (bina @). Dobara try karo:")
             return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await trial_or_block(uid, update, "Insta Info"):
             context.user_data.pop("mode", None)
             return
@@ -2507,6 +2908,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not re.match(r"^[A-Z]{4}0[A-Z0-9]{6}$", c):
             await update.message.reply_text("⚠️ Sahi IFSC bhejo (jaise HDFC0001234):\nFormat: 4 letters + 0 + 6 characters")
             return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await use_or_block(uid, update):
             return
         await act(context, update.effective_chat.id, "typing")
@@ -2535,6 +2940,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not re.match(r"^[1-9][0-9]{5}$", p):
             await update.message.reply_text("⚠️ Sahi 6-digit pincode bhejo (jaise 834001):")
             return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await use_or_block(uid, update):
             return
         await act(context, update.effective_chat.id, "typing")
@@ -2561,6 +2970,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "linkcheck":
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await use_or_block(uid, update):
             return
         await act(context, update.effective_chat.id, "typing")
@@ -2583,6 +2996,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "linkbypass":
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
         if not await use_or_block(uid, update):
             return
         await act(context, update.effective_chat.id, "typing")
@@ -2606,6 +3023,162 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "✅ <b>Tareeka:</b>\n1️⃣ Link ko Chrome me kholo\n2️⃣ 5-10 sec wait → Continue dabao\n"
                 "3️⃣ Jo final link mile, wo yahan bhejo — main check/download kar dunga! 🙏",
                 reply_markup=BACK, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+
+    if mode == "search":
+        q = text.strip()
+        if not (2 <= len(q) <= 150):
+            await update.message.reply_text("⚠️ Kam se kam 2 letters ka sawal bhejo (jaise juicer recipe hindi me):")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await use_or_block(uid, update):
+            return
+        await act(context, update.effective_chat.id, "typing")
+        try:
+            res = await asyncio.to_thread(web_search, q)
+        except Exception:
+            res = None
+        if res is None:
+            refund_use(uid)
+            await update.message.reply_text("⚠️ Search me dikkat aayi (net slow?). Limit wapas ✅ — dobara try karo:")
+            return
+        if not res:
+            await update.message.reply_text(
+                f"😕 <b>{hesc(q)}</b> ka koi result nahi mila. Doosra keyword likho:",
+                reply_markup=BACK, parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        parts = []
+        for i, r0 in enumerate(res, 1):
+            sn = f"\n<i>{hesc(r0.get('snip') or '')}</i>" if r0.get("snip") else ""
+            parts.append(
+                f"\n{i}. <a href=\"{hesc(r0['url'])}\">{hesc(r0['title'])}</a>{sn}")
+        await update.message.reply_text(
+            f"🔎 <b>RESULTS</b> — <i>{hesc(q)}</i>\n" + "".join(parts) +
+            "\n\n<i>Title par tap = website khulegi 👆 (top 5)</i>",
+            reply_markup=BACK, parse_mode=HTML,
+            link_preview_options=LinkPreviewOptions(is_disabled=True))
+        context.user_data.pop("mode", None)
+        return
+
+    if mode == "weather":
+        city = text.strip()
+        if not (2 <= len(city) <= 60):
+            await update.message.reply_text("⚠️ Sahi shehar ka naam bhejo (jaise Ranchi, Delhi):")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await use_or_block(uid, update):
+            return
+        await act(context, update.effective_chat.id, "typing")
+        try:
+            d = await asyncio.to_thread(weather_lookup, city)
+        except Exception:
+            d = None
+        if not d:
+            refund_use(uid)
+            await update.message.reply_text(
+                f"😕 <b>{hesc(city)}</b> nahi mila. Sahi shehar/naam likho (limit wapas ✅):",
+                parse_mode=HTML)
+            return
+        cur, daily = d.get("cur") or {}, d.get("daily") or {}
+        e0, d0 = wmo_desc(cur.get("weather_code", 0))
+        days = ""
+        ts = daily.get("time") or []
+        for i in range(1, min(4, len(ts))):
+            de, dd = wmo_desc((daily.get("weather_code") or [0] * 8)[i])
+            mx = (daily.get("temperature_2m_max") or ["?"] * 8)[i]
+            mn = (daily.get("temperature_2m_min") or ["?"] * 8)[i]
+            pr = (daily.get("precipitation_probability_max") or [None] * 8)[i]
+            days += (f"\n• {ts[i]} {de} {hesc(dd)}: {mn}\u00b0 \u2192 {mx}\u00b0"
+                     + (f" ☔{pr}%" if pr is not None else ""))
+        rain = cur.get("precipitation") or 0
+        await update.message.reply_text(
+            f"🌦️ <b>MAUSAM</b> — {hesc(d.get('place') or city)}\n━━━━━━━━━━━━━━━\n"
+            f"{e0} <b>{cur.get('temperature_2m', '?')}\u00b0C</b> — {hesc(d0)}\n"
+            f"🌡️ Feels like: {cur.get('apparent_temperature', '?')}\u00b0C\n"
+            f"💧 Humidity: {cur.get('relative_humidity_2m', '?')}%  •  💨 Wind: {cur.get('wind_speed_10m', '?')} km/h\n"
+            f"🌧️ Abhi barish: {rain} mm\n\n"
+            f"📅 <b>Agle 3 din:</b>{days}\n\n<i>Open-Meteo • cache 15 min</i>",
+            reply_markup=BACK, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+
+    if mode == "unit":
+        r = unit_convert(text)
+        if r is None:
+            await update.message.reply_text(
+                "⚠️ Format: <code>value from to to</code>\n"
+                "(jaise: <code>75 kg to lbs</code>, <code>10 km to miles</code>, <code>100 f to c</code>)",
+                reply_markup=BACK, parse_mode=HTML)
+            return
+        if r.get("err") == "unit":
+            await update.message.reply_text(
+                "⚠️ Ye unit samajh nahi aaya. Example:\n"
+                "km/m/cm/ft/in/yd/mi • kg/g/lb/oz/quintal • c/f/k • l/ml/gal • kmh/mph • kb/mb/gb • acre/ha",
+                reply_markup=BACK)
+            return
+        if r.get("err") == "cat":
+            await update.message.reply_text(
+                "⚠️ Dono units alag category ke hain (kg \u2192 km nahi chalega). Dobara try karo:",
+                reply_markup=BACK)
+            return
+        if not await use_or_block(uid, update):
+            return
+        catn = {"temperature": "🌡️ TEMPERATURE", "len": "📏 LENGTH", "mass": "⚖️ WEIGHT",
+                "vol": "🧪 VOLUME", "speed": "🏁 SPEED", "data": "💾 DATA",
+                "area": "📐 AREA"}.get(r["cat"], "UNIT")
+        await update.message.reply_text(
+            f"🔄 <b>{catn} CONVERT</b>\n━━━━━━━━━━━━━━━\n"
+            f"<code>{_num_fmt(r['val'])} {hesc(r['fu'])}</code> = <b>{_num_fmt(r['out'])} {hesc(r['tu'])}</b>\n\n"
+            f"👆 <i>Tap = copy. Aur convert karna ho to seedha likh do (jaise 5 mi to km) — /cancel se band.</i>",
+            reply_markup=BACK, parse_mode=HTML)
+        return
+
+    if mode == "crypto":
+        q = text.strip()
+        if not (1 <= len(q) <= 40):
+            await update.message.reply_text("⚠️ Coin ka naam/symbol bhejo (jaise btc, eth) ya top likho:")
+            return
+        wg = net_gate(uid)
+        if wg > 0:
+            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
+            return
+        if not await use_or_block(uid, update):
+            return
+        await act(context, update.effective_chat.id, "typing")
+        try:
+            d = await asyncio.to_thread(crypto_price, q)
+        except Exception:
+            d = None
+        if not d:
+            refund_use(uid)
+            await update.message.reply_text(
+                "⚠️ Coin nahi mila / API busy. Jaise <code>btc</code>, <code>eth</code>, "
+                "<code>doge</code> ya <code>top</code> likho (limit wapas ✅):", parse_mode=HTML)
+            return
+        if d.get("type") == "top":
+            txt = "🪙 <b>TOP 10 CRYPTO (INR)</b>\n━━━━━━━━━━━━━━━\n"
+            for x in d.get("rows") or []:
+                ar = "🟢" if (x.get("chg") or 0) >= 0 else "🔴"
+                txt += (f"\n{x.get('rank')}. <b>{hesc(x.get('name'))}</b> ({hesc(x.get('sym'))}) — "
+                        f"{money(x.get('price'))} {ar} {(x.get('chg') or 0):+.1f}%")
+            txt += "\n\n<i>CoinGecko • price cache 2 min</i>"
+        else:
+            chg = d.get("chg") or 0
+            ar = "📈" if chg >= 0 else "📉"
+            cap = f"\n🏦 Market Cap: {money(d.get('cap'))}" if d.get("cap") else ""
+            txt = (f"🪙 <b>{hesc(d.get('name'))} PRICE</b>\n━━━━━━━━━━━━━━━\n"
+                   f"💰 Price: <b>{money(d.get('price'))}</b>\n"
+                   f"{ar} 24h change: <b>{chg:+.2f}%</b>{cap}\n\n"
+                   f"<i>INR me • CoinGecko • cache 2 min</i>")
+        await update.message.reply_text(txt, reply_markup=BACK, parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2922,17 +3495,34 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- MAIN ----------------
 async def _post_init(app: Application):
     try:
-        await app.bot.set_my_commands([])
-        log.info("Commands cleared - sirf grid keyboard rahega")
+        await app.bot.set_my_commands([
+            BotCommand("start", "👋 Welcome + tools grid"),
+            BotCommand("menu", "⌨️ Tools grid"),
+            BotCommand("search", "🔎 Web search"),
+            BotCommand("weather", "🌦️ Weather"),
+            BotCommand("unit", "🔄 Unit converter"),
+            BotCommand("crypto", "🪙 Crypto price"),
+            BotCommand("qr", "📷 QR code"),
+            BotCommand("ytdl", "⬇️ YT download"),
+            BotCommand("tts", "🔊 Text to speech"),
+            BotCommand("emi", "🧮 EMI calculator"),
+            BotCommand("premium", "💎 Premium plans"),
+            BotCommand("refer", "🎁 Refer & earn"),
+            BotCommand("account", "👤 My account"),
+            BotCommand("help", "❓ Help"),
+            BotCommand("cancel", "❌ Cancel current tool"),
+        ])
+        log.info("Commands menu set (15 commands)")
     except Exception as e:
-        log.warning("clear commands fail: %s", e)
+        log.warning("set commands fail: %s", e)
 
 
 def _keepalive():
     # Self-ping: free server ko sleep hone se rokta hai (UptimeRobot jaisa, bot ke andar hi)
     import threading
     def _loop():
-        _t = (WEBHOOK_URL or os.getenv("RENDER_EXTERNAL_URL", "") or "https://utility-duniya-bot.onrender.com").strip().rstrip("/")
+        # Sirf apna URL ping karo (koi aur/random URL kabhi mat lagao)
+        _t = (WEBHOOK_URL or os.getenv("RENDER_EXTERNAL_URL", "")).strip().rstrip("/")
         while True:
             try:
                 if _t:
@@ -3004,6 +3594,10 @@ def main():
     app.add_handler(CommandHandler("interest", int_entry))
     app.add_handler(CommandHandler("rto", cmd_rto))
     app.add_handler(CommandHandler("insta", cmd_insta))
+    app.add_handler(CommandHandler("search", cmd_search))
+    app.add_handler(CommandHandler("weather", cmd_weather))
+    app.add_handler(CommandHandler("unit", cmd_unit))
+    app.add_handler(CommandHandler("crypto", cmd_crypto))
     app.add_handler(CommandHandler("cktest", cmd_cktest))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))

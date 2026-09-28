@@ -1,9 +1,13 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v7)
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v23)
 
-**18 tools • 10 TTS voices • YT HD download • Link bypass • Admin panel**
+**24 tools • 10 TTS voices • YT HD download • Link bypass • Admin panel**
 
 | Tool | Kaam |
 |---|---|
+| 🔎 Web Search | DuckDuckGo + Bing se top 5 links (no API key) |
+| 🌦️ Weather | Shehar ka live mausam + 3 din forecast (Open-Meteo) |
+| 🔄 Unit Converter | Length/Weight/Temp/Volume/Speed/Data/Area |
+| 🪙 Crypto Price | BTC/ETH live price INR me + TOP 10 (CoinGecko) |
 | 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
 | 🔐 Password | Random + naam wala, 3 options |
 | 🖼️ Image→PDF | Multi-page (10), lossless quality |
@@ -22,6 +26,8 @@
 | 🔓 Link Bypass | Earn links → original link |
 | 📈 Interest Calc | SI vs CI compare + samjhaya |
 | 🚗 RTO Vehicle Info | State + RTO office decoder |
+| 📸 Insta Info | Profile info + followers |
+| 📱 Number Info | Circle + operator (offline) |
 
 **Earning features (built-in):**
 - 🎁 Refer & Earn — 5 refer = 30 din Premium FREE (yeh tumhara growth engine hai)
