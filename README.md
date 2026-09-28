@@ -1,12 +1,12 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v25)
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v26)
 
-**21 tools • Real Play Store App Finder • Virtual Numbers (OTP) • Screenshot • Admin panel**
+**21 tools sab FREE (no limit) • 🌐 Virtual Numbers = sirf yahi paid • 📋 Copy buttons • Real App Finder**
 
 | Tool | Kaam |
 |---|---|
-| 🔎 Web Search | Top 6 links + 6 images album — relevance-filtered (fake results ❌) |
+| 🔎 Web Search | Top 6 links + 6 images album — relevance-filtered • har result par 📋 Copy button |
 | 📦 App Finder | **REAL Play Store data** — icon + rating + direct store link; fallback stores (Uptodown/APKPure) for off-Play apps like VidMate |
-| 🌐 Virtual Numbers | OTP numbers catalog — 16 countries, permanent numbers, contact @Supermannn_x 💰 |
+| 🌐 Virtual Numbers | **SABSE PEHLA TOOL** — Get Number flow: service → country → 📋 Copy Order → contact @Supermannn_x 💰 (sirf yahi paid) |
 | 🖼️ Site Screenshot | Koi bhi URL → live website screenshot |
 | 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
 | 🔐 Password | Random + naam wala, 3 options |
@@ -28,7 +28,7 @@
 
 **Earning features (built-in):**
 - 🎁 Refer & Earn — 5 refer = 30 din Premium FREE (yeh tumhara growth engine hai)
-- 💎 UPI Premium — ₹49/30din, ₹99/90din (screenshot bhejo → tum approve karo, bot me button se)
+- 🌐 Virtual Numbers — saare tools FREE; sirf OTP numbers paid (user DM karega @Supermannn_x) = tumhara premium business 💰
 - 🔒 Force-join channel — har user tumhara channel join karega (channel bada → promo se earning)
 - 📢 /broadcast — saare users ko ek saath message (offer/promo bhejo)
 - 📊 /stats — users, active, premium count
@@ -89,7 +89,7 @@ Free Render 15 min baad so jata hai. **UptimeRobot.com** (free) par account bana
 
 | Source | Maths |
 |---|---|
-| 💎 UPI Premium (₹49) | Roz sirf **4 sales** = ₹196/day. 3,000 users par 3% bhi le to = 90 × ₹49 = ₹4,410/month |
+| 🌐 Virtual Numbers (OTP) | Roz sirf **4 number sales** ≈ ₹200/day — bot users khud DM karenge |
 | 📢 Channel promo | 10k members ke baad **hafte me 2 promo @₹700** = ₹5,600/month |
 | 🔗 Affiliate | /broadcast se app links (₹20-50/install). 100 installs = ₹2,000-5,000 |
 | 🎁 Referral engine | Har user 5 dost laye = users khud badhenge, tumhe ad kharcha ₹0 |

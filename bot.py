@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v25
-- 21 tools grid | 10 TTS voices | Real Play Store App Finder + Virtual Numbers
-- Virtual Numbers catalog (OTP) + Screenshot + Search v2 (images album)
-- Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
-- Per-user network rate-limit + flood-safe broadcast + commands menu set
+Utility Duniya Bot v26
+- 21 tools sab UNLIMITED FREE (no trial/limit) + Virtual Numbers OTP funnel
+- vnum 3-step: Get Number -> Service -> Country -> contact @Supermannn_x
+- Har result par one-tap Copy button | Real Play Store App Finder
+- Referral + force-join + ban system | flood-safe broadcast
 """
 
 import asyncio
@@ -35,6 +35,7 @@ import requests
 from PIL import Image, ImageEnhance
 from telegram import (
     BotCommand,
+    CopyTextButton,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
     InputMediaPhoto,
@@ -67,7 +68,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v25"
+BOT_VERSION = "v26"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -329,10 +330,8 @@ def add_trial(uid: int):
 
 
 def is_premium(u: dict) -> bool:
-    try:
-        return datetime.fromisoformat(u["premium_until"]) > datetime.now() if u["premium_until"] else False
-    except Exception:
-        return False
+    # v26: sab kuch FREE — saare tools unlimited. Ek hi paid = Virtual Numbers (bahar se).
+    return True
 
 
 def premium_expiry(u: dict) -> str:
@@ -569,6 +568,7 @@ RTO_OFFICE = {
     "SK01": "Gangtok", "ML05": "Shillong", "MN01": "Imphal", "TR01": "Agartala",
     "MZ01": "Aizawl", "NL01": "Kohima", "AN01": "Port Blair", "LA01": "Leh", "LA02": "Kargil",
 }
+UPI_RE = re.compile(r"^[\w.\-]{2,256}@[a-zA-Z]{2,64}$")
 VEH_RE = re.compile(r"^([A-Z]{2})\s?\-?([0-9]{1,2})\s?\-?([A-Z]{1,3})\s?\-?([0-9]{4})$")
 
 
@@ -1120,11 +1120,23 @@ async def tts_make(text: str, voice: str, rate: str, pitch: str, outpath: str) -
 # ---------------- UI ----------------
 BACK = InlineKeyboardMarkup([[InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")]])
 
+
+def with_copy(markup, copy_text: str):
+    """Keyboard ke last row me one-tap 📋 Copy button lagao."""
+    try:
+        rows = [list(r) for r in (markup.inline_keyboard if markup else [])]
+        txt = (copy_text or "").strip()[:4096]
+        if txt:
+            rows.append([InlineKeyboardButton("📋 Copy", copy_text=CopyTextButton(txt))])
+        return InlineKeyboardMarkup(rows)
+    except Exception:
+        return markup
+
 KB_BTNS = [
-    ["📷 QR Code", "🔐 Password"],
-    ["🖼️ Image→PDF", "🔗 URL Short"],
-    ["🔎 Web Search", "📦 App Finder"],
-    ["🌐 Virtual Numbers", "🖼️ Site Screenshot"],
+    ["🌐 Virtual Numbers", "📷 QR Code"],
+    ["🔐 Password", "🖼️ Image→PDF"],
+    ["🔗 URL Short", "🔎 Web Search"],
+    ["📦 App Finder", "🖼️ Site Screenshot"],
     ["🧮 EMI Calc", "🎂 Age Calculator"],
     ["💰 UPI QR Generator", "🆔 ID Finder"],
     ["🔊 Text to Speech", "🏦 IFSC Info"],
@@ -1186,19 +1198,18 @@ PROMPTS = {
 
 WELCOME = (
     "👋 Namaste! Main hoon <b>Utility Duniya Bot</b> 🌟\n\n"
-    "🧰 <b>21 tools bilkul FREE:</b>\n"
-    "🔎 Search • 📦 App Finder • 🌐 Virtual Numbers • 🖼️ Screenshot\n"
-    "📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short • 🧮 EMI • 🎂 Age\n"
+    "🌐 <b>VIRTUAL NUMBERS (OTP)</b> — SABSE PEHLA TOOL! ⚡\n"
+    "📞 Get Number dabao → 3 step me number → contact @Supermannn_x\n\n"
+    "🧰 <b>21 tools — sab UNLIMITED FREE:</b>\n"
+    "🌐 Virtual Numbers • 📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short\n"
+    "🔎 Search • 📦 App Finder • 🖼️ Screenshot • 🧮 EMI • 🎂 Age\n"
     "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC • 📮 Pincode\n"
     "🪪 Passport • 🔍 Check • 🔓 Bypass • 📈 Interest\n"
     "🚗 RTO • 📱 Number Info\n\n"
-    "🌐 <b>Virtual Numbers (OTP)</b> — 16 countries, permanent number!\n"
-    "👉 Contact <b>@Supermannn_x</b> 📞\n\n"
-    f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials\n"
-    f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
-    "💎 ya sirf ₹49 me Premium lo\n\n"
-    "📲 Neeche grid icon (▦) dabao — saare tools khulenge!\n"
-    "👆 Har result <b>tap karke copy</b> hota hai!"
+    "♾️ Koi limit nahi • Koi trial nahi • Koi charge nahi 🎉\n"
+    "🎁 Refer karo = 30 din Premium GIFT + bot badega!\n\n"
+    "📋 Har result par <b>Copy button</b> — one tap me copy!\n"
+    "📲 Neeche grid icon (▦) dabao — tools khulenge 👇"
 )
 
 LIMIT_MSG = (
@@ -1217,32 +1228,80 @@ TRIAL_MSG = (
 )
 
 
-# ---------------- VIRTUAL NUMBERS CATALOG (OTP business card) ----------------
-VNUM_COUNTRIES = ("🇲🇾 Malaysia", "🇮🇶 Iraq", "🇷🇺 Russia", "🇮🇩 Indonesia",
-                  "🇳🇵 Nepal", "🇸🇩 Sudan", "🇺🇸 USA", "🇬🇧 UK",
-                  "🇨🇦 Canada", "🇩🇪 Germany", "🇫🇷 France", "🇳🇱 Netherlands",
-                  "🇦🇪 UAE", "🇧🇩 Bangladesh", "🇧🇷 Brazil", "🇹🇷 Turkey")
-VNUM_SERVICES = ("WhatsApp • Facebook • Instagram • TikTok • Telegram\n"
-                 "Snapchat • X (Twitter) • Discord • Google • YouTube")
+# ---------------- # ---------------- VIRTUAL NUMBERS (advanced OTP funnel) ----------------
+VNUM_SERVICES = (
+    ("wa", "🟢 WhatsApp"), ("fb", "🔵 Facebook"), ("ig", "📸 Instagram"),
+    ("tt", "🎵 TikTok"), ("tg", "✈️ Telegram"), ("sc", "👻 Snapchat"),
+    ("xx", "𝕏 X (Twitter)"), ("dc", "🎮 Discord"), ("gg", "🔷 Google"),
+    ("yt", "▶️ YouTube"),
+)
+VNUM_COUNTRIES = (
+    ("my", "🇲🇾 Malaysia"), ("iq", "🇮🇶 Iraq"), ("ru", "🇷🇺 Russia"),
+    ("id", "🇮🇩 Indonesia"), ("np", "🇳🇵 Nepal"), ("sd", "🇸🇩 Sudan"),
+    ("us", "🇺🇸 USA"), ("gb", "🇬🇧 UK"), ("ca", "🇨🇦 Canada"),
+    ("de", "🇩🇪 Germany"), ("fr", "🇫🇷 France"), ("nl", "🇳🇱 Netherlands"),
+    ("ae", "🇦🇪 UAE"), ("bd", "🇧🇩 Bangladesh"), ("br", "🇧🇷 Brazil"),
+    ("tr", "🇹🇷 Turkey"),
+)
+VNUM_SEL: dict = {}   # uid -> {"svc": label, "ctry": label}
+
+VNUM_INTRO = (
+    "🌐✨ <b>VIRTUAL NUMBERS (OTP)</b> ✨🌐\n"
+    "━━━━━━━━━━━━━━━\n"
+    "⚡ <b>Premium OTP Stock</b> — Fast &amp; Reliable\n"
+    "🟢 Fresh &amp; working numbers — OTP turant\n"
+    "🔁 <b>Permanent</b> — ek baar lo, hamesha chalao\n"
+    "🚫 No spam • No scam\n\n"
+    "🌍 <b>16 countries</b> • 📲 <b>10 services</b> ready\n"
+    "━━━━━━━━━━━━━━━\n"
+    "🎯 <b>3 STEP me number:</b>\n"
+    "1️⃣ Service → 2️⃣ Country → 3️⃣ Contact\n\n"
+    "<i>Sirf account verification ke liye. Fraud/scam users strictly blocked.</i>"
+)
+
+
+def _vnum_intro_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📞 Get Number", callback_data="vnum_get")],
+        [InlineKeyboardButton("☎️ Contact @Supermannn_x", url="https://t.me/Supermannn_x")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
+    ])
+
+
+def _vnum_svc_kb():
+    rows = []
+    for i in range(0, len(VNUM_SERVICES), 2):
+        rows.append([InlineKeyboardButton(l, callback_data=f"vnum_svc:{sl}")
+                     for sl, l in VNUM_SERVICES[i:i + 2]])
+    rows.append([InlineKeyboardButton("⏪ Pehle", callback_data="vnum_open"),
+                 InlineKeyboardButton("⌨️ Menu", callback_data="menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _vnum_ctry_kb():
+    rows = []
+    for i in range(0, len(VNUM_COUNTRIES), 2):
+        rows.append([InlineKeyboardButton(l, callback_data=f"vnum_ctry:{sl}")
+                     for sl, l in VNUM_COUNTRIES[i:i + 2]])
+    rows.append([InlineKeyboardButton("🔁 Service badlo", callback_data="vnum_get"),
+                 InlineKeyboardButton("⌨️ Menu", callback_data="menu")])
+    return InlineKeyboardMarkup(rows)
+
+
+async def _vnum_say(q, text, kb):
+    """Flow steps me purana message edit karo (chat saaf), fail ho to naya bhejo."""
+    try:
+        await q.message.edit_text(text, reply_markup=kb, parse_mode=HTML)
+    except Exception:
+        try:
+            await q.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
+        except Exception:
+            pass
 
 
 async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    rows = [VNUM_COUNTRIES[i:i + 4] for i in range(0, len(VNUM_COUNTRIES), 4)]
-    lines = "\n".join("   ".join(r) for r in rows)
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📞 Contact @Supermannn_x", url="https://t.me/Supermannn_x")],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
-    ])
-    await update.message.reply_text(
-        "🌐 <b>VIRTUAL NUMBERS (OTP)</b>\n━━━━━━━━━━━━━━━\n"
-        "📞 <b>Permanent numbers</b> — ek baar lo, hamesha chalte rahenge!\n"
-        "✅ Fresh & working OTP • No spam • No scam\n\n"
-        f"🌍 <b>Countries ({len(VNUM_COUNTRIES)}+):</b>\n{lines}\n\n"
-        f"📲 <b>Services:</b>\n{VNUM_SERVICES}\n\n"
-        "💰 <b>Number chahiye?</b> Admin ko DM karo 👉 <b>@Supermannn_x</b>\n"
-        "Country + service batao — turant number aur price mil jayega!\n\n"
-        "<i>Sirf account verification ke liye. Fraud/scam users strictly blocked.</i>",
-        reply_markup=kb, parse_mode=HTML)
+    await update.message.reply_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(),
+                                    parse_mode=HTML)
 
 
 # ---------------- GUARDS ----------------
@@ -1380,6 +1439,7 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
               "int_type", "int_p", "int_r", "int_t", "tts_voice", "tts_name", "tts_rate",
               "tts_pitch", "qr_pending", "plan_days", "pwd_name"):
         context.user_data.pop(k, None)
+    VNUM_SEL.pop(update.effective_user.id, None)
     await update.message.reply_text("❌ Cancel ho gaya. Grid se dobara chuno.")
 
 
@@ -1387,39 +1447,28 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "❓ <b>HELP</b>\n\n📲 Neeche grid icon (▦) dabao = saare tools khulenge!\n"
         "Koi tool dabao, bot jo mange wo bhejo. ✅\n\n"
-        "👆 <b>Har result tap karke copy hota hai!</b>\n\n"
+        "📋 <b>Har result par Copy button</b> — one tap me copy!\n\n"
         "/menu - tools grid\n/vnum • /app • /shot • /search - naye tools\n"
-        "/premium - premium plans\n/refer - refer & earn\n"
+        "/premium - premium status (sab FREE! 🎉)\n/refer - refer & earn\n"
         "/account - mera account\n/cancel - cancel\n\n"
-        f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁",
+        "♾️ Saare tools unlimited FREE 🎁 • Ek paid = 🌐 Virtual Numbers",
         parse_mode=HTML)
 
 
 async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u = get_user(update.effective_user.id)
-    prem = is_premium(u)
-    badge = "💎 <b>PREMIUM</b> ✨" if prem else "🆓 <b>FREE</b>"
-    uses_left = FREE_LIMIT - u["uses_today"]
-    tr_left = TRIAL_LIMIT - (u.get("trial_count") or 0)
-    if prem:
-        uses_line = "♾️ Unlimited"
-        tr_line = "♾️ Unlimited"
-    else:
-        uses_line = f"{bar(uses_left / FREE_LIMIT)} {max(0, uses_left)}/{FREE_LIMIT}"
-        tr_line = f"{bar(tr_left / TRIAL_LIMIT)} {max(0, tr_left)}/{TRIAL_LIMIT}"
     uname = f"@{update.effective_user.username}" if update.effective_user.username else "—"
     await update.effective_message.reply_text(
         f"👤 <b>MY ACCOUNT</b>\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"⭐ Plan: {badge}\n"
-        + (f"📅 Premium tak: <b>{premium_expiry(u)}</b>\n" if prem else "") +
-        f"📊 Aaj ke uses:\n{uses_line}\n"
-        f"💎 Premium trials:\n{tr_line}\n"
+        f"⭐ Plan: ♾️ <b>SAB FREE</b> 🎉 — koi limit nahi!\n"
+        f"♾️ Saare 21 tools unlimited\n"
         f"🎁 Referrals: <b>{u['referrals']}</b>\n"
         f"🆔 ID: {code(u['user_id'])}\n"
         f"🔗 {hesc(uname)}\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"🎯 {REFER_NEED} referrals = 30 din Premium FREE!\n/refer",
+        f"🌐 EK PAID = Virtual Numbers (OTP)!\n"
+        f"📞 Contact @Supermannn_x 📞\n/refer",
         reply_markup=BACK, parse_mode=HTML)
 
 
@@ -1452,30 +1501,24 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not UPI_ID:
-        await update.effective_message.reply_text("💎 Premium jald aa raha hai! Tab tak /refer se FREE premium pao 🎁", reply_markup=BACK)
-        return
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("⭐ SILVER 30 din - ₹49", callback_data="plan49")],
-        [InlineKeyboardButton("🔥 GOLD 90 din - ₹99", callback_data="plan99")],
-        [InlineKeyboardButton("🎁 FREE me pao (Refer)", callback_data="ref")],
+        [InlineKeyboardButton("📞 Get Number", callback_data="vnum_get")],
+        [InlineKeyboardButton("☎️ Contact @Supermannn_x", url="https://t.me/Supermannn_x")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
     await update.effective_message.reply_text(
-        "💎✨ <b>PREMIUM</b> ✨💎\n"
+        "💎✨ <b>PREMIUM STATUS</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
-        "✅ <b>Unlimited</b> saare 21 tools\n"
-        "💰 UPI QR + ⬇️ YT Download + 🔊 10 Voices — bina limit!\n"
-        "⚡ Sabse pehle naye tools\n"
-        "🚫 Roz ka limit khatam = tension khatam\n"
+        "🎉 <b>GOOD NEWS — ab SAB KUCH FREE hai!</b>\n"
+        "✅ Saare 21 tools — unlimited, bina limit\n"
+        "✅ Koi trial nahi • Koi charge nahi • Koi expiry nahi\n"
         "━━━━━━━━━━━━━━━\n"
-        "⭐ <b>SILVER</b> — 30 din — <b>₹49</b>\n"
-        "🔥 <b>GOLD</b> — 90 din — <b>₹99</b> <i>(₹33/mahina!)</i>\n"
+        "🌐 <b>EK HI PREMIUM = VIRTUAL NUMBERS</b> 📞\n"
+        "⚡ Fresh OTP numbers — 16 countries, 10+ services\n"
+        "🔁 Permanent numbers • Fast delivery\n"
+        "💰 Price country/service ke hisaab se\n"
         "━━━━━━━━━━━━━━━\n"
-        "1️⃣ Plan dabao → QR milega\n"
-        "2️⃣ UPI se pay karo\n"
-        "3️⃣ Screenshot bhejo → kuch min me active! ⚡\n\n"
-        "🎁 <i>Paisa nahi? /refer se 5 dost = 30 din FREE!</i>",
+        "👇 Number lene ke liye neeche button dabao:",
         reply_markup=kb, parse_mode=HTML)
 
 # ---- tool entries ----
@@ -1723,23 +1766,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data in ("plan49", "plan99"):
-        if not UPI_ID:
-            await q.message.reply_text("💎 Premium jald aa raha hai! /refer se FREE pao 🎁", reply_markup=BACK)
-            return
-        amt = "49" if data == "plan49" else "99"
-        days = "30" if data == "plan49" else "90"
-        plan = "⭐ SILVER" if data == "plan49" else "🔥 GOLD"
-        upi_link = f"upi://pay?pa={UPI_ID}&pn={quote(UPI_NAME)}&am={amt}&cu=INR&tn=UtilityDuniyaPremium"
-        context.user_data["mode"] = "pay"
-        context.user_data["plan_days"] = int(days)
-        await q.message.reply_photo(
-            photo=make_qr_bytes(upi_link),
-            caption=(f"💎 <b>{plan}</b> — {days} din = <b>₹{amt}</b>\n\n"
-                     f"1️⃣ UPI app se is QR par ₹{amt} pay karo\n"
-                     f"2️⃣ Payment ka <b>SCREENSHOT</b> yahin bhejo\n"
-                     f"3️⃣ Admin verify karke kuch min me active karega! ⚡\n\nUPI ID: {code(UPI_ID)}"),
+        # v26: plans band — sab free. Purane keyboard taps ke liye bhi:
+        await q.message.reply_text(
+            "🎉 Ab <b>sab kuch FREE</b> hai — koi plan lena zaroori nahi!\n\n"
+            "🌐 Sirf ek premium: <b>Virtual Numbers (OTP)</b> — @Supermannn_x",
             reply_markup=BACK, parse_mode=HTML)
-        return
 
     if data.startswith("ap:") or data.startswith("dc:"):
         if not is_admin(uid):
@@ -1790,7 +1821,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pws = [gen_password(n) for _ in range(3)]
         await q.message.reply_text(
             f"🔐 <b>{n}-digit passwords</b> (tap = copy 👆):\n\n1️⃣ {code(pws[0])}\n\n2️⃣ {code(pws[1])}\n\n3️⃣ {code(pws[2])}\n\n<i>Kisi se share mat karo!</i>",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"1. {pws[0]}\n2. {pws[1]}\n3. {pws[2]}"),
+            parse_mode=HTML)
         return
 
     if data == "upi_yes":
@@ -1884,6 +1916,63 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await cmd_account(update, context)
         return
 
+    # ---- virtual numbers funnel (3-step, Hunter-style) ----
+    if data == "vnum_open":
+        await _vnum_say(q, VNUM_INTRO, _vnum_intro_kb())
+        return
+    if data == "vnum_get":
+        VNUM_SEL.pop(uid, None)
+        await _vnum_say(q,
+                        "📲 <b>STEP 1/3</b> — Kaunsi <b>service</b> ke liye number chahiye? 👇",
+                        _vnum_svc_kb())
+        return
+    if data.startswith("vnum_svc:"):
+        slug = data.split(":", 1)[1]
+        lab = next((l for sl, l in VNUM_SERVICES if sl == slug), None)
+        if not lab:
+            return
+        VNUM_SEL[uid] = {"svc": lab}
+        await _vnum_say(q,
+                        f"✅ Service: <b>{hesc(lab)}</b>\n\n🌍 <b>STEP 2/3</b> — Country chuno 👇",
+                        _vnum_ctry_kb())
+        return
+    if data.startswith("vnum_ctry:"):
+        slug = data.split(":", 1)[1]
+        lab = next((l for sl, l in VNUM_COUNTRIES if sl == slug), None)
+        sel = VNUM_SEL.get(uid) or {}
+        if not lab or not sel.get("svc"):
+            VNUM_SEL.pop(uid, None)
+            await _vnum_say(q, "♻️ Session refresh — pehle service chuno 👇", _vnum_svc_kb())
+            return
+        sel["ctry"] = lab
+        svc = sel["svc"]
+        order = (f"🌐 VIRTUAL NUMBER ORDER\n"
+                 f"Service: {svc}\nCountry: {lab}\n\n"
+                 f"Mujhe {lab} ka {svc} OTP number chahiye.\n"
+                 f"Contact: @Supermannn_x")
+        fin = (
+            f"🎯 <b>TUMHARA ORDER TAIYAR</b> ✅\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"📲 Service: <b>{hesc(svc)}</b>\n"
+            f"🌍 Country: <b>{hesc(lab)}</b>\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"⚡ <b>Number lene ke liye — sirf 2 tap:</b>\n"
+            f"1️⃣ 📋 <b>Copy Order</b> dabao (text copy)\n"
+            f"2️⃣ <b>Contact</b> dabao → admin ko bhejo\n"
+            f"📞 Admin: <b>@Supermannn_x</b>\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"💰 Price country/service ke hisaab se — OTP turant!\n"
+            f"✅ Sirf verification • No spam/scam"
+        )
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("📋 Copy Order", copy_text=CopyTextButton(order[:4096]))],
+            [InlineKeyboardButton("📞 Contact @Supermannn_x", url="https://t.me/Supermannn_x")],
+            [InlineKeyboardButton("🔁 Start Over", callback_data="vnum_get"),
+             InlineKeyboardButton("⌨️ Menu", callback_data="menu")],
+        ])
+        await _vnum_say(q, fin, kb)
+        return
+
 
 async def send_interest_result(update, p, r, t, f):
     si_i, si_t = si_result(p, r, t)
@@ -1898,7 +1987,8 @@ async def send_interest_result(update, p, r, t, f):
         f"📊 <b>Simple Interest:</b>\n   Interest: ₹{inr(si_i)}\n   Total: ₹{inr(si_t)}\n\n"
         f"📈 <b>Compound Interest ({fn}):</b>\n   Interest: ₹{inr(ci_i)}\n   Total: ₹{inr(ci_t)}\n\n"
         f"🏆 CI se extra fayda: <b>₹{inr(ci_t - si_t)}</b>\n━━━━━━━━━━━━━━━\n{extra}",
-        reply_markup=BACK, parse_mode=HTML)
+        reply_markup=with_copy(BACK, f"SI: ₹{inr(si_i)} (Total ₹{inr(si_t)})\nCI {fn}: ₹{inr(ci_i)} (Total ₹{inr(ci_t)})\nExtra: ₹{inr(ci_t - si_t)}"),
+            parse_mode=HTML)
 
 # ---------------- MESSAGE ROUTERS ----------------
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2097,7 +2187,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if s2:
             msg += f"\n\n2️⃣ {code(s2)}"
         await update.message.reply_photo(photo=make_qr_bytes(s1 or s2), caption=msg,
-                                         reply_markup=BACK, parse_mode=HTML)
+                                         reply_markup=with_copy(BACK, "\n".join(x for x in (s1, s2) if x)),
+                                         parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2155,7 +2246,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📈 Total interest: ₹{inr(total - p)}\n\n"
             f"📋 <b>Saal-wise hisaab:</b>\n{tbl}\n"
             f"💡 <i>Tip: chhota time = kam interest! Prepayment se hazaaron bachao.</i>",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK,
+                                         f"EMI: ₹{emi} | Loan ₹{p} | {r}% | {n} mah\nTotal: ₹{total} | Interest: ₹{total - p}" +
+                                         ("\n" + "\n".join(
+                                             f"{y}: Asal {yp:.0f} | Vyaaj {yi:.0f} | Baki {bal:.0f}" for y, yp, yi, bal in rows[:30]) if rows else "")),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2182,7 +2277,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🌟 Janam din: <b>{wd}</b>\n"
             f"🔯 Rashi: <b>{zodiac(dob.day, dob.month)}</b>\n"
             f"🎈 Birthday me: <b>{to_bday} din</b> bache!",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"Umar: {years} saal\nDin: {total_days}\nJanam: {wd} — {dob}\n                                         Rashi: {zodiac(dob.day, dob.month)}\n                                         Birthday: {to_bday} din"),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2250,7 +2346,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             un = f"@{su.username}" if su.username else "— (username nahi hai)"
             await update.message.reply_text(
                 f"🆔 <b>ID Mil Gayi!</b> ✅\n\n👤 Naam: {hesc(nm)}\n🔗 {hesc(un)}\n🆔 User ID: {code(su.id)}\n\n👆 <i>ID tap karke copy karo!</i>",
-                reply_markup=BACK, parse_mode=HTML)
+                reply_markup=with_copy(BACK, f"Name: {nm}\nUsername: {un}\nID: {su.id}"),
+                parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
         if fo is not None:
@@ -2262,7 +2359,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             un = f"@{update.effective_user.username}" if update.effective_user.username else "—"
             await update.message.reply_text(f"👤 <b>Tumhari ID:</b>\n\n🆔 {code(uid)}\n🔗 {hesc(un)}",
-                                            reply_markup=BACK, parse_mode=HTML)
+                                            reply_markup=with_copy(BACK, f"Tumhari ID: {uid}\n{un}"),
+                                            parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
         un = t[1:] if t.startswith("@") else t
@@ -2273,7 +2371,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if r:
                 await update.message.reply_text(
                     f"🆔 <b>ID Mil Gayi!</b> ✅\n\n👤 {hesc(r[1] or 'User')}\n🔗 @{hesc(r[2])}\n🆔 User ID: {code(r[0])}",
-                    reply_markup=BACK, parse_mode=HTML)
+                    reply_markup=with_copy(BACK, f"{r[1] or 'User'} (@{r[2]})\nID: {r[0]}"),
+                    parse_mode=HTML)
             else:
                 await update.message.reply_text(
                     f"😔 @{hesc(un)} hamare bot ka user nahi hai, isliye ID nahi mili.\n\n"
@@ -2314,7 +2413,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "\U0001F4F1 <b>NUMBER INFO</b>\nNumber: " + code("+91 " + _dg) + "\nStatus: " + _st +
             "\nOperator: " + hesc(_op) + "\nCircle/Region: " + hesc(_rg) +
             "\n\n<i>Note: number port (MNP) hua ho to operator purana dikh sakta hai.</i>",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"+91 {_dg} | {_st}\nOperator: {_op}\n                                         Region: {_rg}"),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2346,7 +2446,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏙️ City: {hesc(d.get('CITY', '-'))} • {hesc(d.get('STATE', '-'))}\n"
             f"📍 {hesc(str(d.get('ADDRESS', '-'))[:300])}\n"
             f"📞 {hesc(str(d.get('CONTACT', '-') or '-'))}",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"IFSC: {c}\nBank: {d.get('BANK', '-')}\n                                         Branch: {d.get('BRANCH', '-')}\n                                         City: {d.get('CITY', '-')} ({d.get('STATE', '-')})\n                                         Address: {d.get('ADDRESS', '-')}\n                                         Contact: {d.get('CONTACT') or '-'}"),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2380,7 +2481,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🗺️ State: <b>{hesc(o0.get('State', '-'))}</b>\n"
             f"📬 Post offices ({len(offices)}):{olist}\n"
             + (f"\n<i>+{len(offices) - 6} aur...</i>" if len(offices) > 6 else ""),
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"Pincode: {p}\nDistrict: {o0.get('District', '-')}\n                                         State: {o0.get('State', '-')}\n" +
+                                         "\n".join(
+                                             f"{i + 1}. {o.get('Name', '-')}"
+                                             for i, o in enumerate(offices[:6]))),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2406,7 +2511,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         await st.edit_text(
             f"🔍 <b>LINK REPORT</b>\n━━━━━━━━━━━━━━━\n🎯 Final: {code(res['final'][:200])}\n{fl}\n\n<b>{res['verdict']}</b>{ch}\n\n<i>Ye basic check hai — anjaan links par paise/password kabhi mat do! 🙏</i>",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"LINK REPORT\nFinal: {res['final']}\nVerdict: {res['verdict']}"),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2428,7 +2534,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await st.edit_text(
                 f"🔓 <b>ORIGINAL LINK MIL GAYA!</b> ✅\n\n🎯 {code(final[:300])}\n\n"
                 f"🔀 {len(chain)} hops me khula\n👆 <i>Tap karke copy karo!</i>",
-                reply_markup=BACK, parse_mode=HTML)
+                reply_markup=with_copy(BACK, final),
+                parse_mode=HTML)
         elif status == "ERR":
             refund_use(uid)
             await st.edit_text(final)
@@ -2479,7 +2586,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"\n   🌐 {hesc(L['dom'])}")
         txt += "\n\n<i>Link tap = direct download page 👆 (official stores se)</i>"
         await update.message.reply_text(
-            txt, reply_markup=BACK, parse_mode=HTML,
+            txt, reply_markup=with_copy(BACK, "\n".join(
+                f"{i}. {L['title']}\n   {L['url']}"
+                for i, L in enumerate(links, 1))),
+            parse_mode=HTML,
             link_preview_options=LinkPreviewOptions(is_disabled=True))
         context.user_data.pop("mode", None)
         return
@@ -2564,7 +2674,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             f"🔎 <b>TOP RESULTS</b> — <i>{hesc(q)}</i>\n" + "".join(parts) +
             "\n\n<i>Upar images = visual results • Title tap = website 👆</i>",
-            reply_markup=BACK, parse_mode=HTML,
+            reply_markup=with_copy(BACK, "\n".join(
+                f"{i}. {r0['title']}\n   {r0['url']}"
+                for i, r0 in enumerate(res[:6], 1))),
+            parse_mode=HTML,
             link_preview_options=LinkPreviewOptions(is_disabled=True))
         context.user_data.pop("mode", None)
         return
@@ -2589,7 +2702,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"1️⃣ <b>mParivahan</b> app → RC Details\n"
             f"2️⃣ <b>Digilocker</b> → apni gaadi ka RC\n"
             f"<i>Privacy rule se owner data sirf sarkari app me milta hai. 🙏</i>",
-            reply_markup=BACK, parse_mode=HTML)
+            reply_markup=with_copy(BACK, f"Vehicle: {v['number']}\nState: {v['state']}\nRTO: {off}"),
+            parse_mode=HTML)
         context.user_data.pop("mode", None)
         return
 
@@ -2758,10 +2872,34 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             un = f"@{su.username}" if su.username else "—"
             await update.message.reply_text(
                 f"🆔 <b>ID Mil Gayi!</b> ✅\n\n👤 Naam: {hesc(nm)}\n🔗 {hesc(un)}\n🆔 User ID: {code(su.id)}",
-                reply_markup=BACK, parse_mode=HTML)
+                reply_markup=with_copy(BACK, f"Name: {nm}\nUsername: {un}\nID: {su.id}"),
+                parse_mode=HTML)
             context.user_data.pop("mode", None)
         else:
             await update.message.reply_text("📩 Kisi ka message FORWARD karo (photo wala bhi chalega), ya @username bhejo:")
+        return
+
+    if mode not in ("pdf", "pp"):
+        await update.message.reply_text("👇 Neeche grid icon (▦) dabao — saare tools khulenge!",
+                                        reply_markup=kb_for(uid))
+        return
+
+    try:
+        f = None
+        if update.message.photo:
+            f = await context.bot.get_file(update.message.photo[-1].file_id)
+        elif update.message.document and (update.message.document.mime_type or "").startswith("image/"):
+            if (update.message.document.file_size or 0) > 12 * 1024 * 1024:
+                await update.message.reply_text("⚠️ Photo 12MB se chhoti bhejo.")
+                return
+            f = await context.bot.get_file(update.message.document.file_id)
+        if not f:
+            await update.message.reply_text("⚠️ Photo bhejo (PDF/file nahi).")
+            return
+        data = bytes(await f.download_as_bytearray())
+        Image.open(io.BytesIO(data)).verify()
+    except Exception:
+        await update.message.reply_text("⚠️ Photo kholne me dikkat. Dusri photo bhejo:")
         return
 
     if mode == "pdf":
