@@ -1,13 +1,12 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v24)
+# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v25)
 
-**22 tools • 🤖 AI Chat + 🎨 AI Image • App Finder • Screenshot • Admin panel**
+**21 tools • Real Play Store App Finder • Virtual Numbers (OTP) • Screenshot • Admin panel**
 
 | Tool | Kaam |
 |---|---|
-| 🔎 Web Search | Top 6 links + 5 images album (no API key) |
-| 📦 App Finder | App search → icon + 5 official store links (Play/Uptodown/APKPure) |
-| 🤖 AI Chat | ChatGPT-style Hinglish AI — roz FREE trials, unlimited Premium 💎 |
-| 🎨 AI Image Generator | Text se HD photo — roz FREE trials, unlimited Premium 💎 |
+| 🔎 Web Search | Top 6 links + 6 images album — relevance-filtered (fake results ❌) |
+| 📦 App Finder | **REAL Play Store data** — icon + rating + direct store link; fallback stores (Uptodown/APKPure) for off-Play apps like VidMate |
+| 🌐 Virtual Numbers | OTP numbers catalog — 16 countries, permanent numbers, contact @Supermannn_x 💰 |
 | 🖼️ Site Screenshot | Koi bhi URL → live website screenshot |
 | 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
 | 🔐 Password | Random + naam wala, 3 options |

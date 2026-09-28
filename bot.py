@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Utility Duniya Bot v24
-- 22 tools grid | 10 TTS voices | AI Chat + AI Image + App Finder + Screenshot
-- Removed: Weather/Crypto/YT/Insta/Unit — premium magnets: AI Chat + AI Image
+Utility Duniya Bot v25
+- 21 tools grid | 10 TTS voices | Real Play Store App Finder + Virtual Numbers
+- Virtual Numbers catalog (OTP) + Screenshot + Search v2 (images album)
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 - Per-user network rate-limit + flood-safe broadcast + commands menu set
 """
@@ -67,7 +67,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v24"
+BOT_VERSION = "v25"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -809,24 +809,36 @@ def _bing_decode(u: str) -> str:
 
 
 def _bing(q: str):
-    r = requests.get("https://www.bing.com/search", params={"q": q, "setlang": "en"},
-                     headers=_SEARCH_HEADERS, timeout=12)
-    if r.status_code != 200:
-        return []
-    out = []
     pat = re.compile(
         r'<li class="b_algo".*?<h2[^>]*><a[^>]+href="([^"]+)"[^>]*>(.*?)</a>(.*?)</li>',
         re.I | re.S)
-    for m in pat.finditer(r.text):
-        url = _bing_decode(_fix_entities(m.group(1)))
-        title = _strip_html(_fix_entities(m.group(2)))
-        if not (url.startswith("http") and title):
+    out = []
+    for _attempt in range(3):
+        # datacenter IP par Bing kabhi junk SERP deta hai — relevance check karke retry
+        try:
+            r = requests.get("https://www.bing.com/search", params={"q": q, "setlang": "en"},
+                             headers=_SEARCH_HEADERS, timeout=12)
+        except Exception:
             continue
-        sm = re.search(r'<p[^>]*>(.*?)</p>', m.group(3), re.I | re.S)
-        snip = _strip_html(_fix_entities(sm.group(1))) if sm else ""
-        out.append([title, url, snip])
-        if len(out) >= 10:
+        if r.status_code != 200:
+            continue
+        out = []
+        for m in pat.finditer(r.text):
+            url = _bing_decode(_fix_entities(m.group(1)))
+            title = _strip_html(_fix_entities(m.group(2)))
+            if not (url.startswith("http") and title):
+                continue
+            sm = re.search(r'<p[^>]*>(.*?)</p>', m.group(3), re.I | re.S)
+            snip = _strip_html(_fix_entities(sm.group(1))) if sm else ""
+            out.append([title, url, snip])
+            if len(out) >= 10:
+                break
+        if not out:
+            continue
+        hits = sum(1 for t, u, _s in out if _rel_ok(q, t + " " + u))
+        if hits >= 1 and hits * 2 >= len(out):
             break
+        out = []
     return out
 
 
@@ -850,7 +862,81 @@ def web_search(q: str):
     return result
 
 
-# ---------------- BING IMAGES (visual results) ----------------
+# ---------------- RELEVANCE FILTER (decoy results se bachao) ----------------
+def _rel_ok(q: str, hay: str) -> bool:
+    words = [w for w in re.findall(r"[a-z0-9]+", (q or "").lower()) if len(w) >= 3]
+    if not words:
+        return True
+    hay = (hay or "").lower()
+    return any(w in hay for w in words)
+
+
+# ---------------- PLAY STORE SEARCH (real app database) ----------------
+def play_search(query: str):
+    _hit, _val = cache_get(("play", (query or "").lower()))
+    if _hit:
+        return _val
+    r = requests.get("https://play.google.com/store/search",
+                     params={"q": query, "c": "apps"}, headers=_SEARCH_HEADERS, timeout=15)
+    t = (r.text or "").replace("\\u003d", "=").replace("\\u003f", "?").replace("&amp;", "&")
+    out, seen = [], set()
+    # 1) direct aria-label pairs (hero/first card)
+    for m in re.finditer(r'href="/store/apps/details\?id=([a-zA-Z][a-zA-Z0-9._]{2,})"'
+                         r'[^>]*aria-label="([^"]{2,120})"', t):
+        pkg = m.group(1)
+        if pkg in seen:
+            continue
+        seen.add(pkg)
+        out.append({"pkg": pkg, "title": m.group(2).replace("&amp;", "&")})
+    # 2) position pairing: title ka nearest peeche wala anchor
+    titles = [(m.start(), m.group(1)) for m in
+              re.finditer(r'<span class="DdYX5">(.*?)</span>', t)]
+    anchors = [(m.start(), m.group(1)) for m in
+               re.finditer(r'href="/store/apps/details\?id=([a-zA-Z][a-zA-Z0-9._]{2,})"', t)]
+    for pos, ti in titles[:12]:
+        pkg = None
+        for apos, a in anchors:
+            if apos < pos:
+                pkg = a
+            else:
+                break
+        if not pkg or pkg in seen:
+            continue
+        seen.add(pkg)
+        back = t[max(0, pos - 2000):pos]
+        fwd = t[pos:pos + 800]
+        icons = re.findall(r'https://play-lh\.googleusercontent\.com/[A-Za-z0-9_\-]+', back)
+        dev = re.search(r'<span class="wMUdtb">(.*?)</span>', fwd)
+        rating = re.search(r'Rated ([0-9.]+) stars', t[max(0, pos - 2500):pos + 2500])
+        out.append({"pkg": pkg, "title": ti.replace("&amp;", "&"),
+                    "icon": icons[-1] if icons else None,
+                    "dev": dev.group(1) if dev else "",
+                    "rating": rating.group(1) if rating else ""})
+        if len(out) >= 8:
+            break
+    # fill missing fields for aria-only entries (window search)
+    for x in out:
+        if "icon" not in x:
+            m = re.search(r'href="/store/apps/details\?id=' + re.escape(x["pkg"]) + r'"', t)
+            if m:
+                win = t[max(0, m.start() - 500):m.start() + 3500]
+                ic = re.findall(r'https://play-lh\.googleusercontent\.com/[A-Za-z0-9_\-]+', win)
+                dv = re.search(r'<span class="wMUdtb">(.*?)</span>', win)
+                rt = re.search(r'Rated ([0-9.]+) stars', win)
+                x["icon"] = ic[0] if ic else None
+                x["dev"] = dv.group(1) if dv else ""
+                x["rating"] = rt.group(1) if rt else ""
+    for x in out:
+        x.setdefault("icon", None)
+        x.setdefault("dev", "")
+        x.setdefault("rating", "")
+        x["url"] = f"https://play.google.com/store/apps/details?id={x['pkg']}"
+    out = out[:6]
+    cache_put(("play", (query or "").lower()), out, ttl=21600)
+    return out
+
+
+# ---------------- BING IMAGES (visual results, relevance-filtered) ----------------
 def bing_images(q: str):
     _hit, _val = cache_get(("img", q.lower()))
     if _hit:
@@ -864,55 +950,69 @@ def bing_images(q: str):
         except Exception:
             continue
         img = d.get("turl") or d.get("murl") or ""
-        if img.startswith("http"):
-            out.append({"img": img, "page": _fix_entities(d.get("purl") or ""),
-                        "title": _fix_entities(d.get("t") or "")[:120]})
+        if not img.startswith("http"):
+            continue
+        title = _fix_entities(d.get("t") or "")
+        page = _fix_entities(d.get("purl") or "")
+        murl = _fix_entities(d.get("murl") or "")
+        if not _rel_ok(q, title + " " + page + " " + murl):
+            continue  # decoy/irrelevant image (jaise AC photo for app name)
+        out.append({"img": img, "page": page, "title": title[:120]})
     out = out[:6]
     cache_put(("img", q.lower()), out, ttl=21600)
     return out
 
 
-# ---------------- APP FINDER (legal: official store links) ----------------
+# ---------------- APP FINDER (real Play Store + store links) ----------------
 def app_finder(name: str):
     key = name.lower().strip()
     _hit, _val = cache_get(("app", key))
     if _hit:
         return _val
-    web = []
-    for qq in (f"{name} android app download", f"{name} apk download uptodown apkpure"):
-        try:
-            web += _bing(qq) or []
-        except Exception:
-            pass
-    pref = ("play.google.com", "apkmirror.com", "uptodown.com", "apkpure.com",
-            "aptoide.com", "f-droid.org", "apkcombo.com")
-
-    def score(u):
-        host = (urlparse(u).hostname or "").lower()
-        for i, d in enumerate(pref):
-            if d in host:
-                return i
-        return len(pref)
-
-    seen, links = set(), []
-    for t, u, sn in sorted(web, key=lambda x: score(x[1])):
-        dom = (urlparse(u).hostname or "").lower().lstrip("www.")
-        if not dom or dom in seen:
-            continue
-        seen.add(dom)
-        links.append({"title": t, "url": u, "dom": dom})
-        if len(links) >= 6:
-            break
-    imgs = []
+    links, imgs = [], []
+    # 1) REAL Play Store database
     try:
-        for x in bing_images(f"{name} app logo"):
-            if x.get("img"):
-                imgs.append(x)
-            if len(imgs) >= 4:
-                break
+        for x in play_search(name):
+            links.append({"title": x["title"], "url": x["url"], "dom": "play.google.com",
+                          "dev": x.get("dev", ""), "rating": x.get("rating", "")})
+            if x.get("icon"):
+                imgs.append({"img": x["icon"], "page": x["url"], "title": x["title"]})
     except Exception:
         pass
-    out = {"links": links, "imgs": imgs}
+    # 2) fallback: Bing (relevance-filtered) — Play par na mile to
+    if not links:
+        web = []
+        for qq in (f"{name} android app download", f"{name} apk download uptodown apkpure"):
+            try:
+                web += _bing(qq) or []
+            except Exception:
+                pass
+        pref = ("play.google.com", "apkmirror.com", "uptodown.com", "apkpure.com",
+                "aptoide.com", "apkcombo.com")
+
+        def score(u):
+            host = (urlparse(u).hostname or "").lower()
+            for i, d in enumerate(pref):
+                if d in host:
+                    return i
+            return len(pref)
+
+        seen = set()
+        for t, u, sn in sorted(web, key=lambda x: score(x[1])):
+            if not _rel_ok(name, t + " " + u):
+                continue
+            dom = (urlparse(u).hostname or "").lower().lstrip("www.")
+            if not dom or dom in seen:
+                continue
+            seen.add(dom)
+            links.append({"title": t, "url": u, "dom": dom, "dev": "", "rating": ""})
+            if len(links) >= 6:
+                break
+        try:
+            imgs = [x for x in bing_images(f"{name} app logo") if _rel_ok(name, x["title"] + " " + x["page"])][:4]
+        except Exception:
+            imgs = []
+    out = {"links": links[:6], "imgs": imgs[:4]}
     cache_put(("app", key), out, ttl=7200)
     return out
 
@@ -930,46 +1030,6 @@ def site_screenshot(url: str):
             return None
         if attempt == 1:
             time.sleep(4)  # mshots pehli baar render karta hai
-    return None
-
-
-# ---------------- AI CHAT (Pollinations - free, no key) ----------------
-def ai_chat(user_text: str, history: list):
-    msgs = [{"role": "system",
-             "content": ("Tum 'Utility Duniya Bot' ke friendly AI assistant ho. "
-                         "Jawab Hinglish (Hindi-English mix) me chhota, useful aur "
-                         "seedha point par do. Max 400 words. HTML tags mat likho.")}]
-    msgs.extend(history[-6:])
-    msgs.append({"role": "user", "content": user_text})
-    try:
-        r = requests.post("https://text.pollinations.ai/",
-                          json={"messages": msgs, "model": "openai"},
-                          headers={"User-Agent": _SEARCH_HEADERS["User-Agent"],
-                                   "Content-Type": "application/json"}, timeout=50)
-    except Exception:
-        return None
-    if r.status_code != 200:
-        return None
-    txt = (r.text or "").strip()
-    low = txt[:300].lower()
-    if not txt or txt.startswith("<!") or "budget" in low or "api key" in low:
-        return None
-    return txt[:3800]
-
-
-# ---------------- AI IMAGE (Pollinations - free, no key) ----------------
-def ai_image(prompt: str):
-    seed = random.randint(1, 999999)
-    url = ("https://image.pollinations.ai/prompt/" + quote(prompt[:280])
-           + f"?width=1024&height=1024&nologo=true&seed={seed}")
-    try:
-        r = requests.get(url, headers={"User-Agent": _SEARCH_HEADERS["User-Agent"]},
-                         timeout=80)
-    except Exception:
-        return None
-    ct = (r.headers.get("content-type") or "").lower()
-    if r.status_code == 200 and "image" in ct and len(r.content) > 8000:
-        return r.content
     return None
 
 
@@ -1064,14 +1124,14 @@ KB_BTNS = [
     ["📷 QR Code", "🔐 Password"],
     ["🖼️ Image→PDF", "🔗 URL Short"],
     ["🔎 Web Search", "📦 App Finder"],
-    ["🤖 AI Chat", "🎨 AI Image"],
-    ["🖼️ Site Screenshot", "🧮 EMI Calc"],
-    ["🎂 Age Calculator", "💰 UPI QR Generator"],
-    ["🆔 ID Finder", "🔊 Text to Speech"],
-    ["🏦 IFSC Info", "📮 Pincode Info"],
-    ["🪪 Passport Photo", "🔍 Link Check"],
-    ["🔓 Link Bypass", "📈 Interest Calc"],
-    ["🚗 RTO Vehicle Info", "📱 Number Info"],
+    ["🌐 Virtual Numbers", "🖼️ Site Screenshot"],
+    ["🧮 EMI Calc", "🎂 Age Calculator"],
+    ["💰 UPI QR Generator", "🆔 ID Finder"],
+    ["🔊 Text to Speech", "🏦 IFSC Info"],
+    ["📮 Pincode Info", "🪪 Passport Photo"],
+    ["🔍 Link Check", "🔓 Link Bypass"],
+    ["📈 Interest Calc", "🚗 RTO Vehicle Info"],
+    ["📱 Number Info"],
     ["💎 Premium", "🎁 Refer & Earn"],
     ["👤 My Account"],
 ]
@@ -1101,7 +1161,6 @@ BTN_MODE = {
     "🔍 Link Check": "linkcheck", "🔓 Link Bypass": "linkbypass",
     "🚗 RTO Vehicle Info": "rto", "📱 Number Info": "numinfo",
     "🔎 Web Search": "search", "📦 App Finder": "appfind",
-    "🤖 AI Chat": "aichat", "🎨 AI Image": "aiimg",
     "🖼️ Site Screenshot": "shot",
 }
 
@@ -1121,21 +1180,20 @@ PROMPTS = {
     "numinfo": "📱 <b>Number Info (Circle + Operator)</b>\n\n10-digit mobile number bhejo:\n(jaise: 9876543210)",
     "search": "🔎 <b>Web Search</b>\n\nKuch bhi search karo — top 5 links turant:\n(jaise: <b>juice recipe hindi me</b>)",
     "appfind": "📦 <b>App Finder (Official Stores)</b>\n\nApp ka naam bhejo — icon + top 5 download links turant:\n(jaise: <b>Vidmate</b>, <b>Spotify</b>, <b>WhatsApp</b>)",
-    "aichat": "🤖 <b>AI Chat (ChatGPT style!)</b> 💎 <i>roz FREE trials</i>\n\nKuch bhi poochho — idea, essay, code, translation, gyan!\nBaat karte raho — /cancel se band.\n\n<i>Hindi/English/Hinglish — jo samajh aaye likho 👇</i>",
-    "aiimg": "🎨 <b>AI Image Generator</b> 💎 <i>roz FREE trials</i>\n\nPhoto ka description bhejo (English best):\n(jaise: <b>tiger wearing headphones, cyberpunk city</b>)\n\n<i>Aur banwana ho to naya description likh do — /cancel se band</i>",
     "shot": "🖼️ <b>Website Screenshot</b>\n\nKoi bhi website ka LINK bhejo — live screenshot turant:\n(jaise: <b>github.com</b> ya <b>https://netflix.com</b>)",
     "rto": "🚗 <b>RTO Vehicle Info</b>\n\nGaadi number bhejo:\n(jaise: JH01AB1234)",
 }
 
 WELCOME = (
     "👋 Namaste! Main hoon <b>Utility Duniya Bot</b> 🌟\n\n"
-    "💡 <b>22 tools bilkul FREE</b> + 🤖 AI magic 💎\n"
-    "🔎 Search • 📦 App Finder • 🖼️ Screenshot • 📷 QR\n"
-    "🔐 Password • 🖼️ PDF • 🔗 Short • 🧮 EMI • 🎂 Age\n"
-    "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC\n"
-    "📮 Pincode • 🪪 Passport • 🔍 Check • 🔓 Bypass\n"
-    "📈 Interest • 🚗 RTO • 📱 Number\n"
-    "🤖 AI Chat + 🎨 AI Image — roz FREE trial, unlimited Premium 💎\n\n"
+    "🧰 <b>21 tools bilkul FREE:</b>\n"
+    "🔎 Search • 📦 App Finder • 🌐 Virtual Numbers • 🖼️ Screenshot\n"
+    "📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short • 🧮 EMI • 🎂 Age\n"
+    "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC • 📮 Pincode\n"
+    "🪪 Passport • 🔍 Check • 🔓 Bypass • 📈 Interest\n"
+    "🚗 RTO • 📱 Number Info\n\n"
+    "🌐 <b>Virtual Numbers (OTP)</b> — 16 countries, permanent number!\n"
+    "👉 Contact <b>@Supermannn_x</b> 📞\n\n"
     f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
@@ -1157,6 +1215,35 @@ TRIAL_MSG = (
     "💎 ₹49 me Premium lo\n"
     f"🎁 ya {REFER_NEED} refer = 30 din FREE"
 )
+
+
+# ---------------- VIRTUAL NUMBERS CATALOG (OTP business card) ----------------
+VNUM_COUNTRIES = ("🇲🇾 Malaysia", "🇮🇶 Iraq", "🇷🇺 Russia", "🇮🇩 Indonesia",
+                  "🇳🇵 Nepal", "🇸🇩 Sudan", "🇺🇸 USA", "🇬🇧 UK",
+                  "🇨🇦 Canada", "🇩🇪 Germany", "🇫🇷 France", "🇳🇱 Netherlands",
+                  "🇦🇪 UAE", "🇧🇩 Bangladesh", "🇧🇷 Brazil", "🇹🇷 Turkey")
+VNUM_SERVICES = ("WhatsApp • Facebook • Instagram • TikTok • Telegram\n"
+                 "Snapchat • X (Twitter) • Discord • Google • YouTube")
+
+
+async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    rows = [VNUM_COUNTRIES[i:i + 4] for i in range(0, len(VNUM_COUNTRIES), 4)]
+    lines = "\n".join("   ".join(r) for r in rows)
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📞 Contact @Supermannn_x", url="https://t.me/Supermannn_x")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
+    ])
+    await update.message.reply_text(
+        "🌐 <b>VIRTUAL NUMBERS (OTP)</b>\n━━━━━━━━━━━━━━━\n"
+        "📞 <b>Permanent numbers</b> — ek baar lo, hamesha chalte rahenge!\n"
+        "✅ Fresh & working OTP • No spam • No scam\n\n"
+        f"🌍 <b>Countries ({len(VNUM_COUNTRIES)}+):</b>\n{lines}\n\n"
+        f"📲 <b>Services:</b>\n{VNUM_SERVICES}\n\n"
+        "💰 <b>Number chahiye?</b> Admin ko DM karo 👉 <b>@Supermannn_x</b>\n"
+        "Country + service batao — turant number aur price mil jayega!\n\n"
+        "<i>Sirf account verification ke liye. Fraud/scam users strictly blocked.</i>",
+        reply_markup=kb, parse_mode=HTML)
+
 
 # ---------------- GUARDS ----------------
 async def ensure_joined(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
@@ -1291,7 +1378,7 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for k in ("mode", "pdf_pages", "upi_id", "upi_name", "upi_amt", "emi_p", "emi_r",
               "int_type", "int_p", "int_r", "int_t", "tts_voice", "tts_name", "tts_rate",
-              "tts_pitch", "qr_pending", "plan_days", "pwd_name", "ai_hist"):
+              "tts_pitch", "qr_pending", "plan_days", "pwd_name"):
         context.user_data.pop(k, None)
     await update.message.reply_text("❌ Cancel ho gaya. Grid se dobara chuno.")
 
@@ -1301,7 +1388,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "❓ <b>HELP</b>\n\n📲 Neeche grid icon (▦) dabao = saare tools khulenge!\n"
         "Koi tool dabao, bot jo mange wo bhejo. ✅\n\n"
         "👆 <b>Har result tap karke copy hota hai!</b>\n\n"
-        "/menu - tools grid\n/ai • /image • /app • /shot - AI naye tools\n"
+        "/menu - tools grid\n/vnum • /app • /shot • /search - naye tools\n"
         "/premium - premium plans\n/refer - refer & earn\n"
         "/account - mera account\n/cancel - cancel\n\n"
         f"Roz {FREE_LIMIT} FREE uses + {TRIAL_LIMIT} premium trials. /refer se unlimited FREE pao! 🎁",
@@ -1347,7 +1434,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     board = "".join(f"\n{i + 1}. {hesc((n or 'User')[:15])} — {c} 🎁" for i, (n, c) in enumerate(top)) or "\n—"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("📤 Doston ko Share Karo",
-                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 22 tools! AI Image, QR, UPI QR, Voice sab!")],
+                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 21 tools! Virtual Numbers, QR, App Finder, Voice sab!")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
     await update.effective_message.reply_text(
@@ -1377,7 +1464,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "💎✨ <b>PREMIUM</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
-        "✅ <b>Unlimited</b> saare 22 tools\n"
+        "✅ <b>Unlimited</b> saare 21 tools\n"
         "💰 UPI QR + ⬇️ YT Download + 🔊 10 Voices — bina limit!\n"
         "⚡ Sabse pehle naye tools\n"
         "🚫 Roz ka limit khatam = tension khatam\n"
@@ -1417,9 +1504,12 @@ async def cmd_bypass(u, c): await cmd_tool(u, c, "linkbypass")
 async def cmd_rto(u, c): await cmd_tool(u, c, "rto")
 async def cmd_search(u, c): await cmd_tool(u, c, "search")
 async def cmd_appfind(u, c): await cmd_tool(u, c, "appfind")
-async def cmd_ai(u, c): await cmd_tool(u, c, "aichat")
-async def cmd_image(u, c): await cmd_tool(u, c, "aiimg")
-async def cmd_shot(u, c): await cmd_tool(u, c, "shot")
+
+async def cmd_vnum(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await ensure_joined(update, context):
+        return
+    await send_vnum_card(update, context)
+
 
 
 async def pwd_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1830,6 +1920,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if text == "🔐 Password":
         await pwd_entry(update, context)
+        return
+    if text == "🌐 Virtual Numbers":
+        await cmd_vnum(update, context)
         return
     if text == "🔊 Text to Speech":
         await tts_entry(update, context)
@@ -2421,69 +2514,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
-    if mode == "aichat":
-        prompt = text.strip()
-        if not (1 <= len(prompt) <= 700):
-            await update.message.reply_text("⚠️ Thoda chhota message bhejo (700 letters tak):")
-            return
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await trial_or_block(uid, update, "AI Chat"):
-            return
-        await act(context, update.effective_chat.id, "typing")
-        hist = context.user_data.get("ai_hist") or []
-        try:
-            ans = await asyncio.to_thread(ai_chat, prompt, hist)
-        except Exception:
-            ans = None
-        if not ans:
-            refund_trial(uid)
-            await update.message.reply_text(
-                "⚠️ AI abhi busy hai — 1 min ruk ke dobara bhejo (trial wapas ✅):")
-            return
-        hist = (hist + [{"role": "user", "content": prompt},
-                        {"role": "assistant", "content": ans}])[-8:]
-        context.user_data["ai_hist"] = hist
-        await update.message.reply_text(
-            f"🤖 <b>AI</b>\n━━━━━━━━━━━━━━━\n{hesc(ans)}",
-            reply_markup=BACK, parse_mode=HTML)
-        # mode rehta hai — aur baat karte raho (/cancel tak)
-        return
-
-    if mode == "aiimg":
-        prompt = text.strip()
-        if not (3 <= len(prompt) <= 300):
-            await update.message.reply_text(
-                "⚠️ Photo ka description bhejo (3-300 letters), English best:\n"
-                "(jaise: <b>tiger wearing headphones, cyberpunk city</b>)", parse_mode=HTML)
-            return
-        wg = net_gate(uid)
-        if wg > 0:
-            await update.message.reply_text(f"⏳ {int(wg) + 1}s ruk jao — API rate limit hai ⚡")
-            return
-        if not await trial_or_block(uid, update, "AI Image Generator"):
-            context.user_data.pop("mode", None)
-            return
-        await act(context, update.effective_chat.id, "upload_photo")
-        data = await asyncio.to_thread(ai_image, prompt)
-        if not data:
-            refund_trial(uid)
-            await update.message.reply_text(
-                "⚠️ Image ban nahi payi (API busy). Dobara try karo (trial wapas ✅):")
-            return
-        bio = io.BytesIO(data)
-        bio.name = "ai_image.jpg"
-        bio.seek(0)
-        await update.message.reply_photo(
-            photo=bio,
-            caption=f"🎨 <b>AI IMAGE</b>\n💬 {hesc(prompt[:250])}\n\n"
-                    f"<i>Aur banwana ho to naya description likh do — /cancel se band</i>",
-            reply_markup=BACK, parse_mode=HTML)
-        # mode rehta hai — naye prompt pe nayi image
-        return
-
     if mode == "search":
         q = text.strip()
         if not (2 <= len(q) <= 150):
@@ -2788,10 +2818,9 @@ async def _post_init(app: Application):
         await app.bot.set_my_commands([
             BotCommand("start", "👋 Welcome + tools grid"),
             BotCommand("menu", "⌨️ Tools grid"),
+            BotCommand("vnum", "🌐 Virtual Numbers (OTP)"),
             BotCommand("search", "🔎 Web search + images"),
-            BotCommand("app", "📦 App Finder"),
-            BotCommand("ai", "🤖 AI Chat"),
-            BotCommand("image", "🎨 AI Image Generator"),
+            BotCommand("app", "📦 App Finder (Play Store)"),
             BotCommand("shot", "🖼️ Website screenshot"),
             BotCommand("qr", "📷 QR code"),
             BotCommand("tts", "🔊 Text to speech"),
@@ -2864,9 +2893,8 @@ def main():
     app.add_handler(CommandHandler("rto", cmd_rto))
     app.add_handler(CommandHandler("search", cmd_search))
     app.add_handler(CommandHandler("app", cmd_appfind))
-    app.add_handler(CommandHandler("ai", cmd_ai))
-    app.add_handler(CommandHandler("image", cmd_image))
     app.add_handler(CommandHandler("shot", cmd_shot))
+    app.add_handler(CommandHandler("vnum", cmd_vnum))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
