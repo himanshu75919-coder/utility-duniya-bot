@@ -1504,6 +1504,7 @@ async def cmd_bypass(u, c): await cmd_tool(u, c, "linkbypass")
 async def cmd_rto(u, c): await cmd_tool(u, c, "rto")
 async def cmd_search(u, c): await cmd_tool(u, c, "search")
 async def cmd_appfind(u, c): await cmd_tool(u, c, "appfind")
+async def cmd_shot(u, c): await cmd_tool(u, c, "shot")
 
 async def cmd_vnum(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await ensure_joined(update, context):
