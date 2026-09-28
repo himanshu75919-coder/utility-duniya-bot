@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v19"
+BOT_VERSION = "v20"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1261,6 +1261,8 @@ async def use_or_block(uid: int, update: Update) -> bool:
     u = get_user(uid)
     if is_premium(u):
         return True
+    if is_admin(uid):
+        return True
     if u["uses_today"] < FREE_LIMIT:
         add_use(uid)
         return True
@@ -1277,6 +1279,8 @@ async def trial_or_block(uid: int, update: Update, tool: str) -> bool:
         return False
     u = get_user(uid)
     if is_premium(u):
+        return True
+    if is_admin(uid):
         return True
     left = TRIAL_LIMIT - (u.get("trial_count") or 0)
     if left > 0:
