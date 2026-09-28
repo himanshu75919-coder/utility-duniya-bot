@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v21"
+BOT_VERSION = "v22"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -2932,16 +2932,20 @@ def _keepalive():
     # Self-ping: free server ko sleep hone se rokta hai (UptimeRobot jaisa, bot ke andar hi)
     import threading
     def _loop():
+        _t = (WEBHOOK_URL or os.getenv("RENDER_EXTERNAL_URL", "") or "https://utility-duniya-bot.onrender.com").strip().rstrip("/")
         while True:
             try:
-                time.sleep(600)
-                if WEBHOOK_URL:
-                    requests.get(WEBHOOK_URL.rstrip("/"), timeout=10)
+                if _t:
+                    requests.get(_t, timeout=10)
+            except Exception:
+                pass
+            try:
+                time.sleep(300)
             except Exception:
                 pass
     try:
         threading.Thread(target=_loop, daemon=True).start()
-        log.info("keepalive on (10 min self-ping)")
+        log.info("keepalive on (5 min self-ping)")
     except Exception:
         pass
 
