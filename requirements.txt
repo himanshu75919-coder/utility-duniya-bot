@@ -8,3 +8,4 @@ edge-tts
 gtts
 img2pdf
 imageio-ffmpeg
+phonenumbers

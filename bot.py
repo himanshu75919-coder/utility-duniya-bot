@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Utility Duniya Bot v18
-- 18 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
+- 19 tools grid | 10 TTS voices | YT HD download | Link bypass | Admin panel
 - Referral + UPI premium (screenshot direct ADMIN) + force-join + ban system
 """
 
@@ -57,7 +57,7 @@ DB_PATH = os.getenv("DB_PATH", "botdata.db")
 HTML = "HTML"
 UA = {"User-Agent": "Mozilla/5.0 (Linux; Android 10) UtilityDuniyaBot/1.0"}
 BAN_MSG = "🚫 Tum ban ho. Admin se contact karo."
-BOT_VERSION = "v18"
+BOT_VERSION = "v19"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -774,6 +774,37 @@ def _ig_fetch(u: str):
             _IG_LAST[0] = time.time()
 
 
+def restore_md_marks(msg) -> str:
+    """Telegram '__x__' ko underline bana ke markers KHA jata hai.
+    Single-token username me underline->'__' , italic->'_' wapas lagao."""
+    try:
+        t = msg.text or ""
+        ents = getattr(msg, "entities", None) or []
+        if not t or " " in t.strip() or "\n" in t:
+            return t
+        spans = []
+        for e in ents:
+            try:
+                ty = getattr(e, "type", "")
+                mk = "__" if ty == "underline" else ("_" if ty == "italic" else None)
+                if not mk:
+                    continue
+                o, l = int(e.offset), int(e.length)
+                if o < 0 or l <= 0 or o + l > len(t):
+                    continue
+                spans.append((o, o + l, mk))
+            except Exception:
+                continue
+        for a, b, mk in sorted(spans, reverse=True):
+            t = t[:a] + mk + t[a:b] + mk + t[b:]
+        return t
+    except Exception:
+        try:
+            return msg.text or ""
+        except Exception:
+            return ""
+
+
 def insta_lookup(username: str):
     _parts = ((username or "").strip().lstrip("@").split() or [""])
     u = _parts[0][:30]
@@ -1036,6 +1067,8 @@ def ytdl_download(url: str):
             _e = (_err or "").lower()
             _bw = ("bot" in _e or "sign in" in _e or "reload" in _e or "format is not available" in _e or "only images" in _e or "403" in _e or "429" in _e or "forbidden" in _e or "rate-limit" in _e or "login" in _e or "confirm" in _e)
             if _bw:
+                if os.path.exists(COOKIE_FILE):
+                    return ("ERR", "\U0001F36A Cookies LAGI hain, phir bhi YouTube ne server-IP ko ROKA hai (bot protection). 10-15 min baad ya dusri video try karo.", None)
                 return ("ERR", "YouTube ne server ko bot samajh ke ROKA hai. FIX: Admin /setcookies likhke YouTube login cookies lagaye - phir turant chalega!", None)
             raise RuntimeError("ytinfo")
     except Exception:
@@ -1089,6 +1122,7 @@ KB_BTNS = [
     ["📈 Interest Calc", "🚗 RTO Vehicle Info"],
     ["💎 Premium", "🎁 Refer & Earn"],
     ["📸 Insta Info", "👤 My Account"],
+    ["📱 Number Info"],
 ]
 
 
@@ -1117,6 +1151,7 @@ BTN_MODE = {
     "🔍 Link Check": "linkcheck", "🔓 Link Bypass": "linkbypass",
     "🚗 RTO Vehicle Info": "rto",
     "📸 Insta Info": "insta",
+    "📱 Number Info": "numinfo",
 }
 
 PROMPTS = {
@@ -1135,17 +1170,18 @@ PROMPTS = {
     "linkcheck": "🔍 <b>Link Checker</b>\n\nKoi bhi LINK bhejo — safe hai ya fraud, check karunga:",
     "linkbypass": "🔓 <b>Link Bypass</b>\n\narolinks / vplinks / gplinks jaisa EARN LINK bhejo — asli original link nikalunga:\n\n<i>Note: timer/JS wale kuch links browser me kholne padenge.</i>",
     "insta": ("📸 <b>Insta Info</b>" + chr(10) + chr(10) + "Insta username bhejo (bina @):" + chr(10) + "(jaise: virat.kohli)"),
+    "numinfo": "📱 <b>Number Info (Circle + Operator)</b>\n\n10-digit mobile number bhejo:\n(jaise: 9876543210)",
     "rto": "🚗 <b>RTO Vehicle Info</b>\n\nGaadi number bhejo:\n(jaise: JH01AB1234)",
 }
 
 WELCOME = (
     "👋 Namaste! Main hoon <b>Utility Duniya Bot</b> 🌟\n\n"
-    "🧰 <b>18 powerful tools</b>, bilkul FREE:\n"
+    "🧰 <b>19 powerful tools</b>, bilkul FREE:\n"
     "📷 QR • 🔐 Password • 🖼️ PDF • 🔗 Short\n"
     "🎬 YT • ⬇️ Download • 🧮 EMI • 🎂 Age\n"
     "💰 UPI QR • 🆔 ID Finder • 🔊 10 Voices • 🏦 IFSC\n"
     "📮 Pincode • 🪪 Passport • 🔍 Link Check\n"
-    "🔓 Bypass • 📈 Interest • 🚗 RTO\n\n"
+    "🔓 Bypass • 📈 Interest • 🚗 RTO • 📱 Number\n\n"
     f"🆓 Roz {FREE_LIMIT} FREE uses + Premium tools ke {TRIAL_LIMIT} trials\n"
     f"🎁 {REFER_NEED} doston ko refer karo = 30 din Premium FREE\n"
     "💎 ya sirf ₹49 me Premium lo\n\n"
@@ -1352,7 +1388,7 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     board = "".join(f"\n{i + 1}. {hesc((n or 'User')[:15])} — {c} 🎁" for i, (n, c) in enumerate(top)) or "\n—"
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("📤 Doston ko Share Karo",
-                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 18 tools! QR, UPI QR, YT Download, Voice sab!")],
+                              url=f"https://t.me/share/url?url={link}&text=FREE Utility Bot - 19 tools! QR, UPI QR, YT Download, Voice sab!")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="menu")],
     ])
     await update.effective_message.reply_text(
@@ -1382,7 +1418,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.effective_message.reply_text(
         "💎✨ <b>PREMIUM</b> ✨💎\n"
         "━━━━━━━━━━━━━━━\n"
-        "✅ <b>Unlimited</b> saare 18 tools\n"
+        "✅ <b>Unlimited</b> saare 19 tools\n"
         "💰 UPI QR + ⬇️ YT Download + 🔊 10 Voices — bina limit!\n"
         "⚡ Sabse pehle naye tools\n"
         "🚫 Roz ka limit khatam = tension khatam\n"
@@ -2374,8 +2410,42 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("⚠️ Koi message FORWARD karo, @username bhejo, ya 'me' likho:")
         return
 
+    if mode == "numinfo":
+        _dg = re.sub(r"\D", "", text or "")
+        if len(_dg) == 12 and _dg.startswith("91"):
+            _dg = _dg[2:]
+        elif len(_dg) == 11 and _dg.startswith("0"):
+            _dg = _dg[1:]
+        if not re.match(r"^[6-9]\d{9}$", _dg):
+            await update.message.reply_text("Sahi 10-digit mobile number bhejo (6-9 se shuru). Dobara try karo:")
+            return
+        if not await trial_or_block(uid, update, "Number Info"):
+            context.user_data.pop("mode", None)
+            return
+        try:
+            import phonenumbers as _pn
+            from phonenumbers import geocoder as _pg, carrier as _pc
+            _x = _pn.parse(_dg, "IN")
+            _ok = _pn.is_valid_number(_x)
+            _op = _pc.name_for_number(_x, "en") or "pata nahi (nayi series)"
+            _rg = _pg.description_for_number(_x, "en") or "-"
+        except Exception:
+            refund_trial(uid)
+            await update.message.reply_text("Number check nahi ho paya. Dobara try karo (trial wapas).")
+            context.user_data.pop("mode", None)
+            return
+        _st = "Valid number" if _ok else "Invalid number"
+        await update.message.reply_text(
+            "\U0001F4F1 <b>NUMBER INFO</b>\nNumber: " + code("+91 " + _dg) + "\nStatus: " + _st +
+            "\nOperator: " + hesc(_op) + "\nCircle/Region: " + hesc(_rg) +
+            "\n\n<i>Note: number port (MNP) hua ho to operator purana dikh sakta hai.</i>",
+            reply_markup=BACK, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return
+
     if mode == "insta":
-        _u = ((text or "").strip().lstrip("@").split() or [""])
+        _rt = restore_md_marks(update.message)
+        _u = ((_rt or "").strip().lstrip("@").split() or [""])
         u = _u[0][:30]
         if not u or not all(ch.isalnum() or ch in "._" for ch in u):
             await update.message.reply_text("Sahi Insta username bhejo (bina @). Dobara try karo:")
@@ -2384,16 +2454,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             return
         await act(context, update.effective_chat.id, "typing")
-        st = await update.message.reply_text("Report nikal raha hoon...")
+        st = await update.message.reply_text("\U0001F50E @" + code(u) + " ki report nikal raha hoon...", parse_mode=HTML)
         d = await asyncio.to_thread(insta_lookup, u)
         if d == "RATELIMIT":
             refund_trial(uid)
-            await st.edit_text("Instagram busy hai (limit lag gayi). 1 min baad dobara bhejo (trial wapas).")
+            await st.edit_text("Instagram busy hai (server-limit lag gayi). Trial WAPAS kar diya. 2-3 ghante baad dobara bhejo - limit khulne par report aa jayegi!")
             context.user_data.pop("mode", None)
             return
         if not d:
             refund_trial(uid)
-            await st.edit_text("Ye username nahi mila. Sahi username bhejo (trial wapas).")
+            await st.edit_text("@" + code(u) + " nahi mila. Sahi username bhejo (trial wapas).", parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
         NL = chr(10)
@@ -2888,7 +2958,10 @@ def main():
                         open(COOKIE_FILE, "wb").write(_conv)
             except Exception:
                 pass
-            log.info("YT cookies loaded from env")
+            _raw0 = open(COOKIE_FILE, "rb").read()
+            _raw0 = normalize_cookies(_raw0)
+            open(COOKIE_FILE, "wb").write(_raw0)
+            log.info("YT cookies env jar=%s", cookies_jar_count(COOKIE_FILE))
         except Exception as e:
             log.warning("cookies env fail: %s", e)
     db().close()
