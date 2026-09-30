@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ UTILITY DUNIYA SUPER-BOT (v30 Ultra Edition) ⚡
+⚡ TOOLVAULT / UTILITY DUNIYA SUPER-BOT (v30 Ultra Edition) ⚡
 - 30+ Dedicated Separate Tools with Aesthetic Mathematical Bold Fonts (𝐓𝐄𝐋𝐄𝐆𝐑𝐀𝐌 style)
+- Short, Modern & Aesthetic Rowdy/Venom Style Welcome Card
 - 100% Working 3-Step Virtual Numbers (OTP) Funnel
 - Terabox & Multi-Cloud Ad-Free Fast Downloader
 - Channel Cloner & Auto-Forwarder with Custom Branding
-- AI Voice Clone & Celebrity Voiceover Studio
+- Text to Actors & Celebrity Voice Studio (Amitabh Don, Pushpa, Modi, SRK, CarryMinati, Narrator)
 - AI Cyber Cafe Studio (Photo Name/DOP Stamp, 10-20KB Signature Cleaner, 8-in-1 Sheet, PDF Compress)
 - Sarkari Seva Portals & Student Exam Hub
 - Dedicated RTO Vehicle, Phone Operator, IFSC, Pincode & ID Finder
@@ -14,7 +15,6 @@
 """
 
 import asyncio
-import base64
 import io
 import json
 import logging
@@ -93,7 +93,7 @@ from modules.cyber_studio import (
 )
 from modules.cloud_tools import resolve_cloud_url
 from modules.channel_cloner import forward_cloned_message, get_cloner_menu_kb
-from modules.voice_studio import VOICE_PRESETS, generate_voice
+from modules.voice_studio import ACTOR_VOICE_PRESETS, generate_actor_voice
 from modules.media_downloader import extract_media_info, is_supported_media_url
 from modules.osint_tools import (
     check_username_platforms,
@@ -147,7 +147,7 @@ log = logging.getLogger("utility-super-bot")
 
 # ---------------- AESTHETIC BOLD UNICODE HELPER ----------------
 def to_bold(text: str) -> str:
-    """Converts standard ASCII characters to Mathematical Bold Unicode (e.g. TELEGRAM -> 𝐓𝐄𝐋𝐄𝐆𝐑𝐀𝐌)"""
+    """Converts standard text to Mathematical Bold Unicode (e.g. TELEGRAM -> 𝐓𝐄𝐋𝐄𝐆𝐑𝐀𝐌)"""
     res = []
     for c in text:
         code = ord(c)
@@ -163,7 +163,7 @@ def to_bold(text: str) -> str:
 
 
 def unbold(text: str) -> str:
-    """Normalizes Mathematical Bold Unicode back to standard ASCII for bulletproof matching"""
+    """Normalizes Mathematical Bold Unicode back to standard ASCII for exact matching"""
     res = []
     for c in text:
         code = ord(c)
@@ -212,17 +212,15 @@ VNUM_COUNTRIES = (
 )
 
 VNUM_INTRO = (
-    f"🌐✨ <b>{to_bold('VIRTUAL NUMBERS (OTP)')}</b> ✨🌐\n"
+    f"🌐✨ <b>{to_bold('VIRTUAL NUMBERS (OTP STOCK)')}</b> ✨🌐\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "⚡ <b>Premium OTP Stock</b> — Fast &amp; Reliable\n"
-    "🟢 Fresh &amp; working numbers — OTP turant\n"
-    "🔁 <b>Permanent</b> — ek baar lo, hamesha chalao\n"
-    "🚫 No spam • No scam\n\n"
-    "🌍 <b>16 countries</b> • 📲 <b>10 services</b> ready\n"
+    "⚡ <b>Fresh OTP Numbers:</b> Fast &amp; 100% Reliable\n"
+    "🟢 Instant OTP Delivery • Permanent Numbers\n"
+    "🌍 <b>16 Countries</b> • 📲 <b>10 Services</b> Live Stock\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "🎯 <b>3 STEP me number:</b>\n"
-    "1️⃣ Service → 2️⃣ Country → 3️⃣ Contact\n\n"
-    "<i>Sirf account verification ke liye. Fraud/scam users strictly blocked.</i>"
+    "🎯 <b>3 Simple Steps:</b>\n"
+    "1️⃣ Service → 2️⃣ Country → 3️⃣ Get Instant Number\n\n"
+    "<i>Pure account verification ke liye. No spam.</i>"
 )
 
 
@@ -267,35 +265,35 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await target.reply_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(), parse_mode=HTML)
 
 
-# ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS ----------------
+# ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
-    [f"🌐 {to_bold('Virtual Numbers')}", f"⚡ {to_bold('Terabox Downloader')}"],
-    [f"🔄 {to_bold('Channel Cloner')}", f"🎙️ {to_bold('AI Voice Studio')}"],
-    [f"🎬 {to_bold('Viral Video Download')}", f"📸 {to_bold('Passport Photo (Name/DOP)')}"],
-    [f"✍️ {to_bold('Signature Cleaner')}", f"🖨️ {to_bold('8-in-1 Print Sheet')}"],
-    [f"📄 {to_bold('Document PDF Compress')}", f"🏛️ {to_bold('Sarkari Seva Portals')}"],
-    [f"🎓 {to_bold('Student Exam Hub')}", f"🚗 {to_bold('RTO Vehicle Info')}"],
-    [f"📱 {to_bold('Number Info')}", f"🏦 {to_bold('IFSC Info')}"],
-    [f"📮 {to_bold('Pincode Info')}", f"🆔 {to_bold('ID & Username Finder')}"],
-    [f"📷 {to_bold('QR Code')}", f"🖼️ {to_bold('Image→PDF')}"],
-    [f"🔗 {to_bold('URL Short')}", f"🔓 {to_bold('Link Bypass')}"],
-    [f"🔍 {to_bold('Link Check')}", f"🧮 {to_bold('EMI Calc')}"],
-    [f"📈 {to_bold('Interest Calc')}", f"🎂 {to_bold('Age Calculator')}"],
-    [f"💰 {to_bold('UPI QR Generator')}", f"🔐 {to_bold('Password Generator')}"],
-    [f"🔎 {to_bold('Web Search')}", f"📦 {to_bold('App Finder')}"],
-    [f"🖼️ {to_bold('Site Screenshot')}", f"💎 {to_bold('VIP Premium')}"],
-    [f"🎁 {to_bold('Refer & Earn')}", f"👤 {to_bold('My Account')}"],
+    [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
+    [f"🔄 {to_bold('CHANNEL CLONER')}", f"🎙️ {to_bold('ACTORS VOICE STUDIO')}"],
+    [f"🎬 {to_bold('VIRAL VIDEO DOWNLOAD')}", f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}"],
+    [f"✍️ {to_bold('SIGNATURE CLEANER')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
+    [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
+    [f"🎓 {to_bold('STUDENT EXAM HUB')}", f"🚗 {to_bold('RTO VEHICLE INFO')}"],
+    [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
+    [f"📮 {to_bold('PINCODE INFO')}", f"🆔 {to_bold('ID & USERNAME FINDER')}"],
+    [f"📷 {to_bold('QR CODE')}", f"🖼️ {to_bold('IMAGE→PDF')}"],
+    [f"🔗 {to_bold('URL SHORT')}", f"🔓 {to_bold('LINK BYPASS')}"],
+    [f"🔍 {to_bold('LINK CHECK')}", f"🧮 {to_bold('EMI CALC')}"],
+    [f"📈 {to_bold('INTEREST CALC')}", f"🎂 {to_bold('AGE CALCULATOR')}"],
+    [f"💰 {to_bold('UPI QR GENERATOR')}", f"🔐 {to_bold('PASSWORD GENERATOR')}"],
+    [f"🔎 {to_bold('WEB SEARCH')}", f"📦 {to_bold('APP FINDER')}"],
+    [f"🖼️ {to_bold('SITE SCREENSHOT')}", f"💎 {to_bold('VIP PREMIUM')}"],
+    [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
 ]
 
 
 def main_keyboard(admin: bool = False):
     rows = [row[:] for row in KB_BTNS]
     if admin:
-        rows.append([f"🛠️ {to_bold('Admin Panel')}"])
+        rows.append([f"🛠️ {to_bold('ADMIN PANEL')}"])
     return ReplyKeyboardMarkup(
         [[KeyboardButton(t) for t in row] for row in rows],
         resize_keyboard=True,
-        input_field_placeholder="Tool chunein 👇",
+        input_field_placeholder="Tool select karein 👇",
     )
 
 
@@ -305,70 +303,70 @@ def kb_for(uid: int):
 
 # Exact Action Mapping
 BTN_MODE_MAP = {
-    "Virtual Numbers": "vnum",
-    "Terabox Downloader": "terabox",
-    "Channel Cloner": "cloner",
-    "AI Voice Studio": "voice",
-    "Viral Video Download": "media_dl",
-    "Passport Photo (Name/DOP)": "pp_stamp",
-    "Signature Cleaner": "sig_clean",
-    "8-in-1 Print Sheet": "print_sheet",
-    "Document PDF Compress": "doc_compress",
-    "Sarkari Seva Portals": "sarkari",
-    "Student Exam Hub": "exam",
-    "RTO Vehicle Info": "rto",
-    "Number Info": "numinfo",
-    "IFSC Info": "ifsc",
-    "Pincode Info": "pin",
-    "ID & Username Finder": "idfind",
-    "QR Code": "qr",
-    "Image→PDF": "pdf",
-    "URL Short": "short",
-    "Link Bypass": "linkbypass",
-    "Link Check": "linkcheck",
-    "EMI Calc": "emi",
-    "Interest Calc": "interest",
-    "Age Calculator": "age",
-    "UPI QR Generator": "upi",
-    "Password Generator": "pwd",
-    "Web Search": "search",
-    "App Finder": "appfind",
-    "Site Screenshot": "shot",
-    "VIP Premium": "premium",
-    "Refer & Earn": "refer",
-    "My Account": "account",
-    "Admin Panel": "admin",
+    "VIRTUAL NUMBERS": "vnum",
+    "TERABOX DOWNLOADER": "terabox",
+    "CHANNEL CLONER": "cloner",
+    "ACTORS VOICE STUDIO": "voice",
+    "VIRAL VIDEO DOWNLOAD": "media_dl",
+    "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
+    "SIGNATURE CLEANER": "sig_clean",
+    "8-IN-1 PRINT SHEET": "print_sheet",
+    "DOCUMENT PDF COMPRESS": "doc_compress",
+    "SARKARI SEVA PORTALS": "sarkari",
+    "STUDENT EXAM HUB": "exam",
+    "RTO VEHICLE INFO": "rto",
+    "NUMBER INFO": "numinfo",
+    "IFSC INFO": "ifsc",
+    "PINCODE INFO": "pin",
+    "ID & USERNAME FINDER": "idfind",
+    "QR CODE": "qr",
+    "IMAGE→PDF": "pdf",
+    "URL SHORT": "short",
+    "LINK BYPASS": "linkbypass",
+    "LINK CHECK": "linkcheck",
+    "EMI CALC": "emi",
+    "INTEREST CALC": "interest",
+    "AGE CALCULATOR": "age",
+    "UPI QR GENERATOR": "upi",
+    "PASSWORD GENERATOR": "pwd",
+    "WEB SEARCH": "search",
+    "APP FINDER": "appfind",
+    "SITE SCREENSHOT": "shot",
+    "VIP PREMIUM": "premium",
+    "REFER & EARN": "refer",
+    "MY ACCOUNT": "account",
+    "ADMIN PANEL": "admin",
 }
 
 PROMPTS = {
     "terabox": (
-        f"⚡ <b>{to_bold('TERABOX & CLOUD FAST DOWNLOADER')}</b>\n\n"
-        "<blockquote>Direct ad-free high-speed download link aur streaming player!</blockquote>\n\n"
-        "🔗 Koi bhi <b>Terabox, Mediafire ya Google Drive</b> ka link bhejo:"
+        f"⚡ <b>{to_bold('TERABOX & CLOUD DIRECT DOWNLOADER')}</b>\n\n"
+        "<blockquote>Direct Ad-Free High-Speed Download Link &amp; Web Streaming Player!</blockquote>\n\n"
+        "🔗 Koi bhi <b>Terabox, Mediafire ya Google Drive</b> link bhejo:"
     ),
     "media_dl": (
         f"🎬 <b>{to_bold('VIRAL REELS & VIDEO DOWNLOADER')}</b>\n\n"
-        "<blockquote>Download videos without watermark in HD quality!</blockquote>\n\n"
+        "<blockquote>Direct HD Quality Download without Watermark!</blockquote>\n\n"
         "🔗 <b>Instagram Reel, YouTube Short, X (Twitter) ya Pinterest</b> link bhejo:"
     ),
     "pp_stamp": (
         f"📸 <b>{to_bold('GOVT EXAM PASSPORT PHOTO STUDIO')}</b>\n\n"
-        "<blockquote>Official 3.5cm x 4.5cm • Candidate Name & Date of Photo Stamp • 20-50KB</blockquote>\n\n"
+        "<blockquote>Official 3.5cm x 4.5cm • Candidate Name &amp; Date of Photo Stamp • 20-50KB</blockquote>\n\n"
         "📸 Apni passport photo bhejo:"
     ),
     "sig_clean": (
         f"✍️ <b>{to_bold('SIGNATURE CLEANER & INK ENHANCER')}</b>\n\n"
-        "<blockquote>Pure white background • Sharp black ink • 10-20KB official compliance</blockquote>\n\n"
+        "<blockquote>Pure White Background • Sharp Black Ink • 10-20KB Official Compliance</blockquote>\n\n"
         "📸 Signature ki photo bhejo:"
     ),
     "print_sheet": (
         f"🖨️ <b>{to_bold('PRINTABLE 8-IN-1 PASSPORT SHEET')}</b>\n\n"
-        "<blockquote>4x6 inch standard lab printable sheet for just ₹10 print cost!</blockquote>\n\n"
+        "<blockquote>4x6 inch Standard Lab Printable Sheet for ₹10 Print Cost!</blockquote>\n\n"
         "📸 Single photo bhejo:"
     ),
     "doc_compress": (
         f"📄 <b>{to_bold('DOCUMENT & MARKSHEET PDF COMPRESSOR')}</b>\n\n"
-        "<blockquote>Compress 10th/12th/Caste marksheet into crystal-clear PDF under 250KB!</blockquote>\n\n"
+        "<blockquote>Compress 10th/12th/Caste Marksheet to Ultra-Sharp PDF under 250KB!</blockquote>\n\n"
         "📸 Marksheet ya certificate photo bhejo:"
     ),
     "rto": (
@@ -403,7 +401,7 @@ PROMPTS = {
     ),
     "short": (
         f"🔗 <b>{to_bold('URL SHORTENER')}</b>\n\n"
-        "Lamba link bhejo — 2 fast short links milenge (is.gd & tinyurl):"
+        "Lamba link bhejo — 2 fast short links milenge (is.gd &amp; tinyurl):"
     ),
     "linkbypass": (
         f"🔓 <b>{to_bold('EARN-LINK SHORTENER BYPASS')}</b>\n\n"
@@ -411,7 +409,7 @@ PROMPTS = {
     ),
     "linkcheck": (
         f"🔍 <b>{to_bold('LINK SAFETY & FRAUD CHECKER')}</b>\n\n"
-        "Koi bhi suspicious link bhejo — check karenge safe hai ya fraud:"
+        "Koi bhi suspicious link bhejo — safety check karenge:"
     ),
     "emi": (
         f"🧮 <b>{to_bold('LOAN EMI CALCULATOR')}</b>\n\n"
@@ -439,19 +437,17 @@ PROMPTS = {
     ),
 }
 
+# SHORT, CRISP, MODERN & AESTHETIC WELCOME MESSAGE
 WELCOME_TEXT = (
-    f"⚡ <b>{to_bold('UTILITY DUNIYA SUPER-BOT')}</b> ⚡\n"
-    "<blockquote>30+ Dedicated High-Power Automation Tools • Instant 1-Second Response 🚀</blockquote>\n\n"
-    f"🔥 <b>{to_bold('POWER CATEGORIES')}:</b>\n"
-    f"• 🌐 <b>{to_bold('Virtual Numbers')}:</b> OTP stock for WhatsApp & TG\n"
-    f"• ⚡ <b>{to_bold('Terabox Fast DL')}:</b> Ad-free direct bypass\n"
-    f"• 🔄 <b>{to_bold('Channel Cloner')}:</b> Auto-forward with custom branding\n"
-    f"• 🎙️ <b>{to_bold('AI Voice Studio')}:</b> Modi, Alpha Male, Anime voices\n"
-    f"• 📸 <b>{to_bold('Cyber Cafe Studio')}:</b> Name/DOP photo, Signature clean\n"
-    f"• 🏛️ <b>{to_bold('Sarkari Seva')}:</b> Aadhaar, PAN, Ration, Ayushman, DL\n"
-    f"• 🎓 <b>{to_bold('Student Exam')}:</b> SSC, Railway, Admit cards, Results\n"
-    f"• 🚗 <b>{to_bold('OSINT Info')}:</b> Vehicle RTO, Phone Operator, IFSC\n\n"
-    "⌨️ <b>Neeche Grid Menu dabakar apna tool select karein 👇</b>"
+    f"⚡ <b>{to_bold('TOOLVAULT • UTILITY DUNIYA')}</b> ⚡\n"
+    "<blockquote>30+ High-Power Automation Tools • Instant 1-Sec Response 🚀</blockquote>\n\n"
+    f"🔥 <b>{to_bold('POPULAR UTILITIES')}:</b>\n"
+    f"• 🌐 <b>{to_bold('Virtual Numbers')}:</b> OTP numbers for WhatsApp &amp; TG\n"
+    f"• ⚡ <b>{to_bold('Terabox DL')}:</b> Ad-free direct bypass\n"
+    f"• 🎙️ <b>{to_bold('Actors Voice')}:</b> Amitabh Don, Pushpa, Modi, SRK\n"
+    f"• 📸 <b>{to_bold('Cyber Studio')}:</b> Name/Date photo, Signature clean\n"
+    f"• 🏛️ <b>{to_bold('Sarkari Portals')}:</b> Direct official Govt links\n\n"
+    "👇 <b>Neeche Grid Menu dabakar tool select karein</b>"
 )
 
 
@@ -579,7 +575,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• ♾️ Unlimited Daily Usage (No free limits)\n"
         "• 🚀 Ultra High-Speed Terabox Video Stream & Direct Downloads\n"
         "• 🔄 Channel Cloner & Auto-Forwarder with Custom Branding\n"
-        "• 🎙️ Full AI Voiceover & TTS Studio\n"
+        "• 🎙️ Full AI Actors Voice Studio\n"
         "• 📸 Cyber Cafe Photo & Doc Studio HD\n\n"
         "👉 Plan select karein aur instant QR code se pay karein:"
     )
@@ -661,7 +657,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🌍 <b>Country:</b> {ctry_name}\n"
             "⚡ <b>Delivery:</b> Instant (1-2 min)\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "👉 Neeche <b>Contact Admin</b> button dabakar direct number prapt karein:"
+            "👉 Neeche <b>Contact Admin</b> button dabakar direct number lein:"
         )
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💬 Contact @Supermannn_x", url=contact_url)],
@@ -764,13 +760,13 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("⏹️ Cloner settings reset ho gayi hain.", reply_markup=kb_for(uid), parse_mode=HTML)
         return
 
-    # Voice Studio Presets
-    if data.startswith("voice_set_"):
-        preset_key = data.replace("voice_set_", "")
+    # Actor Voice Studio Presets
+    if data.startswith("actor_voice_"):
+        preset_key = data.replace("actor_voice_", "")
         context.user_data["voice_preset"] = preset_key
-        p_name = VOICE_PRESETS.get(preset_key, {}).get("name", "Default")
+        p_name = ACTOR_VOICE_PRESETS.get(preset_key, {}).get("name", "Default")
         context.user_data["mode"] = "voice_text"
-        await q.message.reply_text(f"🎙️ Selected Voice: <b>{p_name}</b>\n\nAb woh <b>TEXT</b> bhejo jiska voiceover banana hai (Hindi/English):", parse_mode=HTML)
+        await q.message.reply_text(f"🎙️ Selected Style: <b>{p_name}</b>\n\nAb woh <b>DIALOGUE / TEXT</b> bhejo jiska voice audio banana hai:", parse_mode=HTML)
         return
 
     # Password Callbacks
@@ -806,11 +802,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     raw_text = (update.message.text or "").strip()
-    norm_text = unbold(raw_text).strip()
+    norm_text = unbold(raw_text).strip().upper()
     # Strip leading emoji if present for clean lookup
     clean_key = re.sub(r"^[^\w\s]+\s*", "", norm_text).strip()
 
-    # Match Buttons
+    # Match Action
     action = BTN_MODE_MAP.get(clean_key) or BTN_MODE_MAP.get(norm_text)
 
     if action:
@@ -822,13 +818,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_vnum_card(update, context)
             return
 
-        # 2. AI Voice Studio
+        # 2. Text to Actors Voice Studio
         if action == "voice":
             buttons = []
-            for k, v in VOICE_PRESETS.items():
-                buttons.append([InlineKeyboardButton(v["name"], callback_data=f"voice_set_{k}")])
+            for k, v in ACTOR_VOICE_PRESETS.items():
+                buttons.append([InlineKeyboardButton(v["name"], callback_data=f"actor_voice_{k}")])
             await update.message.reply_text(
-                f"🎙️ <b>{to_bold('AI VOICE CLONE & TTS STUDIO')}</b>\n\nVoice model chuno 👇",
+                f"🎙️ <b>{to_bold('TEXT TO ACTORS & CELEBRITY VOICE STUDIO')}</b>\n\nActor / Character Style select karein 👇",
                 reply_markup=InlineKeyboardMarkup(buttons),
                 parse_mode=HTML,
             )
@@ -884,7 +880,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(PROMPTS["pdf"], reply_markup=kb, parse_mode=HTML)
             return
 
-        # 9. VIP Premium & Refer
+        # 9. VIP Premium, Refer & Account
         if action == "premium":
             await cmd_premium(update, context)
             return
@@ -975,12 +971,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "voice_text":
-        st = await update.message.reply_text("🎙️ Generating AI Voiceover...")
-        preset = context.user_data.get("voice_preset", "modi")
+        st = await update.message.reply_text("🎙️ Generating Actor Voiceover...")
+        preset = context.user_data.get("voice_preset", "don_amitabh")
         try:
-            mp3_path = await generate_voice(raw_text, preset)
+            mp3_path = await generate_actor_voice(raw_text, preset)
+            p_info = ACTOR_VOICE_PRESETS.get(preset, {})
             with open(mp3_path, "rb") as f:
-                await update.message.reply_voice(voice=f, caption=f"🎙️ <b>{to_bold('AI VOICEOVER READY')}</b>", parse_mode=HTML)
+                await update.message.reply_voice(
+                    voice=f,
+                    caption=f"🎙️ <b>{to_bold('ACTOR VOICE READY')}</b>\n• Style: {p_info.get('name', 'Actor')}",
+                    parse_mode=HTML,
+                )
             await st.delete()
             if os.path.exists(mp3_path):
                 os.remove(mp3_path)
@@ -1358,7 +1359,7 @@ def _keepalive():
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            self.wfile.write(b"<h1>Utility Duniya Super Bot is Running 24/7!</h1>")
+            self.wfile.write(b"<h1>ToolVault / Utility Duniya Super Bot is Running 24/7!</h1>")
 
         def log_message(self, format, *args):
             pass
@@ -1407,7 +1408,7 @@ def main():
 
     app.add_error_handler(on_error)
 
-    print("🚀 Starting Utility Duniya Super Bot (v30 Ultra)...")
+    print("🚀 Starting ToolVault / Utility Duniya Super Bot (v30 Ultra)...")
     app.run_polling(drop_pending_updates=True)
 
 
