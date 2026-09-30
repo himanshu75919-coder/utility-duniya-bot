@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-Universal Social Media & Viral Reels Downloader
-Fast YouTube Shorts, Instagram Reels, Pinterest, Twitter/X, and TikTok Downloader.
+Universal Social Media & Video Downloader
+Downloads Instagram Reels, YouTube Shorts & Videos, Twitter/X, Pinterest, and TikTok with 100% Full Audio & HD Video.
 """
 
 import os
 import tempfile
 import yt_dlp
 import asyncio
+import requests
+from urllib.parse import quote
 
 
 def is_supported_media_url(url: str) -> bool:
@@ -20,54 +22,16 @@ def is_supported_media_url(url: str) -> bool:
     return any(d in u for d in domains)
 
 
-def extract_media_info(url: str) -> dict:
+async def download_media_file_fast(url: str, extract_audio: bool = False) -> dict:
     """
-    Extracts title, thumbnail, direct video URL, and formats from URL.
-    """
-    ydl_opts = {
-        "quiet": True,
-        "no_warnings": True,
-        "skip_download": True,
-        "noplaylist": True,
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            if not info:
-                return {"ok": False, "error": "Could not extract media info"}
-            
-            title = info.get("title", "Social Video")
-            duration = info.get("duration", 0)
-            thumbnail = info.get("thumbnail")
-            direct_url = info.get("url")
-            
-            # Find best MP4 video stream if direct_url is not set
-            if not direct_url and "formats" in info:
-                # Prefer mp4 with video+audio or highest quality
-                formats = [f for f in info["formats"] if f.get("ext") == "mp4" and f.get("vcodec") != "none"]
-                if formats:
-                    best = formats[-1]
-                    direct_url = best.get("url")
-            
-            return {
-                "ok": True,
-                "title": title[:60],
-                "duration": duration,
-                "thumbnail": thumbnail,
-                "direct_url": direct_url or url,
-                "source": info.get("extractor_key", "Social Media"),
-            }
-    except Exception as e:
-        return {"ok": False, "error": str(e)}
-
-
-async def download_media_file(url: str, extract_audio: bool = False) -> tuple[str, str]:
-    """
-    Downloads media file (under 50MB) to temp location and returns (filepath, title).
+    Downloads media with full audio & video stream merged via yt-dlp.
+    Returns dict with {ok: True, filepath: ..., title: ..., size_mb: ..., duration: ...}
     """
     fd, out_tmpl = tempfile.mkstemp(suffix=".%(ext)s")
     os.close(fd)
-    
+
+    clean_url = url.strip()
+
     if extract_audio:
         ydl_opts = {
             "format": "bestaudio/best",
@@ -81,22 +45,66 @@ async def download_media_file(url: str, extract_audio: bool = False) -> tuple[st
             }],
         }
     else:
+        # Merges best video + best audio stream to guarantee 100% sound
         ydl_opts = {
-            "format": "best[ext=mp4][filesize<50M]/best[filesize<50M]/best",
+            "format": "best[ext=mp4][filesize<50M]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[filesize<50M]/best",
             "outtmpl": out_tmpl,
             "quiet": True,
             "no_warnings": True,
             "noplaylist": True,
         }
-        
-    def _run_download():
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            if extract_audio:
-                base, _ = os.path.splitext(filename)
-                filename = base + ".mp3"
-            return filename, info.get("title", "Media")
-            
+
+    def _run():
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(clean_url, download=True)
+                if not info:
+                    return {"ok": False, "error": "Could not extract video stream."}
+                
+                filename = ydl.prepare_filename(info)
+                if extract_audio:
+                    base, _ = os.path.splitext(filename)
+                    filename = base + ".mp3"
+
+                if os.path.exists(filename):
+                    size_mb = round(os.path.getsize(filename) / (1024 * 1024), 2)
+                    return {
+                        "ok": True,
+                        "filepath": filename,
+                        "title": info.get("title", "Video")[:60],
+                        "duration": info.get("duration", 0),
+                        "size_mb": size_mb,
+                        "direct_url": info.get("url") or clean_url,
+                        "source": info.get("extractor_key", "Social Media"),
+                    }
+                return {"ok": False, "error": "Downloaded file not found on disk."}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
     loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, _run_download)
+    return await loop.run_in_executor(None, _run)
+
+
+def extract_media_info(url: str) -> dict:
+    """Fast metadata extraction fallback"""
+    ydl_opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "skip_download": True,
+        "noplaylist": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            if not info:
+                return {"ok": False, "error": "Could not extract video information"}
+            return {
+                "ok": True,
+                "title": info.get("title", "Social Video")[:60],
+                "duration": info.get("duration", 0),
+                "thumbnail": info.get("thumbnail"),
+                "direct_url": info.get("url") or url,
+                "source": info.get("extractor_key", "Social Media"),
+            }
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
