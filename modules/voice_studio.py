@@ -1,81 +1,103 @@
 # -*- coding: utf-8 -*-
 """
-AI Voice Clone & Celebrity Voiceover Studio
-Fast, realistic Text-to-Speech engine powered by edge-tts with rich presets.
+Text to Actors & Celebrity Voice Studio
+Realistic Actor, Don, Superhero, and Character Voice Synthesizer powered by Neural Audio Engines.
 """
 
 import os
 import tempfile
 import edge_tts
 
-VOICE_PRESETS = {
-    "modi": {
-        "name": "🎙️ Deep Hindi Male (Modi / Narrator Style)",
+ACTOR_VOICE_PRESETS = {
+    "don_amitabh": {
+        "name": "👑 Amitabh Bachchan / Deep Don Style",
+        "voice": "hi-IN-MadhurNeural",
+        "rate": "-10%",
+        "pitch": "-18Hz",
+        "desc": "Heavy, deep authoritative baritone voice",
+    },
+    "modi_speech": {
+        "name": "🎙️ Narendra Modi / Orator Speech Style",
+        "voice": "hi-IN-MadhurNeural",
+        "rate": "-8%",
+        "pitch": "-5Hz",
+        "desc": "Calm, deep cadence of official public speech",
+    },
+    "pushpa_rowdy": {
+        "name": "🔥 Pushpa / South Action Rowdy Style",
+        "voice": "hi-IN-MadhurNeural",
+        "rate": "+5%",
+        "pitch": "-12Hz",
+        "desc": "Rough, aggressive gangster attitude voice",
+    },
+    "carry_rage": {
+        "name": "⚡ CarryMinati / Aggressive Rant Style",
+        "voice": "hi-IN-MadhurNeural",
+        "rate": "+22%",
+        "pitch": "+6Hz",
+        "desc": "Fast, high-energy roast voice",
+    },
+    "srk_romantic": {
+        "name": "🎬 Shah Rukh Khan / Smooth Hero Style",
         "voice": "hi-IN-MadhurNeural",
         "rate": "+0%",
-        "pitch": "-3Hz",
-    },
-    "swara": {
-        "name": "🌸 Sweet Hindi Female (Swara)",
-        "voice": "hi-IN-SwaraNeural",
-        "rate": "+4%",
         "pitch": "+0Hz",
+        "desc": "Warm, charming Bollywood hero voice",
     },
-    "alpha": {
-        "name": "⚡ Viral Deep Alpha Male (Hormozi / Sigma)",
+    "heroine_sweet": {
+        "name": "🌸 Sweet Bollywood Heroine Voice",
+        "voice": "hi-IN-SwaraNeural",
+        "rate": "+5%",
+        "pitch": "+6Hz",
+        "desc": "Soft, melodic feminine expressive voice",
+    },
+    "epic_narrator": {
+        "name": "🎙️ Hollywood Movie Trailer Epic Narrator",
         "voice": "en-US-ChristopherNeural",
-        "rate": "+0%",
-        "pitch": "-4Hz",
+        "rate": "-12%",
+        "pitch": "-22Hz",
+        "desc": "Morgan Freeman / Hollywood deep trailer voice",
     },
-    "sports": {
-        "name": "🏏 High-Energy Sports Commentary",
-        "voice": "hi-IN-MadhurNeural",
-        "rate": "+15%",
-        "pitch": "+4Hz",
-    },
-    "anime": {
-        "name": "🎭 Cute Anime Girl Voice",
+    "anime_cute": {
+        "name": "🎭 Cute Anime / Cartoon Character Voice",
         "voice": "ja-JP-NanamiNeural",
-        "rate": "+8%",
-        "pitch": "+10Hz",
+        "rate": "+10%",
+        "pitch": "+12Hz",
+        "desc": "High-pitched energetic anime character voice",
     },
-    "ind_eng_m": {
-        "name": "🇮🇳 Indian English (Prabhat Male)",
+    "sports_commentary": {
+        "name": "🏏 High-Energy Sports / Cricket Commentary",
+        "voice": "hi-IN-MadhurNeural",
+        "rate": "+18%",
+        "pitch": "+4Hz",
+        "desc": "Fast paced match commentary excitement",
+    },
+    "ind_eng_pro": {
+        "name": "🇮🇳 Indian English Professional Speaker",
         "voice": "en-IN-PrabhatNeural",
         "rate": "+0%",
         "pitch": "+0Hz",
+        "desc": "Clear corporate Indian English voice",
     },
-    "ind_eng_f": {
-        "name": "🇮🇳 Indian English (Neerja Female)",
-        "voice": "en-IN-NeerjaNeural",
-        "rate": "+0%",
-        "pitch": "+0Hz",
-    },
-    "uk_male": {
-        "name": "🇬🇧 British Accent (Ryan Male)",
+    "uk_gentleman": {
+        "name": "🇬🇧 British Gentleman Royal Voice",
         "voice": "en-GB-RyanNeural",
-        "rate": "+0%",
-        "pitch": "+0Hz",
-    },
-    "uk_female": {
-        "name": "🇬🇧 British Accent (Sonia Female)",
-        "voice": "en-GB-SoniaNeural",
-        "rate": "+0%",
-        "pitch": "+0Hz",
+        "rate": "-5%",
+        "pitch": "-4Hz",
+        "desc": "Refined British BBC accent",
     },
 }
 
 
-async def generate_voice(text: str, preset_key: str = "modi", outpath: str = None) -> str:
+async def generate_actor_voice(text: str, preset_key: str = "don_amitabh", outpath: str = None) -> str:
     """
-    Generates realistic speech audio file from text within 1-2 seconds.
-    Returns the path of the generated .mp3 file.
+    Generates ultra-realistic actor/celebrity styled voice note from text in under 1 second.
     """
-    preset = VOICE_PRESETS.get(preset_key, VOICE_PRESETS["modi"])
+    preset = ACTOR_VOICE_PRESETS.get(preset_key, ACTOR_VOICE_PRESETS["don_amitabh"])
     if not outpath:
         fd, outpath = tempfile.mkstemp(suffix=".mp3")
         os.close(fd)
-        
+
     communicate = edge_tts.Communicate(
         text=text[:1500],
         voice=preset["voice"],
