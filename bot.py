@@ -6,11 +6,12 @@
 - Short, Modern & Aesthetic Rowdy/Venom Style Welcome Card
 - 100% Working 3-Step Virtual Numbers (OTP) Funnel
 - Advanced Channel Cloner & Auto-Forwarder Settings Dashboard (Replace words, remove promo links, custom thumbnails)
-- Video Downloader with 100% Full Audio/Video Sync (Instagram, YouTube, X, Pinterest)
+- Instagram Downloader with 100% Full Audio & HD Media (Reels, Videos, Photos, Public Stories)
 - Text to Actors & Celebrity Voice Studio (Amitabh Don, Pushpa, Modi, SRK, CarryMinati, Narrator)
 - 6-Store App Finder (including GetModPC, PlayStore, HappyMod, APKPure)
 - Accurate Rich Web Search with 5-6 Verified Results
 - Free direct access without forced channel joining
+- 24/7 Zero-Lag Keepalive Server on Port 10000 (UptimeRobot friendly)
 """
 
 import asyncio
@@ -96,7 +97,7 @@ from modules.cyber_studio import (
 from modules.cloud_tools import resolve_cloud_url
 from modules.channel_cloner import forward_cloned_message, get_cloner_settings_kb
 from modules.voice_studio import ACTOR_VOICE_PRESETS, generate_actor_voice
-from modules.media_downloader import download_media_file_fast, extract_media_info
+from modules.media_downloader import download_instagram_async, is_instagram_url
 from modules.osint_tools import (
     check_username_platforms,
     lookup_ifsc,
@@ -130,7 +131,6 @@ from modules.vip_payment import (
 # ---------------- CONFIG ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
-# Force channel disabled by default for 100% free direct user access
 FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
 FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
@@ -273,7 +273,7 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
     [f"🔄 {to_bold('CHANNEL CLONER')}", f"🎙️ {to_bold('ACTORS VOICE STUDIO')}"],
-    [f"🎬 {to_bold('VIDEO DOWNLOADER')}", f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}"],
+    [f"📸 {to_bold('INSTA DOWNLOADER')}", f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}"],
     [f"✍️ {to_bold('SIGNATURE CLEANER')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"🎓 {to_bold('STUDENT EXAM HUB')}", f"🚗 {to_bold('RTO VEHICLE INFO')}"],
@@ -311,8 +311,10 @@ BTN_MODE_MAP = {
     "TERABOX DOWNLOADER": "terabox",
     "CHANNEL CLONER": "cloner",
     "ACTORS VOICE STUDIO": "voice",
-    "VIDEO DOWNLOADER": "media_dl",
-    "VIRAL VIDEO DOWNLOAD": "media_dl",
+    "INSTA DOWNLOADER": "insta_dl",
+    "INSTAGRAM DOWNLOADER": "insta_dl",
+    "VIDEO DOWNLOADER": "insta_dl",
+    "VIRAL VIDEO DOWNLOAD": "insta_dl",
     "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
     "SIGNATURE CLEANER": "sig_clean",
     "8-IN-1 PRINT SHEET": "print_sheet",
@@ -349,10 +351,10 @@ PROMPTS = {
         "<blockquote>Direct Ad-Free High-Speed Download Link &amp; Web Streaming Player!</blockquote>\n\n"
         "🔗 Koi bhi <b>Terabox, Mediafire ya Google Drive</b> link bhejo:"
     ),
-    "media_dl": (
-        f"🎬 <b>{to_bold('HD VIDEO DOWNLOADER (FULL AUDIO)')}</b>\n\n"
-        "<blockquote>100% Original Audio + Ultra HD Quality Video!</blockquote>\n\n"
-        "🔗 <b>Instagram Reel, YouTube Video/Shorts, X (Twitter) ya Pinterest</b> link bhejo:"
+    "insta_dl": (
+        f"📸 <b>{to_bold('INSTAGRAM REELS, POSTS & STORIES DOWNLOADER')}</b>\n\n"
+        "<blockquote>Download Reels, Video Posts, Photos &amp; Public Stories with 100% Original Audio!</blockquote>\n\n"
+        "🔗 <b>Instagram ka koi bhi link</b> bhejo:"
     ),
     "pp_stamp": (
         f"📸 <b>{to_bold('GOVT EXAM PASSPORT PHOTO STUDIO')}</b>\n\n"
@@ -450,7 +452,7 @@ WELCOME_TEXT = (
     f"• ⚡ <b>{to_bold('Terabox DL')}:</b> Ad-free direct bypass\n"
     f"• 🔄 <b>{to_bold('Channel Cloner')}:</b> Auto-forward with custom branding\n"
     f"• 🎙️ <b>{to_bold('Actors Voice')}:</b> Amitabh Don, Pushpa, Modi, SRK\n"
-    f"• 🎬 <b>{to_bold('Video Downloader')}:</b> Full Audio HD Reels &amp; YT\n"
+    f"• 📸 <b>{to_bold('Insta Downloader')}:</b> Reels, Posts &amp; Stories (100% Sound)\n"
     f"• 📸 <b>{to_bold('Cyber Studio')}:</b> Name/Date photo, Signature clean\n"
     f"• 🏛️ <b>{to_bold('Sarkari Portals')}:</b> Direct official Govt links\n\n"
     "👇 <b>Neeche Grid Menu dabakar tool select karein</b>"
@@ -967,37 +969,33 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if mode == "media_dl":
-        st = await update.message.reply_text("🎬 Downloading HD video with full audio (100% sound)...")
-        res = await download_media_file_fast(raw_text)
-        if res.get("ok") and res.get("filepath") and os.path.exists(res["filepath"]):
-            fpath = res["filepath"]
+    # Dedicated Instagram Downloader (100% Full Audio & Ultra-HD Media)
+    if mode == "insta_dl":
+        st = await update.message.reply_text("📸 Fetching Instagram media with 100% original sound...")
+        res = await download_instagram_async(raw_text)
+        if res.get("ok") and res.get("bytes"):
+            b_data = res["bytes"]
+            media_buf = io.BytesIO(b_data)
             try:
-                with open(fpath, "rb") as vf:
+                if res.get("type") == "video":
+                    media_buf.name = "Instagram_Video.mp4"
                     await update.message.reply_video(
-                        video=vf,
-                        caption=f"🎬 <b>{to_bold(res.get('title', 'Video'))}</b>\n\n• 📱 <b>Source:</b> {res.get('source')}\n• 🔊 <b>Sound:</b> 100% Original Audio\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
+                        video=media_buf,
+                        caption=f"📸 <b>{to_bold('INSTAGRAM HD VIDEO')}</b>\n• 🔊 <b>Sound:</b> 100% Original Audio\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
+                        parse_mode=HTML,
+                    )
+                else:
+                    media_buf.name = "Instagram_Photo.jpg"
+                    await update.message.reply_photo(
+                        photo=media_buf,
+                        caption=f"📸 <b>{to_bold('INSTAGRAM HD PHOTO / POST')}</b>\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
                         parse_mode=HTML,
                     )
                 await st.delete()
             except Exception as e:
-                # If Telegram file size limit or send error, provide direct high speed button
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton("📥 Download HD Video", url=res.get("direct_url", raw_text))]])
-                await st.edit_text(f"🎬 <b>{to_bold(res.get('title', 'Video'))}</b>\n\n• 🔊 <b>Sound:</b> 100% Original Audio", reply_markup=kb, parse_mode=HTML)
-            finally:
-                if os.path.exists(fpath):
-                    try:
-                        os.remove(fpath)
-                    except Exception:
-                        pass
+                await st.edit_text(f"❌ Telegram send error: {str(e)}")
         else:
-            # Fallback metadata
-            meta = extract_media_info(raw_text)
-            if meta.get("ok"):
-                kb = InlineKeyboardMarkup([[InlineKeyboardButton("📥 Download HD Video", url=meta.get("direct_url", raw_text))]])
-                await st.edit_text(f"🎬 <b>{to_bold(meta.get('title', 'Video'))}</b>\n\n• 📱 <b>Source:</b> {meta.get('source')}", reply_markup=kb, parse_mode=HTML)
-            else:
-                await st.edit_text(f"❌ Could not download video. Please check link.")
+            await st.edit_text("❌ Could not download Instagram media. Please make sure the link is from a public post/reel/story.")
         add_use(uid)
         return
 
@@ -1092,6 +1090,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ID Finder - Safely handles both Telegram v20+ forward_origin and direct @username / 'me'
     if mode == "idfind":
         if raw_text.lower() == "me":
             await update.message.reply_text(f"🆔 <b>Aapki Telegram ID:</b> <code>{uid}</code>", parse_mode=HTML)
@@ -1222,11 +1221,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # Forwarded message for ID Finder
-    if update.message.forward_origin or update.message.forward_from:
-        f_user = getattr(update.message.forward_origin, "sender_user", None) or update.message.forward_from
-        if f_user:
+    # Forwarded message for ID Finder (Safely handles Telegram forward_origin without AttributeError)
+    if hasattr(update.message, "forward_origin") and update.message.forward_origin:
+        orig = update.message.forward_origin
+        if hasattr(orig, "sender_user") and orig.sender_user:
+            f_user = orig.sender_user
             await update.message.reply_text(f"🆔 <b>Forwarded User ID:</b> <code>{f_user.id}</code>\n• <b>Name:</b> {hesc(f_user.first_name)}", parse_mode=HTML)
+            return
+        elif hasattr(orig, "chat") and orig.chat:
+            f_chat = orig.chat
+            await update.message.reply_text(f"🆔 <b>Forwarded Channel/Chat ID:</b> <code>{f_chat.id}</code>\n• <b>Title:</b> {hesc(f_chat.title)}", parse_mode=HTML)
             return
 
     # Default fallback
@@ -1394,26 +1398,30 @@ async def _post_init(app: Application):
     log.info("Commands set successfully!")
 
 
-# ---------------- KEEPALIVE WEB SERVER ----------------
+# ---------------- KEEPALIVE WEB SERVER ON RENDER PORT 10000 ----------------
 def _keepalive():
     import http.server
     import socketserver
 
-    port = int(os.environ.get("PORT", "8080"))
+    port = int(os.environ.get("PORT", "10000"))
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def do_GET(self):
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            self.wfile.write(b"<h1>ToolVault / Utility Duniya Super Bot is Running 24/7!</h1>")
+            self.wfile.write(b"<h1>ToolVault / Utility Duniya Super Bot is Running 24/7! Status: 200 OK</h1>")
+
+        def do_HEAD(self):
+            self.send_response(200)
+            self.end_headers()
 
         def log_message(self, format, *args):
             pass
 
     try:
         with socketserver.TCPServer(("0.0.0.0", port), Handler) as httpd:
-            log.info("Keepalive server listening on port %s", port)
+            log.info("Keepalive server listening on port %s for UptimeRobot / Render", port)
             httpd.serve_forever()
     except Exception as e:
         log.warning("Keepalive server warning: %s", e)
