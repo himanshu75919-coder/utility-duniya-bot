@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
-Instagram Reels, Posts, Photos, Carousels & Stories Downloader
-Accurately distinguishes between Reels (Videos), Stories, and Posts (Photos/Carousels).
-Never returns a photo thumbnail when a Reel/Video was requested.
+Instagram Universal Media Engine (Reels, Posts, Full Carousels & Stories)
+Uses parth-dl high-speed extractor with multi-layer fallbacks.
+Downloads 100% full original audio reels and sends all 2-10 carousel photos/videos together.
 """
 
 import io
@@ -14,11 +14,16 @@ from PIL import Image
 from bs4 import BeautifulSoup
 from urllib.parse import quote
 
-UA_HEADER = {
-    "User-Agent": "TelegramBot (like TwitterBot)"
-}
+try:
+    import parth_dl
+except ImportError:
+    parth_dl = None
+
 DESKTOP_UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+}
+BOT_UA = {
+    "User-Agent": "TelegramBot (like TwitterBot)"
 }
 
 
@@ -42,48 +47,137 @@ def classify_instagram_url(url: str) -> str:
 
 def download_instagram_media(url: str) -> dict:
     """
-    Downloads Instagram media accurately according to type:
-    - Reel/Video: Extracts MP4 video with full sound. Never returns photo thumbnail.
-    - Post: Extracts HD photo (or carousel image) and converts to standard JPEG.
-    - Story: Extracts video or photo.
+    Downloads Instagram media:
+    - Reel: Returns HD MP4 video with 100% original audio.
+    - Carousel (Multi-photos): Returns ALL photos/videos (up to 10) in an album batch.
+    - Single Post: Returns HD photo or video.
+    - Story: Downloads story media if active/public.
     """
     clean = url.split("?")[0].rstrip("/")
     if not clean.startswith("http"):
         clean = "https://" + clean.lstrip("/")
 
-    media_type_category = classify_instagram_url(clean)
+    media_cat = classify_instagram_url(clean)
 
-    # Scraper sources
-    mirrors = ["kkinstagram.com", "eeinstagram.com", "ddinstagram.com"]
+    # Strategy 1: Parth-DL Core Engine
+    if parth_dl:
+        try:
+            info = parth_dl.get_info(clean)
+            m_type = info.get("type", "")
+            title = info.get("title", "")
 
+            # 1. Carousel Multi-Item Post
+            if m_type == "carousel" or len(info.get("images", [])) > 1 or len(info.get("entries", [])) > 1:
+                items = []
+                # Check entries first
+                entries = info.get("entries", [])
+                if entries:
+                    for entry in entries[:10]:
+                        e_kind = entry.get("kind", "")
+                        e_formats = entry.get("formats", [])
+                        if e_kind == "video" and e_formats:
+                            v_u = e_formats[0].get("url")
+                            r_v = requests.get(v_u, headers=DESKTOP_UA, timeout=12)
+                            if r_v.status_code == 200:
+                                items.append({"type": "video", "bytes": r_v.content})
+                        elif e_formats:
+                            img_u = e_formats[0].get("url")
+                            r_img = requests.get(img_u, headers=DESKTOP_UA, timeout=10)
+                            if r_img.status_code == 200:
+                                try:
+                                    im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
+                                    buf = io.BytesIO()
+                                    im.save(buf, format="JPEG", quality=95)
+                                    items.append({"type": "photo", "bytes": buf.getvalue()})
+                                except Exception:
+                                    pass
+                # Fallback to images list if entries were empty
+                if not items and info.get("images"):
+                    for img_obj in info.get("images", [])[:10]:
+                        img_u = img_obj.get("url")
+                        if img_u:
+                            r_img = requests.get(img_u, headers=DESKTOP_UA, timeout=10)
+                            if r_img.status_code == 200:
+                                try:
+                                    im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
+                                    buf = io.BytesIO()
+                                    im.save(buf, format="JPEG", quality=95)
+                                    items.append({"type": "photo", "bytes": buf.getvalue()})
+                                except Exception:
+                                    pass
+
+                if items:
+                    return {
+                        "ok": True,
+                        "type": "carousel",
+                        "category": media_cat,
+                        "title": title,
+                        "items": items,
+                        "count": len(items),
+                    }
+
+            # 2. Reel or Video Post
+            if m_type == "video" or (info.get("formats") and len(info["formats"]) > 0):
+                formats = info.get("formats", [])
+                v_url = formats[0].get("url") if formats else None
+                if v_url:
+                    r_v = requests.get(v_url, headers=DESKTOP_UA, timeout=15)
+                    if r_v.status_code == 200 and len(r_v.content) > 1000:
+                        return {
+                            "ok": True,
+                            "type": "video",
+                            "category": "reel" if media_cat == "reel" else "video",
+                            "title": title,
+                            "bytes": r_v.content,
+                            "size_mb": round(len(r_v.content) / (1024 * 1024), 2),
+                        }
+
+            # 3. Single Photo Post
+            if m_type in ("image", "photo") or (info.get("images") and len(info["images"]) > 0):
+                img_url = info["images"][0].get("url") if info.get("images") else None
+                if img_url:
+                    r_img = requests.get(img_url, headers=DESKTOP_UA, timeout=10)
+                    if r_img.status_code == 200 and len(r_img.content) > 1000:
+                        im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
+                        buf = io.BytesIO()
+                        im.save(buf, format="JPEG", quality=95)
+                        buf_bytes = buf.getvalue()
+                        return {
+                            "ok": True,
+                            "type": "photo",
+                            "category": "post",
+                            "title": title,
+                            "bytes": buf_bytes,
+                            "size_mb": round(len(buf_bytes) / (1024 * 1024), 2),
+                        }
+        except Exception:
+            pass
+
+    # Strategy 2: Multi-Mirror OpenGraph / CDN Scraper
+    mirrors = ["kkinstagram.com", "eeinstagram.com"]
     for mirror in mirrors:
         try:
             m_url = clean.replace("instagram.com", mirror).replace("instagr.am", mirror)
-            r = requests.get(m_url, headers=UA_HEADER, timeout=8, allow_redirects=True)
+            r = requests.get(m_url, headers=BOT_UA, timeout=8, allow_redirects=True)
             if r.status_code == 200 and len(r.content) > 1000:
                 c_type = r.headers.get("content-type", "")
 
-                # 1. Direct raw MP4 video stream
+                # Raw MP4 stream
                 if "video" in c_type or r.content[:4] == b"\x00\x00\x00\x18" or b"ftyp" in r.content[:20]:
                     return {
                         "ok": True,
                         "type": "video",
-                        "category": media_type_category,
+                        "category": media_cat,
                         "bytes": r.content,
                         "size_mb": round(len(r.content) / (1024 * 1024), 2),
                     }
 
-                # 2. HTML parsing
+                # HTML parser
                 if "text/html" in c_type or b"<html" in r.content[:200]:
                     soup = BeautifulSoup(r.text, "html.parser")
-                    og_video = (
-                        soup.find("meta", {"property": "og:video"})
-                        or soup.find("meta", {"property": "og:video:secure_url"})
-                        or soup.find("meta", {"name": "twitter:player:stream"})
-                    )
+                    og_video = soup.find("meta", {"property": "og:video"}) or soup.find("meta", {"name": "twitter:player:stream"})
                     og_image = soup.find("meta", {"property": "og:image"}) or soup.find("meta", {"name": "twitter:image"})
 
-                    # If it's a Reel or Video Post and video meta is found:
                     if og_video and og_video.get("content"):
                         v_url = og_video["content"]
                         r_v = requests.get(v_url, headers=DESKTOP_UA, timeout=10)
@@ -91,13 +185,12 @@ def download_instagram_media(url: str) -> dict:
                             return {
                                 "ok": True,
                                 "type": "video",
-                                "category": "reel",
+                                "category": "reel" if media_cat == "reel" else "video",
                                 "bytes": r_v.content,
                                 "size_mb": round(len(r_v.content) / (1024 * 1024), 2),
                             }
 
-                    # If it is a Post (Photo / Carousel) and NOT a Reel:
-                    if media_type_category == "post" and og_image and og_image.get("content"):
+                    if media_cat == "post" and og_image and og_image.get("content"):
                         img_url = og_image["content"]
                         r_img = requests.get(img_url, headers=DESKTOP_UA, timeout=10)
                         if r_img.status_code == 200 and len(r_img.content) > 1000:
@@ -112,54 +205,18 @@ def download_instagram_media(url: str) -> dict:
                                 "bytes": buf_bytes,
                                 "size_mb": round(len(buf_bytes) / (1024 * 1024), 2),
                             }
-
-                    # If it is a Story:
-                    if media_type_category == "story":
-                        if og_video and og_video.get("content"):
-                            r_v = requests.get(og_video["content"], headers=DESKTOP_UA, timeout=10)
-                            if r_v.status_code == 200:
-                                return {
-                                    "ok": True,
-                                    "type": "video",
-                                    "category": "story",
-                                    "bytes": r_v.content,
-                                    "size_mb": round(len(r_v.content) / (1024 * 1024), 2),
-                                }
-                        elif og_image and og_image.get("content"):
-                            r_img = requests.get(og_image["content"], headers=DESKTOP_UA, timeout=10)
-                            if r_img.status_code == 200:
-                                im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
-                                buf = io.BytesIO()
-                                im.save(buf, format="JPEG", quality=95)
-                                return {
-                                    "ok": True,
-                                    "type": "photo",
-                                    "category": "story",
-                                    "bytes": buf.getvalue(),
-                                    "size_mb": round(len(buf.getvalue()) / (1024 * 1024), 2),
-                                }
-
-                # 3. Direct raw image bytes (Only accept if url is NOT a Reel)
-                if "image" in c_type and media_type_category != "reel":
-                    try:
-                        im = Image.open(io.BytesIO(r.content)).convert("RGB")
-                        buf = io.BytesIO()
-                        im.save(buf, format="JPEG", quality=95)
-                        buf_bytes = buf.getvalue()
-                        return {
-                            "ok": True,
-                            "type": "photo",
-                            "category": "post",
-                            "bytes": buf_bytes,
-                            "size_mb": round(len(buf_bytes) / (1024 * 1024), 2),
-                        }
-                    except Exception:
-                        pass
         except Exception:
             continue
 
-    # If it was a Reel/Video but stream wasn't retrieved:
-    if media_type_category == "reel":
+    # Clean, specific failure message according to media category
+    if media_cat == "story":
+        return {
+            "ok": False,
+            "category": "story",
+            "error": "Instagram Stories sirf 24 ghante ke liye live hoti hain aur expired/private stories ko Instagram bina login allow nahi karta.",
+        }
+
+    if media_cat == "reel":
         return {
             "ok": False,
             "category": "reel",
@@ -168,8 +225,8 @@ def download_instagram_media(url: str) -> dict:
 
     return {
         "ok": False,
-        "category": media_type_category,
-        "error": "Media download nahi ho saki. Kripya check karein ki post public hai ya nahi.",
+        "category": media_cat,
+        "error": "Media stream extract nahi ho saka. Kripya check karein ki post public hai ya nahi.",
     }
 
 

@@ -41,6 +41,8 @@ from telegram import (
     BotCommand,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
+    InputMediaPhoto,
+    InputMediaVideo,
     KeyboardButton,
     ReplyKeyboardMarkup,
     Update,
@@ -193,11 +195,15 @@ def get_limit_exceeded_text() -> str:
     )
 
 
+SUPPORT_USERNAME = "@Supermannn_x"
+SUPPORT_LINK = '<a href="https://t.me/Supermannn_x">@Supermannn_x</a>'
+
+
 def fail_msg(title: str, reason: str = "") -> str:
     body = f"\n\n{reason}" if reason else ""
     return (
         f"❌ <b>{to_bold(title)}</b>{body}\n\n"
-        f"💡 <b>Tip:</b> Ek baar dubara try karein yahi tool. Agar fir bhi na ho to mujhe direct contact karein: <b>{SUPPORT_USERNAME}</b>"
+        f"💡 <b>Tip:</b> Ek baar dubara try karein yahi tool. Agar fir bhi koi issue ho to direct contact karein: {SUPPORT_LINK}"
     )
 
 
@@ -1100,7 +1106,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # Dedicated Instagram Downloader (100% Full Audio & Ultra-HD Media)
+    # Dedicated Instagram Downloader (Reels with 100% Sound, Full Multi-Photo Carousels & Stories)
     if mode == "insta_dl":
         if not is_instagram_url(raw_text):
             await update.message.reply_text(fail_msg("INVALID LINK", "Kripya valid Instagram URL bhejein (Reels, Posts, Stories)."), parse_mode=HTML)
@@ -1108,34 +1114,60 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         st = await update.message.reply_text("📸 Fetching Instagram media with 100% original sound...")
         res = await download_instagram_async(raw_text)
-        if res.get("ok") and res.get("bytes"):
-            b_data = res["bytes"]
-            media_buf = io.BytesIO(b_data)
+
+        if res.get("ok"):
             try:
-                if res.get("type") == "video":
+                # 1. Multi-Photo / Video Carousel Album (All 2-10 items)
+                if res.get("type") == "carousel" and res.get("items"):
+                    items = res["items"]
+                    media_group = []
+                    for idx, item in enumerate(items[:10]):
+                        m_buf = io.BytesIO(item["bytes"])
+                        cap = f"📸 <b>{to_bold('INSTAGRAM CAROUSEL')} ({len(items)} Photos/Videos)</b>\n\n⚡ <i>Downloaded via Utility Duniya</i>" if idx == 0 else ""
+                        if item["type"] == "video":
+                            m_buf.name = f"insta_video_{idx}.mp4"
+                            media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML))
+                        else:
+                            m_buf.name = f"insta_photo_{idx}.jpg"
+                            media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
+                    await update.message.reply_media_group(media=media_group)
+                    await st.delete()
+
+                # 2. HD Video / Reel (100% Original Audio)
+                elif res.get("type") == "video" and res.get("bytes"):
+                    media_buf = io.BytesIO(res["bytes"])
                     media_buf.name = "Instagram_Video.mp4"
+                    title_line = f"• <b>Title:</b> {hesc(res.get('title'))[:45]}...\n" if res.get("title") else ""
                     await update.message.reply_video(
                         video=media_buf,
-                        caption=f"📸 <b>{to_bold('INSTAGRAM HD VIDEO / REEL')}</b>\n• 🔊 <b>Sound:</b> 100% Original Audio ✅\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
+                        caption=f"📸 <b>{to_bold('INSTAGRAM HD VIDEO / REEL')}</b>\n{title_line}• 🔊 <b>Sound:</b> 100% Original Audio ✅\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
                         parse_mode=HTML,
                         supports_streaming=True,
                     )
-                else:
+                    await st.delete()
+
+                # 3. Single HD Photo / Post
+                elif res.get("type") == "photo" and res.get("bytes"):
+                    media_buf = io.BytesIO(res["bytes"])
                     media_buf.name = "Instagram_Photo.jpg"
+                    title_line = f"• <b>Title:</b> {hesc(res.get('title'))[:45]}...\n" if res.get("title") else ""
                     await update.message.reply_photo(
                         photo=media_buf,
-                        caption=f"📸 <b>{to_bold('INSTAGRAM HD PHOTO / POST')}</b>\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
+                        caption=f"📸 <b>{to_bold('INSTAGRAM HD PHOTO / POST')}</b>\n{title_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB",
                         parse_mode=HTML,
                     )
-                await st.delete()
+                    await st.delete()
+
+                add_use(uid)
+                return
             except Exception as e:
                 await st.edit_text(fail_msg("SEND ERROR", str(e)), parse_mode=HTML)
+                return
         else:
             cat = res.get("category", "Media").upper()
             err_reason = res.get("error", "Media stream accessible nahi hai (Private ya restricted post).")
             await st.edit_text(fail_msg(f"INSTAGRAM DOWNLOAD FAILED ({cat})", err_reason), parse_mode=HTML)
-        add_use(uid)
-        return
+            return
 
     if mode == "voice_text":
         st = await update.message.reply_text("🎙️ Generating Actor Voiceover...")
