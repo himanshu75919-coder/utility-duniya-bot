@@ -5,16 +5,16 @@
 - 30+ Dedicated Separate Tools with Aesthetic Mathematical Bold Fonts (𝐓𝐄𝐋𝐄𝐆𝐑𝐀𝐌 style)
 - Short, Modern & Aesthetic Rowdy/Venom Style Welcome Card
 - 100% Working 3-Step Virtual Numbers (OTP) Funnel
-- Terabox & Multi-Cloud Ad-Free Fast Downloader
-- Channel Cloner & Auto-Forwarder with Custom Branding
+- Advanced Channel Cloner & Auto-Forwarder Settings Dashboard (Replace words, remove promo links, custom thumbnails)
+- Video Downloader with 100% Full Audio/Video Sync (Instagram, YouTube, X, Pinterest)
 - Text to Actors & Celebrity Voice Studio (Amitabh Don, Pushpa, Modi, SRK, CarryMinati, Narrator)
-- AI Cyber Cafe Studio (Photo Name/DOP Stamp, 10-20KB Signature Cleaner, 8-in-1 Sheet, PDF Compress)
-- Sarkari Seva Portals & Student Exam Hub
-- Dedicated RTO Vehicle, Phone Operator, IFSC, Pincode & ID Finder
-- Dynamic UPI QR VIP Subscription & Admin Approval
+- 6-Store App Finder (including GetModPC, PlayStore, HappyMod, APKPure)
+- Accurate Rich Web Search with 5-6 Verified Results
+- Free direct access without forced channel joining
 """
 
 import asyncio
+import base64
 import io
 import json
 import logging
@@ -30,9 +30,11 @@ from datetime import date, datetime, timedelta
 from html import escape as hesc
 from urllib.parse import quote, unquote, urlparse
 
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:
+    pass
 
 from telegram import (
     BotCommand,
@@ -92,9 +94,9 @@ from modules.cyber_studio import (
     make_stamped_passport,
 )
 from modules.cloud_tools import resolve_cloud_url
-from modules.channel_cloner import forward_cloned_message, get_cloner_menu_kb
+from modules.channel_cloner import forward_cloned_message, get_cloner_settings_kb
 from modules.voice_studio import ACTOR_VOICE_PRESETS, generate_actor_voice
-from modules.media_downloader import extract_media_info, is_supported_media_url
+from modules.media_downloader import download_media_file_fast, extract_media_info
 from modules.osint_tools import (
     check_username_platforms,
     lookup_ifsc,
@@ -104,14 +106,15 @@ from modules.osint_tools import (
     lookup_vehicle_rto,
 )
 from modules.general_tools import (
-    app_finder,
     calc_age,
     calc_emi,
     emi_schedule,
     gen_password,
+    get_app_store_links,
     make_qr_bytes,
     name_passwords,
     pages_to_pdf,
+    search_web_rich,
     shorten_isgd,
     shorten_tiny,
     site_screenshot,
@@ -127,12 +130,13 @@ from modules.vip_payment import (
 # ---------------- CONFIG ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
+# Force channel disabled by default for 100% free direct user access
 FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
 FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
-FREE_LIMIT = int(os.getenv("FREE_LIMIT", "25") or 25)
+FREE_LIMIT = int(os.getenv("FREE_LIMIT", "30") or 30)
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account banned hai. Kripya admin se contact karein."
@@ -269,7 +273,7 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
     [f"🔄 {to_bold('CHANNEL CLONER')}", f"🎙️ {to_bold('ACTORS VOICE STUDIO')}"],
-    [f"🎬 {to_bold('VIRAL VIDEO DOWNLOAD')}", f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}"],
+    [f"🎬 {to_bold('VIDEO DOWNLOADER')}", f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}"],
     [f"✍️ {to_bold('SIGNATURE CLEANER')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"🎓 {to_bold('STUDENT EXAM HUB')}", f"🚗 {to_bold('RTO VEHICLE INFO')}"],
@@ -307,6 +311,7 @@ BTN_MODE_MAP = {
     "TERABOX DOWNLOADER": "terabox",
     "CHANNEL CLONER": "cloner",
     "ACTORS VOICE STUDIO": "voice",
+    "VIDEO DOWNLOADER": "media_dl",
     "VIRAL VIDEO DOWNLOAD": "media_dl",
     "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
     "SIGNATURE CLEANER": "sig_clean",
@@ -345,9 +350,9 @@ PROMPTS = {
         "🔗 Koi bhi <b>Terabox, Mediafire ya Google Drive</b> link bhejo:"
     ),
     "media_dl": (
-        f"🎬 <b>{to_bold('VIRAL REELS & VIDEO DOWNLOADER')}</b>\n\n"
-        "<blockquote>Direct HD Quality Download without Watermark!</blockquote>\n\n"
-        "🔗 <b>Instagram Reel, YouTube Short, X (Twitter) ya Pinterest</b> link bhejo:"
+        f"🎬 <b>{to_bold('HD VIDEO DOWNLOADER (FULL AUDIO)')}</b>\n\n"
+        "<blockquote>100% Original Audio + Ultra HD Quality Video!</blockquote>\n\n"
+        "🔗 <b>Instagram Reel, YouTube Video/Shorts, X (Twitter) ya Pinterest</b> link bhejo:"
     ),
     "pp_stamp": (
         f"📸 <b>{to_bold('GOVT EXAM PASSPORT PHOTO STUDIO')}</b>\n\n"
@@ -424,12 +429,12 @@ PROMPTS = {
         "Apni UPI ID bhejo:\n(jaise: <code>name@okhdfc</code>)"
     ),
     "search": (
-        f"🔎 <b>{to_bold('FAST WEB SEARCH')}</b>\n\n"
-        "Kuch bhi search karein (jaise: <code>SSC CGL syllabus hindi</code>):"
+        f"🔎 <b>{to_bold('FAST & ACCURATE WEB SEARCH')}</b>\n\n"
+        "Kuch bhi search karein (Movies, Study Notes, Software, Sarkari info):"
     ),
     "appfind": (
-        f"📦 <b>{to_bold('PLAY STORE APP FINDER')}</b>\n\n"
-        "App ka naam bhejo (jaise: <code>Spotify</code> ya <code>WhatsApp</code>):"
+        f"📦 <b>{to_bold('APP & MOD STORE FINDER (6 TRUSTED STORES)')}</b>\n\n"
+        "App ka naam bhejo (GetModPC, PlayStore, HappyMod, APKPure):"
     ),
     "shot": (
         f"🖼️ <b>{to_bold('WEBSITE FULL SCREENSHOT')}</b>\n\n"
@@ -437,46 +442,19 @@ PROMPTS = {
     ),
 }
 
-# SHORT, CRISP, MODERN & AESTHETIC WELCOME MESSAGE
 WELCOME_TEXT = (
     f"⚡ <b>{to_bold('TOOLVAULT • UTILITY DUNIYA')}</b> ⚡\n"
     "<blockquote>30+ High-Power Automation Tools • Instant 1-Sec Response 🚀</blockquote>\n\n"
     f"🔥 <b>{to_bold('POPULAR UTILITIES')}:</b>\n"
     f"• 🌐 <b>{to_bold('Virtual Numbers')}:</b> OTP numbers for WhatsApp &amp; TG\n"
     f"• ⚡ <b>{to_bold('Terabox DL')}:</b> Ad-free direct bypass\n"
+    f"• 🔄 <b>{to_bold('Channel Cloner')}:</b> Auto-forward with custom branding\n"
     f"• 🎙️ <b>{to_bold('Actors Voice')}:</b> Amitabh Don, Pushpa, Modi, SRK\n"
+    f"• 🎬 <b>{to_bold('Video Downloader')}:</b> Full Audio HD Reels &amp; YT\n"
     f"• 📸 <b>{to_bold('Cyber Studio')}:</b> Name/Date photo, Signature clean\n"
     f"• 🏛️ <b>{to_bold('Sarkari Portals')}:</b> Direct official Govt links\n\n"
     "👇 <b>Neeche Grid Menu dabakar tool select karein</b>"
 )
-
-
-# ---------------- GUARDS ----------------
-async def ensure_joined(update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
-    if not FORCE_CHANNEL:
-        return True
-    uid = update.effective_user.id
-    if uid == ADMIN_ID and ADMIN_ID != 0:
-        return True
-    try:
-        member = await context.bot.get_chat_member(chat_id=FORCE_CHANNEL, user_id=uid)
-        if member.status in ("creator", "administrator", "member"):
-            return True
-    except Exception:
-        return True
-
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Channel Join Karein", url=FORCE_CHANNEL_LINK or f"https://t.me/{FORCE_CHANNEL.lstrip('@')}")],
-        [InlineKeyboardButton("✅ I Have Joined", callback_data="check_joined")],
-    ])
-    msg_target = update.callback_query.message if update.callback_query else update.message
-    if msg_target:
-        await msg_target.reply_text(
-            f"⚠️ <b>Bot use karne ke liye pehle channel join karein:</b>\n\nChannel: {FORCE_CHANNEL}",
-            reply_markup=kb,
-            parse_mode=HTML,
-        )
-    return False
 
 
 # ---------------- COMMANDS ----------------
@@ -488,7 +466,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(BAN_MSG)
         return
 
-    # Referral system
+    # Referral handling
     if context.args and context.args[0].startswith("ref_"):
         try:
             ref_id = int(context.args[0].split("_")[1])
@@ -504,9 +482,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    if not await ensure_joined(update, context):
-        return
-
     banner_path = os.path.join(os.path.dirname(__file__), "welcome_banner.jpg")
     if os.path.exists(banner_path):
         try:
@@ -519,8 +494,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not await ensure_joined(update, context):
-        return
     await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
 
 
@@ -607,11 +580,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await q.answer()
     data = q.data
     uid = q.from_user.id
-
-    if data == "check_joined":
-        if await ensure_joined(update, context):
-            await q.message.reply_text("✅ Dhanyawad! Saare tools unlocked hain 👇", reply_markup=kb_for(uid))
-        return
 
     if data == "back_home":
         await q.message.edit_text(WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
@@ -733,31 +701,56 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
 
-    # Cloner Handlers
+    # Advanced Channel Cloner Settings Handlers
     if data == "cloner_set_target":
         context.user_data["mode"] = "cloner_target"
-        await q.message.reply_text("🎯 <b>Target Channel ID ya Username bhejo:</b>\n(jaise: <code>@MyChannel</code> ya <code>-100123456789</code>)\n\n<i>Note: Bot ko target channel me Admin banayein (Post permission ke saath).</i>", parse_mode=HTML)
+        await q.message.reply_text("📑 <b>Set Chat ID:</b>\nTarget Channel ka Username ya ID bhejo:\n(jaise: <code>@MyChannel</code> ya <code>-100123456789</code>)\n\n<i>Note: Bot ko target channel me Admin banayein (Post permission ke saath).</i>", parse_mode=HTML)
+        return
+
+    if data == "cloner_set_tag":
+        context.user_data["mode"] = "cloner_tag"
+        await q.message.reply_text("🏷️ <b>Set Rename Tag:</b>\nHar video/post ke title/caption ke aage kya tag lagana hai?\n(jaise: <code>[🔥 4K HD]</code> ya <code>@MyChannel</code>)", parse_mode=HTML)
         return
 
     if data == "cloner_set_caption":
         context.user_data["mode"] = "cloner_caption"
-        await q.message.reply_text("✍️ <b>Custom Caption / Watermark text bhejo:</b>\n(jaise: <code>Join @MyChannel for daily updates!</code>)", parse_mode=HTML)
+        await q.message.reply_text("📝 <b>Set Custom Caption:</b>\nPosts me kya custom caption daalna hai?\n(jaise: <code>Join @MyChannel for daily free updates!</code>)", parse_mode=HTML)
         return
 
-    if data == "cloner_clear_caption":
-        save_cloner_config(uid, caption="")
-        await q.message.reply_text("🗑️ Custom caption cleared! Ab original caption forward hogi.", reply_markup=get_cloner_menu_kb(uid), parse_mode=HTML)
+    if data == "cloner_set_replace":
+        context.user_data["mode"] = "cloner_replace"
+        await q.message.reply_text("🔄 <b>Replace Words / Links:</b>\nPurane words ko apne naye words se replace karein (Format: <code>OldWord=>NewWord</code>):\n\n(jaise:\n<code>@old_channel=>@MyChannel\nOldSite.com=>MySite.com</code>)", parse_mode=HTML)
+        return
+
+    if data == "cloner_set_remove":
+        context.user_data["mode"] = "cloner_remove"
+        await q.message.reply_text("🗑️ <b>Remove Words / Promo Links:</b>\nPosts me se jo words/links delete karne hain unhe comma ya new line me bhejo:\n(jaise: <code>@spam_bot, join now, https://t.me/fake</code>)", parse_mode=HTML)
+        return
+
+    if data == "cloner_set_thumb":
+        context.user_data["mode"] = "cloner_thumb"
+        await q.message.reply_text("🖼️ <b>Set Custom Thumbnail:</b>\nVideos aur Documents par lagane ke liye ek PHOTO bhejo:", parse_mode=HTML)
+        return
+
+    if data == "cloner_clear_thumb":
+        save_cloner_config(uid, thumbnail_file_id="")
+        await q.message.reply_text("❌ Custom thumbnail removed!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
+    if data == "cloner_set_wm":
+        context.user_data["mode"] = "cloner_wm"
+        await q.message.reply_text("💧 <b>Watermark Setup:</b>\nPost ke bottom me lagane wala Watermark text/link bhejo:\n(jaise: <code>⚡ Forwarded by @MyChannel</code>)", parse_mode=HTML)
+        return
+
+    if data == "cloner_reset":
+        save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="")
+        context.user_data.pop("mode", None)
+        await q.message.reply_text("🔄 <b>Settings Reset!</b> Saari cloner settings default ho gayi hain.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     if data == "cloner_start_mode":
         context.user_data["mode"] = "cloning_active"
-        await q.message.reply_text("🚀 <b>Cloner Mode Active!</b>\n\nAb aap kisi bhi channel se post forward karein ya media bhejein — bot automatically custom branding ke saath target channel me post karega!\n\n/cancel dabakar rok sakte hain.", parse_mode=HTML)
-        return
-
-    if data == "cloner_reset":
-        save_cloner_config(uid, target="", caption="", watermark="")
-        context.user_data.pop("mode", None)
-        await q.message.reply_text("⏹️ Cloner settings reset ho gayi hain.", reply_markup=kb_for(uid), parse_mode=HTML)
+        await q.message.reply_text("🚀 <b>Fast Auto-Forward Active!</b>\n\nAb aap kisi bhi channel se 10-15 posts/videos forward karein ya direct media bhejein — bot 1-2 second me saari posts aapke target channel me post kar dega!\n\n/cancel dabakar kisi bhi waqt rok sakte hain.", parse_mode=HTML)
         return
 
     # Actor Voice Studio Presets
@@ -803,16 +796,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     raw_text = (update.message.text or "").strip()
     norm_text = unbold(raw_text).strip().upper()
-    # Strip leading emoji if present for clean lookup
     clean_key = re.sub(r"^[^\w\s]+\s*", "", norm_text).strip()
 
     # Match Action
     action = BTN_MODE_MAP.get(clean_key) or BTN_MODE_MAP.get(norm_text)
 
     if action:
-        if not await ensure_joined(update, context):
-            return
-
         # 1. Virtual Numbers Funnel
         if action == "vnum":
             await send_vnum_card(update, context)
@@ -830,11 +819,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        # 3. Channel Cloner
+        # 3. Channel Cloner Dashboard
         if action == "cloner":
             await update.message.reply_text(
-                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n\nSettings configure karein 👇",
-                reply_markup=get_cloner_menu_kb(uid),
+                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n\nCustomize settings for your files 👇",
+                reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
             )
             return
@@ -912,13 +901,37 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "cloner_target":
         save_cloner_config(uid, target=raw_text)
         context.user_data.pop("mode", None)
-        await update.message.reply_text(f"✅ Target channel set to: <b>{raw_text}</b>", reply_markup=get_cloner_menu_kb(uid), parse_mode=HTML)
+        await update.message.reply_text(f"✅ Target Chat ID set: <b>{raw_text}</b>", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
+    if mode == "cloner_tag":
+        save_cloner_config(uid, rename_tag=raw_text)
+        context.user_data.pop("mode", None)
+        await update.message.reply_text(f"✅ Rename Tag set: <b>{raw_text}</b>", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     if mode == "cloner_caption":
         save_cloner_config(uid, caption=raw_text)
         context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ Custom caption saved!", reply_markup=get_cloner_menu_kb(uid), parse_mode=HTML)
+        await update.message.reply_text("✅ Custom Caption saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
+    if mode == "cloner_replace":
+        save_cloner_config(uid, replace_words=raw_text)
+        context.user_data.pop("mode", None)
+        await update.message.reply_text("✅ Replace Words rules saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
+    if mode == "cloner_remove":
+        save_cloner_config(uid, remove_words=raw_text)
+        context.user_data.pop("mode", None)
+        await update.message.reply_text("✅ Remove Words list saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
+    if mode == "cloner_wm":
+        save_cloner_config(uid, watermark=raw_text)
+        context.user_data.pop("mode", None)
+        await update.message.reply_text("✅ Watermark saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     # Payment Proof Submission
@@ -955,18 +968,36 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "media_dl":
-        st = await update.message.reply_text("🎬 Extracting video...")
-        res = extract_media_info(raw_text)
-        if res.get("ok"):
-            cap = (
-                f"🎬 <b>{to_bold(res.get('title', 'Video'))}</b>\n\n"
-                f"📱 <b>Source:</b> {res.get('source')}\n"
-                f"🔗 <b>Direct Link:</b>\n{res.get('direct_url')}"
-            )
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton("📥 Download HD Video", url=res.get("direct_url"))]])
-            await st.edit_text(cap, reply_markup=kb, parse_mode=HTML)
+        st = await update.message.reply_text("🎬 Downloading HD video with full audio (100% sound)...")
+        res = await download_media_file_fast(raw_text)
+        if res.get("ok") and res.get("filepath") and os.path.exists(res["filepath"]):
+            fpath = res["filepath"]
+            try:
+                with open(fpath, "rb") as vf:
+                    await update.message.reply_video(
+                        video=vf,
+                        caption=f"🎬 <b>{to_bold(res.get('title', 'Video'))}</b>\n\n• 📱 <b>Source:</b> {res.get('source')}\n• 🔊 <b>Sound:</b> 100% Original Audio\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
+                        parse_mode=HTML,
+                    )
+                await st.delete()
+            except Exception as e:
+                # If Telegram file size limit or send error, provide direct high speed button
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("📥 Download HD Video", url=res.get("direct_url", raw_text))]])
+                await st.edit_text(f"🎬 <b>{to_bold(res.get('title', 'Video'))}</b>\n\n• 🔊 <b>Sound:</b> 100% Original Audio", reply_markup=kb, parse_mode=HTML)
+            finally:
+                if os.path.exists(fpath):
+                    try:
+                        os.remove(fpath)
+                    except Exception:
+                        pass
         else:
-            await st.edit_text(f"❌ {res.get('error', 'Could not fetch video.')}")
+            # Fallback metadata
+            meta = extract_media_info(raw_text)
+            if meta.get("ok"):
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("📥 Download HD Video", url=meta.get("direct_url", raw_text))]])
+                await st.edit_text(f"🎬 <b>{to_bold(meta.get('title', 'Video'))}</b>\n\n• 📱 <b>Source:</b> {meta.get('source')}", reply_markup=kb, parse_mode=HTML)
+            else:
+                await st.edit_text(f"❌ Could not download video. Please check link.")
         add_use(uid)
         return
 
@@ -1150,25 +1181,33 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # Rich Web Search with 5-6 verified links & suggestions
     if mode == "search":
-        q = quote(raw_text)
-        res_text = (
-            f"🔎 <b>{to_bold('SEARCH RESULTS')} for:</b> <i>{hesc(raw_text)}</i>\n\n"
-            f"1️⃣ <a href='https://www.google.com/search?q={q}'>Google Search</a>\n"
-            f"2️⃣ <a href='https://duckduckgo.com/?q={q}'>DuckDuckGo Fast</a>\n"
-            f"3️⃣ <a href='https://en.wikipedia.org/wiki/Special:Search?search={q}'>Wikipedia Encyclopedia</a>"
-        )
-        await update.message.reply_text(res_text, parse_mode=HTML, disable_web_page_preview=False)
+        st = await update.message.reply_text("🔎 Searching verified web sources...")
+        search_results = search_web_rich(raw_text, max_results=6)
+        res_text = f"🔎 <b>{to_bold('WEB SEARCH RESULTS')} for:</b> <i>{hesc(raw_text)}</i>\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        for i, item in enumerate(search_results, 1):
+            badge = "⭐ Best Match" if i == 1 else ("⚡ Fast Stream" if i == 2 else "📌 Verified")
+            res_text += f"{i}️⃣ <a href='{item['url']}'><b>{hesc(item['title'])}</b></a> <i>({badge})</i>\n"
+            if item.get("snippet"):
+                res_text += f"   <i>{hesc(item['snippet'])}</i>\n\n"
+        res_text += "💡 <i>Tip: Agar koi Terabox/Cloud link mila hai, to direct Terabox Downloader me paste karein!</i>"
+        await st.edit_text(res_text, parse_mode=HTML, disable_web_page_preview=True)
         add_use(uid)
         return
 
+    # 6-Store App Finder including GetModPC
     if mode == "appfind":
-        res = app_finder(raw_text)
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("📱 Google Play Store", url=res["play_url"])],
-            [InlineKeyboardButton("📥 APKPure Direct", url=res["apkpure_url"])],
-        ])
-        await update.message.reply_text(f"📦 <b>{to_bold('APP')}: {res['title']}</b>", reply_markup=kb, parse_mode=HTML)
+        app_data = get_app_store_links(raw_text)
+        kb_stores = []
+        for s in app_data["stores"]:
+            kb_stores.append([InlineKeyboardButton(f"{s['name']}", url=s["url"])])
+        await update.message.reply_text(
+            f"📦 <b>{to_bold('APP STORES FOR')}: {app_data['app_name']}</b>\n\n"
+            "Official stores & Top 5 Verified Mod/APK websites available 👇",
+            reply_markup=InlineKeyboardMarkup(kb_stores),
+            parse_mode=HTML,
+        )
         add_use(uid)
         return
 
@@ -1203,6 +1242,14 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "cloning_active":
         ok, msg_res = await forward_cloned_message(context.bot, update.message, uid)
         await update.message.reply_text(msg_res, parse_mode=HTML)
+        return
+
+    # Custom Thumbnail Setup for Cloner
+    if mode == "cloner_thumb":
+        thumb_id = update.message.photo[-1].file_id
+        save_cloner_config(uid, thumbnail_file_id=thumb_id)
+        context.user_data.pop("mode", None)
+        await update.message.reply_text("✅ <b>Custom Thumbnail Saved!</b> Ab se sabhi forwarded videos/docs par yeh thumbnail lagega.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     # Payment Proof Photo
@@ -1394,7 +1441,7 @@ def main():
     # Specific Tool Commands
     app.add_handler(CommandHandler("vnum", lambda u, c: send_vnum_card(u, c)))
     app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(PROMPTS["terabox"], parse_mode=HTML)))
-    app.add_handler(CommandHandler("cloner", lambda u, c: u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_menu_kb(u.effective_user.id), parse_mode=HTML)))
+    app.add_handler(CommandHandler("cloner", lambda u, c: u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)))
     app.add_handler(CommandHandler("sarkari", lambda u, c: u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)))
     app.add_handler(CommandHandler("exam", lambda u, c: u.message.reply_text(STUDENT_EXAM_TEXT, reply_markup=get_student_exam_kb(), parse_mode=HTML)))
 

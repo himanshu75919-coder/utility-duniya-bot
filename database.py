@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Database Manager for Utility Duniya Super Bot
-Handles Users, Referrals, VIP Subscriptions, Payments, and Stats.
+Handles Users, Referrals, VIP Subscriptions, Payments, Channel Cloner Settings, and Stats.
 """
 
 import os
@@ -43,17 +43,33 @@ def db():
             created_at TEXT
         )"""
     )
-    # Channel cloner configs table
+    # Advanced Channel Cloner configs table
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cloner_configs(
             user_id INTEGER PRIMARY KEY,
             target_chat_id TEXT DEFAULT '',
             custom_caption TEXT DEFAULT '',
             watermark TEXT DEFAULT '',
+            rename_tag TEXT DEFAULT '',
+            replace_words TEXT DEFAULT '',
+            remove_words TEXT DEFAULT '',
+            thumbnail_file_id TEXT DEFAULT '',
             filter_type TEXT DEFAULT 'all',
             status TEXT DEFAULT 'idle'
         )"""
     )
+    # Migration checks
+    for col, typ in [
+        ("rename_tag", "TEXT DEFAULT ''"),
+        ("replace_words", "TEXT DEFAULT ''"),
+        ("remove_words", "TEXT DEFAULT ''"),
+        ("thumbnail_file_id", "TEXT DEFAULT ''"),
+    ]:
+        try:
+            cur.execute(f"ALTER TABLE cloner_configs ADD COLUMN {col} {typ}")
+        except Exception:
+            pass
+
     con.commit()
     return con
 
@@ -90,7 +106,6 @@ def get_user(uid: int, name: str = "") -> dict:
     cols = [d[0] for d in cur.description]
     u = dict(zip(cols, row))
 
-    # Reset daily counts if new day
     if u.get("last_date") != today:
         cur.execute("UPDATE users SET uses_today=0, last_date=? WHERE user_id=?", (today, uid))
         con.commit()
@@ -351,34 +366,77 @@ def stats():
         return {"total_users": 0, "active_today": 0, "uses_today": 0, "vip_users": 0}
 
 
-# Cloner helpers
+# Advanced Cloner helpers
 def get_cloner_config(uid: int) -> dict:
     try:
         con = db()
         cur = con.cursor()
-        cur.execute("SELECT target_chat_id, custom_caption, watermark, filter_type, status FROM cloner_configs WHERE user_id=?", (uid,))
+        cur.execute(
+            """SELECT target_chat_id, custom_caption, watermark, rename_tag,
+                      replace_words, remove_words, thumbnail_file_id, filter_type, status
+               FROM cloner_configs WHERE user_id=?""",
+            (uid,),
+        )
         r = cur.fetchone()
         con.close()
         if r:
-            return {"target_chat_id": r[0], "custom_caption": r[1], "watermark": r[2], "filter_type": r[3], "status": r[4]}
-        return {"target_chat_id": "", "custom_caption": "", "watermark": "", "filter_type": "all", "status": "idle"}
+            return {
+                "target_chat_id": r[0] or "",
+                "custom_caption": r[1] or "",
+                "watermark": r[2] or "",
+                "rename_tag": r[3] or "",
+                "replace_words": r[4] or "",
+                "remove_words": r[5] or "",
+                "thumbnail_file_id": r[6] or "",
+                "filter_type": r[7] or "all",
+                "status": r[8] or "idle",
+            }
     except Exception:
-        return {"target_chat_id": "", "custom_caption": "", "watermark": "", "filter_type": "all", "status": "idle"}
+        pass
+    return {
+        "target_chat_id": "",
+        "custom_caption": "",
+        "watermark": "",
+        "rename_tag": "",
+        "replace_words": "",
+        "remove_words": "",
+        "thumbnail_file_id": "",
+        "filter_type": "all",
+        "status": "idle",
+    }
 
 
-def save_cloner_config(uid: int, target: str = None, caption: str = None, watermark: str = None, filter_type: str = None, status: str = None):
+def save_cloner_config(
+    uid: int,
+    target: str = None,
+    caption: str = None,
+    watermark: str = None,
+    rename_tag: str = None,
+    replace_words: str = None,
+    remove_words: str = None,
+    thumbnail_file_id: str = None,
+    filter_type: str = None,
+    status: str = None,
+):
     try:
         cfg = get_cloner_config(uid)
         target = target if target is not None else cfg["target_chat_id"]
         caption = caption if caption is not None else cfg["custom_caption"]
         watermark = watermark if watermark is not None else cfg["watermark"]
+        rename_tag = rename_tag if rename_tag is not None else cfg["rename_tag"]
+        replace_words = replace_words if replace_words is not None else cfg["replace_words"]
+        remove_words = remove_words if remove_words is not None else cfg["remove_words"]
+        thumbnail_file_id = thumbnail_file_id if thumbnail_file_id is not None else cfg["thumbnail_file_id"]
         filter_type = filter_type if filter_type is not None else cfg["filter_type"]
         status = status if status is not None else cfg["status"]
+
         con = db()
         con.execute(
-            """INSERT OR REPLACE INTO cloner_configs(user_id, target_chat_id, custom_caption, watermark, filter_type, status)
-               VALUES(?, ?, ?, ?, ?, ?)""",
-            (uid, target, caption, watermark, filter_type, status)
+            """INSERT OR REPLACE INTO cloner_configs(
+                user_id, target_chat_id, custom_caption, watermark, rename_tag,
+                replace_words, remove_words, thumbnail_file_id, filter_type, status
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (uid, target, caption, watermark, rename_tag, replace_words, remove_words, thumbnail_file_id, filter_type, status),
         )
         con.commit()
         con.close()
