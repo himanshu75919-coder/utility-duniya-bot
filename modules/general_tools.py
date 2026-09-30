@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 General Utility Tools
-QR code, Image-to-PDF, URL Shortener, EMI & Interest, Age, Password, Web Search Engine, and 6-Store App Finder.
+QR code, Image-to-PDF, URL Shortener, EMI & Interest, Age, Password, Multi-Source Web Search Engine, and 6-Store App Finder.
 """
 
 import io
@@ -185,39 +185,52 @@ def site_screenshot(url: str):
     return None
 
 
-def search_web_rich(query: str, max_results: int = 5) -> list[dict]:
-    """Accurate web search returning real verified titles, snippets and URLs"""
-    url = f"https://html.duckduckgo.com/html/?q={quote(query)}"
+def search_web_rich(query: str, max_results: int = 6) -> list[dict]:
+    """Accurate web search returning real verified titles, snippets and copyable URLs"""
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.5",
+    }
+    results = []
+
+    # Method 1: DuckDuckGo Lite
     try:
-        r = requests.get(url, headers=UA, timeout=6)
-        results = []
+        r = requests.post("https://lite.duckduckgo.com/lite/", data={"q": query}, headers=headers, timeout=6)
         if r.status_code == 200:
             soup = BeautifulSoup(r.text, "html.parser")
-            for el in soup.find_all("div", class_="result"):
-                a = el.find("a", class_="result__url") or el.find("a", class_="result__snippet")
-                t_el = el.find("a", class_="result__title") or el.find("h2")
-                snip = el.find("a", class_="result__snippet")
-                if a and t_el:
-                    href = a.get("href", "")
-                    if "uddg=" in href:
-                        href = unquote(href.split("uddg=")[1].split("&")[0])
-                    title = t_el.get_text(strip=True)
-                    snippet = snip.get_text(strip=True) if snip else ""
-                    if href.startswith("http"):
-                        results.append({"title": title, "url": href, "snippet": snippet[:140]})
-                        if len(results) >= max_results:
-                            break
-            if results:
-                return results
+            links = soup.find_all("a", class_="result-link")
+            snippets = soup.find_all("td", class_="result-snippet")
+            for i, a in enumerate(links[:max_results]):
+                href = a.get("href", "")
+                if "uddg=" in href:
+                    href = unquote(href.split("uddg=")[1].split("&")[0])
+                snip = snippets[i].get_text(strip=True) if i < len(snippets) else ""
+                if href.startswith("http"):
+                    results.append({"title": a.get_text(strip=True), "url": href, "snippet": snip[:130]})
     except Exception:
         pass
-    # Fallback to direct search portals
-    q_enc = quote(query)
-    return [
-        {"title": f"Google Top Search: {query.title()}", "url": f"https://www.google.com/search?q={q_enc}", "snippet": "Official Google Search Result Portal"},
-        {"title": f"DuckDuckGo Instant Answer: {query.title()}", "url": f"https://duckduckgo.com/?q={q_enc}", "snippet": "Fast ad-free private web results"},
-        {"title": f"Wikipedia Info: {query.title()}", "url": f"https://en.wikipedia.org/wiki/Special:Search?search={q_enc}", "snippet": "Detailed Encyclopedia Article"},
-    ]
+
+    # Method 2: Bing Scraper Fallback
+    if len(results) < 3:
+        try:
+            r = requests.get(f"https://www.bing.com/search?q={quote(query)}", headers=headers, timeout=6)
+            if r.status_code == 200:
+                soup = BeautifulSoup(r.text, "html.parser")
+                for li in soup.find_all("li", class_="b_algo")[:max_results]:
+                    h2 = li.find("h2")
+                    if h2 and h2.find("a"):
+                        a = h2.find("a")
+                        p = li.find("p")
+                        results.append({
+                            "title": a.get_text(strip=True),
+                            "url": a.get("href", ""),
+                            "snippet": p.get_text(strip=True)[:130] if p else "",
+                        })
+        except Exception:
+            pass
+
+    return results[:max_results]
 
 
 def get_app_store_links(app_name: str) -> dict:
