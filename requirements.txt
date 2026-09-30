@@ -7,3 +7,6 @@ edge-tts
 gtts
 img2pdf
 phonenumbers
+aiohttp
+yt-dlp
+beautifulsoup4

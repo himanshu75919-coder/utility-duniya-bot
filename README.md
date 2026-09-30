@@ -1,143 +1,88 @@
-# 🤖 All-in-One Utility Telegram Bot (Utility Duniya Bot v26)
+# ⚡ Utility Duniya Super-Bot (v30 Ultra Edition)
 
-**21 tools sab FREE (no limit) • 🌐 Virtual Numbers = sirf yahi paid • 📋 Copy buttons • Real App Finder**
-
-| Tool | Kaam |
-|---|---|
-| 🔎 Web Search | Top 6 links + 6 images album — relevance-filtered • har result par 📋 Copy button |
-| 📦 App Finder | **REAL Play Store data** — icon + rating + direct store link; fallback stores (Uptodown/APKPure) for off-Play apps like VidMate |
-| 🌐 Virtual Numbers | **SABSE PEHLA TOOL** — Get Number flow: service → country → 📋 Copy Order → contact @Supermannn_x 💰 (sirf yahi paid) |
-| 🖼️ Site Screenshot | Koi bhi URL → live website screenshot |
-| 📷 QR Code | HD QR (UPI detect karke payment QR ka option) |
-| 🔐 Password | Random + naam wala, 3 options |
-| 🖼️ Image→PDF | Multi-page (10), lossless quality |
-| 🔗 URL Short | 2 short links + QR |
-| 🧮 EMI Calc | Advanced + saal-wise table |
-| 🎂 Age Calculator | Breakdown + weekday + rashi |
-| 💰 UPI QR Generator | Payment QR + amount + note 💎 |
-| 🆔 ID Finder | Forward/username se Telegram ID |
-| 🔊 Text to Speech | 10 voices: Hindi/English/Old/Baby 💎 |
-| 🏦 IFSC Info | Bank/branch/address live |
-| 📮 Pincode Info | District/state/post offices live |
-| 🪪 Passport Photo | HD single + 4×6 print sheet |
-| 🔍 Link Check | Safe/fraud redirect analysis |
-| 🔓 Link Bypass | Earn links → original link |
-| 📈 Interest Calc | SI vs CI compare + samjhaya |
-| 🚗 RTO Vehicle Info | State + RTO office decoder |
-| 📱 Number Info | Circle + operator (offline) |
-
-**Earning features (built-in):**
-- 🎁 Refer & Earn — 5 refer = 30 din Premium FREE (yeh tumhara growth engine hai)
-- 🌐 Virtual Numbers — saare tools FREE; sirf OTP numbers paid (user DM karega @Supermannn_x) = tumhara premium business 💰
-- 🔒 Force-join channel — har user tumhara channel join karega (channel bada → promo se earning)
-- 📢 /broadcast — saare users ko ek saath message (offer/promo bhejo)
-- 📊 /stats — users, active, premium count
+An All-in-One Super Automation & Utility Engine built for Telegram with **25+ High-Power Tools**, **Sarkari & Student Portals**, **AI Cyber Cafe Studio**, **Terabox Multi-Cloud Downloader**, **Channel Cloner & Auto-Forwarder**, **AI Voiceover Studio**, and **Automated VIP Subscription & UPI Dynamic QR Engine**.
 
 ---
 
-## 🚀 LIVE KARNE KE 5 STEPS (30 minute, bina coding)
+## 🔥 Features Overview
 
-### STEP 1: Bot banao (5 min)
-1. Telegram me **@BotFather** kholo
-2. `/newbot` bhejo → naam do (jaise `My Utility Bot`) → username do (jaise `my_utility_xyz_bot`, aakhir me `bot` zaroori)
-3. BotFather ek **TOKEN** dega (jaise `123456:ABC...`) — ise copy karke rakho, kisi se share mat karo
-4. (Optional) `/setdescription`, `/setuserpic` se photo/description lagao — users ko bharosa badhta hai
+### 1. ⚡ Terabox & Multi-Cloud Direct Downloader
+- **Ad-Free Bypass:** Extracts direct high-speed download links and web stream links for **Terabox**, **Mediafire**, and **Google Drive**.
 
-### STEP 2: Apni ADMIN ID nikalo (2 min)
-1. Telegram me **@userinfobot** kholo → `/start` dabao
-2. Jo **Id** dikhe (jaise `7123456789`) — ye tumhari ADMIN_ID hai, note karo
+### 2. 🔄 Channel Cloner & Auto-Forwarder with Custom Branding
+- **Auto-Forward / Batch Clone:** Clone posts from public channels or batch forward media.
+- **Custom Branding:** Automatically replaces captions, removes old links, and appends custom channel watermarks.
 
-### STEP 3: Channel banao — force-join ke liye (5 min)
-1. Telegram me **New Channel** banao (jaise `My Utility Bot Updates`)
-2. Channel **Public** rakho taaki link bane: `https://t.me/TumharaChannel`
-3. Apne bot ko channel me **Admin** banao (channel me bot ka username add karo → admin → bas "member list dekhna" wala haq chahiye, baaki sab band kar sakte ho)
-4. Note karo: `@TumharaChannel` aur `https://t.me/TumharaChannel`
+### 3. 🎙️ AI Voice Clone & Celebrity Voiceover Studio
+- Powered by high-speed neural TTS engines:
+  - 🎙️ *Modi Ji / Deep Indian Male Voice*
+  - 🌸 *Sweet Hindi Female (Swara)*
+  - ⚡ *Viral Deep Alpha Male (Hormozi / Sigma Style)*
+  - 🏏 *Aggressive Sports Commentary*
+  - 🎭 *Anime Cute Girl Voice*
+  - 🇮🇳 *Indian & British English Accents*
 
-> ⚠️ Bot ko admin banana zaroori hai, warna force-join kaam nahi karega.
+### 4. 🏛️ Official Government Services & Student Exam Hub
+- **100% Direct Official Portals:**
+  - 💳 **Aadhaar:** e-Aadhaar Download, PVC Card Order, Mobile Link & Lock
+  - 🪪 **PAN Card:** 10-Minute Free Instant e-PAN, Link Status & Corrections
+  - 🍚 **Ration & Ayushman:** NFSA State Portals, ABHA Health ID Download
+  - 🎓 **APAAR ID:** One Nation One Student ID Portal
+  - 🚗 **Parivahan:** Driving License, Learner Apply, RC & e-Challan
+  - 📜 **State Certificates:** Bihar RTPS, UP e-District, Jharsewa
+  - 💼 **EPFO / PF:** UAN Passbook & Online Claim
+- **Student Exam Hub:** SSC, Railway RRB, UPSC, Defence Agniveer, State Police, Banking IBPS/SBI, CTET Admit Cards & Official Answer Keys.
 
-### STEP 4: Render.com par FREE deploy (15 min)
-1. **GitHub.com** par free account banao → **New repository** (`tg-utility-bot`) → is folder ki saari files upload karo (**⚠️ `.env` file upload MAT karo**)
-2. **Render.com** par GitHub se login karo → **New + → Web Service** → apni repository chuno
-3. Settings:
-   - **Build Command:** `pip install -r requirements.txt`
-   - **Start Command:** `python bot.py`
-   - Plan: **Free**
-4. **Environment Variables** me ye add karo (values apni dalo):
+### 5. 📸 AI Cyber Cafe Document Studio
+- **Candidate Name & DOP Stamp:** Auto creates standard 3.5cm x 4.5cm passport photo with official white bottom box, uppercase name & date, compressed to exact 20KB-50KB.
+- **Printable 8-in-1 Sheet:** Creates 4x6 inch (1200x1800 @ 300 DPI) sheet with crop lines for ₹5-10 photo lab printing.
+- **Signature Cleaner & Enhancer:** Converts camera photos into high-contrast black ink on pure white background, compressed to 10KB-20KB.
+- **Document / Marksheet PDF Compressor:** Compresses marksheet photos into crisp PDFs under 250KB for Govt portal compliance.
 
-   | Key | Value (example) |
-   |---|---|
-   | `BOT_TOKEN` | BotFather wala token |
-   | `ADMIN_ID` | tumhari user ID |
-   | `FORCE_CHANNEL` | `@TumharaChannel` |
-   | `FORCE_CHANNEL_LINK` | `https://t.me/TumharaChannel` |
-   | `UPI_ID` | `tumhara@upi` |
-   | `UPI_NAME` | `UtilityBot` |
-   | `WEBHOOK_URL` | pehle deploy ke baad milega (neeche dekho) |
+### 6. 🕵️ Smart OSINT & Digital Investigation Hub
+- 🚗 **Vehicle RTO Lookup:** Parses number plates, state, district RTO, and parivahan links.
+- 📱 **Phone Carrier & Circle:** Telecom circle, carrier, and one-tap WhatsApp link.
+- 🏦 **IFSC Bank Branch Lookup:** Real-time bank branch details + Google Maps location.
+- 📮 **Pincode Lookup:** Postal circle, district, and post offices list.
+- 🌐 **IP / Domain WHOIS:** Host, ISP, region, city, and ASN details.
+- 👤 **Social Media Username Checker:** Checks availability across 30+ platforms.
 
-5. **Deploy** dabao → 3-5 min me live URL milega (jaise `https://tg-utility-bot.onrender.com`)
-6. Ab usi URL ko copy karke `WEBHOOK_URL` variable me dalo → **Save** (auto re-deploy hoga)
-7. Telegram par apne bot ko `/start` bhejo — Menu aa gaya = 🎉 **LIVE!**
+### 7. 🛠️ Classic High-Speed Utilities
+- 📷 HD QR Code Generator (WiFi, UPI, URL, Text)
+- 🖼️ Multi-Page Image to PDF Converter
+- 🔗 URL Shortener (is.gd & tinyurl)
+- 🧮 Loan EMI & Amortization Schedule
+- 🎂 Age, Zodiac & Next Birthday Countdown
+- 🔐 Strong Password Generator
+- 🔎 Web Search & Play Store App Finder
+- 🖼️ Full HD Website Screenshot
 
-### STEP 5: Sone mat do (free trick, 5 min)
-Free Render 15 min baad so jata hai. **UptimeRobot.com** (free) par account banao → **Add Monitor** → apna Render URL dalo → har 5 min ping hoga, bot hamesha jaagta rahega. ✅
-
----
-
-## 💰 ₹200/DAY EARNING PLAN (iska maths)
-
-**Target: ₹6,000/month = ₹200/day**
-
-| Source | Maths |
-|---|---|
-| 🌐 Virtual Numbers (OTP) | Roz sirf **4 number sales** ≈ ₹200/day — bot users khud DM karenge |
-| 📢 Channel promo | 10k members ke baad **hafte me 2 promo @₹700** = ₹5,600/month |
-| 🔗 Affiliate | /broadcast se app links (₹20-50/install). 100 installs = ₹2,000-5,000 |
-| 🎁 Referral engine | Har user 5 dost laye = users khud badhenge, tumhe ad kharcha ₹0 |
-
-**Realistic timeline:**
-- Din 1-7: Bot live + 10 groups me share → 200-500 users
-- Din 8-30: Referral + shorts → 2,000-5,000 users + pehli premium sales
-- Din 30-60: Channel 5k-10k → promo income shuru → **₹150-300/day**
-
-> Sachchai: pehle 2 hafte earning ₹0 bhi ho sakti hai. Bot chalana aasaan hai, **users lana hi asli kaam hai.** Neeche growth plan hai. 👇
+### 8. 💎 Automated VIP Subscription & Earning System
+- Dynamic UPI QR Code generation with plan amounts (₹19, ₹49, ₹99).
+- Payment proof submission with 1-click Admin Approval / Rejection buttons.
+- Referral system: Invite 5 friends = 30 Days Free VIP.
 
 ---
 
-## 📈 0 → 5,000 USERS (free growth, roz 30 min)
+## 🚀 Deployment Instructions
 
-1. **Telegram groups (sabse tez):** Roz 10 study/tech/earning groups me join karo, genuinely madad karo + bio me bot link. Spam mat karo, ban hoge.
-2. **WhatsApp status + groups:** "Is bot se photo ka PDF banao, QR banao, sab FREE 👇 [link]" — roz 1 status.
-3. **YouTube Shorts/Reels (viral chance):** Screen recording: "Ye FREE bot kamaal ka hai!" — 15 sec video, link bio me. 1 viral short = 1,000+ users ek din me.
-4. **Referral ko push karo:** /broadcast se hafte me 1 baar: "🎁 5 dost jodo = 30 din Premium FREE!"
-5. **Dost ka bot:** Dost ko bolo wo bhi yehi bot apne naam se chalaye, aur tum dono ek-dusre ke channel promote karo (cross-promo = double growth 🤝)
+### 1. Environment Variables (`.env`)
+```env
+BOT_TOKEN=your_telegram_bot_token_from_botfather
+ADMIN_ID=your_telegram_user_id
+FORCE_CHANNEL=@YourChannelUsername
+FORCE_CHANNEL_LINK=https://t.me/YourChannelUsername
+UPI_ID=yourname@upi
+UPI_NAME=UtilityDuniya
+FREE_LIMIT=20
+REFER_NEED=5
+```
 
----
-
-## 🖥️ Apne PC/Phone par chalana (testing ke liye)
-
+### 2. Run Locally
 ```bash
 pip install -r requirements.txt
-cp .env.example .env
-# .env me BOT_TOKEN aur ADMIN_ID bharo (WEBHOOK_URL khali rakho)
 python bot.py
 ```
 
-Phone par: **Termux** app → `pkg install python` → same commands. (Phone band = bot band, isliye Render best hai.)
-
----
-
-## ⚠️ Zaroori baatein
-
-1. **Token secret rakho** — jo token payega wo tumhara bot chura sakta hai.
-2. **Free Render ka data:** redeploy par user list reset ho sakti hai (SQLite file). Shuruwat me chalega; earning shuru ho to mujhse bolo — free database (Turso/Supabase) laga dunga.
-3. **Yeh mat karna:** movie download bot, betting, crypto-double — Telegram ban + police dono ka risk.
-4. **Support:** /broadcast ka galat use mat karo (roz spam = users bhag jayenge). Hafte me 1-2 baar max.
-
----
-
-## 📁 Files
-
-- `bot.py` — poora bot ka code
-- `requirements.txt` — zaroori libraries
-- `render.yaml` — Render deploy setting
-- `.env.example` — settings ka sample (copy karke `.env` banao)
+### 3. Deploy to Render / Koyeb / VPS
+The repository includes `render.yaml` and a built-in background keepalive web server on port `8080` for 24/7 uninterrupted uptime.
