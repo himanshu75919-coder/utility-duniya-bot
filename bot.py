@@ -136,7 +136,8 @@ FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
-FREE_LIMIT = int(os.getenv("FREE_LIMIT", "30") or 30)
+FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
+SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account banned hai. Kripya admin se contact karein."
@@ -164,6 +165,40 @@ def to_bold(text: str) -> str:
         else:
             res.append(c)
     return "".join(res)
+
+
+def check_limit_exceeded(u: dict) -> bool:
+    if is_premium(u):
+        return False
+    return u.get("uses_today", 0) >= FREE_LIMIT
+
+
+def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💎 Buy VIP Premium", callback_data="open_vip_menu"), InlineKeyboardButton("🎁 Refer & Earn", callback_data="open_refer_menu")],
+        [InlineKeyboardButton("💬 Contact Support (@Supermannn_x)", url="https://t.me/Supermannn_x")],
+    ])
+
+
+def get_limit_exceeded_text() -> str:
+    return (
+        f"⚠️ <b>{to_bold('DAILY FREE LIMIT REACHED')} ({FREE_LIMIT}/{FREE_LIMIT} Credits)</b>\n\n"
+        f"Aapka aaj ka <b>{FREE_LIMIT} free daily credits limit poora ho chuka hai!</b>\n\n"
+        f"👑 <b>VIP Premium Member banein aur Unlimited Access payein:</b>\n"
+        f"• ♾️ Unlimited Daily Usage (No Limits)\n"
+        f"• 🚀 Ultra High-Speed Priority Server\n"
+        f"• 🛠️ All 32+ Tools Fully Unlocked\n\n"
+        f"🎁 <i>Dosto ko bot share karke 30 din ka Free VIP bhi le sakte hain (/refer)!</i>\n"
+        f"💬 <i>Direct VIP lene ya kisi problem ke liye contact karein: {SUPPORT_USERNAME}</i>"
+    )
+
+
+def fail_msg(title: str, reason: str = "") -> str:
+    body = f"\n\n{reason}" if reason else ""
+    return (
+        f"❌ <b>{to_bold(title)}</b>{body}\n\n"
+        f"💡 <b>Tip:</b> Ek baar dubara try karein yahi tool. Agar fir bhi na ho to mujhe direct contact karein: <b>{SUPPORT_USERNAME}</b>"
+    )
 
 
 def unbold(text: str) -> str:
@@ -562,18 +597,103 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     st = stats()
     text = (
-        f"🛠️ <b>{to_bold('ADMIN DASHBOARD')}</b> 🛠️\n\n"
+        f"🛠️ <b>{to_bold('ADMIN CONTROL DASHBOARD')}</b> 🛠️\n\n"
+        f"📊 <b>Bot Live Statistics:</b>\n"
         f"• 👥 <b>Total Users:</b> {st['total_users']}\n"
         f"• 🟢 <b>Active Today:</b> {st['active_today']}\n"
-        f"• ⚡ <b>Uses Today:</b> {st['uses_today']}\n"
-        f"• 💎 <b>VIP Subscribers:</b> {st['vip_users']}\n\n"
-        "Commands:\n"
-        "/broadcast [text] - Send message to all users\n"
-        "/grant [userid] [days] - Give VIP access\n"
-        "/ban [userid] - Ban user\n"
-        "/unban [userid] - Unban user"
+        f"• ⚡ <b>Total Uses Today:</b> {st['uses_today']}\n"
+        f"• 💎 <b>Active VIP Users:</b> {st['vip_users']}\n\n"
+        f"👑 <b>Grant VIP Duration Commands:</b>\n"
+        f"• 🌟 <b>30 Days (1 Month):</b> <code>/grant [userid] 30</code>\n"
+        f"• 🌟 <b>60 Days (2 Months):</b> <code>/grant [userid] 60</code>\n"
+        f"• 🌟 <b>90 Days (3 Months):</b> <code>/grant [userid] 90</code>\n"
+        f"• 🌟 <b>120 Days (4 Months):</b> <code>/grant [userid] 120</code>\n"
+        f"• 👑 <b>Lifetime VIP:</b> <code>/grant [userid] 9999</code>\n\n"
+        f"🛠️ <b>Management Commands:</b>\n"
+        f"• 📢 <code>/broadcast [message]</code> - Send to all users\n"
+        f"• 🚫 <code>/ban [userid]</code> - Ban user\n"
+        f"• 🟢 <code>/unban [userid]</code> - Unban user"
     )
     await update.message.reply_text(text, parse_mode=HTML)
+
+
+async def cmd_grant(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+        return
+    args = context.args
+    if len(args) < 2:
+        await update.message.reply_text(
+            "Format: <code>/grant [userid] [days]</code>\n\nDurations:\n• 30 (1 Month)\n• 60 (2 Months)\n• 90 (3 Months)\n• 120 (4 Months)\n• 9999 (Lifetime)",
+            parse_mode=HTML,
+        )
+        return
+    try:
+        target_uid = int(args[0])
+        days = int(args[1])
+        grant_premium(target_uid, days)
+        dur_str = "👑 LIFETIME VIP" if days >= 9999 else f"🌟 {days} Din VIP"
+        await update.message.reply_text(
+            f"✅ <b>Success!</b> User <code>{target_uid}</code> ko <b>{dur_str}</b> grant kar diya gaya!",
+            parse_mode=HTML,
+        )
+        try:
+            await context.bot.send_message(
+                target_uid,
+                f"🎉 <b>Badhai ho!</b> Aapka <b>{dur_str} Access</b> activate ho gaya hai! Ab aap bot ko bina kisi daily limit ke use kar sakte hain! 💎",
+                parse_mode=HTML,
+            )
+        except Exception:
+            pass
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+        return
+    msg_text = " ".join(context.args) if context.args else ""
+    if not msg_text:
+        await update.message.reply_text("Format: <code>/broadcast [message]</code>", parse_mode=HTML)
+        return
+    uids = all_user_ids()
+    success, failed = 0, 0
+    st = await update.message.reply_text(f"📢 Broadcasting to {len(uids)} users...")
+    for u in uids:
+        try:
+            await context.bot.send_message(u, msg_text, parse_mode=HTML)
+            success += 1
+            await asyncio.sleep(0.04)
+        except Exception:
+            failed += 1
+    await st.edit_text(f"📢 <b>Broadcast Complete!</b>\n\n• ✅ Success: {success}\n• ❌ Failed: {failed}", parse_mode=HTML)
+
+
+async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+        return
+    if not context.args:
+        await update.message.reply_text("Format: <code>/ban [userid]</code>", parse_mode=HTML)
+        return
+    try:
+        target_uid = int(context.args[0])
+        set_ban(target_uid, 1)
+        await update.message.reply_text(f"🚫 User <code>{target_uid}</code> has been banned.", parse_mode=HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+
+async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+        return
+    if not context.args:
+        await update.message.reply_text("Format: <code>/unban [userid]</code>", parse_mode=HTML)
+        return
+    try:
+        target_uid = int(context.args[0])
+        set_ban(target_uid, 0)
+        await update.message.reply_text(f"✅ User <code>{target_uid}</code> has been unbanned.", parse_mode=HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
 
 
 # ---------------- CALLBACK QUERY HANDLER ----------------
@@ -888,6 +1008,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Standard prompt modes
         context.user_data["mode"] = action
         if action in PROMPTS:
+            # Check Daily Limit
+            u = get_user(uid, update.effective_user.first_name)
+            if check_limit_exceeded(u):
+                await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                return
             await update.message.reply_text(PROMPTS[action] + "\n\n<i>/cancel kabhi bhi dabayein.</i>", parse_mode=HTML)
             return
 
@@ -951,6 +1076,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         return
 
+    # Check Daily Limit for Active Executions
+    u = get_user(uid, update.effective_user.first_name)
+    if mode and check_limit_exceeded(u):
+        await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+        return
+
     # Tool Execution Modes
     if mode == "terabox":
         st = await update.message.reply_text("⚡ Processing cloud download link...")
@@ -965,12 +1096,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kb = InlineKeyboardMarkup([[InlineKeyboardButton("🚀 Download Fast / Stream", url=res.get("direct_url"))]])
             await st.edit_text(cap, reply_markup=kb, parse_mode=HTML)
         else:
-            await st.edit_text(f"❌ {res.get('error', 'Could not resolve link.')}")
+            await st.edit_text(fail_msg("TERABOX DOWNLOAD FAILED", res.get("error", "Could not resolve link.")), parse_mode=HTML)
         add_use(uid)
         return
 
     # Dedicated Instagram Downloader (100% Full Audio & Ultra-HD Media)
     if mode == "insta_dl":
+        if not is_instagram_url(raw_text):
+            await update.message.reply_text(fail_msg("INVALID LINK", "Kripya valid Instagram URL bhejein (Reels, Posts, Stories)."), parse_mode=HTML)
+            return
+
         st = await update.message.reply_text("📸 Fetching Instagram media with 100% original sound...")
         res = await download_instagram_async(raw_text)
         if res.get("ok") and res.get("bytes"):
@@ -981,8 +1116,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     media_buf.name = "Instagram_Video.mp4"
                     await update.message.reply_video(
                         video=media_buf,
-                        caption=f"📸 <b>{to_bold('INSTAGRAM HD VIDEO')}</b>\n• 🔊 <b>Sound:</b> 100% Original Audio\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
+                        caption=f"📸 <b>{to_bold('INSTAGRAM HD VIDEO / REEL')}</b>\n• 🔊 <b>Sound:</b> 100% Original Audio ✅\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
                         parse_mode=HTML,
+                        supports_streaming=True,
                     )
                 else:
                     media_buf.name = "Instagram_Photo.jpg"
@@ -993,9 +1129,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                 await st.delete()
             except Exception as e:
-                await st.edit_text(f"❌ Telegram send error: {str(e)}")
+                await st.edit_text(fail_msg("SEND ERROR", str(e)), parse_mode=HTML)
         else:
-            await st.edit_text("❌ Could not download Instagram media. Please make sure the link is from a public post/reel/story.")
+            cat = res.get("category", "Media").upper()
+            err_reason = res.get("error", "Media stream accessible nahi hai (Private ya restricted post).")
+            await st.edit_text(fail_msg(f"INSTAGRAM DOWNLOAD FAILED ({cat})", err_reason), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -1015,7 +1153,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if os.path.exists(mp3_path):
                 os.remove(mp3_path)
         except Exception as e:
-            await st.edit_text(f"❌ Voice generation error: {str(e)}")
+            await st.edit_text(fail_msg("VOICE GENERATION FAILED", str(e)), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -1035,7 +1173,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await update.message.reply_text(card, reply_markup=kb, parse_mode=HTML)
         else:
-            await update.message.reply_text(f"❌ {res.get('error')}")
+            await update.message.reply_text(fail_msg("RTO LOOKUP FAILED", res.get("error", "Invalid Plate")), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -1458,6 +1596,10 @@ def main():
     app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))
     app.add_handler(CommandHandler("admin", cmd_admin))
+    app.add_handler(CommandHandler("grant", cmd_grant))
+    app.add_handler(CommandHandler("broadcast", cmd_broadcast))
+    app.add_handler(CommandHandler("ban", cmd_ban))
+    app.add_handler(CommandHandler("unban", cmd_unban))
 
     # Specific Tool Commands
     app.add_handler(CommandHandler("vnum", lambda u, c: send_vnum_card(u, c)))
