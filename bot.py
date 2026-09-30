@@ -1180,18 +1180,31 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # Rich Web Search with 5-6 verified links & suggestions
+    # Rich Web Search with 5-6 verified links, copyable code tags & suggestions
     if mode == "search":
         st = await update.message.reply_text("🔎 Searching verified web sources...")
         search_results = search_web_rich(raw_text, max_results=6)
-        res_text = f"🔎 <b>{to_bold('WEB SEARCH RESULTS')} for:</b> <i>{hesc(raw_text)}</i>\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
-        for i, item in enumerate(search_results, 1):
-            badge = "⭐ Best Match" if i == 1 else ("⚡ Fast Stream" if i == 2 else "📌 Verified")
-            res_text += f"{i}️⃣ <a href='{item['url']}'><b>{hesc(item['title'])}</b></a> <i>({badge})</i>\n"
-            if item.get("snippet"):
-                res_text += f"   <i>{hesc(item['snippet'])}</i>\n\n"
-        res_text += "💡 <i>Tip: Agar koi Terabox/Cloud link mila hai, to direct Terabox Downloader me paste karein!</i>"
-        await st.edit_text(res_text, parse_mode=HTML, disable_web_page_preview=True)
+        if search_results:
+            res_text = f"🔎 <b>{to_bold('WEB SEARCH RESULTS')} for:</b> <i>{hesc(raw_text)}</i>\n━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            kb_links = []
+            for i, item in enumerate(search_results, 1):
+                badge = "⭐ Best Match" if i == 1 else ("⚡ Fast Stream" if i == 2 else "📌 Verified")
+                res_text += f"{i}️⃣ <b>{hesc(item['title'])}</b> <i>({badge})</i>\n"
+                if item.get("snippet"):
+                    res_text += f"   <i>{hesc(item['snippet'])}</i>\n"
+                res_text += f"   📋 <b>Copy Link:</b> <code>{item['url']}</code>\n\n"
+                kb_links.append([InlineKeyboardButton(f"{i}️⃣ Open {item['title'][:25]}...", url=item["url"])])
+
+            res_text += "💡 <i>Tip: Tap on any link code to copy it! Agar Terabox link hai to Terabox tool me paste karein.</i>"
+            await st.edit_text(res_text, reply_markup=InlineKeyboardMarkup(kb_links[:5]), parse_mode=HTML, disable_web_page_preview=True)
+        else:
+            q_enc = quote(raw_text)
+            fallback_text = (
+                f"🔎 <b>{to_bold('SEARCH RESULTS')} for:</b> <i>{hesc(raw_text)}</i>\n\n"
+                f"1️⃣ <b>Google:</b> <code>https://www.google.com/search?q={q_enc}</code>\n"
+                f"2️⃣ <b>DuckDuckGo:</b> <code>https://duckduckgo.com/?q={q_enc}</code>"
+            )
+            await st.edit_text(fallback_text, parse_mode=HTML)
         add_use(uid)
         return
 
