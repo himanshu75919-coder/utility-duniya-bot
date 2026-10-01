@@ -1,6 +1,63 @@
-# ⚡ Utility Duniya Super-Bot (v31 PRO Edition)
+# ⚡ Utility Duniya Super-Bot (v32 — PHASE 3 PROFESSIONAL EDITION)
 
-An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **AI Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Actor Voice Studio** and **Automated VIP / UPI Engine**.
+An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v32 PHASE-3 — Har tool check + professional upgrade
+
+### 🎙️ 1. Voice Studio → **24 ASLI alag awaazein** (pehle "sab ek jaise" the)
+- 24 actor/character presets — har ek **alag real neural voice**: Don (hi-IN-Madhur), South Mass Hero (te-IN-Mohan), Rowdy (mr-IN-Manohar), Shayar (ur-IN-Salman), Sweet Girlfriend (hi-IN-Swara), Hollywood Trailer (en-US-Christopher), UK Documentary (en-GB-Ryan), Spooky Demon (en-US-Eric), Anime Girl (ja-JP-Nanami), Robot AI (en-US-Steffan), Arabic (ar-SA-Hamed), French, Spanish, Russian + 11 Indian languages.
+- **🧪 Voice Lab:** 30 voices × 4 speeds (🐢 −25% · ▶️ 0 · ⚡ +25% · 🚀 +50%).
+- Hindi (Devanagari) text + English voice = engine kuch nahi deta tha → ab bot **khud sahi voice par switch** karta hai aur caption me note bhi likhta hai.
+- Generation me 3 retries + size-verify; audio na bane to saaf error.
+
+### 🔄 2. Auto-Forwarding → **source-first 3-step wizard** + private channel flow
+- Pehle **SOURCE** poochhega → phir **TARGET** → phir **🤖 FULL AUTO ON** (button) → bas.
+- **🔒 Private channel:** koi login/password nahi — bot ko private channel me **admin** banao aur us channel ki **koi post bot ko forward** karo → bot khud chat-ID pakad kar Source/Target set karne ke **buttons** de deta hai.
+- **📘 Kaise Use Karein?** (poora guide), **🧪 Test Forward** (bot admin hai ya nahi + target me test post), **📊 Meri Setting Dekho** (summary card).
+- Video / PDF / Doc / Audio / Voice / GIF / Sticker / Album (2–10) — sab auto-forward hota hai.
+
+### 📈 3. Vyaaj → **sirf CHAKRAVRIDDHI (compound)**, gaon-kasbe wali bhasha me
+- Input: paisa → *"₹100 par kitne rupaye mahina?"* → kitne mahine.
+- Output: pehle mahine ka byaaj, kul byaaj, **wapas dena hoga kitna**, mahine-dar-mahine table, milestones (6/12/24/36 mahine), aur "agar har mahine sirf byaaj dete raho to kitna lagta" wala comparison. Simple interest **hata diya**.
+- Money ab **Indian format** me: ₹1,00,000 (1 lakh), ₹1.25 crore.
+
+### 🧮 4. EMI → ab **"kitne din me poora chukega"**
+- EMI, kul byaaj, kul payment, **pehli EMI ki date, aakhri EMI ki date**, aur `24 mahine = 731 din me` — simple bhasha me.
+
+### 📱 5. Number Info → **carrier info + 🧾 Public Records (button)**
+- Operator, circle/region, number type, country, timezone + **6 real check links** (WhatsApp chat, Telegram, Truecaller, Google, **Chakshu spam-report (TRAI)**, **Cyber Crime 1930**).
+- **🧾 Public Records button:** owner ke diye hue API (`osint-apis-hub.onrender.com/api/num-info`) se naam / pita ka naam / pata / linked number dikhata hai (5 records tak) + misuse warning + 1930/Chakshu report buttons.
+- ⚠️ Ye leaked/personal data hai — misuse **crime** (IT Act + DPDP Act) aur Telegram/host ban ka risk. Isliye **owner-controlled on/off switch**: `NUM_LEAK_ENABLED=off` karte hi button gayab.
+
+### 🆔 6. ID & Username Finder → **asli existence check** (pehle sirf links the)
+- GitHub · Telegram · YouTube · TikTok · Steam par **200/404-styled real check** → ✅ account MILA / ❌ account nahi hai / ❔ check nahi hua.
+- Baaki 9 platforms (Instagram, X, Reddit, Pinterest, Snapchat, Facebook, Spotify, Twitch, Threads) = **direct open links** (inka server-side check honestly possible nahi — jhooth nahi bolte).
+- Telegram heuristic: real/deactivated/bot page se naam nikalta hai, fake/generic page ko sahi se reject karta hai (7/7 verified).
+
+### 🧰 7. Roz ke tools ka upgrade
+| Tool | Kya naya |
+|---|---|
+| 📷 QR | 4 type — Link/Text · 💰 UPI (fixed amount ke saath) · 📶 WiFi share · 👤 Contact card |
+| 🔐 Password | 4 mode — Naam wala · 🧠 Easy words (passphrase) · 🎲 Random strong · 🔢 6-digit PIN (strength meter ke saath) |
+| 📄 Doc PDF Compress | 100/200/300/500 KB choose karo + ⚫ Black & White mode + multi-photo → ek PDF |
+| 🖼️ Image→PDF | Normal + **A4 Print PDF** (printer par kuch kat nahi aata) |
+| 📸 Screenshot | HD + **📜 Full Page** (3-engine chain: thum.io → thum.io full → microlink backup) |
+| 📮 Pincode | Pincode se post offices **ya area ke naam se pincode** (bade buttons, copy-friendly) |
+| 🚗 RTO | 36 state codes + ~45 RTO districts + **5 official links** (VAHAN, e-Challan, IIB insurance, Sarathi DL, mParivahan) |
+| 🏦 IFSC | MICR + contact + UPI/NEFT/RTGS/IMPS flags + Maps |
+| 🌐 **IP / Domain (NAYA)** | ip-api se ISP, org, geo, timezone + **VPN/Proxy & Datacenter flags** |
+| 📱 **Public Records (optional)** | Naam/pita/pata/linked-number — env se on/off, warning + report buttons ke saath |
+| 🔎 Web Search | **3-engine parallel** (DuckDuckGo Lite + DDG HTML + Bing) → merge + dedupe (pehle sirf DDG) |
+| 📦 App Finder | 6 → **8 stores** (+ APKCombo, F-Droid) |
+| ❓ **MADAD / TUTORIAL (NAYA)** | Bot ke andar har tool ka 1-line simple matlab + `/tutorial` command |
+| 💬 Har tool ke andar | "Kaise use karein" mini-guide (users ko kuch poochhna hi na pade) |
+
+### ❌ 8. Signature Cleaner **DELETE**
+- Menu, code, handler aur module se poori tarah hata diya gaya (jaisa aapne kaha).
+
+---
 
 ---
 

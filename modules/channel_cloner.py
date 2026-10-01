@@ -40,49 +40,94 @@ HTML = "HTML"
 
 
 # --------------------------------------------------------------------------------
+# USER GUIDE (simple Hinglish — pehli baar use karne wale ke liye)
+# --------------------------------------------------------------------------------
+CLONER_GUIDE_TEXT = (
+    "📘 <b>AUTO FORWARD KAISE KAAM KARTA HAI?</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Dekho, samajh lo aise 👇\n\n"
+    "1️⃣ <b>SOURCE</b> = jis channel se posts aayengi\n"
+    "   (jaise: tumhara lecture wala channel, PDF/notes wala channel)\n\n"
+    "2️⃣ <b>TARGET</b> = jis channel me posts bhejni hain\n"
+    "   (jaise: apna new channel, apni website/group, apna paid channel)\n\n"
+    "3️⃣ Bot <b>khud</b> source ki nayi post uthata hai → 2-5 second me target me daal deta hai\n"
+    "   (Caption, tag, watermark, thumbnail — sab tumhari settings ke saath) 🎉\n\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "⚠️ <b>2 ZAROORI BAATEIN:</b>\n"
+    "• Bot ko <b>Source</b> aur <b>Target</b> dono channel me <b>Admin</b> banana padega\n"
+    "• Private channel ho? Koi dikkat nahi — us private channel me bot ko admin add karo,\n"
+    "   phir us channel ki koi bhi post bot ko <b>forward</b> kar do — bot khud ID pakad lega ✅\n\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "📦 <b>Kya-kya bhej sakte ho:</b>\n"
+    "• 🎥 Video lectures • 📄 PDF / notes • 🖼️ Photos • 🎵 Audio • 📁 Files\n"
+    "• 🖼️ Album (2-10 photos/videos ek saath) bhi album hi ban kar jayenge\n\n"
+    "⚡ <b>Sirf NAYI posts</b> clone hoti hain (jo post already source me hai wo nahi).\n"
+    "Purani posts chahiye to <b>🚀 Manual Forward Mode</b> use karo — jitni chaaho forward kar do, bot ek-ek ko target me daal dega."
+)
+
+
+def cloner_summary_text(cfg: dict) -> str:
+    src = cfg.get("source_chat_id") or "❌ Set nahi"
+    tgt = cfg.get("target_chat_id") or "❌ Set nahi"
+    auto = "🟢 ON (chal raha hai)" if cfg.get("auto_status") == "on" else "🔴 OFF"
+    tag = cfg.get("rename_tag") or "—"
+    wm = cfg.get("watermark") or "—"
+    return (
+        "📋 <b>TUMHARI AUTO FORWARD SETTING</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"1️⃣ 📡 <b>Source:</b> <code>{src}</code>\n"
+        f"2️⃣ 📑 <b>Target:</b> <code>{tgt}</code>\n"
+        f"3️⃣ 🤖 <b>Full Auto:</b> {auto}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🏷️ Tag: {tag}\n💧 Watermark: {wm}\n"
+        f"🖼️ Thumbnail: {'✅ set hai' if cfg.get('thumbnail_file_id') else '❌ nahi'}"
+    )
+
+
+# --------------------------------------------------------------------------------
 # KEYBOARD / DASHBOARD
 # --------------------------------------------------------------------------------
 def get_cloner_settings_kb(uid: int):
     cfg = get_cloner_config(uid)
 
     target = cfg.get("target_chat_id") or ""
-    target_txt = f"{target[:14]}" if target else "Not Set ❌"
+    target_txt = f"{target[:16]}" if target else "Set nahi ❌"
     source = cfg.get("source_chat_id") or ""
-    source_txt = f"{source[:14]}" if source else "Not Set ❌"
-    has_thumb = "✅" if cfg.get("thumbnail_file_id") else "❌"
+    source_txt = f"{source[:16]}" if source else "Set nahi ❌"
     auto_on = cfg.get("auto_status") == "on"
     auto_txt = "ON 🟢" if auto_on else "OFF 🔴"
 
     buttons = [
+        [InlineKeyboardButton("🚀 AUTO FORWARD SETUP (3 Steps)", callback_data="cloner_setup")],
+        [InlineKeyboardButton("📘 Kaise Use Karein? (Guide)", callback_data="cloner_guide")],
         [
-            InlineKeyboardButton(f"📑 Target: {target_txt}", callback_data="cloner_set_target"),
-            InlineKeyboardButton(f"📡 Source: {source_txt}", callback_data="cloner_set_source"),
+            InlineKeyboardButton("🤖 FULL AUTO: " + auto_txt, callback_data="cloner_toggle_auto"),
+            InlineKeyboardButton("🧪 Test Forward", callback_data="cloner_test"),
         ],
         [
-            InlineKeyboardButton("🏷️ Set Rename Tag", callback_data="cloner_set_tag"),
-            InlineKeyboardButton("📝 Set Caption", callback_data="cloner_set_caption"),
+            InlineKeyboardButton(f"📡 Source: {source_txt}", callback_data="cloner_set_source"),
+            InlineKeyboardButton(f"📑 Target: {target_txt}", callback_data="cloner_set_target"),
+        ],
+        [InlineKeyboardButton("🔒 Private Channel? Aise karo", callback_data="cloner_private")],
+        [InlineKeyboardButton("🚀 Manual Forward Mode (ek-ek post)", callback_data="cloner_start_mode")],
+        [
+            InlineKeyboardButton("🏷️ Rename Tag", callback_data="cloner_set_tag"),
+            InlineKeyboardButton("📝 Custom Caption", callback_data="cloner_set_caption"),
         ],
         [
             InlineKeyboardButton("🔄 Replace Words", callback_data="cloner_set_replace"),
             InlineKeyboardButton("🗑️ Remove Words", callback_data="cloner_set_remove"),
         ],
         [
-            InlineKeyboardButton(f"🖼️ Set Thumbnail {has_thumb}", callback_data="cloner_set_thumb"),
-            InlineKeyboardButton("❌ Remove Thumbnail", callback_data="cloner_clear_thumb"),
+            InlineKeyboardButton("🖼️ Thumbnail", callback_data="cloner_set_thumb"),
+            InlineKeyboardButton("💧 Watermark", callback_data="cloner_set_wm"),
         ],
         [
-            InlineKeyboardButton("💧 Watermark Setup", callback_data="cloner_set_wm"),
+            InlineKeyboardButton("❌ Thumbnail Hatao", callback_data="cloner_clear_thumb"),
             InlineKeyboardButton("🔄 Reset Settings", callback_data="cloner_reset"),
         ],
-        [
-            InlineKeyboardButton(f"🤖 FULL AUTO: {auto_txt}", callback_data="cloner_toggle_auto"),
-        ],
-        [
-            InlineKeyboardButton("🚀 Manual Forward Mode", callback_data="cloner_start_mode"),
-        ],
-        [
-            InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home"),
-        ],
+        [InlineKeyboardButton("📊 Meri Setting Dekho", callback_data="cloner_status")],
+        [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home")],
     ]
     return InlineKeyboardMarkup(buttons)
 
