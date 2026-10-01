@@ -1,55 +1,102 @@
 # -*- coding: utf-8 -*-
 """
-Advanced Channel Cloner & Auto-Forwarder Settings Dashboard
-Allows users to clone posts, replace words, remove promo links, add custom thumbnails, and fast-forward media.
+Channel Cloner & Auto-Forwarder ENGINE (v31 Ultra)
+==================================================
+2 tarah se kaam karta hai:
+
+1) MANUAL MODE  : User posts bot ko forward karta hai -> bot branding ke saath target channel me daalta hai.
+2) FULL AUTO    : Bot khud SOURCE channel ki har nayi post uthata hai -> target channel me apne caption,
+                  watermark, rename tag, replace/remove words aur thumbnail ke saath post kar deta hai.
+                  (Bot ko source + target dono channel me ADMIN hona chahiye.)
+
+Extra features:
+- Album / Media group (2-10 photos+videos) ek saath album banakar bhejta hai (fallback: ek-ek karke).
+- FloodWait (RetryAfter) par khud wait karke dobara try karta hai.
+- Caption me galat HTML ho to bina parse_mode dobara bhej deta hai (error nahi aata).
+- Thumbnail fail ho jaye to bina thumbnail bhej deta hai.
 """
 
-import re
 import asyncio
-from telegram import Bot, Message, InlineKeyboardButton, InlineKeyboardMarkup
+import logging
+import re
+
+from telegram import (
+    Bot,
+    Message,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto,
+    InputMediaVideo,
+    InputMediaDocument,
+    InputMediaAudio,
+)
+from telegram.error import RetryAfter, BadRequest
+
 from database import get_cloner_config, save_cloner_config
 
+log = logging.getLogger(__name__)
 
+HTML = "HTML"
+
+
+# --------------------------------------------------------------------------------
+# KEYBOARD / DASHBOARD
+# --------------------------------------------------------------------------------
 def get_cloner_settings_kb(uid: int):
     cfg = get_cloner_config(uid)
-    target = cfg["target_chat_id"] or "Not Set ❌"
-    has_thumb = "✅ Active" if cfg["thumbnail_file_id"] else "None ❌"
+
+    target = cfg.get("target_chat_id") or ""
+    target_txt = f"{target[:14]}" if target else "Not Set ❌"
+    source = cfg.get("source_chat_id") or ""
+    source_txt = f"{source[:14]}" if source else "Not Set ❌"
+    has_thumb = "✅" if cfg.get("thumbnail_file_id") else "❌"
+    auto_on = cfg.get("auto_status") == "on"
+    auto_txt = "ON 🟢" if auto_on else "OFF 🔴"
 
     buttons = [
         [
-            InlineKeyboardButton(f"📑 Set Chat ID ({target[:10]})", callback_data="cloner_set_target"),
+            InlineKeyboardButton(f"📑 Target: {target_txt}", callback_data="cloner_set_target"),
+            InlineKeyboardButton(f"📡 Source: {source_txt}", callback_data="cloner_set_source"),
+        ],
+        [
             InlineKeyboardButton("🏷️ Set Rename Tag", callback_data="cloner_set_tag"),
-        ],
-        [
             InlineKeyboardButton("📝 Set Caption", callback_data="cloner_set_caption"),
+        ],
+        [
             InlineKeyboardButton("🔄 Replace Words", callback_data="cloner_set_replace"),
-        ],
-        [
             InlineKeyboardButton("🗑️ Remove Words", callback_data="cloner_set_remove"),
-            InlineKeyboardButton("🔄 Reset Settings", callback_data="cloner_reset"),
         ],
         [
-            InlineKeyboardButton(f"🖼️ Set Thumbnail ({has_thumb})", callback_data="cloner_set_thumb"),
+            InlineKeyboardButton(f"🖼️ Set Thumbnail {has_thumb}", callback_data="cloner_set_thumb"),
             InlineKeyboardButton("❌ Remove Thumbnail", callback_data="cloner_clear_thumb"),
         ],
         [
             InlineKeyboardButton("💧 Watermark Setup", callback_data="cloner_set_wm"),
-            InlineKeyboardButton("🚀 Start Fast Auto-Forward", callback_data="cloner_start_mode"),
+            InlineKeyboardButton("🔄 Reset Settings", callback_data="cloner_reset"),
+        ],
+        [
+            InlineKeyboardButton(f"🤖 FULL AUTO: {auto_txt}", callback_data="cloner_toggle_auto"),
+        ],
+        [
+            InlineKeyboardButton("🚀 Manual Forward Mode", callback_data="cloner_start_mode"),
         ],
         [
             InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home"),
-        ]
+        ],
     ]
     return InlineKeyboardMarkup(buttons)
 
 
+# --------------------------------------------------------------------------------
+# CAPTION PROCESSING
+# --------------------------------------------------------------------------------
 def process_cloned_caption(text: str, cfg: dict) -> str:
-    """Applies word replacement, word removal, custom caption, and watermark rules"""
-    custom_cap = cfg.get("custom_caption", "").strip()
-    replace_rules = cfg.get("replace_words", "").strip()
-    remove_rules = cfg.get("remove_words", "").strip()
-    watermark = cfg.get("watermark", "").strip()
-    rename_tag = cfg.get("rename_tag", "").strip()
+    """Applies word replacement, word removal, custom caption, rename tag and watermark rules"""
+    custom_cap = (cfg.get("custom_caption") or "").strip()
+    replace_rules = (cfg.get("replace_words") or "").strip()
+    remove_rules = (cfg.get("remove_words") or "").strip()
+    watermark = (cfg.get("watermark") or "").strip()
+    rename_tag = (cfg.get("rename_tag") or "").strip()
 
     if custom_cap:
         result = custom_cap
@@ -86,49 +133,194 @@ def process_cloned_caption(text: str, cfg: dict) -> str:
     return result
 
 
-async def forward_cloned_message(bot: Bot, msg: Message, uid: int) -> tuple[bool, str]:
-    """
-    Takes any forwarded message or direct media from user and reposts to target channel
-    with all custom transformations in under 0.5s.
-    """
-    cfg = get_cloner_config(uid)
-    target = cfg.get("target_chat_id")
-    if not target:
-        return False, "⚠️ <b>Target Chat ID set nahi hai!</b> Pehle <b>Set Chat ID</b> se channel add karein."
+# --------------------------------------------------------------------------------
+# LOW-LEVEL SEND HELPERS (error proof)
+# --------------------------------------------------------------------------------
+async def _safe_call(func, **kwargs):
+    """Bhejne ki koshish karta hai. FloodWait par wait karta hai, thumbnail/caption
+    ki wajah se error aaye to bina uske dobara bhejta hai."""
+    try:
+        return await func(**kwargs)
+    except RetryAfter as e:
+        wait = int(getattr(e, "retry_after", 5) or 5) + 1
+        log.warning("FloodWait: %ss wait kar rahe hain...", wait)
+        await asyncio.sleep(wait)
+        return await func(**kwargs)
+    except BadRequest as e:
+        err = str(e).lower()
+        # Thumbnail ki wajah se fail hua -> bina thumbnail bhejo
+        if "thumbnail" in err and "thumbnail" in kwargs:
+            kwargs.pop("thumbnail", None)
+            return await func(**kwargs)
+        # Caption me galat HTML -> bina formatting bhejo
+        if ("parse" in err or "entit" in err) and kwargs.get("parse_mode"):
+            kwargs.pop("parse_mode", None)
+            return await func(**kwargs)
+        raise
 
-    orig_caption = msg.caption or msg.text or ""
-    final_caption = process_cloned_caption(orig_caption, cfg)
-    thumb_id = cfg.get("thumbnail_file_id")
+
+def message_kind(msg: Message) -> str:
+    """Kis type ka message hai - sirf jaankari ke liye."""
+    if msg is None:
+        return "empty"
+    if msg.photo:
+        return "photo"
+    if msg.video:
+        return "video"
+    if msg.animation:
+        return "animation"
+    if msg.document:
+        return "document"
+    if msg.audio:
+        return "audio"
+    if msg.voice:
+        return "voice"
+    if msg.video_note:
+        return "video_note"
+    if msg.sticker:
+        return "sticker"
+    if msg.text:
+        return "text"
+    return "other"
+
+
+async def send_single(bot: Bot, msg: Message, target: str, cfg: dict):
+    """Ek message ko branding ke saath target channel me bhejta hai."""
+    caption = process_cloned_caption(msg.caption or msg.text or "", cfg)
+    thumb = (cfg.get("thumbnail_file_id") or "").strip() or None
+    cap = caption or None
+
+    if msg.photo:
+        await _safe_call(bot.send_photo, chat_id=target, photo=msg.photo[-1].file_id, caption=cap, parse_mode=HTML)
+    elif msg.video:
+        await _safe_call(
+            bot.send_video,
+            chat_id=target,
+            video=msg.video.file_id,
+            caption=cap,
+            thumbnail=thumb,
+            supports_streaming=True,
+            parse_mode=HTML,
+        )
+    elif msg.animation:
+        await _safe_call(
+            bot.send_animation,
+            chat_id=target,
+            animation=msg.animation.file_id,
+            caption=cap,
+            thumbnail=thumb,
+            parse_mode=HTML,
+        )
+    elif msg.document:
+        await _safe_call(
+            bot.send_document,
+            chat_id=target,
+            document=msg.document.file_id,
+            caption=cap,
+            thumbnail=thumb,
+            parse_mode=HTML,
+        )
+    elif msg.audio:
+        await _safe_call(
+            bot.send_audio,
+            chat_id=target,
+            audio=msg.audio.file_id,
+            caption=cap,
+            thumbnail=thumb,
+            parse_mode=HTML,
+        )
+    elif msg.voice:
+        await _safe_call(bot.send_voice, chat_id=target, voice=msg.voice.file_id, caption=cap, parse_mode=HTML)
+    elif msg.video_note:
+        await _safe_call(bot.send_video_note, chat_id=target, video_note=msg.video_note.file_id)
+    elif msg.sticker:
+        await _safe_call(bot.send_sticker, chat_id=target, sticker=msg.sticker.file_id)
+    elif msg.text:
+        if not caption:
+            return
+        await _safe_call(bot.send_message, chat_id=target, text=caption, parse_mode=HTML, disable_web_page_preview=True)
+    else:
+        # Poll, location, contact, dice... in sab ko copy kar dete hain
+        await _safe_call(bot.copy_message, chat_id=target, from_chat_id=msg.chat_id, message_id=msg.message_id)
+
+
+def _album_item(msg: Message, caption: str, parse_mode: str):
+    """Album (media group) ke liye InputMedia banata hai. Support na ho to None."""
+    if msg.photo:
+        return InputMediaPhoto(media=msg.photo[-1].file_id, caption=caption or None, parse_mode=parse_mode if caption else None)
+    if msg.video:
+        return InputMediaVideo(
+            media=msg.video.file_id,
+            caption=caption or None,
+            parse_mode=parse_mode if caption else None,
+            supports_streaming=True,
+        )
+    if msg.document:
+        return InputMediaDocument(media=msg.document.file_id, caption=caption or None, parse_mode=parse_mode if caption else None)
+    if msg.audio:
+        return InputMediaAudio(media=msg.audio.file_id, caption=caption or None, parse_mode=parse_mode if caption else None)
+    return None
+
+
+async def send_album(bot: Bot, msgs: list, target: str, cfg: dict):
+    """2-10 messages ka album ek saath bhejta hai. Fail ho to ek-ek karke bhejta hai."""
+    media = []
+    caption_used = False
+    for m in msgs:
+        cap = ""
+        if not caption_used:
+            cap = process_cloned_caption(m.caption or m.text or "", cfg)
+            if cap:
+                caption_used = True
+        item = _album_item(m, cap, HTML)
+        if item is None:
+            break
+        media.append(item)
+
+    if len(media) != len(msgs):
+        # Album me mix types nahi jaate -> ek-ek karke bhej do
+        for m in msgs:
+            await send_single(bot, m, target, cfg)
+        return
 
     try:
-        if msg.photo:
-            photo_file_id = msg.photo[-1].file_id
-            await bot.send_photo(chat_id=target, photo=photo_file_id, caption=final_caption, parse_mode="HTML")
-        elif msg.video:
-            await bot.send_video(
-                chat_id=target,
-                video=msg.video.file_id,
-                caption=final_caption,
-                thumbnail=thumb_id or None,
-                parse_mode="HTML",
-            )
-        elif msg.document:
-            await bot.send_document(
-                chat_id=target,
-                document=msg.document.file_id,
-                caption=final_caption,
-                thumbnail=thumb_id or None,
-                parse_mode="HTML",
-            )
-        elif msg.audio:
-            await bot.send_audio(chat_id=target, audio=msg.audio.file_id, caption=final_caption, parse_mode="HTML")
-        elif msg.voice:
-            await bot.send_voice(chat_id=target, voice=msg.voice.file_id, caption=final_caption, parse_mode="HTML")
-        elif msg.text:
-            await bot.send_message(chat_id=target, text=final_caption, parse_mode="HTML")
-        else:
-            await bot.copy_message(chat_id=target, from_chat_id=msg.chat_id, message_id=msg.message_id)
-
-        return True, "⚡ <b>Success!</b> Post forwarded to target channel with your custom branding!"
+        await bot.send_media_group(chat_id=target, media=media)
     except Exception as e:
-        return False, f"❌ Error sending to target: {str(e)}\n\n<i>Make sure bot is ADMIN in target channel with Post Messages permission!</i>"
+        log.warning("Album send fail (%s) -> ek-ek karke bhej rahe hain", e)
+        for m in msgs:
+            await send_single(bot, m, target, cfg)
+
+
+# --------------------------------------------------------------------------------
+# MAIN CLONE FUNCTIONS
+# --------------------------------------------------------------------------------
+async def clone_messages(bot: Bot, msgs: list, uid: int) -> tuple:
+    """Ek ya ek se zyada (album) messages ko user ki settings ke hisaab se clone karta hai."""
+    msgs = [m for m in msgs if m is not None]
+    if not msgs:
+        return False, "❌ Koi message nahi mila."
+
+    cfg = get_cloner_config(uid)
+    target = (cfg.get("target_chat_id") or "").strip()
+    if not target:
+        return False, "⚠️ <b>Target Chat ID set nahi hai!</b> Pehle <b>📑 Target</b> button se channel set karein."
+
+    try:
+        if len(msgs) == 1:
+            await send_single(bot, msgs[0], target, cfg)
+        else:
+            await send_album(bot, msgs, target, cfg)
+        count = len(msgs)
+        extra = f" ({count} items album)" if count > 1 else ""
+        return True, f"⚡ <b>Success!</b> Post{extra} target channel me chala gaya with your branding ✅"
+    except Exception as e:
+        log.error("Clone failed: %s", e)
+        return False, (
+            f"❌ <b>Error:</b> <code>{str(e)[:200]}</code>\n\n"
+            "<i>Check karo: bot target channel me ADMIN hai? (Post Messages permission ke saath)</i>"
+        )
+
+
+async def forward_cloned_message(bot: Bot, msg: Message, uid: int) -> tuple:
+    """Manual mode: user ka forward kiya hua single message clone karta hai."""
+    return await clone_messages(bot, [msg], uid)
