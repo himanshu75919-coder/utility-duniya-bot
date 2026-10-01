@@ -55,7 +55,9 @@ def db():
             remove_words TEXT DEFAULT '',
             thumbnail_file_id TEXT DEFAULT '',
             filter_type TEXT DEFAULT 'all',
-            status TEXT DEFAULT 'idle'
+            status TEXT DEFAULT 'idle',
+            source_chat_id TEXT DEFAULT '',
+            auto_status TEXT DEFAULT 'off'
         )"""
     )
     # Migration checks
@@ -64,6 +66,8 @@ def db():
         ("replace_words", "TEXT DEFAULT ''"),
         ("remove_words", "TEXT DEFAULT ''"),
         ("thumbnail_file_id", "TEXT DEFAULT ''"),
+        ("source_chat_id", "TEXT DEFAULT ''"),
+        ("auto_status", "TEXT DEFAULT 'off'"),
     ]:
         try:
             cur.execute(f"ALTER TABLE cloner_configs ADD COLUMN {col} {typ}")
@@ -373,7 +377,8 @@ def get_cloner_config(uid: int) -> dict:
         cur = con.cursor()
         cur.execute(
             """SELECT target_chat_id, custom_caption, watermark, rename_tag,
-                      replace_words, remove_words, thumbnail_file_id, filter_type, status
+                      replace_words, remove_words, thumbnail_file_id, filter_type, status,
+                      source_chat_id, auto_status
                FROM cloner_configs WHERE user_id=?""",
             (uid,),
         )
@@ -390,6 +395,8 @@ def get_cloner_config(uid: int) -> dict:
                 "thumbnail_file_id": r[6] or "",
                 "filter_type": r[7] or "all",
                 "status": r[8] or "idle",
+                "source_chat_id": r[9] or "",
+                "auto_status": r[10] or "off",
             }
     except Exception:
         pass
@@ -403,6 +410,8 @@ def get_cloner_config(uid: int) -> dict:
         "thumbnail_file_id": "",
         "filter_type": "all",
         "status": "idle",
+        "source_chat_id": "",
+        "auto_status": "off",
     }
 
 
@@ -417,6 +426,8 @@ def save_cloner_config(
     thumbnail_file_id: str = None,
     filter_type: str = None,
     status: str = None,
+    source_chat_id: str = None,
+    auto_status: str = None,
 ):
     try:
         cfg = get_cloner_config(uid)
@@ -429,16 +440,63 @@ def save_cloner_config(
         thumbnail_file_id = thumbnail_file_id if thumbnail_file_id is not None else cfg["thumbnail_file_id"]
         filter_type = filter_type if filter_type is not None else cfg["filter_type"]
         status = status if status is not None else cfg["status"]
+        source_chat_id = source_chat_id if source_chat_id is not None else cfg.get("source_chat_id", "")
+        auto_status = auto_status if auto_status is not None else cfg.get("auto_status", "off")
 
         con = db()
         con.execute(
             """INSERT OR REPLACE INTO cloner_configs(
                 user_id, target_chat_id, custom_caption, watermark, rename_tag,
-                replace_words, remove_words, thumbnail_file_id, filter_type, status
-            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (uid, target, caption, watermark, rename_tag, replace_words, remove_words, thumbnail_file_id, filter_type, status),
+                replace_words, remove_words, thumbnail_file_id, filter_type, status,
+                source_chat_id, auto_status
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                uid, target, caption, watermark, rename_tag, replace_words, remove_words,
+                thumbnail_file_id, filter_type, status, source_chat_id, auto_status,
+            ),
         )
         con.commit()
         con.close()
     except Exception:
         pass
+
+
+def get_auto_cloners_for_source(source_chat_id) -> list:
+    """Jis source channel me nayi post aayi, uske liye jitne users ka FULL AUTO ON hai
+    unki poori cloner config list return karta hai."""
+    out = []
+    try:
+        src = str(source_chat_id).strip()
+        if src.startswith("@"):
+            src = src.lower()
+        con = db()
+        cur = con.cursor()
+        cur.execute(
+            """SELECT user_id, target_chat_id, custom_caption, watermark, rename_tag,
+                      replace_words, remove_words, thumbnail_file_id, auto_status, source_chat_id
+               FROM cloner_configs WHERE auto_status='on'"""
+        )
+        rows = cur.fetchall()
+        con.close()
+        for r in rows:
+            saved_src = (r[9] or "").strip()
+            if saved_src.startswith("@"):
+                saved_src = saved_src.lower()
+            if saved_src and saved_src == src:
+                out.append(
+                    {
+                        "user_id": r[0],
+                        "target_chat_id": r[1] or "",
+                        "custom_caption": r[2] or "",
+                        "watermark": r[3] or "",
+                        "rename_tag": r[4] or "",
+                        "replace_words": r[5] or "",
+                        "remove_words": r[6] or "",
+                        "thumbnail_file_id": r[7] or "",
+                        "auto_status": r[8] or "off",
+                        "source_chat_id": r[9] or "",
+                    }
+                )
+    except Exception:
+        return []
+    return out

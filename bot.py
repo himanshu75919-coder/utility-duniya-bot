@@ -82,6 +82,13 @@ from database import (
     stats,
     top_referrers,
 )
+# Full-Auto Channel Cloner helper (safety import)
+try:
+    from database import get_auto_cloners_for_source
+except ImportError:  # agar purani database.py use ho rahi ho to bot crash na ho
+    def get_auto_cloners_for_source(_source):
+        return []
+
 from modules.sarkari_hub import (
     SARKARI_CITIZEN_TEXT,
     STATE_PORTALS_TEXT,
@@ -97,9 +104,23 @@ from modules.cyber_studio import (
     make_stamped_passport,
 )
 from modules.cloud_tools import resolve_cloud_url
-from modules.channel_cloner import forward_cloned_message, get_cloner_settings_kb
+from modules.channel_cloner import clone_messages, forward_cloned_message, get_cloner_settings_kb
 from modules.voice_studio import ACTOR_VOICE_PRESETS, generate_actor_voice
-from modules.media_downloader import download_instagram_async, is_instagram_url
+from modules.media_downloader import (
+    download_instagram_async,
+    download_video_async,
+    is_instagram_url,
+    is_supported_video_url,
+    platform_name,
+)
+from modules.toolkit_extras import (
+    calc_interest,
+    check_link_safety,
+    expand_url,
+    file_size_human,
+    parse_emi_input,
+    shorten_url,
+)
 from modules.osint_tools import (
     check_username_platforms,
     lookup_ifsc,
@@ -393,9 +414,10 @@ PROMPTS = {
         "🔗 Koi bhi <b>Terabox, Mediafire ya Google Drive</b> link bhejo:"
     ),
     "insta_dl": (
-        f"📸 <b>{to_bold('INSTAGRAM REELS, POSTS & STORIES DOWNLOADER')}</b>\n\n"
-        "<blockquote>Download Reels, Video Posts, Photos &amp; Public Stories with 100% Original Audio!</blockquote>\n\n"
-        "🔗 <b>Instagram ka koi bhi link</b> bhejo:"
+        f"📸 <b>{to_bold('UNIVERSAL VIDEO DOWNLOADER')}</b>\n\n"
+        "<blockquote>Instagram Reels/Posts/Stories (100% original audio) + YouTube, Facebook, X (Twitter), "
+        "TikTok, Pinterest, Reddit, Vimeo &amp; 20+ platforms!</blockquote>\n\n"
+        "🔗 <b>Koi bhi video link bhejo</b> (48MB tak seedha bot me, bada file ho to direct link milega):"
     ),
     "pp_stamp": (
         f"📸 <b>{to_bold('GOVT EXAM PASSPORT PHOTO STUDIO')}</b>\n\n"
@@ -835,6 +857,50 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("📑 <b>Set Chat ID:</b>\nTarget Channel ka Username ya ID bhejo:\n(jaise: <code>@MyChannel</code> ya <code>-100123456789</code>)\n\n<i>Note: Bot ko target channel me Admin banayein (Post permission ke saath).</i>", parse_mode=HTML)
         return
 
+    if data == "cloner_set_source":
+        context.user_data["mode"] = "cloner_source"
+        await q.message.reply_text(
+            "📡 <b>Set SOURCE Channel:</b>\nJis channel se posts UTHANI hain uska Username ya ID bhejo:\n"
+            "(jaise: <code>@MySourceChannel</code> ya <code>-100123456789</code>)\n\n"
+            "<i>Zaroori: Bot us source channel me bhi ADMIN hona chahiye — tabhi nayi posts bot tak aayengi.</i>",
+            parse_mode=HTML,
+        )
+        return
+
+    if data == "cloner_toggle_auto":
+        cfg = get_cloner_config(uid)
+        if cfg.get("auto_status") == "on":
+            save_cloner_config(uid, auto_status="off")
+            await q.message.reply_text(
+                "🛑 <b>FULL AUTO CLONE OFF!</b>\n\nAb nayi posts khud clone nahi hongi. (Manual forwarding phir bhi kaam karegi.)",
+                reply_markup=get_cloner_settings_kb(uid),
+                parse_mode=HTML,
+            )
+            return
+
+        if not cfg.get("target_chat_id"):
+            await q.message.reply_text("⚠️ Pehle <b>📑 Target</b> channel set karo (jahan post jaani hai).", parse_mode=HTML)
+            return
+        if not cfg.get("source_chat_id"):
+            await q.message.reply_text("⚠️ Pehle <b>📡 Source</b> channel set karo (jahan se post uthani hai).", parse_mode=HTML)
+            return
+        if str(cfg.get("target_chat_id")).strip() == str(cfg.get("source_chat_id")).strip():
+            await q.message.reply_text("❌ Source aur Target same nahi ho sakte (warna post infinite loop me chalti rahegi).", parse_mode=HTML)
+            return
+
+        save_cloner_config(uid, auto_status="on")
+        await q.message.reply_text(
+            "🤖 <b>FULL AUTO CLONE ON! 🟢</b>\n\n"
+            f"📡 Source: <code>{cfg.get('source_chat_id')}</code>\n"
+            f"📑 Target: <code>{cfg.get('target_chat_id')}</code>\n\n"
+            "Ab source channel me jo <b>nayi post</b> aayegi, bot 2-5 second me tumhare target channel me daal dega — "
+            "caption, tag, watermark, replace/remove words aur thumbnail sab settings ke saath.\n\n"
+            "<i>Note: Sirf NAYI posts clone hongi (purani posts nahi). Band karne ke liye yahi button dobara dabao.</i>",
+            reply_markup=get_cloner_settings_kb(uid),
+            parse_mode=HTML,
+        )
+        return
+
     if data == "cloner_set_tag":
         context.user_data["mode"] = "cloner_tag"
         await q.message.reply_text("🏷️ <b>Set Rename Tag:</b>\nHar video/post ke title/caption ke aage kya tag lagana hai?\n(jaise: <code>[🔥 4K HD]</code> ya <code>@MyChannel</code>)", parse_mode=HTML)
@@ -871,7 +937,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "cloner_reset":
-        save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="")
+        save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="", source_chat_id="", auto_status="off")
         context.user_data.pop("mode", None)
         await q.message.reply_text("🔄 <b>Settings Reset!</b> Saari cloner settings default ho gayi hain.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
@@ -949,8 +1015,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # 3. Channel Cloner Dashboard
         if action == "cloner":
+            _cfg = get_cloner_config(uid)
+            _auto = "🟢 ON" if _cfg.get("auto_status") == "on" else "🔴 OFF"
             await update.message.reply_text(
-                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n\nCustomize settings for your files 👇",
+                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n\n"
+                f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Not Set'}</code>\n"
+                f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Not Set'}</code>\n"
+                f"🤖 FULL AUTO: <b>{_auto}</b>\n\n"
+                "Customize settings for your files 👇",
                 reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
             )
@@ -1032,9 +1104,69 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "cloner_target":
-        save_cloner_config(uid, target=raw_text)
+        raw_val = raw_text.strip()
+        resolved = raw_val
+        warn = ""
+        try:
+            chat = await context.bot.get_chat(raw_val)
+            resolved = str(chat.id)
+            try:
+                mem = await context.bot.get_chat_member(chat_id=chat.id, user_id=context.bot.id)
+                if mem.status not in ("administrator", "creator"):
+                    warn = "\n\n⚠️ <b>Bot wahan ADMIN nahi hai!</b> Us channel me jaake bot ko Admin banao (Post Messages permission ke saath), warna post nahi hoga."
+            except Exception:
+                warn = "\n\n⚠️ <i>Admin check nahi ho paya. Confirm kar lo ki bot wahan admin hai.</i>"
+        except Exception:
+            warn = "\n\n<i>(Username resolve nahi hua — value as-it-is save kar di. Numeric ID -100... zyada safe hota hai.)</i>"
+
+        save_cloner_config(uid, target=resolved)
         context.user_data.pop("mode", None)
-        await update.message.reply_text(f"✅ Target Chat ID set: <b>{raw_text}</b>", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        await update.message.reply_text(
+            f"✅ <b>Target Channel set:</b> <code>{resolved}</code>{warn}\n\nAb <b>📡 Source</b> set karke <b>🤖 FULL AUTO</b> ON karo.",
+            reply_markup=get_cloner_settings_kb(uid),
+            parse_mode=HTML,
+        )
+        return
+
+    if mode == "cloner_source":
+        raw_val = raw_text.strip()
+        try:
+            chat = await context.bot.get_chat(raw_val)
+            resolved = str(chat.id)
+            title = chat.title or chat.username or resolved
+            is_admin = False
+            try:
+                mem = await context.bot.get_chat_member(chat_id=chat.id, user_id=context.bot.id)
+                is_admin = mem.status in ("administrator", "creator")
+            except Exception:
+                is_admin = False
+
+            save_cloner_config(uid, source_chat_id=resolved)
+            context.user_data.pop("mode", None)
+
+            if is_admin:
+                txt = (
+                    f"✅ <b>Source Channel set:</b> {hesc(str(title))}\n"
+                    f"🆔 <code>{resolved}</code>\n\n"
+                    "Ab neeche <b>🤖 FULL AUTO</b> button dabakar ON karo — phir is channel ki har nayi post khud clone hogi!"
+                )
+                if str(get_cloner_config(uid).get("target_chat_id") or "").strip() == resolved:
+                    txt += "\n\n⚠️ <b>Dhyan do:</b> Source aur Target same channel hai — auto clone ON nahi hoga."
+            else:
+                txt = (
+                    f"⚠️ <b>Source Channel save ho gaya:</b> <code>{resolved}</code>\n\n"
+                    "❌ Par bot wahan <b>ADMIN nahi hai</b>! Us source channel me jaake bot ko <b>Admin</b> banao.\n"
+                    "<i>Warna nayi posts bot tak nahi aayengi aur auto clone kaam nahi karega.</i>"
+                )
+            await update.message.reply_text(txt, reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        except Exception as e:
+            await update.message.reply_text(
+                f"❌ Ye channel nahi mila: <code>{hesc(raw_val)}</code>\n<i>{hesc(str(e))[:120]}</i>\n\n"
+                "Private channel ke liye numeric ID bhejo (jaise <code>-1001234567890</code>).\n"
+                "💡 ID nikalne ka aasan tareeka: us channel ki koi <b>TEXT post</b> is bot ko forward karo — bot ID bata dega.",
+                reply_markup=get_cloner_settings_kb(uid),
+                parse_mode=HTML,
+            )
         return
 
     if mode == "cloner_tag":
@@ -1090,84 +1222,161 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Tool Execution Modes
     if mode == "terabox":
-        st = await update.message.reply_text("⚡ Processing cloud download link...")
+        st = await update.message.reply_text("⚡ Cloud link resolve kar raha hoon (6-engine chain)...")
         res = resolve_cloud_url(raw_text)
+
         if res.get("ok"):
-            cap = (
-                f"⚡ <b>{to_bold(res.get('provider', 'Cloud Direct'))}</b>\n\n"
-                f"📁 <b>Title:</b> {hesc(res.get('title', 'File'))}\n"
-                f"📊 <b>Size:</b> {res.get('size', 'HD')}\n\n"
-                f"🔗 <b>High-Speed Link:</b>\n{res.get('direct_url')}"
-            )
-            kb = InlineKeyboardMarkup([[InlineKeyboardButton("🚀 Download Fast / Stream", url=res.get("direct_url"))]])
-            await st.edit_text(cap, reply_markup=kb, parse_mode=HTML)
+            files = res.get("files") or []
+            if len(files) > 1:
+                lines = []
+                for idx, f in enumerate(files[:12], 1):
+                    lines.append(f"{idx}. <b>{hesc(str(f.get('name'))[:52])}</b> — <code>{f.get('size', 'N/A')}</code>")
+                cap = (
+                    f"⚡ <b>{to_bold(str(res.get('provider', 'Cloud Direct')))}</b>\n\n"
+                    f"📂 <b>{len(files)} files mili:</b>\n" + "\n".join(lines) +
+                    "\n\n👇 Neeche button se koi bhi file download karein:"
+                )
+                rows = [[InlineKeyboardButton(f"⬇️ {str(f.get('name'))[:32]}", url=f["dlink"])] for f in files[:5]]
+            else:
+                cap = (
+                    f"⚡ <b>{to_bold(str(res.get('provider', 'Cloud Direct')))}</b>\n\n"
+                    f"📁 <b>Title:</b> {hesc(str(res.get('title', 'File'))[:80])}\n"
+                    f"📊 <b>Size:</b> {res.get('size', 'N/A')}\n"
+                )
+                if res.get("note"):
+                    cap += f"ℹ️ {hesc(str(res['note']))}\n"
+                cap += f"\n🔗 <b>High-Speed Link:</b>\n<code>{res.get('direct_url')}</code>"
+                rows = [[InlineKeyboardButton("🚀 Download / Stream", url=res.get("direct_url"))]]
+                if res.get("stream_url") and res.get("stream_url") != res.get("direct_url"):
+                    rows[0].append(InlineKeyboardButton("▶️ Web Player", url=res["stream_url"]))
+            await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
-            await st.edit_text(fail_msg("TERABOX DOWNLOAD FAILED", res.get("error", "Could not resolve link.")), parse_mode=HTML)
+            cap = (
+                f"⚠️ <b>{to_bold('DIRECT LINK NAHI MIL PAYA')}</b>\n\n"
+                f"{hesc(str(res.get('error', 'Cloud link resolve nahi hua.')))}\n\n"
+            )
+            if res.get("hint"):
+                cap += f"💡 <b>Pro Tip:</b> {hesc(str(res['hint']))}\n\n"
+            cap += "👇 <b>Ye trusted web downloaders try karein (free):</b>"
+            rows = [[InlineKeyboardButton(nm, url=u)] for nm, u in (res.get("fallback_links") or [])]
+            await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(rows[:6]), parse_mode=HTML)
         add_use(uid)
         return
 
-    # Dedicated Instagram Downloader (Reels with 100% Sound, Full Multi-Photo Carousels & Stories)
+    # UNIVERSAL VIDEO DOWNLOADER (Instagram + YouTube + Facebook + X + TikTok + 20 platforms)
     if mode == "insta_dl":
-        if not is_instagram_url(raw_text):
-            await update.message.reply_text(fail_msg("INVALID LINK", "Kripya valid Instagram URL bhejein (Reels, Posts, Stories)."), parse_mode=HTML)
+        if not is_supported_video_url(raw_text):
+            await update.message.reply_text(
+                fail_msg("UNSUPPORTED LINK",
+                         "Ye link supported nahi hai. Instagram, YouTube, Facebook, X (Twitter), TikTok, "
+                         "Snapchat, Pinterest, Reddit, Vimeo waale links bhejein."),
+                parse_mode=HTML,
+            )
             return
 
-        st = await update.message.reply_text("📸 Fetching Instagram media with 100% original sound...")
-        res = await download_instagram_async(raw_text)
+        plat = platform_name(raw_text)
+        st = await update.message.reply_text(f"📥 {plat} se media fetch kar raha hoon (best quality + full audio)...")
+        res = await download_video_async(raw_text)
 
-        if res.get("ok"):
-            try:
-                # 1. Multi-Photo / Video Carousel Album (All 2-10 items)
-                if res.get("type") == "carousel" and res.get("items"):
-                    items = res["items"]
-                    media_group = []
-                    for idx, item in enumerate(items[:10]):
-                        m_buf = io.BytesIO(item["bytes"])
-                        cap = f"📸 <b>{to_bold('INSTAGRAM CAROUSEL')} ({len(items)} Photos/Videos)</b>\n\n⚡ <i>Downloaded via Utility Duniya</i>" if idx == 0 else ""
-                        if item["type"] == "video":
-                            m_buf.name = f"insta_video_{idx}.mp4"
-                            media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML))
-                        else:
-                            m_buf.name = f"insta_photo_{idx}.jpg"
-                            media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
-                    await update.message.reply_media_group(media=media_group)
-                    await st.delete()
+        if not res.get("ok"):
+            reason = str(res.get("error", "Media extract nahi hua."))
+            await st.edit_text(
+                fail_msg(f"{plat.upper()} DOWNLOAD FAILED", reason)
+                + "\n\n💡 <b>Kya karein:</b>\n"
+                  "• Post <b>public</b> hai ya nahi check karein\n"
+                  "• 30-60 second baad dobara try karein (server rate-limit)\n"
+                  "• Instagram ke liye <code>IG_COOKIES_FILE</code> env set karne se 100% reliable ho jata hai\n"
+                  "• Ya phir <b>LINK BYPASS</b> tool se direct link nikalein",
+                parse_mode=HTML,
+            )
+            return
 
-                # 2. HD Video / Reel (100% Original Audio)
-                elif res.get("type") == "video" and res.get("bytes"):
-                    media_buf = io.BytesIO(res["bytes"])
-                    media_buf.name = "Instagram_Video.mp4"
-                    title_line = f"• <b>Title:</b> {hesc(res.get('title'))[:45]}...\n" if res.get("title") else ""
-                    await update.message.reply_video(
-                        video=media_buf,
-                        caption=f"📸 <b>{to_bold('INSTAGRAM HD VIDEO / REEL')}</b>\n{title_line}• 🔊 <b>Sound:</b> 100% Original Audio ✅\n• 📊 <b>Size:</b> {res.get('size_mb')} MB",
-                        parse_mode=HTML,
-                        supports_streaming=True,
-                    )
-                    await st.delete()
+        try:
+            mtype = res.get("type")
+            engine = hesc(str(res.get("engine", "")))
+            title = hesc(str(res.get("title") or ""))[:60]
 
-                # 3. Single HD Photo / Post
-                elif res.get("type") == "photo" and res.get("bytes"):
-                    media_buf = io.BytesIO(res["bytes"])
-                    media_buf.name = "Instagram_Photo.jpg"
-                    title_line = f"• <b>Title:</b> {hesc(res.get('title'))[:45]}...\n" if res.get("title") else ""
-                    await update.message.reply_photo(
-                        photo=media_buf,
-                        caption=f"📸 <b>{to_bold('INSTAGRAM HD PHOTO / POST')}</b>\n{title_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB",
-                        parse_mode=HTML,
-                    )
-                    await st.delete()
-
+            # 1) Album / Carousel (2-10 items ek saath)
+            if mtype == "carousel" and res.get("items"):
+                items = res["items"][:10]
+                media_group = []
+                for idx, item in enumerate(items):
+                    m_buf = io.BytesIO(item["bytes"])
+                    cap = f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}" if idx == 0 else ""
+                    if item["type"] == "video":
+                        m_buf.name = f"media_{idx}.mp4"
+                        media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML, supports_streaming=True))
+                    else:
+                        m_buf.name = f"media_{idx}.jpg"
+                        media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
+                await update.message.reply_media_group(media=media_group)
+                await st.delete()
                 add_use(uid)
                 return
-            except Exception as e:
-                await st.edit_text(fail_msg("SEND ERROR", str(e)), parse_mode=HTML)
+
+            # 2) Single Video
+            if mtype == "video" and res.get("bytes"):
+                media_buf = io.BytesIO(res["bytes"])
+                media_buf.name = f"{plat.replace(' ', '_')}_video.mp4"
+                dur = res.get("duration") or 0
+                dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
+                title_line = f"• 📝 {title}\n" if title else ""
+                await update.message.reply_video(
+                    video=media_buf,
+                    caption=(
+                        f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
+                        f"{title_line}{dur_line}"
+                        f"• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
+                        f"• 🔊 <b>Audio:</b> Original ✅\n"
+                        f"• ⚙️ Engine: {engine}"
+                    ),
+                    parse_mode=HTML,
+                    supports_streaming=True,
+                )
+                await st.delete()
+                add_use(uid)
                 return
-        else:
-            cat = res.get("category", "Media").upper()
-            err_reason = res.get("error", "Media stream accessible nahi hai (Private ya restricted post).")
-            await st.edit_text(fail_msg(f"INSTAGRAM DOWNLOAD FAILED ({cat})", err_reason), parse_mode=HTML)
-            return
+
+            # 3) Single Photo
+            if mtype == "photo" and res.get("bytes"):
+                media_buf = io.BytesIO(res["bytes"])
+                media_buf.name = "media_photo.jpg"
+                await update.message.reply_photo(
+                    photo=media_buf,
+                    caption=(f"🖼️ <b>{to_bold(plat.upper() + ' PHOTO')}</b>\n"
+                             + (f"• 📝 {title}\n" if title else "")
+                             + f"• 📊 {res.get('size_mb')} MB"),
+                    parse_mode=HTML,
+                )
+                await st.delete()
+                add_use(uid)
+                return
+
+            # 4) Bada file (48MB+): direct link dete hain — kaam rukta nahi
+            if mtype == "link" and res.get("direct_url"):
+                mb = res.get("size_mb") or 0
+                rows = [
+                    [InlineKeyboardButton("🚀 Direct Download Link", url=res["direct_url"])],
+                    [InlineKeyboardButton("🌐 Original Page Kholo", url=raw_text)],
+                ]
+                await st.edit_text(
+                    f"📥 <b>{to_bold('DOWNLOAD LINK READY')}</b>\n\n"
+                    f"🎬 <b>Platform:</b> {plat}\n"
+                    + (f"📝 <b>Title:</b> {title}\n" if title else "")
+                    + (f"📊 <b>Size:</b> {mb} MB\n" if mb else "")
+                    + f"⚙️ Engine: {engine}\n\n"
+                    + hesc(str(res.get("note") or ""))
+                    + "\n\n👇 Neeche button dabakar download karein:",
+                    reply_markup=InlineKeyboardMarkup(rows),
+                    parse_mode=HTML,
+                )
+                add_use(uid)
+                return
+
+            await st.edit_text(fail_msg("SEND ERROR", "Media mil gayi par bhejne me dikkat aayi. Dobara try karein."), parse_mode=HTML)
+        except Exception as e:
+            await st.edit_text(fail_msg("SEND ERROR", str(e)), parse_mode=HTML)
+        return
 
     if mode == "voice_text":
         st = await update.message.reply_text("🎙️ Generating Actor Voiceover...")
@@ -1292,38 +1501,189 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "short":
-        s1 = shorten_isgd(raw_text) or "Failed"
-        s2 = shorten_tiny(raw_text) or "Failed"
-        await update.message.reply_text(f"🔗 <b>{to_bold('SHORT LINKS')}:</b>\n\n1️⃣ <code>{s1}</code>\n2️⃣ <code>{s2}</code>", parse_mode=HTML)
+        st = await update.message.reply_text("🔗 Short links bana raha hoon (6 providers)...")
+        links = shorten_url(raw_text, want=3)
+        exp = expand_url(raw_text)
+        clean = exp.get("cleaned", raw_text)
+        if links:
+            body = "\n\n".join(f"{i}️⃣ <b>{name}</b> → <code>{u}</code>" for i, (name, u) in enumerate(links, 1))
+            extra = ""
+            if clean and clean != raw_text:
+                extra = f"\n\n🧹 <b>Tracking-free original:</b>\n<code>{clean}</code>"
+            rows = [[InlineKeyboardButton(f"🔗 {name}", url=u)] for name, u in links]
+            await st.edit_text(f"🔗 <b>{to_bold('SHORT LINKS READY')}</b>\n\n{body}{extra}", reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+        else:
+            await st.edit_text(
+                f"⚠️ <b>Short link nahi ban paya</b> (saare providers busy hain).\n\n"
+                f"🧹 <b>Saaf kiya hua original link:</b>\n<code>{clean}</code>\n\n"
+                "<i>10-20 second baad dobara try karein.</i>",
+                parse_mode=HTML,
+            )
         add_use(uid)
         return
 
     if mode == "linkbypass":
-        st = await update.message.reply_text("🔓 Bypassing link...")
-        res = resolve_cloud_url(raw_text)
-        if res.get("ok"):
-            await st.edit_text(f"🔓 <b>{to_bold('ORIGINAL LINK')}:</b>\n\n{res['direct_url']}", parse_mode=HTML)
-        else:
-            await st.edit_text(f"🔓 <b>{to_bold('DIRECT LINK')}:</b>\n\n<code>{raw_text}</code>", parse_mode=HTML)
+        st = await update.message.reply_text("🔓 Link kholte hue redirect chain check kar raha hoon...")
+        cloud = resolve_cloud_url(raw_text)
+        if cloud.get("ok"):
+            await st.edit_text(
+                f"🔓 <b>{to_bold('CLOUD DIRECT LINK')}</b>\n\n"
+                f"📁 {hesc(str(cloud.get('title', 'File'))[:70])}\n"
+                f"📊 {cloud.get('size', 'N/A')}\n\n"
+                f"🔗 <code>{cloud.get('direct_url')}</code>",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚀 Open Link", url=cloud.get("direct_url"))]]),
+                parse_mode=HTML,
+            )
+            add_use(uid)
+            return
+
+        exp = expand_url(raw_text)
+        chain = exp.get("chain") or [raw_text]
+        final = exp.get("final") or raw_text
+        clean = exp.get("cleaned") or final
+        chain_txt = "\n".join(f"   {i}. <code>{hesc(c[:70])}</code>" for i, c in enumerate(chain[:5], 1))
+        kb_rows = [[InlineKeyboardButton("🚀 Open Clean Link", url=clean)]]
+        await st.edit_text(
+            f"🔓 <b>{to_bold('LINK UNPACKED')}</b>\n\n"
+            f"🔁 <b>Redirects:</b> {exp.get('hops', 0)}"
+            f"{'  (shortened link tha)' if exp.get('is_shortener') else ''}\n"
+            f"{chain_txt}\n\n"
+            f"🧹 <b>Final Clean Link (tracking hata di):</b>\n<code>{clean}</code>"
+            + (f"\n\nℹ️ {hesc(str(cloud.get('error','')))[:100]}" if cloud.get('error') and 'support nahi' not in str(cloud.get('error','')) else ""),
+            reply_markup=InlineKeyboardMarkup(kb_rows),
+            parse_mode=HTML,
+        )
         add_use(uid)
         return
 
     if mode == "linkcheck":
-        suspicious = any(w in raw_text.lower() for w in ("login", "verify", "secure", "bank", "free", "lottery", "crypto", "bonus"))
-        if suspicious:
-            await update.message.reply_text("⚠️ <b>WARNING:</b> Yeh link suspicious lag raha hai! Apni personal details share mat karein.", parse_mode=HTML)
-        else:
-            await update.message.reply_text("✅ <b>SAFE:</b> Link safe lag raha hai.", parse_mode=HTML)
+        st = await update.message.reply_text("🛡️ Link ko 6-layer safety scan me daal raha hoon...")
+        chk = check_link_safety(raw_text)
+        risk = chk.get("risk", 0)
+        bar = "█" * max(1, risk // 10) + "░" * (10 - max(1, risk // 10))
+        reasons_txt = "\n".join(f"• {r}" for r in chk.get("reasons", [])[:8])
+        sig = chk.get("signals", {})
+        cap = (
+            f"🛡️ <b>{to_bold('LINK SAFETY REPORT')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🎯 <b>Verdict:</b> {chk.get('verdict')}\n"
+            f"📊 <b>Risk Score:</b> <code>{bar}</code> {risk}/100\n"
+            f"🌐 <b>Final URL:</b> <code>{hesc(str(chk.get('final_url'))[:90])}</code>\n"
+            f"🔁 Redirects: {sig.get('redirect_hops', 0)} | 🔓 HTTPS: {'✅' if sig.get('https') else '❌'}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🔍 <b>Kya mila:</b>\n{reasons_txt}\n\n"
+            f"💡 <b>Aap kya karein:</b> {chk.get('advice')}"
+        )
+        kb_rows = [[InlineKeyboardButton("🌐 Final Link Kholo", url=chk.get("final_url"))]]
+        await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(kb_rows), parse_mode=HTML)
+        add_use(uid)
+        return
+
+    # ---- INTEREST CALCULATOR (pehle toota hua tha: principal ke baad kuch nahi hota tha) ----
+    if mode == "int_p":
+        try:
+            p = float(re.sub(r"[^\d.]", "", raw_text.replace(",", "")) or 0)
+            assert p > 0
+        except Exception:
+            await update.message.reply_text("⚠️ Valid amount bhejein (jaise: <code>50000</code> ya <code>1.5 lakh</code>)", parse_mode=HTML)
+            return
+        context.user_data["int_principal"] = p
+        context.user_data["mode"] = "int_r"
+        await update.message.reply_text(
+            f"📈 <b>{to_bold('INTEREST CALCULATOR')}</b> — Step 2/3\n\n"
+            f"💰 Amount: <b>₹{p:,.0f}</b>\n\n"
+            "Ab <b>saalana interest rate (%)</b> bhejein:\n(jaise: <code>8.5</code>)",
+            parse_mode=HTML,
+        )
+        return
+
+    if mode == "int_r":
+        try:
+            r = float(re.search(r"\d+(?:\.\d+)?", raw_text).group(0))
+        except Exception:
+            await update.message.reply_text("⚠️ Rate number me bhejein (jaise: <code>8.5</code>)", parse_mode=HTML)
+            return
+        context.user_data["int_rate"] = r
+        context.user_data["mode"] = "int_t"
+        await update.message.reply_text(
+            f"📈 <b>{to_bold('INTEREST CALCULATOR')}</b> — Step 3/3\n\n"
+            f"💰 ₹{context.user_data['int_principal']:,.0f} @ <b>{r}%</b> saalana\n\n"
+            "Ab <b>time</b> bhejein — months me (jaise <code>24</code>) ya saal me (jaise <code>2 saal</code>):",
+            parse_mode=HTML,
+        )
+        return
+
+    if mode == "int_t":
+        p_amt = float(context.user_data.get("int_principal", 0) or 0)
+        r_pct = float(context.user_data.get("int_rate", 0) or 0)
+        raw_low = raw_text.lower()
+        try:
+            num = float(re.search(r"\d+(?:\.\d+)?", raw_low).group(0))
+        except Exception:
+            await update.message.reply_text("⚠️ Time bhejein — <code>24</code> (months) ya <code>2 saal</code>", parse_mode=HTML)
+            return
+        months = int(num * 12) if any(w in raw_low for w in ("saal", "year", "yr", "varsh")) else int(num)
+        if months < 1 or months > 600:
+            await update.message.reply_text("⚠️ Time 1 mahine se 50 saal ke beech rakhein.", parse_mode=HTML)
+            return
+
+        res_i = calc_interest(p_amt, r_pct, months)
+        context.user_data.pop("mode", None)
+        await update.message.reply_text(
+            f"📈 <b>{to_bold('INTEREST CALCULATION REPORT')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>Principal:</b> ₹{p_amt:,.0f}\n"
+            f"📊 <b>Rate:</b> {r_pct}% per year\n"
+            f"⏳ <b>Time:</b> {months} months ({res_i['years']} years)\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"1️⃣ <b>Simple Interest:</b>\n"
+            f"   • Interest: ₹{res_i['simple_interest']:,.0f}\n"
+            f"   • Total: <b>₹{res_i['simple_total']:,.0f}</b>\n\n"
+            f"2️⃣ <b>Compound (Monthly):</b>\n"
+            f"   • Interest: ₹{res_i['compound_monthly']:,.0f}\n"
+            f"   • Total: <b>₹{res_i['compound_monthly_total']:,.0f}</b>\n\n"
+            f"3️⃣ <b>FD Style Comparison:</b>\n"
+            f"   • Quarterly: ₹{res_i['compound_quarterly']:,.0f} interest\n"
+            f"   • Half-Yearly: ₹{res_i['compound_halfyearly']:,.0f} interest\n"
+            f"   • Yearly: ₹{res_i['compound_yearly']:,.0f} interest\n\n"
+            f"💡 <i>Farak: compound me ₹{res_i['compound_monthly'] - res_i['simple_interest']:,.0f} zyada banta hai.</i>",
+            parse_mode=HTML,
+        )
         add_use(uid)
         return
 
     if mode == "emi":
-        try:
-            p = float(raw_text.replace(",", ""))
-            emi, rows = emi_schedule(p, 10.5, 12)
-            await update.message.reply_text(f"🧮 <b>{to_bold('LOAN EMI')} (₹{int(p):,} @ 10.5% for 1 Year):</b>\n\nMonthly EMI: <b>₹{int(emi):,}</b>", parse_mode=HTML)
-        except Exception:
-            await update.message.reply_text("⚠️ Valid number bhejein (jaise: 100000)")
+        p_amt, rate, months = parse_emi_input(raw_text)
+        if not p_amt:
+            await update.message.reply_text(
+                "⚠️ <b>EMI ke liye aise bhejein:</b>\n\n"
+                "• <code>100000</code> → ₹1L @ 10.5% / 12 months\n"
+                "• <code>5,00,000 9% 24m</code> → poora control\n"
+                "• <code>3 lakh 8.5% 5 saal</code> → Hindi style bhi chalega",
+                parse_mode=HTML,
+            )
+            return
+        emi, rows = emi_schedule(p_amt, rate, months)
+        total_pay = emi * months
+        total_int = total_pay - p_amt
+        sched = "\n".join(
+            f"  {m}. EMI ₹{e:,.0f} → Principal ₹{pr:,.0f} + Interest ₹{i:,.0f}"
+            for (m, e, pr, i, bal) in rows[:6]
+        )
+        await update.message.reply_text(
+            f"🧮 <b>{to_bold('LOAN EMI CALCULATOR')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>Loan:</b> ₹{p_amt:,.0f}\n"
+            f"📊 <b>Rate:</b> {rate}% per year\n"
+            f"⏳ <b>Tenure:</b> {months} months\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"✅ <b>Monthly EMI: ₹{emi:,.0f}</b>\n"
+            f"📈 <b>Total Interest:</b> ₹{total_int:,.0f}\n"
+            f"💳 <b>Total Payment:</b> ₹{total_pay:,.0f}\n\n"
+            f"📅 <b>Pehle 6 mahine ka breakdown:</b>\n{sched}",
+            parse_mode=HTML,
+        )
+        add_use(uid)
         return
 
     if mode == "age":
@@ -1542,6 +1902,109 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
 
+# ---------------- FULL AUTO CLONER ENGINE (v31) ----------------
+# Album (media group) ko thoda wait karke ek saath bhejne ke liye buffer
+_ALBUM_BUFFER: dict = {}
+
+
+async def _flush_album(bot, key, delay: float = 1.4):
+    """Album ke saare items aane ka wait karta hai, phir ek saath (album) post karta hai."""
+    await asyncio.sleep(delay)
+    item = _ALBUM_BUFFER.pop(key, None)
+    if not item:
+        return
+    msgs = item.get("msgs", [])
+    if not msgs:
+        return
+    for uid in item.get("uids", []):
+        ok, res = await clone_messages(bot, msgs, uid)
+        if item.get("notify"):
+            try:
+                await bot.send_message(chat_id=item["notify"], text=res, parse_mode=HTML)
+            except Exception:
+                pass
+        if not ok:
+            log.warning("Album clone fail (uid=%s): %s", uid, res)
+
+
+async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """VIDEO / FILE / AUDIO / VOICE / GIF / STICKER handler (Manual Forward Mode + ID Finder)."""
+    msg = update.message
+    if not msg:
+        return
+    uid = update.effective_user.id
+    mode = context.user_data.get("mode")
+
+    if is_banned(uid):
+        return
+
+    # Manual Cloner Mode Active
+    if mode == "cloning_active":
+        if msg.media_group_id:
+            key = ("manual", uid, msg.media_group_id)
+            item = _ALBUM_BUFFER.get(key)
+            if item:
+                item["msgs"].append(msg)
+            else:
+                _ALBUM_BUFFER[key] = {"msgs": [msg], "uids": [uid], "notify": update.effective_chat.id}
+                asyncio.create_task(_flush_album(context.bot, key))
+            return
+        ok, res = await forward_cloned_message(context.bot, msg, uid)
+        await msg.reply_text(res, parse_mode=HTML)
+        return
+
+    # ID Finder: forwarded media ka original user/channel ID batao
+    if getattr(msg, "forward_origin", None):
+        orig = msg.forward_origin
+        if getattr(orig, "sender_user", None):
+            f_user = orig.sender_user
+            await msg.reply_text(
+                f"🆔 <b>Forwarded User ID:</b> <code>{f_user.id}</code>\n• <b>Name:</b> {hesc(f_user.first_name or '')}",
+                parse_mode=HTML,
+            )
+            return
+        if getattr(orig, "chat", None):
+            f_chat = orig.chat
+            await msg.reply_text(
+                f"🆔 <b>Forwarded Channel/Chat ID:</b> <code>{f_chat.id}</code>\n• <b>Title:</b> {hesc(f_chat.title or '')}",
+                parse_mode=HTML,
+            )
+            return
+
+
+async def on_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """FULL AUTO: Source channel me nayi post aayi -> uske sabhi auto-cloners ke target me bhej do.
+    (Bot ko us channel me admin hona chahiye, tabhi ye update milta hai.)"""
+    msg = update.effective_message
+    if not msg or not msg.chat:
+        return
+
+    src_id = str(msg.chat.id)
+    cloners = get_auto_cloners_for_source(src_id)
+    if not cloners:
+        return
+
+    # Target == Source ho to skip (infinite loop se bachne ke liye)
+    uids = [c["user_id"] for c in cloners if str(c.get("target_chat_id") or "").strip() != src_id]
+    if not uids:
+        return
+
+    if msg.media_group_id:
+        key = ("auto", src_id, msg.media_group_id)
+        item = _ALBUM_BUFFER.get(key)
+        if item:
+            item["msgs"].append(msg)
+        else:
+            _ALBUM_BUFFER[key] = {"msgs": [msg], "uids": uids, "notify": None}
+            asyncio.create_task(_flush_album(context.bot, key))
+        return
+
+    for uid in uids:
+        ok, res = await clone_messages(context.bot, [msg], uid)
+        if not ok:
+            log.warning("Auto clone fail (uid=%s): %s", uid, res)
+
+
 async def on_pdf_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     if q.data == "make_pdf_now":
@@ -1645,8 +2108,23 @@ def main():
     app.add_handler(CallbackQueryHandler(on_cb))
 
     # Message Handlers
-    app.add_handler(MessageHandler(filters.PHOTO, on_photo))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_text))
+    # (a) FULL AUTO: source channel ki nayi posts (bot ko us channel me admin hona chahiye)
+    app.add_handler(MessageHandler(filters.UpdateType.CHANNEL_POSTS, on_channel_post))
+
+    # (b) Private / Group chats
+    _dm_or_group = filters.ChatType.PRIVATE | filters.ChatType.GROUPS
+    _any_media = (
+        filters.VIDEO
+        | filters.ANIMATION
+        | filters.Document.ALL
+        | filters.AUDIO
+        | filters.VOICE
+        | filters.VIDEO_NOTE
+        | filters.Sticker.ALL
+    )
+    app.add_handler(MessageHandler(filters.PHOTO & _dm_or_group, on_photo))
+    app.add_handler(MessageHandler(_any_media & _dm_or_group, on_media))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, on_text))
 
     app.add_error_handler(on_error)
 
