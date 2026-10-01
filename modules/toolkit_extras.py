@@ -485,7 +485,138 @@ def parse_emi_input(text: str):
 
 
 # =====================================================================================
-# 6) Helper
+# 6) GAON WALA VYAAJ (Compound only) — Bihar/UP ka chakravriddhi byaaj system
+# =====================================================================================
+def rate_from_per_hundred(per_hundred: float) -> float:
+    """'₹100 par ₹5 mahina' ko monthly % me badalta hai (5 -> 5%)."""
+    try:
+        return round(float(per_hundred), 4)
+    except Exception:
+        return 0.0
+
+
+def _add_months(d, months: int):
+    """Date me mahine jodta hai (31 Jan + 1 month = 28/29 Feb — safe)."""
+    y, m = divmod((d.month - 1) + months, 12)
+    new_y, new_m = d.year + y, m + 1
+    import calendar
+    last_day = calendar.monthrange(new_y, new_m)[1]
+    return d.replace(year=new_y, month=new_m, day=min(d.day, last_day))
+
+
+def village_compound_interest(principal: float, monthly_rate_pct: float, months: int) -> dict:
+    """
+    CHAKRAVRIDDHI (compound) byaaj — jaisa gaon/kasbe me vyaaj lene wale ka hisaab hota hai:
+    jo byaaj har mahine nahi diya jata, wo principal me jud kar agle mahine byaaj bhi deta hai.
+
+    principal        : jitna paisa liya (₹)
+    monthly_rate_pct : mahine ka byaaj % (₹100 par ₹5 = 5)
+    months           : kitne mahine ka hisaab
+    """
+    months = max(1, int(months))
+    r = max(0.0, float(monthly_rate_pct)) / 100.0
+
+    rows = []
+    balance = float(principal)
+    total_interest = 0.0
+    for m in range(1, months + 1):
+        interest = balance * r                      # is mahine ka byaaj
+        balance = balance + interest                # byaaj principal me jud gaya
+        total_interest += interest
+        rows.append({
+            "month": m,
+            "opening": balance - interest,
+            "interest": interest,
+            "closing": balance,
+        })
+
+    # Milestones (jaldi samajh aane ke liye)
+    def at(m):
+        return rows[m - 1]["closing"] if 0 < m <= len(rows) else None
+
+    return {
+        "ok": True,
+        "principal": float(principal),
+        "monthly_rate": float(monthly_rate_pct),
+        "months": months,
+        "per_hundred_note": f"₹100 par ₹{monthly_rate_pct:g} har mahina",
+        "first_month_interest": rows[0]["interest"] if rows else 0.0,
+        "total_interest": total_interest,
+        "total_payable": principal + total_interest,
+        "double_amount": principal * 2,
+        "rows": rows,
+        "milestones": {k: v for k, v in {
+            "6 mahine": at(6) if months >= 6 else None,
+            "12 mahine": at(12) if months >= 12 else None,
+            "24 mahine": at(24) if months >= 24 else None,
+            "36 mahine": at(36) if months >= 36 else None,
+        }.items() if v is not None},
+    }
+
+
+# =====================================================================================
+# 7) EMI FULL REPORT — "kitne mahine / kitne din me poora chukega"
+# =====================================================================================
+def emi_full_report(principal: float, annual_rate: float, months: int, start=None) -> dict:
+    """
+    EMI ka poora hisaab + payoff date:
+      • monthly EMI, total interest, total payment
+      • pehli aur aakhri EMI ki date
+      • poora loan kitne MAHINE aur kitne DIN me khatam hoga
+    """
+    from datetime import date as _date
+    months = max(1, int(months))
+    r = (float(annual_rate) / 100.0) / 12.0
+    p = float(principal)
+    if r <= 0:
+        emi = p / months
+    else:
+        emi = p * r * ((1 + r) ** months) / (((1 + r) ** months) - 1)
+
+    start = start or _date.today()
+    first_emi = _add_months(start, 1)
+    last_emi = _add_months(start, months)
+    total_days = (last_emi - start).days
+    total_pay = emi * months
+
+    # saal/mahine breakdown
+    y, m = divmod(months, 12)
+
+    # month-wise (pehle 6 + aakhir 3) + har saal ka balance
+    bal = p
+    rows = []
+    yearly = []
+    for i in range(1, months + 1):
+        interest = bal * r
+        principal_part = emi - interest
+        bal = max(0.0, bal - principal_part)
+        rows.append({
+            "no": i, "emi": emi, "principal": principal_part, "interest": interest,
+            "balance": bal, "date": _add_months(start, i),
+        })
+        if i % 12 == 0 or i == months:
+            yearly.append({"after": i, "balance": bal})
+
+    return {
+        "ok": True,
+        "principal": p,
+        "annual_rate": float(annual_rate),
+        "months": months,
+        "years_text": (f"{y} saal {m} mahine" if y else f"{m} mahine"),
+        "emi": emi,
+        "total_interest": total_pay - p,
+        "total_payment": total_pay,
+        "start_date": start,
+        "first_emi_date": first_emi,
+        "last_emi_date": last_emi,
+        "total_days": total_days,
+        "rows": rows,
+        "yearly": yearly,
+    }
+
+
+# =====================================================================================
+# 8) Helpers
 # =====================================================================================
 def file_size_human(n) -> str:
     try:

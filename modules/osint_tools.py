@@ -1,18 +1,32 @@
 # -*- coding: utf-8 -*-
 """
-Smart OSINT & Digital Investigation Hub
-Vehicle RTO, Phone Carrier/Circle, IFSC Bank Branch, Pincode, Domain/IP Lookup, and Username Checker.
+Smart OSINT & Digital Investigation Hub — v32 PRO
+=================================================
+Vehicle RTO, Phone Carrier/Circle, IFSC Bank Branch, Pincode (+ area-name search), Domain/IP Lookup,
+and REAL Username Existence Checker (GitHub / YouTube / TikTok / Steam / Telegram verified).
+
+NOTE (safety): Default me sirf PUBLIC / lawful sources use hote hain (telecom carrier+circle, bank branch,
+pin code, IP geo). "Public records" lookup (naam/address wala) ek OPTIONAL feature hai jo bot owner ne
+khud enable kiya hai — env NUM_LEAK_ENABLED=off karke ise kabhi bhi band kiya ja sakta hai.
+Iska misuse (kisi ko pareshan karna / blackmail / fraud) India me CRIME hai (IT Act + DPDP Act).
 """
 
+import os
+
+import json
 import re
 import requests
 import phonenumbers
-from phonenumbers import geocoder, carrier, timezone
+from phonenumbers import geocoder, carrier, timezone, number_type, PhoneNumberType
 
 UA_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept-Language": "en-US,en;q=0.9",
 }
 
+# =====================================================================================
+# RTO / VEHICLE
+# =====================================================================================
 RTO_STATES = {
     "AP": "Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": "Assam", "BR": "Bihar",
     "CG": "Chhattisgarh", "CH": "Chandigarh", "DD": "Daman & Diu", "DL": "Delhi",
@@ -20,75 +34,159 @@ RTO_STATES = {
     "HR": "Haryana", "JH": "Jharkhand", "JK": "Jammu & Kashmir", "KA": "Karnataka",
     "KL": "Kerala", "LA": "Ladakh", "LD": "Lakshadweep", "MH": "Maharashtra",
     "ML": "Meghalaya", "MN": "Manipur", "MP": "Madhya Pradesh", "MZ": "Mizoram",
-    "NL": "Nagaland", "OD": "Odisha", "PB": "Punjab", "PY": "Puducherry",
+    "NL": "Nagaland", "OD": "Odisha", "OR": "Odisha", "PB": "Punjab", "PY": "Puducherry",
     "RJ": "Rajasthan", "SK": "Sikkim", "TN": "Tamil Nadu", "TR": "Tripura",
-    "TS": "Telangana", "UK": "Uttarakhand", "UP": "Uttar Pradesh", "WB": "West Bengal",
+    "TS": "Telangana", "UA": "Uttarakhand", "UK": "Uttarakhand", "UP": "Uttar Pradesh",
+    "WB": "West Bengal",
+}
+
+# Popular RTO office codes (district level) — bade shehar
+RTO_DISTRICTS = {
+    "BR01": "Patna", "BR02": "Gaya", "BR06": "Muzaffarpur", "BR07": "Darbhanga", "BR10": "Bhagalpur",
+    "UP32": "Lucknow", "UP65": "Varanasi", "UP70": "Prayagraj", "UP78": "Kanpur", "UP16": "Noida (Gautam Buddha Nagar)",
+    "DL01": "Delhi (Mall Road)", "DL02": "Delhi (IP Depot)", "DL08": "Delhi (Wazirpur)", "DL09": "Delhi (Dwarka)",
+    "MH01": "Mumbai (Tardeo)", "MH02": "Mumbai (Andheri)", "MH12": "Pune", "MH43": "Navi Mumbai",
+    "KA01": "Bengaluru (Koramangala)", "KA03": "Bengaluru (Indiranagar)", "KA05": "Bengaluru (Jayanagar)",
+    "TN01": "Chennai (Ayanavaram)", "TN22": "Chennai (Meenambakkam)", "TN38": "Coimbatore",
+    "GJ01": "Ahmedabad", "GJ05": "Surat", "GJ18": "Vadodara",
+    "RJ14": "Jaipur", "RJ19": "Jodhpur", "RJ27": "Udaipur",
+    "MP09": "Bhopal", "MP13": "Indore", "MP20": "Jabalpur",
+    "HR26": "Gurugram", "HR51": "Faridabad", "PB10": "Ludhiana", "PB65": "Mohali",
+    "JH01": "Ranchi", "JH05": "Jamshedpur", "WB02": "Kolkata (Beltala)", "WB06": "Kolkata (Kasba)",
+    "OD02": "Bhubaneswar", "OD05": "Cuttack", "TS09": "Hyderabad (Khairatabad)", "TS07": "Hyderabad (Ranga Reddy)",
+    "KL01": "Thiruvananthapuram", "KL07": "Ernakulam (Kochi)", "AP39": "Visakhapatnam",
+}
+
+VEHICLE_CLASS = {
+    "1": "Car / Jeep / Taxi (Non-commercial)", "2": "Car / Jeep (Commercial)", "3": "Auto Rickshaw (Non-Comm)",
+    "4": "Auto Rickshaw (Commercial)", "5": "Motorcycle / Scooter (Non-Comm)", "6": "Motorcycle (Commercial)",
+    "7": "Truck / Lorry (Non-Comm)", "8": "Truck / Lorry (Commercial)", "9": "Bus (Non-Comm)",
+    "0": "Bus (Commercial / School)", "11": "Tractor", "12": "E-Rickshaw / E-Cart", "13": "Trailer",
 }
 
 
 def lookup_vehicle_rto(plate: str) -> dict:
-    """Parses Indian license plate and returns State, District RTO, and official verification links"""
-    clean = re.sub(r"[^A-Za-z0-9]", "", plate).upper()
-    if len(clean) < 4:
-        return {"ok": False, "error": "Invalid registration number format (e.g. DL01AB1234)"}
-    
-    state_code = clean[:2]
-    state_name = RTO_STATES.get(state_code, "India State RTO")
-    rto_code = clean[:4]
-    
-    challan_link = f"https://echallan.parivahan.gov.in/index/accused-challan"
-    mparivahan = "https://parivahan.gov.in/rcdlstatus/?pur_cd=102"
-    
+    """Parses Indian number plate: state, RTO office, vehicle class + official check links."""
+    clean = re.sub(r"[^A-Za-z0-9]", "", plate or "").upper()
+    if len(clean) < 6:
+        return {"ok": False, "error": "Galat format. Aise bhejein: <code>BR01AB1234</code> ya <code>DL8CAF5030</code>"}
+
+    m = re.match(r"^([A-Z]{2})(\d{1,2})([A-Z]{0,3})(\d{1,4})$", clean)
+    if not m:
+        return {"ok": False, "error": "Number plate format samajh nahi aaya. Example: <code>BR01AB1234</code>"}
+
+    state_code, rto_no, series, number = m.groups()
+    state_name = RTO_STATES.get(state_code)
+    if not state_name:
+        return {"ok": False, "error": f"'{state_code}' state code valid nahi hai (example: BR, UP, DL, MH...)"}
+
+    rto_code = f"{state_code}{int(rto_no):02d}"
+    district = RTO_DISTRICTS.get(rto_code, "RTO office (district code " + str(int(rto_no)) + ")")
+    class_code = series[:1] if series else ""
+    v_class = VEHICLE_CLASS.get(class_code, "") if class_code.isdigit() else ""
+
     return {
         "ok": True,
         "plate": clean,
+        "pretty": f"{state_code} {int(rto_no):02d} {series} {number}".strip(),
         "state_code": state_code,
         "state_name": state_name,
         "rto_code": rto_code,
-        "challan_link": challan_link,
-        "parivahan_link": mparivahan,
+        "district": district,
+        "vehicle_class": v_class,
+        "links": [
+            ("🔎 RC / Vehicle Details (VAHAN)", "https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml"),
+            ("🎫 e-Challan Status Check", "https://echallan.parivahan.gov.in/index/accused-challan"),
+            ("🛡️ Insurance Policy Status (IIB)", "https://iib.gov.in/IIB/InsuPolicySearch.aspx"),
+            ("📄 Sarathi DL Status", "https://sarathi.parivahan.gov.in/sarathiservice/stateSelection.do"),
+            ("📲 mParivahan App", "https://play.google.com/store/apps/details?id=com.nic.mparivahan"),
+        ],
+        "note": "VAHAN/Parivahan par OTP aur captcha hota hai, isliye asli RC details wahan jaa kar hi milti hain — ye tool aapko sahi jagah pahuncha deta hai.",
     }
 
 
+# =====================================================================================
+# PHONE NUMBER
+# =====================================================================================
 def lookup_phone_info(number_str: str) -> dict:
-    """Extracts country, circle, carrier/operator, and WhatsApp link"""
-    clean = re.sub(r"[^\d+]", "", number_str)
+    """Carrier, circle/region, timezone, number type + safety links (100% public data)."""
+    clean = re.sub(r"[^\d+]", "", number_str or "")
+    if not clean:
+        return {"ok": False, "error": "Number bhejein (jaise <code>9876543210</code> ya <code>+919876543210</code>)"}
+
     if not clean.startswith("+"):
-        if len(clean) == 10:
-            clean = "+91" + clean
-        else:
-            clean = "+" + clean
-            
+        clean = ("+91" + clean) if len(clean) == 10 else ("+" + clean)
+
     try:
         parsed = phonenumbers.parse(clean, None)
-        if not phonenumbers.is_valid_number(parsed):
-            return {"ok": False, "error": "Invalid international phone number"}
-            
-        country = geocoder.description_for_number(parsed, "en")
-        operator = carrier.name_for_number(parsed, "en") or "Indian Cellular Telecom"
-        tz_list = timezone.time_zones_for_number(parsed)
-        wa_link = f"https://wa.me/{clean.lstrip('+')}"
-        
-        return {
-            "ok": True,
-            "number": clean,
-            "national": phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.NATIONAL),
-            "international": phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.INTERNATIONAL),
-            "country": country or "India",
-            "operator": operator,
-            "timezones": ", ".join(tz_list),
-            "wa_link": wa_link,
-        }
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": f"Number parse nahi hua: {str(e)[:80]}"}
+
+    region_code = phonenumbers.region_code_for_number(parsed)
+    valid = phonenumbers.is_valid_number(parsed)
+    possible = phonenumbers.is_possible_number(parsed)
+
+    if not possible:
+        return {"ok": False, "error": "Ye number possible hi nahi lagta (digits galat hain)."}
+
+    ntype_map = {
+        PhoneNumberType.MOBILE: "📱 Mobile", PhoneNumberType.FIXED_LINE: "☎️ Landline",
+        PhoneNumberType.FIXED_LINE_OR_MOBILE: "📱 Mobile / Landline",
+        PhoneNumberType.TOLL_FREE: "🆓 Toll Free", PhoneNumberType.VOIP: "💻 VoIP / Internet Number",
+        PhoneNumberType.PREMIUM_RATE: "💎 Premium Rate", PhoneNumberType.SHARED_COST: "💠 Shared Cost",
+        PhoneNumberType.PERSONAL_NUMBER: "👤 Personal Number", PhoneNumberType.PAGER: "📟 Pager",
+        PhoneNumberType.UAN: "🏢 UAN (Corporate)", PhoneNumberType.VOICEMAIL: "📨 Voicemail",
+        PhoneNumberType.UNKNOWN: "❔ Type unknown",
+    }
+    ntype = ntype_map.get(number_type(parsed), "❔ Unknown")
+
+    country = geocoder.description_for_number(parsed, "en") or "India"
+    operator = carrier.name_for_number(parsed, "en") or ""
+    zones = ", ".join(timezone.time_zones_for_number(parsed)) or "Asia/Kolkata"
+    e164 = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)
+    digits = e164.lstrip("+")
+
+    # Indian mobile series hint (6/7/8/9 se shuru hone wale mobile)
+    series_note = ""
+    if region_code == "IN" and len(digits) == 12 and digits[2] in "6789":
+        series_note = "Indian mobile series ✅"
+
+    return {
+        "ok": True,
+        "valid": bool(valid),
+        "number": digits,
+        "national": phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.NATIONAL),
+        "international": phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.INTERNATIONAL),
+        "e164": e164,
+        "country": country,
+        "country_code": region_code or "-",
+        "operator": operator or "Nahi pata chala (naya/ported number ho sakta hai)",
+        "circle": country or "India",
+        "timezones": zones,
+        "type": ntype,
+        "series_note": series_note,
+        "links": [
+            ("💬 WhatsApp Check", f"https://wa.me/{digits}"),
+            ("✈️ Telegram Check", f"https://t.me/+{digits}"),
+            ("🔍 Truecaller Search", f"https://www.truecaller.com/search/in/{digits}"),
+            ("🌐 Google Search", f"https://www.google.com/search?q=%22{digits}%22"),
+            ("🚨 Chakshu (Spam Report - TRAI)", "https://sancharsaathi.gov.in/sfc/"),
+            ("🚔 Cyber Crime Helpline 1930", "https://cybercrime.gov.in/"),
+        ],
+        "note": "Carrier/circle badal sakta hai agar number port (MNP) hua ho.",
+    }
 
 
+# =====================================================================================
+# IFSC
+# =====================================================================================
 def lookup_ifsc(code: str) -> dict:
-    """Razorpay IFSC API lookup"""
-    clean = re.sub(r"[^A-Za-z0-9]", "", code).upper()
-    url = f"https://ifsc.razorpay.com/{clean}"
+    """Razorpay public IFSC API — bank branch, MICR, UPI/NEFT/IMPS, map link."""
+    clean = re.sub(r"[^A-Za-z0-9]", "", code or "").upper()
+    if len(clean) != 11:
+        return {"ok": False, "error": "IFSC 11 characters ka hota hai (jaise SBIN0000001, HDFC0001234)"}
     try:
-        r = requests.get(url, headers=UA_HEADERS, timeout=5)
+        r = requests.get(f"https://ifsc.razorpay.com/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             d = r.json()
             maps_q = requests.utils.quote(f"{d.get('BANK')} {d.get('BRANCH')} {d.get('ADDRESS')}")
@@ -99,53 +197,100 @@ def lookup_ifsc(code: str) -> dict:
                 "branch": d.get("BRANCH", "Branch"),
                 "address": d.get("ADDRESS", "Address"),
                 "city": d.get("CITY", ""),
+                "district": d.get("DISTRICT", ""),
                 "state": d.get("STATE", ""),
+                "contact": d.get("CONTACT", ""),
                 "micr": d.get("MICR", "N/A"),
-                "upi": "✅ Supported" if d.get("UPI") else "❌ No",
-                "neft": "✅ Supported" if d.get("NEFT") else "❌ No",
-                "imps": "✅ Supported" if d.get("IMPS") else "❌ No",
+                "neft": bool(d.get("NEFT")),
+                "rtgs": bool(d.get("RTGS")),
+                "imps": bool(d.get("IMPS")),
+                "upi": bool(d.get("UPI")),
                 "maps_link": f"https://maps.google.com/?q={maps_q}",
             }
-        return {"ok": False, "error": "IFSC code not found in RBI database"}
+        return {"ok": False, "error": f"'{clean}' RBI database me nahi mila. Spelling check karein."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": f"API busy hai: {str(e)[:80]}"}
 
 
+# =====================================================================================
+# PINCODE (+ area-name search)
+# =====================================================================================
 def lookup_pincode(pincode: str) -> dict:
-    """India Post Pincode API lookup"""
-    clean = re.sub(r"[^\d]", "", pincode)
+    """India Post API — district, state, taluk, division + map link."""
+    clean = re.sub(r"[^\d]", "", pincode or "")
     if len(clean) != 6:
-        return {"ok": False, "error": "Pincode must be 6 digits"}
-    url = f"https://api.postalpincode.in/pincode/{clean}"
+        return {"ok": False, "error": "Pincode 6 digit ka hota hai (jaise 800001)"}
     try:
-        r = requests.get(url, headers=UA_HEADERS, timeout=6)
+        r = requests.get(f"https://api.postalpincode.in/pincode/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             data = r.json()
             if data and data[0].get("Status") == "Success":
                 po_list = data[0].get("PostOffice", [])
                 primary = po_list[0] if po_list else {}
-                names = [p.get("Name") for p in po_list[:8]]
+                names = [p.get("Name") for p in po_list[:10]]
                 return {
                     "ok": True,
                     "pincode": clean,
                     "district": primary.get("District", ""),
                     "state": primary.get("State", ""),
+                    "taluk": primary.get("Taluk", ""),
                     "division": primary.get("Division", ""),
+                    "region": primary.get("Region", ""),
                     "circle": primary.get("Circle", ""),
-                    "post_offices": ", ".join(names),
+                    "branch_type": primary.get("BranchType", ""),
+                    "delivery": primary.get("DeliveryStatus", ""),
+                    "post_offices": names,
                     "total_offices": len(po_list),
+                    "maps_link": f"https://maps.google.com/?q={requests.utils.quote(primary.get('District', '') + ' ' + primary.get('State', ''))}",
                 }
-        return {"ok": False, "error": "Pincode not found"}
+        return {"ok": False, "error": "Pincode nahi mila. Sahi 6-digit pincode bhejein."}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": str(e)[:100]}
 
 
-def lookup_ip_domain(target: str) -> dict:
-    """IP & Domain WHOIS / Geolocation lookup"""
-    clean = re.sub(r"^https?://", "", target).split("/")[0].strip()
-    url = f"http://ip-api.com/json/{clean}"
+def search_by_area_name(area: str) -> dict:
+    """Area/post-office ke naam se pincode dhoondhta hai (India Post API)."""
+    q = re.sub(r"[^A-Za-z\s.]", "", area or "").strip()
+    if len(q) < 3:
+        return {"ok": False, "error": "Kam se kam 3 letters ka area naam bhejein (jaise: Patna GPO, Kankarbagh)"}
     try:
-        r = requests.get(url, headers=UA_HEADERS, timeout=5)
+        r = requests.get(f"https://api.postalpincode.in/postoffice/{requests.utils.quote(q)}", headers=UA_HEADERS, timeout=8)
+        if r.status_code == 200:
+            data = r.json()
+            if data and data[0].get("Status") == "Success":
+                pos = data[0].get("PostOffice", [])[:10]
+                return {
+                    "ok": True,
+                    "query": q,
+                    "results": [
+                        {
+                            "name": p.get("Name", ""),
+                            "pincode": p.get("Pincode", ""),
+                            "district": p.get("District", ""),
+                            "state": p.get("State", ""),
+                            "taluk": p.get("Taluk", ""),
+                        }
+                        for p in pos
+                    ],
+                    "total": len(data[0].get("PostOffice", [])),
+                }
+        return {"ok": False, "error": ("Is naam ka post office nahi mila. Post office ka <b>asli naam</b> bhejein "
+                                       "(jaise <code>Rajendra Nagar</code>, <code>Patna GPO</code>, <code>Boring Road SO</code>).")}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:100]}
+
+
+# =====================================================================================
+# IP / DOMAIN
+# =====================================================================================
+def lookup_ip_domain(target: str) -> dict:
+    """IP & Domain geolocation + ISP (ip-api.com)."""
+    clean = re.sub(r"^https?://", "", (target or "").strip()).split("/")[0].strip()
+    if not clean:
+        return {"ok": False, "error": "Domain ya IP bhejein (jaise google.com ya 8.8.8.8)"}
+    try:
+        r = requests.get(f"http://ip-api.com/json/{clean}", params={"fields": "status,message,query,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting"},
+                         headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             d = r.json()
             if d.get("status") == "success":
@@ -156,25 +301,195 @@ def lookup_ip_domain(target: str) -> dict:
                     "isp": d.get("isp", "N/A"),
                     "org": d.get("org", "N/A"),
                     "country": d.get("country", "N/A"),
+                    "country_code": d.get("countryCode", ""),
                     "region": d.get("regionName", "N/A"),
                     "city": d.get("city", "N/A"),
+                    "zip": d.get("zip", ""),
                     "timezone": d.get("timezone", "N/A"),
                     "as": d.get("as", "N/A"),
+                    "lat": d.get("lat"), "lon": d.get("lon"),
+                    "is_proxy": bool(d.get("proxy")),
+                    "is_mobile": bool(d.get("mobile")),
+                    "is_hosting": bool(d.get("hosting")),
+                    "maps_link": f"https://maps.google.com/?q={d.get('lat')},{d.get('lon')}" if d.get("lat") else "",
                 }
-        return {"ok": False, "error": "Domain or IP info could not be retrieved"}
+            return {"ok": False, "error": d.get("message", "Info nahi mili")}
+        return {"ok": False, "error": f"API status {r.status_code}"}
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": str(e)[:100]}
+
+
+# =====================================================================================
+# PUBLIC-RECORDS LOOKUP (OPTIONAL — bot owner ne enable kiya; env se off ho sakta hai)
+# =====================================================================================
+NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-apis-hub.onrender.com").rstrip("/")
+NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
+NUM_LEAK_ENABLED = lambda: os.environ.get("NUM_LEAK_ENABLED", "on").strip().lower() not in ("off", "0", "false", "no")
+
+PUBLIC_RECORD_WARNING = (
+    "⚠️ <b>DHYAAN DO (zaroori):</b>\n"
+    "Ye <b>public/leaked records</b> ki jaankari hai (kisi ki personal detail ho sakti hai).\n"
+    "• Ise kisi ko <b>pareshan karne, blackmail karne ya fraud</b> ke liye use karna India me <b>CRIME</b> hai "
+    "(IT Act + DPDP Act — jail/jurmana ho sakta hai)\n"
+    "• Sirf <b>apni</b> jaankari, ya <b>legal</b> kaam (jaise fraud number ki complaint) ke liye dekho\n"
+    "• Bot owner chahe to is feature ko band kar sakta hai (NUM_LEAK_ENABLED=off)"
+)
+
+
+def lookup_public_records(number: str) -> dict:
+    """
+    OPTIONAL: user ke diye hue API se public-records (naam / address / father-name) nikalta hai.
+    Env se band: NUM_LEAK_ENABLED=off | API badalni ho: NUM_INFO_API_BASE / NUM_INFO_API_KEY
+    """
+    if not NUM_LEAK_ENABLED():
+        return {"ok": False, "disabled": True,
+                "error": "Ye feature owner ne band kar diya hai (NUM_LEAK_ENABLED=off)."}
+
+    digits = re.sub(r"\D", "", number or "")
+    if len(digits) == 10:
+        digits = "91" + digits
+    if len(digits) != 12:
+        return {"ok": False, "error": "10 digit mobile number bhejein (jaise 9876543210)"}
+
+    try:
+        r = requests.get(f"{NUM_INFO_API_BASE()}/api/num-info",
+                         params={"key": NUM_INFO_API_KEY(), "q": digits},
+                         headers=UA_HEADERS, timeout=45)
+        if r.status_code != 200:
+            return {"ok": False, "error": f"API ne jawab nahi diya (HTTP {r.status_code})"}
+        j = r.json()
+    except Exception as e:
+        return {"ok": False, "error": f"API tak nahi pahunch paye: {str(e)[:90]}"}
+
+    if not j.get("status"):
+        return {"ok": False, "error": j.get("error") or "Is number ka koi record nahi mila"}
+
+    data = j.get("data") or {}
+    raw = list(data.get("main_records") or []) + list(data.get("alternative_records") or [])
+    records = []
+    for rec in raw[:5]:
+        records.append({
+            "name": (rec.get("full_name") or rec.get("name") or "—").strip(),
+            "father": (rec.get("the_name_of_the_father") or "").strip(),
+            "address": (rec.get("address") or "").strip(),
+            "phone": (rec.get("phone") or "").strip(),
+            "doc": (rec.get("document_number") or "").strip(),
+            "region": (rec.get("region") or "").strip(),
+        })
+
+    if not records:
+        return {"ok": False, "error": "Record mila par khaali hai. Koi dusra number try karo."}
+
+    return {"ok": True, "number": digits, "records": records, "count": len(records),
+            "record_count": j.get("record_count", len(records)), "warning": PUBLIC_RECORD_WARNING}
+
+
+# =====================================================================================
+# USERNAME — REAL EXISTENCE CHECKER (verified working sources)
+# =====================================================================================
+def _gh_exists(u):
+    try:
+        r = requests.get(f"https://api.github.com/users/{u}", headers=UA_HEADERS, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            return True, f"{d.get('name') or u} • {d.get('public_repos', 0)} repos • {d.get('followers', 0)} followers"
+        return False, ""
+    except Exception:
+        return None, ""
+
+
+def _tg_exists(u):
+    """Telegram: real name/photo hote hain to exist karta hai; warna page 'Telegram: Contact @user' dikhata hai."""
+    try:
+        r = requests.get(f"https://t.me/{u}", headers=UA_HEADERS, timeout=10)
+        t = r.text
+        m = re.search(r'<meta property="og:title" content="([^"]*)"', t)
+        title = (m.group(1) if m else "").strip()
+        desc = re.search(r'<meta property="og:description" content="([^"]*)"', t)
+        has_photo = "tgme_page_photo" in t
+        dtext = (desc.group(1) if desc else "").strip()
+        low_all = (title + " " + dtext).lower()
+        generic_page = (("new era of messaging" in low_all) or ("fast. secure. powerful" in low_all)
+                        or title in ("Telegram", "Telegram Messenger"))
+        is_real = (bool(title) and not title.startswith("Telegram: Contact @")
+                   and not generic_page and (has_photo or dtext))
+        if is_real:
+            extra = title
+            if desc and desc.group(1) and len(desc.group(1)) < 60:
+                extra = f"{title} — {desc.group(1)}"
+            return True, extra[:90]
+        return False, ""
+    except Exception:
+        return None, ""
+
+
+def _yt_exists(u):
+    try:
+        r = requests.get(f"https://www.youtube.com/@{u}", headers=UA_HEADERS, timeout=12)
+        t = r.text
+        if r.status_code == 200 and ("channelId" in t or "externalId" in t):
+            m = re.search(r'"title":"([^"]{1,60})"', t) or re.search(r"<title>([^<]{1,60})</title>", t)
+            return True, (m.group(1) if m else "")
+        return False, ""
+    except Exception:
+        return None, ""
+
+
+def _tt_exists(u):
+    try:
+        r = requests.get(f"https://www.tiktok.com/@{u}", headers=UA_HEADERS, timeout=12)
+        return ('"uniqueId"' in r.text), ""
+    except Exception:
+        return None, ""
+
+
+def _steam_exists(u):
+    try:
+        r = requests.get(f"https://steamcommunity.com/id/{u}", headers=UA_HEADERS, timeout=12)
+        if "could not be found" in r.text.lower():
+            return False, ""
+        m = re.search(r'<span class="actual_persona_name">([^<]+)</span>', r.text)
+        return True, (m.group(1) if m else "")
+    except Exception:
+        return None, ""
+
+
+CHECKERS = {
+    "github": ("🐙 GitHub", _gh_exists, "https://github.com/{}"),
+    "telegram": ("✈️ Telegram", _tg_exists, "https://t.me/{}"),
+    "youtube": ("▶️ YouTube", _yt_exists, "https://www.youtube.com/@{}"),
+    "tiktok": ("🎵 TikTok", _tt_exists, "https://www.tiktok.com/@{}"),
+    "steam": ("🎮 Steam", _steam_exists, "https://steamcommunity.com/id/{}"),
+}
+
+# Ye sirf direct link dete hain (in par reliable "exists" check possible nahi — login wall)
+LINK_ONLY = [
+    ("📸 Instagram", "https://instagram.com/{}"),
+    ("🐦 X (Twitter)", "https://x.com/{}"),
+    ("👽 Reddit", "https://reddit.com/user/{}"),
+    ("📌 Pinterest", "https://pinterest.com/{}"),
+    ("👻 Snapchat", "https://www.snapchat.com/add/{}"),
+    ("📘 Facebook", "https://facebook.com/{}"),
+    ("🎧 Spotify", "https://open.spotify.com/user/{}"),
+    ("🟣 Twitch", "https://www.twitch.tv/{}"),
+    ("🧵 Threads", "https://www.threads.net/@{}"),
+]
 
 
 def check_username_platforms(username: str) -> dict:
-    """Checks social media presence across popular platforms"""
-    u = username.lstrip("@").strip()
-    platforms = [
-        {"name": "GitHub", "url": f"https://github.com/{u}"},
-        {"name": "Telegram", "url": f"https://t.me/{u}"},
-        {"name": "Instagram", "url": f"https://instagram.com/{u}"},
-        {"name": "Twitter / X", "url": f"https://x.com/{u}"},
-        {"name": "Reddit", "url": f"https://reddit.com/user/{u}"},
-        {"name": "Pinterest", "url": f"https://pinterest.com/{u}"},
-    ]
-    return {"ok": True, "username": u, "platforms": platforms}
+    """Real check (GitHub/Telegram/YouTube/TikTok/Steam) + baaki ke direct links."""
+    u = (username or "").lstrip("@").strip()
+    u = re.sub(r"[^A-Za-z0-9._\-]", "", u)
+    if len(u) < 2:
+        return {"ok": False, "error": "Username kam se kam 2 letter ka ho (jaise <code>@himanshu</code>)"}
+
+    results = []
+    for key, (label, fn, url_tpl) in CHECKERS.items():
+        exists, extra = fn(u)
+        results.append({
+            "key": key, "label": label, "exists": exists, "extra": extra, "url": url_tpl.format(u),
+        })
+
+    links = [{"label": lab, "url": tpl.format(u)} for lab, tpl in LINK_ONLY]
+    return {"ok": True, "username": u, "results": results, "links": links,
+            "found": sum(1 for r in results if r["exists"] is True)}

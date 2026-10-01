@@ -109,79 +109,23 @@ def make_printable_sheet(photo_bytes: bytes, copies: int = 8) -> io.BytesIO:
     return out
 
 
-def clean_signature(img_bytes: bytes) -> tuple[io.BytesIO, int]:
+def compress_document_pdf(image_bytes_list: list[bytes], max_kb: int = 300, grayscale: bool = False) -> io.BytesIO:
     """
-    Enhances handwritten signature:
-    - Removes shadow, yellow tint and background paper texture
-    - Turns signature into crisp high-contrast black/blue ink on pure white
-    - Auto-crops bounding box
-    - Compresses to 10KB - 20KB official Govt limit
-    """
-    img = Image.open(io.BytesIO(img_bytes)).convert("L")
-    
-    # Contrast boost
-    enhancer = ImageEnhance.Contrast(img)
-    img_contrast = enhancer.enhance(2.8)
-    
-    # Thresholding to pure white background and dark text
-    # Pixels > 165 become 255 (white), dark ink stays black
-    def threshold(p):
-        if p > 160:
-            return 255
-        elif p < 100:
-            return 0
-        else:
-            return int((p - 100) / 60 * 255)
-            
-    bw = img_contrast.point(threshold, mode="L")
-    
-    # Invert to find bounding box of ink
-    inv = ImageOps.invert(bw)
-    bbox = inv.getbbox()
-    if bbox:
-        # Add 15px padding
-        pad = 20
-        w_img, h_img = bw.size
-        crop_box = (
-            max(0, bbox[0] - pad),
-            max(0, bbox[1] - pad),
-            min(w_img, bbox[2] + pad),
-            min(h_img, bbox[3] + pad),
-        )
-        bw = bw.crop(crop_box)
-        
-    # Resize to standard signature aspect ratio (e.g. 500 x 200)
-    target_w = 600
-    target_h = int(target_w * (bw.height / max(1, bw.width)))
-    bw_resized = bw.resize((target_w, target_h), Image.Resampling.LANCZOS)
-    
-    out = io.BytesIO()
-    for q in (80, 70, 60, 50, 40):
-        out.seek(0)
-        out.truncate(0)
-        bw_resized.save(out, format="JPEG", quality=q, optimize=True)
-        size_kb = len(out.getvalue()) / 1024
-        if 10 <= size_kb <= 25 or q == 40:
-            break
-            
-    out.seek(0)
-    return out, int(len(out.getvalue()) / 1024)
-
-
-def compress_document_pdf(image_bytes_list: list[bytes], max_kb: int = 300) -> io.BytesIO:
-    """
-    Takes 1 or more document/marksheet images and merges them into a clean PDF under max_kb (e.g. 200-300KB)
+    Marksheet/certificate photos ko ek clean PDF me badalta hai, max_kb (100/200/300/500) se kam.
+    grayscale=True → Black & White PDF (aur chhota + govt portal friendly).
     """
     processed_images = []
     for b in image_bytes_list:
         im = Image.open(io.BytesIO(b)).convert("RGB")
-        # Resize to max 1400px width for sharp text
+        if grayscale:
+            im = im.convert("L").convert("RGB")   # B&W (grey) — text sharp, size kam
         if im.width > 1400 or im.height > 1800:
             im.thumbnail((1400, 1800), Image.Resampling.LANCZOS)
-        # Enhance sharpness
-        sharp = ImageEnhance.Sharpness(im).enhance(1.4)
+        sharp = ImageEnhance.Sharpness(im).enhance(1.4 if not grayscale else 1.6)
+        # target size ke hisaab se quality
+        q = 45 if max_kb <= 100 else (55 if max_kb <= 200 else (65 if max_kb <= 300 else 75))
         buf = io.BytesIO()
-        sharp.save(buf, format="JPEG", quality=65, optimize=True)
+        sharp.save(buf, format="JPEG", quality=(q - 10 if grayscale else q), optimize=True)
         processed_images.append(buf.getvalue())
         
     pdf_bytes = img2pdf.convert(processed_images)
