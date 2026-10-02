@@ -710,23 +710,23 @@ PROMPTS = {
     ),
     "shot_full": (
         f"📜 <b>{to_bold('FULL PAGE SCREENSHOT')}</b>\n\n"
-        "Website ka URL bhejo — poora upar se neeche tak page capture hoga (lambi site ke liye best):\n"
-        "<i>Thoda time lagega (10-20 sec), wait karein.</i>"
+        "<i>Thoda time lagega (10-20 sec), wait karein.</i>\n"
+        "📜 <b>Ab website ka URL bhejo</b> (lambi site ke liye best):"
     ),
     "qr_upi": (
         f"💰 <b>{to_bold('UPI PAYMENT QR')}</b>\n\n"
-        "Apni <b>UPI ID</b> bhejo (jaise: <code>9876543210@ybl</code>)\n"
-        "<i>Isse dukaan/gadi ke liye payment QR ban jayega.</i>"
+        "<i>Isse dukaan/gadi ke liye payment QR ban jayega.</i>\n"
+        "💰 <b>Ab apni UPI ID bhejo</b> (jaise: <code>9876543210@ybl</code>):"
     ),
     "qr_wifi": (
         f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n\n"
-        "Apne <b>WiFi ka naam (SSID)</b> bhejo (jaise: <code>JioFiber_Home</code>):\n"
-        "<i>Guest scan karega → WiFi automatic connect ho jayega.</i>"
+        "<i>Guest scan karega → WiFi automatic connect ho jayega.</i>\n"
+        "📶 <b>Ab WiFi ka naam (SSID) bhejo</b> (jaise: <code>JioFiber_Home</code>):"
     ),
     "qr_vcard": (
         f"👤 <b>{to_bold('CONTACT CARD QR')}</b>\n\n"
-        "Apna <b>naam</b> bhejo (jaise: <code>Himanshu Kumar</code>):\n"
-        "<i>Scan karne par contact save ho jayega.</i>"
+        "<i>Scan karne par contact save ho jayega.</i>\n"
+        "👤 <b>Ab apna naam bhejo</b> (jaise: <code>Himanshu Kumar</code>):"
     ),
     "pwd_pin": (
         f"🔢 <b>{to_bold('RANDOM PIN GENERATOR')}</b>\n\n"
@@ -802,45 +802,118 @@ def tutorial_url() -> str:
     return TUTORIAL_FALLBACK_URL
 
 
+async def send_tool_video(bot_obj, chat_id, key: str, answer_cb=None):
+    """Tool ka tutorial video bhejta hai (CDN → raw → document → link fallback)."""
+    if not has_video(key):
+        if answer_cb:
+            await answer_cb("Is tool ka video jald aa raha hai!", True)
+        return False
+    urls = video_urls(key)
+    sent = False
+    for u in urls:
+        try:
+            await bot_obj.send_video(
+                chat_id=chat_id, video=u, caption=video_caption(key), parse_mode=HTML,
+                supports_streaming=True,
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🔁 Dobara Dekho", callback_data=f"toolvid:{key}")],
+                ]),
+            )
+            sent = True
+            break
+        except Exception:
+            continue
+    if not sent:
+        for u in urls:
+            try:
+                await bot_obj.send_document(chat_id=chat_id, document=u, caption=video_caption(key), parse_mode=HTML)
+                sent = True
+                break
+            except Exception:
+                continue
+    if not sent:
+        try:
+            await bot_obj.send_message(
+                chat_id=chat_id,
+                text=("⚠️ Video bhejne me dikkat aayi. Aap seedha yahan dekh lo:\n"
+                      f'🎬 <a href="{urls[0]}">Tutorial Video (30 sec)</a>\n\n'
+                      "<i>Tip: video stream hone me 2-3 second lag sakte hain.</i>"),
+                parse_mode=HTML)
+        except Exception:
+            pass
+    return sent
+
+
 def tutorial_kb():
+    """MADAD / TUTORIAL ka keyboard — sirf 🎬 videos (koi text tutorial nahi)."""
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📖 Poora Tutorial Kholo", url=tutorial_url())],
+        [InlineKeyboardButton("📥 Video Downloader", callback_data="toolvid:insta_dl"),
+         InlineKeyboardButton("⚡ Terabox", callback_data="toolvid:terabox")],
+        [InlineKeyboardButton("🔄 Cloner", callback_data="toolvid:cloner"),
+         InlineKeyboardButton("🎙️ Voice Studio", callback_data="toolvid:voice")],
+        [InlineKeyboardButton("💎 VIP kaise le?", callback_data="toolvid:premium"),
+         InlineKeyboardButton("❓ Bot kaise chale?", callback_data="toolvid:tutorial")],
     ])
 
 
 def tutorial_footer() -> str:
-    return f'\n\n📖 <a href="{tutorial_url()}">Naya ho? Tutorial — har tool ka tareeka yahan padho</a>'
+    """Bot me text tutorial nahi — isliye footer khaali."""
+    return ""
 
 
 def tutorial_link_line() -> str:
-    return f'\n📖 Tutorial: <a href="{tutorial_url()}">wahan poora tareeka likha hai</a>'
+    return ""
 
 
+# MADAD / TUTORIAL — sirf 🎬 video, koi text tutorial nahi
 TUTORIAL_NOTICE = (
     "❓ <b>MADAD / TUTORIAL</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "🎬 <b>Har tool ka apna 30-second video</b> hai (HIMANSHU ke saath)!\n"
-    "   Koi tool kholo → neeche <b>🎬 Tutorial Video</b> button dabao → video dekh lo.\n\n"
-    "📖 <b>Poora text tutorial</b> (saare tools ka tareeka) is page par hai.\n"
-    "👇 Page kholne ke liye button dabao:"
+    "🎬 <b>Har tool ka apna 30-second video tutorial</b> hai (HIMANSHU ke saath)!\n\n"
+    "<b>Kaise dekhein?</b>\n"
+    "1️⃣ Koi bhi tool kholo (jaise 📥 VIDEO DOWNLOADER)\n"
+    "2️⃣ Uske neeche <b>🎬 Tutorial Video</b> button dabao\n"
+    "3️⃣ Video dekh lo — poora tareeka step by step\n\n"
+    "👇 Ya yahan se seedha kisi tool ka video kholo:"
 )
 
 
 def tool_tutorial_kb(action: str):
-    """Tool ke neeche: 🎬 video tutorial + 📖 text tutorial."""
-    rows = []
-    if has_video(action):
-        rows.append([InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data=f"toolvid:{action}")])
-    rows.append([InlineKeyboardButton("📖 Text Tutorial (poora)", url=tutorial_url())])
-    return InlineKeyboardMarkup(rows)
+    """Tool ke neeche sirf 🎬 video tutorial (koi text tutorial nahi)."""
+    if not has_video(action):
+        return None
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data=f"toolvid:{action}")],
+    ])
+
+
+# Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
+ASK_LINES = {
+    "pin": "📮 <b>Ab pincode ya area ka naam bhejo</b>:",
+    "idfind": "🆔 <b>Ab bhejo</b> — <code>me</code> / <code>@username</code> / ya koi message forward karo:",
+    "emi": "🧮 <b>Ab apna hisaab bhejo</b> (jaise <code>5,00,000 9% 24m</code>):",
+    "shot_full": "📜 <b>Ab website ka URL bhejo:</b>",
+    "qr_upi": "💰 <b>Ab apni UPI ID bhejo:</b>",
+    "qr_wifi": "📶 <b>Ab WiFi ka naam (SSID) bhejo:</b>",
+    "qr_vcard": "👤 <b>Ab apna naam bhejo:</b>",
+    "pwd_pin": "🔢 <b>PIN banane ke liye koi bhi message bhejo</b> (jaise <code>ok</code>):",
+    "pwd_phrase": "🧠 <b>Password banane ke liye koi bhi message bhejo</b> (jaise <code>ok</code>):",
+}
 
 
 def tool_prompt(action: str) -> str:
-    """Tool ka prompt — tutorial lines hata kar + neeche tutorial link."""
+    """Tool ka prompt — sirf kaam ki baat + aakhir me ask (koi text tutorial nahi)."""
     body = strip_tutorial_lines(PROMPTS.get(action, "")).strip()
-    if not body:
-        return tutorial_link_line().strip()
-    return f"{body}{tutorial_link_line()}"
+    lines = body.split("\n")
+    while lines and (not lines[-1].strip() or set(lines[-1].strip()) <= set("━-— ")):
+        lines.pop()
+    if action in ASK_LINES and lines:
+        tail = " ".join(lines[-2:]).lower()
+        if not any(w in tail for w in ("bhejo", "bhej", "likho", "likh", "chuno", "chun",
+                                        "dabao", "kholo", "suno", "forward")):
+            lines.append("")
+            lines.append(ASK_LINES[action])
+    return "\n".join(lines)
 
 
 def publish_tutorial_now(force: bool = False) -> str:
@@ -883,8 +956,7 @@ def voice_home_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎭 Actor / Character Voices (24)", callback_data="voice_actors")],
         [InlineKeyboardButton("🧪 Voice Lab (30 voices + speed)", callback_data="vlab_list")],
-        [InlineKeyboardButton("🎬 Tutorial Video (30 sec)", callback_data="toolvid:voice")],
-        [InlineKeyboardButton("📖 Text Tutorial (poora)", url=tutorial_url())],
+        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:voice")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home")],
     ])
 
@@ -933,15 +1005,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.path.exists(banner_path):
         try:
             with open(banner_path, "rb") as f:
-                await update.message.reply_photo(photo=f, caption=WELCOME_TEXT + tutorial_footer(), reply_markup=kb_for(user.id), parse_mode=HTML)
+                await update.message.reply_photo(photo=f, caption=WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
                 return
         except Exception:
             pass
-    await update.message.reply_text(WELCOME_TEXT + tutorial_footer(), reply_markup=kb_for(user.id), parse_mode=HTML)
+    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(WELCOME_TEXT + tutorial_footer(), reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
+    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1214,7 +1286,7 @@ async def admin_panel_send(message, context, uid: int):
         [InlineKeyboardButton("🚫 Ban / Unban", callback_data="admbanmenu"),
          InlineKeyboardButton("📢 Broadcast", callback_data="admbcmenu")],
         [InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
-         InlineKeyboardButton("📖 Tutorial Page", callback_data="admtut")],
+         InlineKeyboardButton("📖 Text Tutorial Page (admin)", callback_data="admtut")],
         [InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
     ])
     await message.reply_text(text, reply_markup=kb, parse_mode=HTML)
@@ -1379,49 +1451,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text(WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
         return
 
-    # ---------- 🎬 TOOL KA TUTORIAL VIDEO ----------
+    # ---------- 🎬 TOOL KA TUTORIAL VIDEO (har tool ka apna video) ----------
     if data.startswith("toolvid:"):
         key = data.split(":", 1)[1]
-        if not has_video(key):
-            await q.answer("Is tool ka video jald aa raha hai!", show_alert=True)
-            return
-        urls = video_urls(key)
-        url = urls[0]
-        await q.answer("🎬 Tutorial video bhej raha hoon (30 sec)...")
-        sent = False
-        for u in urls:
-            try:
-                await context.bot.send_video(
-                    chat_id=q.message.chat.id,
-                    video=u,
-                    caption=video_caption(key),
-                    parse_mode=HTML,
-                    supports_streaming=True,
-                    reply_markup=InlineKeyboardMarkup([
-                        [InlineKeyboardButton("🔁 Dobara Dekho", callback_data=f"toolvid:{key}")],
-                    ]),
-                )
-                url = u
-                sent = True
-                break
-            except Exception:
-                continue
-        if not sent:
-            for u in urls:
-                try:
-                    await context.bot.send_document(chat_id=q.message.chat.id, document=u,
-                                                    caption=video_caption(key), parse_mode=HTML)
-                    url = u
-                    sent = True
-                    break
-                except Exception:
-                    continue
-        if not sent:
-            await q.message.reply_text(
-                "⚠️ Video bhejne me dikkat aayi. Aap seedha yahan dekh lo:\n"
-                f'🎬 <a href="{url}">Tutorial Video (30 sec)</a>\n\n'
-                '<i>Tip: video stream hone me 2-3 second lag sakte hain.</i>',
-                parse_mode=HTML)
+        if has_video(key):
+            await q.answer("🎬 Tutorial video bhej raha hoon (30 sec)...")
+        await send_tool_video(context.bot, q.message.chat.id, key, answer_cb=q.answer)
         return
 
     # Virtual Numbers Funnel
@@ -1908,12 +1943,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "1️⃣ <b>SOURCE</b> set karo (jahan se posts leni hain)\n"
             "2️⃣ <b>TARGET</b> set karo (jahan posts bhejni hain — bot wahan admin ho)\n"
             "3️⃣ <b>FULL AUTO ON</b> kar do — bas, posts khud chali jayengi\n\n"
-            "📖 Poori detail (settings, watermark, replace words) tutorial page par hai:",
+            "🎬 Neeche wala video dekh lo — poora tareeka 30 second me:",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🎬 Tutorial Video (30 sec)", callback_data="toolvid:cloner")],
+                [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:cloner")],
                 [InlineKeyboardButton("🚀 Ab Setup Karein (3 Steps)", callback_data="cloner_setup")],
                 [InlineKeyboardButton("📊 Meri Setting Dekho", callback_data="cloner_status")],
-                [InlineKeyboardButton("📖 Text Tutorial Kholo", url=tutorial_url())],
             ]),
             parse_mode=HTML,
         )
@@ -2307,9 +2341,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "voice_guide":
-        await q.message.reply_text(VOICE_HOME_TEXT + "\n\n📖 Poora tareeka tutorial page par hai:",
-                                   reply_markup=voice_home_kb(), parse_mode=HTML)
-        await q.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
+        await q.message.reply_text(VOICE_HOME_TEXT, reply_markup=voice_home_kb(), parse_mode=HTML)
+        await send_tool_video(context.bot, q.message.chat.id, "voice")
         return
 
     if data == "voice_actors":
