@@ -94,6 +94,11 @@ from database import (
     set_ban,
     stats,
     top_referrers,
+    add_vip_grant,
+    list_vip_grants,
+    meta_get,
+    meta_set,
+    vip_grants_today,
 )
 # Full-Auto Channel Cloner helper (safety import)
 try:
@@ -116,6 +121,11 @@ from modules.cyber_studio import (
     make_stamped_passport,
 )
 from modules.cloud_tools import resolve_cloud_url
+from modules.tutorial_hub import (
+    TUTORIAL_TITLE,
+    publish_tutorial,
+    strip_tutorial_lines,
+)
 from modules.channel_cloner import (
     CLONER_GUIDE_TEXT,
     clone_messages,
@@ -760,9 +770,73 @@ TUTORIAL_TEXT = (
     "• 👨‍👩‍👦 <b>FAMILY TREE</b> → naam → relationship calculator\n\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
     "⌨️ <b>Commands:</b> /start /menu /help /tutorial /cancel\n\n"
-    "💬 <b>Stuck ho gaye?</b> Koi bhi tool kholo — uske andar bhi chhota guide milta hai. "
+    "💬 <b>Stuck ho gaye?</b> Neeche wale tutorial link me har tool ka poora tareeka likha hai. "
     "Aur har tool me <b>⚙️ /cancel</b> dabakar nikal sakte ho."
 )
+
+# ============================================================
+# TUTORIAL SYSTEM (v34): tutorial text ab bot ke andar nahi,
+# sirf ek PAGE par — bot me neeche link milta hai.
+# ============================================================
+TUTORIAL_FALLBACK_URL = (
+    os.getenv("TUTORIAL_URL", "").strip()
+    or "https://github.com/himanshu75919-coder/utility-duniya-bot/blob/main/TUTORIAL.md"
+)
+
+
+def tutorial_url() -> str:
+    """Tutorial page ka link: env TUTORIAL_URL > auto page (telegra.ph) > fallback."""
+    env = os.getenv("TUTORIAL_URL", "").strip()
+    if env:
+        return env
+    try:
+        saved = meta_get("tutorial_url", "")
+        if saved:
+            return saved
+    except Exception:
+        pass
+    return TUTORIAL_FALLBACK_URL
+
+
+def tutorial_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📖 Poora Tutorial Kholo", url=tutorial_url())],
+    ])
+
+
+def tutorial_footer() -> str:
+    return f'\n\n📖 <a href="{tutorial_url()}">Naya ho? Tutorial — har tool ka tareeka yahan padho</a>'
+
+
+def tutorial_link_line() -> str:
+    return f'\n📖 Tutorial: <a href="{tutorial_url()}">wahan poora tareeka likha hai</a>'
+
+
+TUTORIAL_NOTICE = (
+    "❓ <b>MADAD / TUTORIAL</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Bot me ab har tool ka <b>poora tareeka ek page</b> par hai (step-by-step + example ke saath).\n"
+    "Isliye tool ke andar tutorial ki bheed nahi — bas neeche wala <b>link</b>.\n\n"
+    "👇 Page kholne ke liye button dabao:"
+)
+
+
+def tool_prompt(action: str) -> str:
+    """Tool ka prompt — tutorial lines hata kar + neeche tutorial link."""
+    body = strip_tutorial_lines(PROMPTS.get(action, "")).strip()
+    if not body:
+        return tutorial_link_line().strip()
+    return f"{body}{tutorial_link_line()}"
+
+
+def publish_tutorial_now(force: bool = False) -> str:
+    """Tutorial page banao/update karo (telegra.ph) — link wapas deta hai."""
+    try:
+        return publish_tutorial(meta_get, meta_set, prompts_map=PROMPTS,
+                                short_list=TUTORIAL_TEXT, force=force)
+    except Exception as e:
+        log.warning("Tutorial page publish nahi hua: %s", e)
+        return ""
 
 
 VOICE_HOME_TEXT = (
@@ -795,7 +869,7 @@ def voice_home_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎭 Actor / Character Voices (24)", callback_data="voice_actors")],
         [InlineKeyboardButton("🧪 Voice Lab (30 voices + speed)", callback_data="vlab_list")],
-        [InlineKeyboardButton("📘 Kaise Use Karein?", callback_data="voice_guide")],
+        [InlineKeyboardButton("📖 Tutorial (poora tareeka)", url=tutorial_url())],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home")],
     ])
 
@@ -844,15 +918,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.path.exists(banner_path):
         try:
             with open(banner_path, "rb") as f:
-                await update.message.reply_photo(photo=f, caption=WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
+                await update.message.reply_photo(photo=f, caption=WELCOME_TEXT + tutorial_footer(), reply_markup=kb_for(user.id), parse_mode=HTML)
                 return
         except Exception:
             pass
-    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
+    await update.message.reply_text(WELCOME_TEXT + tutorial_footer(), reply_markup=kb_for(user.id), parse_mode=HTML)
 
 
 async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
+    await update.message.reply_text(WELCOME_TEXT + tutorial_footer(), reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
 
 
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -896,6 +970,162 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("📢 Share on Telegram", url=f"https://t.me/share/url?url={quote(ref_link)}&text={quote('🔥 Check out Utility Duniya Super Bot!')}")],
     ])
     await update.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
+
+
+# ============================================================
+# QUICK VIP ACTIVATE (v34) — dost / direct paisa wale ke liye
+#   /admin → plan chuno → /activate <user_id>
+# ============================================================
+def active_plan_key(uid: int) -> str:
+    key = ""
+    try:
+        key = meta_get(f"active_plan:{uid}", "")
+    except Exception:
+        pass
+    return key if key in VIP_PLANS else "plan_30"
+
+
+def activate_plan_kb(uid: int):
+    cur = active_plan_key(uid)
+    rows = []
+    for key, pl in VIP_PLANS.items():
+        mark = "✅" if key == cur else "🔸"
+        rows.append([InlineKeyboardButton(f"{mark} {pl['name']} · ₹{pl['price']}",
+                                          callback_data=f"admact_plan:{key}")])
+    rows.append([InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
+                 InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def activate_home_text(uid: int) -> str:
+    pl = VIP_PLANS[active_plan_key(uid)]
+    return (
+        "🎁 <b>VIP ACTIVATE (dost / direct paisa wale ke liye)</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Jab koi dost ya user <b>seedha aapke number/UPI</b> par paisa bhej de, ya aap kisi ko "
+        "<b>free me VIP</b> dena chahte ho — payment proof ki zaroorat nahi hai, seedha activate karo.\n\n"
+        f"✅ <b>Abhi chuna hua plan:</b> {pl['name']}\n"
+        f"     ₹{pl['price']} · {pl['days']} din\n\n"
+        "<b>Kaise karein (2 step):</b>\n"
+        "1️⃣ Neeche se plan chuno (30/60/90/120 din ya Lifetime)\n"
+        "2️⃣ Phir aise likho:\n"
+        "     <code>/activate 123456789</code> → us user ko upar wala plan\n"
+        "     <code>/activate 123456789 90</code> → 90 din alag se dena ho to\n"
+        "     <code>/activate @username</code> → username se bhi chalega\n\n"
+        "ℹ️ User ko turant 'VIP mil gayi' ka message chala jayega + poora record save hoga."
+    )
+
+
+async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/activate <user_id> [din] — bina payment seedha VIP (sirf admin)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    plan_key = active_plan_key(uid)
+    plan = VIP_PLANS[plan_key]
+
+    if not args:
+        # bina ID: plan chooser
+        await update.message.reply_text(activate_home_text(uid), reply_markup=activate_plan_kb(uid), parse_mode=HTML)
+        return
+
+    raw_key = args[0]
+    key = raw_key.lstrip("@")
+    target = None
+    if key.isdigit():
+        target = int(key)
+    else:
+        found = find_by_username("@" + key)
+        if found:
+            try:
+                target = int(found[0])
+            except Exception:
+                target = None
+    if not target:
+        await update.message.reply_text(
+            f"❌ <b>Ye user nahi mila:</b> <code>{hesc(raw_key)}</code>\n\n"
+            "• <b>User ID</b> bhejo (jaise <code>8607774564</code>) — jo banda bot me /start kar chuka ho\n"
+            "• Ya wahi <b>@username</b> jo usne bot me set kiya ho\n\n"
+            "➡️ Aise likho: <code>/activate 123456789</code>",
+            parse_mode=HTML)
+        return
+
+    days = plan["days"]
+    if len(args) > 1 and args[1].isdigit():
+        days = int(args[1])
+    days = max(1, min(days, 99999))
+    dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} din VIP"
+
+    try:
+        grant_premium(target, days)
+    except Exception as e:
+        await update.message.reply_text(f"⚠️ VIP lagane me dikkat aayi: {hesc(str(e))}", parse_mode=HTML)
+        return
+    add_vip_grant(target, days, uid, plan_key=plan_key, note="activate (direct/admin)")
+
+    u = get_user(target) or {}
+    row = get_user_row(target) or {}
+    uname = row.get("name") or u.get("name") or "-"
+    exp = "👑 LIFETIME" if str(u.get("premium_until")) == "lifetime" else (premium_expiry(u) or "-")
+
+    await update.message.reply_text(
+        "✅ <b>VIP ACTIVATE HO GAYI!</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆔 <b>User:</b> <code>{target}</code> ({hesc(str(uname))[:24]})\n"
+        f"👑 <b>VIP:</b> {dur}\n"
+        f"📅 <b>Valid till:</b> {exp}\n"
+        f"💎 <b>Plan:</b> {plan['name']} · ₹{plan['price']}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "✉️ User ko message chala gaya. Poora record <b>Manual VIP Log</b> me save hai.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}"),
+             InlineKeyboardButton("🎁 Plan Badlo", callback_data="admact_home")],
+            [InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
+             InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
+        ]),
+        parse_mode=HTML)
+
+    try:
+        await context.bot.send_message(
+            target,
+            f"🎉 <b>Mubarak ho!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👑 <b>{dur}</b> activate ho gayi!\n"
+            f"📅 Valid till: {exp}\n\n"
+            "Ab saare tools <b>unlimited</b> chalayein 🚀\n"
+            "(Ye VIP admin ne aapko di hai — koi payment nahi laga.)",
+            parse_mode=HTML)
+    except Exception:
+        pass
+
+
+async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/tutrefresh — tutorial page dobara banao (sirf admin)."""
+    if not is_admin(update.effective_user.id):
+        return
+    st = await update.message.reply_text("⏳ <b>Tutorial page ban raha hoon...</b>", parse_mode=HTML)
+    try:
+        loop = asyncio.get_running_loop()
+        url = await loop.run_in_executor(None, publish_tutorial_now, True)
+    except Exception:
+        url = ""
+    if url:
+        await st.edit_text(
+            "✅ <b>Tutorial page ready!</b>\n\n"
+            f"📖 <a href=\"{url}\">{url}</a>\n\n"
+            "Ye link bot ke har tool ke neeche aur 'MADAD / TUTORIAL' button me chalta hai.",
+            parse_mode=HTML, disable_web_page_preview=True)
+    else:
+        await st.edit_text(
+            "⚠️ <b>Page nahi ban paya</b> (internet/telegra.ph problem).\n"
+            f"Filhaal fallback link chal raha hai:\n{TUTORIAL_FALLBACK_URL}\n\n"
+            "Aap chaho to Render me <code>TUTORIAL_URL</code> set karke apna link laga sakte ho.",
+            parse_mode=HTML, disable_web_page_preview=True)
+
+
+async def cmd_tutorial(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
 
 
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -951,16 +1181,20 @@ async def admin_panel_send(message, context, uid: int):
         f"💳 <b>Pending Payments:</b> {pend}  {'🔴 (verify karo!)' if pend else '✅'}\n"
         f"✅ <b>Approved Total:</b> {ps['approved']}   |   ❌ <b>Rejected:</b> {ps['rejected']}\n"
         f"💰 <b>Total Revenue:</b> ₹{ps['revenue']:,}\n"
+        f"🎁 <b>Aaj manual VIP diye:</b> {vip_grants_today()}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "👇 Neeche se kuch bhi karo:"
     )
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton(f"💳 Pending Payments ({pend})", callback_data="admpay_list"),
          InlineKeyboardButton("🧾 Payment History", callback_data="admhist")],
+        [InlineKeyboardButton("🎁 VIP Activate (dost / direct paisa)", callback_data="admact_home")],
         [InlineKeyboardButton("👥 Recent Users", callback_data="admusers"),
          InlineKeyboardButton("🔍 User Search / VIP Dena", callback_data="admsearch")],
         [InlineKeyboardButton("🚫 Ban / Unban", callback_data="admbanmenu"),
          InlineKeyboardButton("📢 Broadcast", callback_data="admbcmenu")],
+        [InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
+         InlineKeyboardButton("📖 Tutorial Page", callback_data="admtut")],
         [InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
     ])
     await message.reply_text(text, reply_markup=kb, parse_mode=HTML)
@@ -1378,6 +1612,67 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=admin_pending_kb(pend), parse_mode=HTML)
         return
 
+    if data == "admact_home":
+        if not is_admin(uid):
+            return
+        await q.message.reply_text(activate_home_text(uid), reply_markup=activate_plan_kb(uid), parse_mode=HTML)
+        return
+
+    if data.startswith("admact_plan:"):
+        if not is_admin(uid):
+            return
+        key = data.split(":", 1)[1]
+        pl = VIP_PLANS.get(key) or VIP_PLANS["plan_30"]
+        meta_set(f"active_plan:{uid}", key)
+        await q.answer(f"✅ Plan set: {pl['days']} din")
+        await q.message.reply_text(
+            f"✅ <b>Plan set ho gaya:</b> {pl['name']} · ₹{pl['price']} · {pl['days']} din\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Ab bas itna likho:\n"
+            f"<code>/activate 123456789</code> → us user ko <b>{pl['days']} din</b> VIP\n"
+            "<code>/activate 123456789 90</code> → alag din chahiye to\n"
+            "<code>/activate @username</code> → username se bhi chalega\n\n"
+            "<i>User ko turant message chala jayega.</i>",
+            reply_markup=activate_plan_kb(uid), parse_mode=HTML)
+        return
+
+    if data == "admgiftlist":
+        if not is_admin(uid):
+            return
+        rows = list_vip_grants(10)
+        if not rows:
+            await q.message.reply_text(
+                "📜 <b>Manual VIP Log</b>\n\nAbhi tak kisi ko seedha (bina payment) VIP nahi di gayi.\n"
+                "Dene ke liye <b>/activate</b> use karo.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
+                parse_mode=HTML)
+            return
+        lines = []
+        for r in rows:
+            d = int(r.get("days") or 0)
+            dur = "LIFETIME" if d >= 9999 else f"{d} din"
+            lines.append(f"• <code>{r.get('user_id')}</code> — {dur} · by <code>{r.get('by_admin')}</code> · "
+                         f"{str(r.get('created_at') or '')[:16]}")
+        await q.message.reply_text(
+            f"📜 <b>Manual VIP Log (last {len(rows)})</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
+            "\n━━━━━━━━━━━━━━━━━━━━━━\n<i>Ye wo VIP hain jo aapne /activate se di (bina payment).</i>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎁 VIP Dena", callback_data="admact_home"),
+                                                 InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
+            parse_mode=HTML)
+        return
+
+    if data == "admtut":
+        if not is_admin(uid):
+            return
+        await q.answer("Page bana raha hoon...")
+        threading.Thread(target=publish_tutorial_now, kwargs={"force": True}, daemon=True).start()
+        await q.message.reply_text(
+            "📖 <b>Tutorial page refresh</b> ho raha hai (10-20 second).\n\n"
+            f"Abhi ka link:\n<a href=\"{tutorial_url()}\">{tutorial_url()}</a>\n\n"
+            "<i>Link khud badal jata hai jab page banta hai — /tutorial se check kar lena.</i>",
+            parse_mode=HTML, disable_web_page_preview=True)
+        return
+
     if data.startswith("admpay_view:"):
         if not is_admin(uid):
             return
@@ -1438,6 +1733,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(
             "📊 <b>Admin Commands</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
             "• <code>/payments</code> — pending payment verify\n"
+            "• <code>/activate [user_id] [din]</code> — 🎁 seedha VIP (dost / direct paisa, bina proof)\n"
             "• <code>/grant [user_id] [din]</code> — VIP do (9999 = lifetime)\n"
             "• <code>/revoke [user_id]</code> — VIP hatao\n"
             "• <code>/broadcast [message]</code> — sabko message\n"
@@ -1537,10 +1833,16 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ============ AUTO FORWARD — WIZARD / GUIDE / TEST / STATUS ============
     if data == "cloner_guide":
         await q.message.reply_text(
-            CLONER_GUIDE_TEXT,
+            "🔄 <b>AUTO FORWARD (CLONER) — 3 STEP</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "1️⃣ <b>SOURCE</b> set karo (jahan se posts leni hain)\n"
+            "2️⃣ <b>TARGET</b> set karo (jahan posts bhejni hain — bot wahan admin ho)\n"
+            "3️⃣ <b>FULL AUTO ON</b> kar do — bas, posts khud chali jayengi\n\n"
+            "📖 Poori detail (settings, watermark, replace words) tutorial page par hai:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚀 Ab Setup Karein (3 Steps)", callback_data="cloner_setup")],
                 [InlineKeyboardButton("📊 Meri Setting Dekho", callback_data="cloner_status")],
+                [InlineKeyboardButton("📖 Poora Tutorial Kholo", url=tutorial_url())],
             ]),
             parse_mode=HTML,
         )
@@ -1677,15 +1979,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ============ NAYE TOOL CALLBACKS ============
     if data == "qr_upi":
         context.user_data["mode"] = "qr_upi"
-        await q.message.reply_text(PROMPTS["qr_upi"], parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_upi"), parse_mode=HTML)
         return
     if data == "qr_wifi":
         context.user_data["mode"] = "qr_wifi"
-        await q.message.reply_text(PROMPTS["qr_wifi"], parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_wifi"), parse_mode=HTML)
         return
     if data == "qr_vcard":
         context.user_data["mode"] = "qr_vcard"
-        await q.message.reply_text(PROMPTS["qr_vcard"], parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_vcard"), parse_mode=HTML)
         return
     if data == "pwd_pin":
         context.user_data["mode"] = "pwd_pin"
@@ -1711,15 +2013,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if data == "qr_text":
         context.user_data["mode"] = "qr"
-        await q.message.reply_text(PROMPTS["qr"], parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr"), parse_mode=HTML)
         return
     if data == "shot_hd":
         context.user_data["mode"] = "shot"
-        await q.message.reply_text(PROMPTS["shot"], parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("shot"), parse_mode=HTML)
         return
     if data == "shot_full":
         context.user_data["mode"] = "shot_full"
-        await q.message.reply_text(PROMPTS["shot_full"], parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("shot_full"), parse_mode=HTML)
         return
 
     # Document compress: size + grayscale + GO
@@ -1934,7 +2236,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "voice_guide":
-        await q.message.reply_text(VOICE_GUIDE_TEXT, reply_markup=voice_home_kb(), parse_mode=HTML)
+        await q.message.reply_text(VOICE_HOME_TEXT + "\n\n📖 Poora tareeka tutorial page par hai:",
+                                   reply_markup=voice_home_kb(), parse_mode=HTML)
+        await q.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
         return
 
     if data == "voice_actors":
@@ -2259,7 +2563,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("✅ Normal PDF banao", callback_data="make_pdf_now"),
                  InlineKeyboardButton("📄 A4 Print PDF", callback_data="make_pdf_a4")],
             ])
-            await update.message.reply_text(PROMPTS["pdf"], reply_markup=kb, parse_mode=HTML)
+            await update.message.reply_text(tool_prompt("pdf"), reply_markup=kb, parse_mode=HTML)
             return
 
         # 9. VIP Premium, Refer & Account
@@ -2317,7 +2621,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
             return
         if action in ("tutorial", "help"):
-            await update.message.reply_text(TUTORIAL_TEXT, parse_mode=HTML)
+            await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
             return
 
         # Standard prompt modes
@@ -2328,7 +2632,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if check_limit_exceeded(u, uid):
                 await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
                 return
-            await update.message.reply_text(PROMPTS[action] + "\n\n<i>/cancel kabhi bhi dabayein.</i>", parse_mode=HTML)
+            await update.message.reply_text(tool_prompt(action) + "\n\n<i>/cancel kabhi bhi dabayein.</i>", parse_mode=HTML)
             return
 
     # Check Active Working Modes
@@ -3870,6 +4174,8 @@ def main():
         return
 
     threading.Thread(target=_keepalive, daemon=True).start()
+    # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
+    threading.Thread(target=publish_tutorial_now, daemon=True).start()
 
     app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
 
@@ -3877,8 +4183,10 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
-    app.add_handler(CommandHandler("help", cmd_menu))
-    app.add_handler(CommandHandler(["tutorial", "madad", "guide"], lambda u, c: u.message.reply_text(TUTORIAL_TEXT, parse_mode=HTML)))
+    app.add_handler(CommandHandler("help", cmd_tutorial))
+    app.add_handler(CommandHandler(["tutorial", "madad", "guide"], cmd_tutorial))
+    app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
+    app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))
@@ -3893,7 +4201,7 @@ def main():
 
     # Specific Tool Commands
     app.add_handler(CommandHandler("vnum", lambda u, c: send_vnum_card(u, c)))
-    app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(PROMPTS["terabox"], parse_mode=HTML)))
+    app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(tool_prompt("terabox"), parse_mode=HTML)))
     app.add_handler(CommandHandler("cloner", lambda u, c: u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)))
     app.add_handler(CommandHandler("sarkari", lambda u, c: u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)))
     app.add_handler(CommandHandler("exam", lambda u, c: u.message.reply_text(STUDENT_EXAM_TEXT, reply_markup=get_student_exam_kb(), parse_mode=HTML)))
