@@ -1,6 +1,26 @@
-# ⚡ Utility Duniya Super-Bot (v37 — CREDITS SYSTEM + SIRF VIDEO TUTORIAL)
+# ⚡ Utility Duniya Super-Bot (v38 — CHHUPE 'MARU-TOAD' TOOLS + CREDITS)
 
-An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+An All-in-One Super Automation & Utility Engine for Telegram — **38+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v38 — "MARU-TOAD PACK": 4 chhupe tools (jo koi bot nahi deta)
+
+Ye woh tools hain jo YouTube/market me **nahi dikhte**, par jinke liye log **dukaan/cyber cafe me paise dete hain**.
+Sab **100% server par** chalte hain — koi AI nahi, koi paid API nahi, koi captcha nahi.
+
+| Tool | Kaam | Kitna kamaal |
+|---|---|---|
+| 🏦 **BANK STATEMENT PDF → EXCEL** | Bank ka statement PDF bhejo → **Excel/CSV** (date, detail, nikala, aaya, balance) + total nikala/aaya + closing | 3 ghante ka typing kaam 30 second me. **Locked PDF ka password** bhi poochta hai · SBI/HDFC/PNB/ICICI/BOB/Kotak/IPPB/sab |
+| 📜 **SARKARI KAGAZ SUITE** | Kirayanama, Affidavit, **Legal Notice 138** (cheque bounce), Bayana/Pakki Rasid, Rin Shodh (loan paper), Name/Address/Income affidavit — sab **ready PDF** | Field ek-ek karke poochta hai (naam, khesra, khata...) → PDF ready · **Registry Total Kharcha** (MVR + stamp duty + registration, Bihar/UP/झारखंड) · **Bigha/Kattha/Dhur/Decimal converter** |
+| 🕵️ **PHOTO INFO + FAKE DETECT** | Kaunse **mobile/camera** se, **kab**, **kahan (GPS + Maps link)**, aur **edit ki hui hai ya nahi** (ELA + noise-block analysis) | Shak wale hisson par **laal dabba** wali photo bhejta hai. Kisi bot me nahi hai |
+| ⚡ **MEDIA STUDIO** | 🎵 YouTube→MP3 · 🎬 **Status video** (photo + gaana + likha text, 9:16) · 🎧 ringtone cutter · 🎤 **Karaoke** (vocal cut) · 🔊 8D · 💥 bass boost · 🗣️ **voice change** (bachcha/motu/robot/bhoot) · ✂️ video trim · 🗜️ video compress · 🎼 video→MP3 | Sab **ffmpeg** se, koi watermark nahi, bina API |
+
+**Bonus (FREE tool):**
+- 🪔 **RAHU KAAL / PANCHANG** — aaj/kal ka Rahu Kaal, sunrise/sunset, din ke 8 hisse (choghadiya) — 20+ shehar ka support (Patna default). Ye **bilkul free** hai (0 credits par bhi chalta hai) — daily habit banane ke liye.
+
+**Credits:** in 4 naye tools ka **1 use = 1 credit** (khatam hone par VIP upsell). Panchang free.
+**Naya env var:** kuch nahi (sab optional). Naye python packages: `pdfplumber`, `reportlab`, `pypdf` (requirements.txt me aa gaye).
 
 ---
 

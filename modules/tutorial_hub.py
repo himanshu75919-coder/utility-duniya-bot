@@ -197,6 +197,12 @@ TUTORIAL_VIDEO_KEYS = {
     "tutorial": "tutorial",
     "help": "tutorial",
     "video_dl": "video_dl",
+    # ---- v38 naye tools (abhi closest video; apne video v39 me banenge) ----
+    "bankpdf": "doc_compress",
+    "kagaz": "emi",
+    "metaphoto": "shot",
+    "mediastudio": "voice",
+    "panchang": "tutorial",
 }
 
 # video ke caption me tool ki jhalak (video title)

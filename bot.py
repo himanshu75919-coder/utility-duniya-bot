@@ -127,6 +127,23 @@ from modules.cyber_studio import (
     make_stamped_passport,
 )
 from modules.cloud_tools import resolve_cloud_url
+from modules import desi_tools as desi
+from modules.desi_tools import (
+    KAGAZ_FIELDS,
+    KAGAZ_MAKERS,
+    LAND_ALIASES,
+    VOICE_PRESETS,
+    convert_land,
+    land_text,
+    photo_forensics,
+    photo_meta_text,
+    statement_summary_text,
+    parse_bank_statement,
+    registry_cost,
+    registry_text,
+    rahu_kaal,
+    rahu_text,
+)
 from modules.tutorial_hub import (
     TUTORIAL_TITLE,
     has_video,
@@ -281,6 +298,11 @@ PREMIUM_TOOLS = {
     "numinfo",             # 📱 NUMBER INFO
     "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
     "cloner_private_help",  # 🔒 PRIVATE CHANNEL SETUP
+    # ---- v38 MARU-TOAD PACK (chhupe tools) ----
+    "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
+    "kagaz",               # 📜 SARKARI KAGAZ SUITE
+    "metaphoto",           # 🕵️ PHOTO INFO + FAKE DETECT
+    "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -288,6 +310,10 @@ PREMIUM_TOOL_NAMES = {
     "numinfo": "📱 Number Info",
     "cloner": "🔄 Channel Cloner",
     "cloner_private_help": "🔒 Private Channel Setup",
+    "bankpdf": "🏦 Bank Statement → Excel",
+    "kagaz": "📜 Sarkari Kagaz Suite",
+    "metaphoto": "🕵️ Photo Info + Fake Detect",
+    "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
 }
 
 
@@ -331,7 +357,7 @@ def get_credits_over_text(action: str = "") -> str:
         f"Aapke <b>{CREDITS_START} free credits poore ho gaye hain.</b>\n\n"
         "✅ <b>Baaki saare tools ab bhi bilkul FREE hain</b> — koi credit nahi, koi limit nahi:\n"
         "   📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🖼️ Image→PDF • 🎙️ Voice Studio\n"
-        "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 🧮 EMI • 📈 Vyaaj • 🔎 Search... (sab free)\n\n"
+        "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 🧮 EMI • 📈 Vyaaj • 🔎 Search • 🪔 Rahu Kaal... (sab free)\n\n"
         f"👑 <b>Premium tools ke liye VIP lo</b> ({CREDITS_START} credits khatam hone par):\n"
         "• 📥 Video Downloader — <b>unlimited</b>\n"
         "• 📱 Number Info — <b>unlimited</b>\n"
@@ -552,6 +578,9 @@ KB_BTNS = [
     [f"📈 {to_bold('INTEREST CALC')}", f"🎂 {to_bold('AGE CALCULATOR')}"],
     [f"💰 {to_bold('UPI QR GENERATOR')}", f"🔐 {to_bold('PASSWORD GENERATOR')}"],
     [f"🔎 {to_bold('WEB SEARCH')}", f"📦 {to_bold('APP FINDER')}"],
+    [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
+    [f"🕵️ {to_bold('PHOTO INFO + FAKE DETECT')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
+    [f"🪔 {to_bold('RAHU KAAL / PANCHANG')}"],
     [f"🖼️ {to_bold('SITE SCREENSHOT')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"❓ {to_bold('MADAD / TUTORIAL')}"],
@@ -620,6 +649,21 @@ BTN_MODE_MAP = {
     "PASSWORD GENERATOR": "pwd",
     "WEB SEARCH": "search",
     "APP FINDER": "appfind",
+    "BANK STATEMENT → EXCEL": "bankpdf",
+    "BANK STATEMENT TO EXCEL": "bankpdf",
+    "BANK STATEMENT - EXCEL": "bankpdf",
+    "BANK PDF TO EXCEL": "bankpdf",
+    "SARKARI KAGAZ SUITE": "kagaz",
+    "KAGAZ SUITE": "kagaz",
+    "PHOTO INFO + FAKE DETECT": "metaphoto",
+    "PHOTO INFO": "metaphoto",
+    "FAKE PHOTO DETECT": "metaphoto",
+    "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
+    "MEDIA STUDIO": "mediastudio",
+    "MP3 STATUS STUDIO": "mediastudio",
+    "RAHU KAAL / PANCHANG": "panchang",
+    "RAHU KAAL": "panchang",
+    "PANCHANG": "panchang",
     "SITE SCREENSHOT": "shot",
     "VIP PREMIUM": "premium",
     "REFER & EARN": "refer",
@@ -678,6 +722,56 @@ PROMPTS = {
         "Kisi bhi <b>IP address</b> ya <b>website</b> ke baare me poori detail:\n"
         "• Kahan hai (desha/state/city) • Kaunsi company (ISP) • VPN/Proxy hai ya nahi\n\n"
         "👉 IP bhejo (jaise <code>8.8.8.8</code>) ya website ka naam (jaise <code>google.com</code>):"
+    ),
+    "bankpdf": (
+        f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <b>Kaise use karein:</b> bank ka <b>statement PDF</b> yahan bhejo.\n"
+        "🎁 Milega: <b>Excel/CSV table</b> (taareekh, detail, nikala, aaya, balance) + total nikala/aaya + closing balance.\n"
+        "🔓 PDF <b>locked</b> (password) hai to bot poochega — password bhej dena.\n"
+        "✅ Sab bank chalte hain: <b>SBI, HDFC, PNB, ICICI, BOB, Kotak, IPPB, Jio/Airtel Paytm bank</b>...\n"
+        "<i>Ye sab tumhare server par hi hota hai — koi bank/website par tumhara data nahi jata.</i>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "📄 <b>Ab apna bank statement PDF bhejo:</b>"
+    ),
+    "metaphoto": (
+        f"🕵️ <b>{to_bold('PHOTO INFO + FAKE DETECT')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <b>Kaise use karein:</b> koi photo bhejo.\n"
+        "🎁 Milega: <b>kahan kheechi gayi (GPS)</b>, kaunsa <b>mobile/camera</b>, kab ki photo, konsa app, "
+        "aur <b>edit ki gayi hai ya nahi</b> (ELA + noise check) — saath me shak wale hisse laal dabbe me.\n"
+        "⚠️ WhatsApp/Telegram se aayi photo me company meta hata deti hai — tab bhi edit-check chalega.\n"
+        "<i>Apni photo bhejo (zameen, kagaz, claim, insurance ke liye kaam aata hai).</i>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🖼️ <b>Ab photo bhejo:</b>"
+    ),
+    "kagaz": (
+        f"📜 <b>{to_bold('SARKARI KAGAZ SUITE (BIHAR/UP)')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Kirayanama, affidavit, legal notice (138), bayana rasid, rin shodh, registry ka kharcha, "
+        "bigha/kattha converter — sab yahan.\n"
+        "⚠️ Ye computer se bane draft hote hain — notary/sub-registrar se final karwana zaroori hai.\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "👇 <b>Neeche menu se apna kaam chuno</b>:"
+    ),
+    "mediastudio": (
+        f"⚡ <b>{to_bold('MEDIA STUDIO — MP3 / STATUS / KARAOKE')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Neeche se kaam chuno — sab <b>tumhare server par</b> banta hai (koi watermark nahi):\n"
+        "🎵 <b>YouTube → MP3</b> • 🎬 <b>Status Video</b> (photo + gaana + likha text)\n"
+        "🎧 <b>Ringtone cutter</b> • 🎤 <b>Karaoke</b> (gaana hatao) • 🔊 <b>8D</b> • 💥 <b>Bass boost</b>\n"
+        "🗣️ <b>Voice change</b> (bachcha/motu/robot/bhoot) • ✂️ <b>Video trim</b> • 🗜️ <b>Video compress</b>\n"
+        "🎼 <b>Video → MP3</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "👇 Neeche se koi option dabao:"
+    ),
+    "panchang": (
+        f"🪔 <b>{to_bold('RAHU KAAL / PANCHANG')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 Aaj ka <b>Rahu Kaal</b>, sunrise/sunset aur din ke 8 hisse (choghadiya).\n"
+        "🆓 Ye tool <b>bilkul free</b> hai (koi credit nahi).\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🪔 <b>Ab 'aaj' ya 'kal' likho</b> (ya apne jile ka naam, jaise <code>Patna</code> / <code>Muzaffarpur</code>):"
     ),
     "rto": (
         f"🚗 <b>{to_bold('RTO VEHICLE INFORMATION')}</b>\n"
@@ -987,6 +1081,124 @@ ASK_LINES = {
     "pwd_pin": "🔢 <b>PIN banane ke liye koi bhi message bhejo</b> (jaise <code>ok</code>):",
     "pwd_phrase": "🧠 <b>Password banane ke liye koi bhi message bhejo</b> (jaise <code>ok</code>):",
 }
+
+
+KAGAZ_MENU_TEXT = (
+    f"📜 <b>{to_bold('SARKARI KAGAZ SUITE (BIHAR/UP)')}</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Notary/vakil ke paas bhaagne se pehle — yahan se ready draft lo:\n"
+    "📄 <b>Kirayanama</b> (rent agreement) • ⚖️ <b>Affidavit</b> • 🚫 <b>Legal Notice 138</b> (cheque bounce)\n"
+    "🤝 <b>Bayana/Pakki Rasid</b> (zameen sauda) • 📝 <b>Rin Shodh</b> (loan paper) • 🧾 <b>Name/Address/Income affidavit</b>\n"
+    "🧮 <b>Registry Total Kharcha</b> (MVR + stamp duty + registration) • 📐 <b>Bigha/Kattha/Dhur converter</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    f"⚡ Har document/lookup = <b>1 credit</b>\n"
+    "👇 Neeche se chuno:"
+)
+
+MEDIA_MENU_TEXT = (
+    f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "🎵 <b>YouTube → MP3</b> — gaana ka link bhejo, MP3 mil jayega\n"
+    "🎬 <b>Status Video</b> — photo + gaana + apna text (9:16, WhatsApp status ready)\n"
+    "🎧 <b>Ringtone cutter</b> — gaane/video se 30 sec ringtone\n"
+    "🎤 <b>Karaoke</b> — gaana (vocal) hatao, music bache\n"
+    "🔊 <b>8D / Bass boost</b> — gaane ka maza double\n"
+    "🗣️ <b>Voice change</b> — bachcha/motu/robot/bhoot awaaz\n"
+    "✂️ <b>Video trim</b> • 🗜️ <b>Video compress</b> (WhatsApp size) • 🎼 <b>Video → MP3</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    f"⚡ Har kaam = <b>1 credit</b>\n"
+    "👇 Neeche se chuno:"
+)
+
+CITY_COORDS = {
+    "patna": (25.5941, 85.1376), "muzaffarpur": (26.1225, 85.3906), "gaya": (24.7955, 85.0002),
+    "bhagalpur": (25.2425, 86.9842), "darbhanga": (26.1542, 85.8918), "purnia": (25.7771, 87.4753),
+    "sitamarhi": (26.5921, 85.4835), "chapra": (25.7815, 84.7477), "chhapra": (25.7815, 84.7477),
+    "hajipur": (25.6858, 85.2094), "ara": (25.5541, 84.6603), "bihar sharif": (25.1975, 85.5235),
+    "motihari": (26.6472, 84.9149), "saharsa": (25.8798, 86.6015), "samastipur": (25.8629, 85.7811),
+    "begusarai": (25.4182, 86.1272), "katihar": (25.5548, 87.5586), "munger": (25.3708, 86.4734),
+    "nawada": (24.8876, 85.5432), "buxar": (25.5647, 83.9777), "siwan": (26.2196, 84.3561),
+    "sasaram": (24.9538, 84.0128), "dehri": (24.9048, 84.1870), "gopalganj": (26.4674, 84.4410),
+    "madhepura": (25.9219, 86.7921), "supaul": (26.1223, 86.6016), "araria": (26.1500, 87.5170),
+    "kishanganj": (26.0890, 87.9477), "jamui": (24.9204, 86.2244), "lakhisarai": (25.1778, 86.0961),
+    "sheikhpura": (25.1399, 85.8407), "arwal": (25.2450, 84.6660), "jehanabad": (25.2132, 84.9894),
+    "bhabua": (25.0405, 83.6088), "kaimur": (25.0405, 83.6088), "rohtas": (24.9538, 84.0128),
+    "sheohar": (26.5189, 85.2950), "sitamarhi": (26.5921, 85.4835), "madhubani": (26.3530, 86.0722),
+    "bettiah": (26.8020, 84.5028), "forbesganj": (26.2900, 87.2600),
+    "patna sahib": (25.5941, 85.1376),
+    # UP ke aas-paas
+    "varanasi": (25.3176, 82.9739), "lucknow": (26.8467, 80.9462), "gorakhpur": (26.7606, 83.3732),
+    "kanpur": (26.4499, 80.3319), "allahabad": (25.4358, 81.8463), "prayagraj": (25.4358, 81.8463),
+    "azamgarh": (26.0685, 83.1836), "ballia": (25.7585, 84.1488), "ghazipur": (25.5833, 83.5778),
+    "deoria": (26.5024, 83.7791), "mirzapur": (25.1337, 82.5644), "jaunpur": (25.7464, 82.6837),
+    # bade shehar
+    "delhi": (28.6139, 77.2090), "kolkata": (22.5726, 88.3639), "mumbai": (19.0760, 72.8777),
+    "ranchi": (23.3441, 85.3096), "jamshedpur": (22.8046, 86.2029), "dhanbad": (23.7957, 86.4304),
+    "bengaluru": (12.9716, 77.5946), "hyderabad": (17.3850, 78.4867), "jaipur": (26.9124, 75.7873),
+    "bhopal": (23.2599, 77.4126), "noida": (28.5355, 77.3910), "gurgaon": (28.4595, 77.0266),
+}
+
+
+def city_coords(text: str):
+    """User ke likhe shehar se coordinates (default Patna)."""
+    t = (text or "").lower().strip()
+    for name, xy in CITY_COORDS.items():
+        if name in t:
+            return xy, name.title()
+    return (25.5941, 85.1376), "Patna"
+
+
+def kagaz_menu_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📄 Kirayanama (rent agreement)", callback_data="kagaz_kirayanama"),
+         InlineKeyboardButton("⚖️ Affidavit", callback_data="kagaz_affidavit")],
+        [InlineKeyboardButton("🚫 Legal Notice 138 (cheque bounce)", callback_data="kagaz_notice138")],
+        [InlineKeyboardButton("🤝 Bayana / Pakki Rasid (zameen)", callback_data="kagaz_bayana"),
+         InlineKeyboardButton("📝 Rin Shodh (loan paper)", callback_data="kagaz_loan")],
+        [InlineKeyboardButton("🧾 Name/Address/Income Affidavit", callback_data="kagaz_nameaff")],
+        [InlineKeyboardButton("🧮 Registry Total Kharcha", callback_data="kagaz_registry"),
+         InlineKeyboardButton("📐 Bigha/Kattha Converter", callback_data="kagaz_land")],
+        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:kagaz")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ])
+
+
+def media_menu_kb():
+    rows = [
+        [InlineKeyboardButton("🎵 YouTube → MP3", callback_data="media_ytmp3")],
+        [InlineKeyboardButton("🎬 Status Video (photo+gaana+text)", callback_data="media_status")],
+        [InlineKeyboardButton("🎧 Ringtone cutter", callback_data="media_ringtone"),
+         InlineKeyboardButton("🎤 Karaoke (gaana hatao)", callback_data="media_karaoke")],
+        [InlineKeyboardButton("🔊 8D sound", callback_data="media_8d"),
+         InlineKeyboardButton("💥 Bass boost", callback_data="media_bass")],
+        [InlineKeyboardButton("🗣️ Voice change", callback_data="media_voice"),
+         InlineKeyboardButton("🎼 Video → MP3", callback_data="media_v2mp3")],
+        [InlineKeyboardButton("✂️ Video trim", callback_data="media_trim"),
+         InlineKeyboardButton("🗜️ Video compress", callback_data="media_compress")],
+        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:mediastudio")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+def voice_preset_kb():
+    rows = [[InlineKeyboardButton(lbl, callback_data=f"mvoicepk:{k}")] for k, (lbl, _f) in VOICE_PRESETS.items()]
+    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def kagaz_ask_next(key: str, data: dict, step: int = 0) -> str:
+    """Document ke fields ek-ek karke poocho — simple likho."""
+    fields = KAGAZ_FIELDS[key]
+    if step >= len(fields):
+        return ""
+    fname, label, hint = fields[step]
+    return (f"📜 <b>{to_bold('KAGAZ SUITE')}</b> — {key}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"✍️ <b>{label}</b> likho\n"
+            f"<i>(jaise: {hint})</i>\n"
+            f"🚫 Chhodna hai to <code>skip</code> likh do · ❌ Band karne ke liye /start\n"
+            f"📊 Progress: {step + 1}/{len(fields)}")
 
 
 def tool_prompt(action: str) -> str:
@@ -2231,6 +2443,122 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["mode"] = "qr_upi"
         await q.message.reply_text(tool_prompt("qr_upi"), reply_markup=tool_tutorial_kb("qr_upi"), parse_mode=HTML)
         return
+    if data in ("bankpdf", "metaphoto", "mediastudio", "panchang"):
+        context.user_data.pop("mode", None)
+        if data == "mediastudio":
+            context.user_data["mode"] = "media_menu"
+            await q.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
+            return
+        if data == "panchang":
+            context.user_data["mode"] = "panchang"
+            today = context.user_data.get("panchang_day") or datetime.now()
+            xy, city = city_coords(context.user_data.get("panchang_city", ""))
+            await q.message.reply_text(rahu_text(rahu_kaal(today, xy[0], xy[1])) + f"\n📍 <i>Jagah: {city}</i>\n\n"
+                                       "🗓️ <b>Kal ka</b> dekhna hai? <code>kal</code> likho · apna <b>jila</b> likho (jaise <code>Gaya</code>)",
+                                       parse_mode=HTML)
+            return
+        context.user_data["mode"] = data
+        _u0 = get_user(uid, q.from_user.first_name)
+        if is_premium_tool(data) and not can_use_premium_tool(_u0, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text(data),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        extra = ""
+        if is_premium_tool(data):
+            extra = "\n\n" + credits_line(_u0, uid) + "\n<i>(is tool ka 1 use = 1 credit)</i>"
+        await q.message.reply_text(tool_prompt(data) + extra, reply_markup=tool_tutorial_kb(data), parse_mode=HTML)
+        return
+
+    if data == "kagaz_menu":
+        context.user_data["mode"] = "kagaz_menu"
+        await q.message.reply_text(KAGAZ_MENU_TEXT, reply_markup=kagaz_menu_kb(), parse_mode=HTML)
+        return
+
+    if data.startswith("kagaz_") and data not in ("kagaz_menu",):
+        kind = data.replace("kagaz_", "")
+        _u_k = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_k, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("kagaz"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        context.user_data.pop("kagaz_data", None)
+        if kind == "registry":
+            context.user_data["mode"] = "kagaz_registry_state"
+            await q.message.reply_text(
+                f"🧮 <b>{to_bold('REGISTRY TOTAL KHARCHA')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Pehle <b>state</b> batao: <code>Bihar</code> / <code>UP</code> / <code>Jharkhand</code>\n"
+                "<i>(Bihar: stamp 6.5% + registration 3% · mahila/joint par 1% kam)</i>", parse_mode=HTML)
+            return
+        if kind == "land":
+            context.user_data["mode"] = "kagaz_land_value"
+            await q.message.reply_text(
+                f"📐 <b>{to_bold('BIGHA / KATTHA / DHUR CONVERTER')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Naap likho — jaise:\n"
+                "• <code>2 bigha</code>\n• <code>5 katha</code>\n• <code>10 decimal</code>\n• <code>1200 sqft</code>\n"
+                "• <code>3 dhur</code> / <code>1 acre</code> / <code>2.5 gaj</code>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "📐 <b>Ab apna naap likho:</b>", parse_mode=HTML)
+            return
+        if kind not in KAGAZ_FIELDS:
+            await q.message.reply_text("❌ Ye document nahi mila.", parse_mode=HTML)
+            return
+        context.user_data["mode"] = f"kagaz_fill_{kind}"
+        context.user_data["kagaz_step"] = 0
+        context.user_data["kagaz_data"] = {}
+        await q.message.reply_text(kagaz_ask_next(kind, {}, 0), parse_mode=HTML)
+        return
+
+    if data.startswith("media_"):
+        kind = data.replace("media_", "")
+        _u_m = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_m, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("mediastudio"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        ask = {
+            "ytmp3": ("🎵 <b>YOUTUBE → MP3</b>\n\nAb <b>gaane ka YouTube link</b> bhejo:\n<i>(jaise https://youtu.be/xxxx)</i>", "media_ytmp3"),
+            "status": ("🎬 <b>STATUS VIDEO MAKER</b>\n\n1️⃣ Pehle <b>photo bhejo</b> (jispe status banega)", "media_status_photo"),
+            "ringtone": ("🎧 <b>RINGTONE CUTTER</b>\n\nGaana (MP3) ya video bhejo — usme se 30 second ka ringtone bana dunga.", "media_ringtone"),
+            "karaoke": ("🎤 <b>KARAOKE MAKER</b>\n\nGaana (MP3) ya video bhejo — vocal hata ke music bana dunga.", "media_karaoke"),
+            "8d": ("🔊 <b>8D SOUND</b>\n\nGaana bhejo — kaan me ghumta hua 8D effect laga dunga.", "media_8d"),
+            "bass": ("💥 <b>BASS BOOST</b>\n\nGaana bhejo — bass full, awaaz loud.", "media_bass"),
+            "voice": ("🗣️ <b>VOICE CHANGE</b>\n\nVoice note / audio / video bhejo — phir awaaz chunna.", "media_voice_wait"),
+            "v2mp3": ("🎼 <b>VIDEO → MP3</b>\n\nVideo bhejo — uska MP3 bana dunga.", "media_v2mp3"),
+            "trim": ("✂️ <b>VIDEO TRIM</b>\n\nVideo bhejo (max 2 minute) — phir time batao (jaise <code>0:10 se 0:45</code>).", "media_trim_wait"),
+            "compress": ("🗜️ <b>VIDEO COMPRESS</b>\n\nVideo bhejo (max 2 minute) — size chhota kar dunga (WhatsApp bhejne layak).", "media_compress_wait"),
+        }.get(kind)
+        if not ask:
+            await q.message.reply_text("❌ Option nahi mila.", parse_mode=HTML)
+            return
+        text, mode = ask
+        context.user_data["mode"] = mode
+        await q.message.reply_text(text, parse_mode=HTML)
+        return
+
+    if data.startswith("mvoicepk:"):
+        preset = data.split(":", 1)[1]
+        raw = context.user_data.pop("media_audio", None)
+        if not raw:
+            await q.message.reply_text("⚠️ Pehle audio bhejo.")
+            return
+        await q.message.reply_text("🗣️ Awaaz badli ja rahi hai... (10-30 second)")
+        res = desi.voice_change(raw, preset)
+        if not res.get("ok"):
+            await q.answer("Fail ho gaya", show_alert=True)
+            await q.message.reply_text(f"❌ {res.get('error')}")
+            return
+        lbl = VOICE_PRESETS[preset][0]
+        await q.message.reply_audio(audio=res["bytes"], filename="voice_changed.mp3",
+                                    title=f"{lbl} — Utility Duniya", performer="HIMANSHU",
+                                    caption=f"🗣️ <b>{lbl}</b> ready!\n{spend_credit_msg(uid, 'mediastudio')}",
+                                    parse_mode=HTML)
+        return
+
     if data == "qr_wifi":
         context.user_data["mode"] = "qr_wifi"
         await q.message.reply_text(tool_prompt("qr_wifi"), reply_markup=tool_tutorial_kb("qr_wifi"), parse_mode=HTML)
@@ -2744,6 +3072,28 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
             )
+            return
+
+        # 3b. v38: SARKARI KAGAZ SUITE (menu)
+        if action == "kagaz":
+            context.user_data["mode"] = "kagaz_menu"
+            await update.message.reply_text(KAGAZ_MENU_TEXT, reply_markup=kagaz_menu_kb(), parse_mode=HTML)
+            return
+
+        # 3c. v38: MEDIA STUDIO (menu)
+        if action == "mediastudio":
+            context.user_data["mode"] = "media_menu"
+            await update.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
+            return
+
+        # 3d. v38: RAHU KAAL / PANCHANG (free)
+        if action == "panchang":
+            context.user_data["mode"] = "panchang"
+            await update.message.reply_text(
+                rahu_text(rahu_kaal(datetime.now())) +
+                "\n📍 <i>Jagah: Patna (default)</i>\n\n"
+                "🗓️ <b>Kal ka</b> chahiye to <code>kal</code> likho · apna <b>jila</b> likho (jaise <code>Gaya</code>, <code>Muzaffarpur</code>)",
+                parse_mode=HTML)
             return
 
         # 4. Sarkari Portals
@@ -3780,6 +4130,250 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ---------------- v38: PANCHANG (free) ----------------
+    if mode == "panchang":
+        t = (raw_text or "").strip().lower()
+        today = datetime.now()
+        city = context.user_data.get("panchang_city", "")
+        if t in ("kal", "tomorrow", "kal ka"):
+            today = today + timedelta(days=1)
+        elif t in ("parso", "parson"):
+            today = today + timedelta(days=2)
+        elif len(t) > 1:
+            context.user_data["panchang_city"] = t
+            city = t
+        xy, cname = city_coords(city)
+        await update.message.reply_text(rahu_text(rahu_kaal(today, xy[0], xy[1])) + f"\n📍 <i>Jagah: {cname}</i>",
+                                        parse_mode=HTML)
+        return
+
+    # ---------------- v38: KAGAZ FILL (ek-ek field) ----------------
+    if mode and mode.startswith("kagaz_fill_"):
+        kind = mode.replace("kagaz_fill_", "")
+        step = int(context.user_data.get("kagaz_step", 0))
+        data = context.user_data.get("kagaz_data") or {}
+        fields = KAGAZ_FIELDS.get(kind, [])
+        if step < len(fields):
+            fname = fields[step][0]
+            data[fname] = "" if raw_text.strip().lower() in ("skip", "-", "nahi") else raw_text.strip()
+        context.user_data["kagaz_data"] = data
+        step += 1
+        context.user_data["kagaz_step"] = step
+        if step < len(fields):
+            await update.message.reply_text(kagaz_ask_next(kind, data, step), parse_mode=HTML)
+            return
+        # sab fields mil gaye — PDF banao
+        _u = get_user(uid, user.first_name)
+        if not can_use_premium_tool(_u, uid):
+            await update.message.reply_text(get_credits_over_text("kagaz"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        await update.message.reply_text("📄 Kagaz (PDF) ban raha hai... (2-5 second)")
+        try:
+            pdf = KAGAZ_MAKERS[kind](data)
+        except Exception as e:
+            await update.message.reply_text(fail_msg("KAGAZ FAILED", str(e)[:150]), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        names = {"kirayanama": "Kirayanama", "affidavit": "Affidavit", "notice138": "Legal_Notice_138",
+                 "bayana": "Bayana_Rasid", "loan": "Rin_Shodh", "nameaff": "Affidavit_Correction"}
+        await update.message.reply_document(
+            document=pdf, filename=f"{names.get(kind, 'Kagaz')}_{datetime.now().strftime('%d-%m-%Y')}.pdf",
+            caption=("📜 <b>" + names.get(kind, "KAGAZ").upper() + " READY ✅</b>\n"
+                     "🖨️ Print kar lo, zaroori jagah bharo, gawah ke sign karwa lo.\n"
+                     "⚠️ <i>Notary/Sub-Registrar se final karwana zaroori hai — ye computer se bana draft hai.</i>\n\n"
+                     + spend_credit_msg(uid, "kagaz")),
+            parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        context.user_data.pop("kagaz_data", None)
+        add_use(uid)
+        return
+
+    if mode == "kagaz_registry_state":
+        st = raw_text.strip()
+        context.user_data["kagaz_reg_state"] = st
+        context.user_data["mode"] = "kagaz_registry_area"
+        await update.message.reply_text(
+            "📐 Ab <b>zameen ka area</b> likho — aasan bhasha me:\n"
+            "• <code>2 katha</code>  • <code>1500 sqft</code>  • <code>1 bigha</code>  • <code>5 decimal</code>",
+            parse_mode=HTML)
+        return
+
+    if mode == "kagaz_registry_area":
+        m = re.match(r"([\d.]+)\s*([a-zA-Zа-я\s]+)?", raw_text.strip())
+        val = float(m.group(1)) if m and m.group(1) else 0.0
+        unit = (m.group(2) or "sqft").strip() if m else "sqft"
+        conv = convert_land(val, unit)
+        if not conv.get("ok"):
+            await update.message.reply_text(f"❌ {conv.get('error')}\nPhir se likho (jaise <code>2 katha</code>)", parse_mode=HTML)
+            return
+        context.user_data["kagaz_reg_area"] = conv["sqft"]
+        context.user_data["mode"] = "kagaz_registry_rate"
+        await update.message.reply_text(
+            f"✅ {conv['sqft']} Sq Ft set hua.\n\n"
+            "💰 Ab <b>MVR / circle rate</b> batao (₹ per Sq Ft):\n"
+            "<i>Bihar me <code>bhumijankari.bihar.gov.in</code> par MVR (circle rate) se pata chalta hai. "
+            "Pata na ho to apna mol-bhav (deal rate) likh do.</i>\n"
+            "jaise: <code>3000</code>", parse_mode=HTML)
+        return
+
+    if mode == "kagaz_registry_rate":
+        try:
+            rate = float(re.sub(r"[^\d.]", "", raw_text) or 0)
+        except Exception:
+            rate = 0
+        if rate <= 0:
+            await update.message.reply_text("❌ Rate samajh nahi aaya. Sirf number likho (jaise <code>3000</code>).", parse_mode=HTML)
+            return
+        context.user_data["mode"] = "kagaz_registry_buyer"
+        context.user_data["kagaz_reg_rate"] = rate
+        await update.message.reply_text(
+            "👤 Khareedar kaun hai? <code>male</code> / <code>female</code> / <code>joint</code> likho\n"
+            "<i>(Bihar: mahila ya joint (mahila saath) par stamp duty 1% kam)</i>", parse_mode=HTML)
+        return
+
+    if mode == "kagaz_registry_buyer":
+        buyer = raw_text.strip().lower()
+        st = context.user_data.get("kagaz_reg_state", "bihar")
+        area = float(context.user_data.get("kagaz_reg_area") or 0)
+        rate = float(context.user_data.get("kagaz_reg_rate") or 0)
+        panch = 2.0 if str(st).lower().startswith("bih") else 0.0
+        res = registry_cost(st, area, rate, buyer, panchayat_pct=panch)
+        await update.message.reply_text(registry_text(res) + "\n\n" + spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return
+
+    if mode == "kagaz_land_value":
+        m = re.match(r"([\d.]+)\s*([a-zA-Zа-я\s]+)?", raw_text.strip())
+        val = float(m.group(1)) if m and m.group(1) else 0.0
+        unit = (m.group(2) or "sqft").strip() if m else "sqft"
+        res = convert_land(val, unit)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            return
+        await update.message.reply_text(land_text(res) + "\n\n" + spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return
+
+    # ---------------- v38: BANK STATEMENT ----------------
+    if mode == "bankpdf":
+        await update.message.reply_text(
+            "📄 <b>Bank statement ka PDF bhejo</b> (document/file ke roop me).\n"
+            "<i>PDF ke roop me hi bhejo — screenshot/photo nahi (usme table nahi hoti).</i>", parse_mode=HTML)
+        return
+
+    if mode == "bankpdf_pass":
+        pwd = raw_text.strip()
+        raw = context.user_data.get("bankpdf_bytes")
+        if not raw:
+            await update.message.reply_text("⚠️ Pehle PDF bhejo.", parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        await update.message.reply_text("🔓 PDF khol raha hoon...")
+        res = parse_bank_statement(raw, password=pwd)
+        if not res.get("ok"):
+            await update.message.reply_text(
+                f"❌ {res.get('error')}\n\n<i>Password aam taur par: account ke aakhri 4 ank, ya naam ke pehle 4 akshar + "
+                "saal (jaise <code>rame1990</code>), ya bank ka bheja pattern.</i>", parse_mode=HTML)
+            return
+        await deliver_statement(update, context, uid, res)
+        return
+
+    if mode == "metaphoto":
+        await update.message.reply_text("🖼️ <b>Photo bhejo</b> (document/photo ke roop me).", parse_mode=HTML)
+        return
+
+    if mode == "media_menu":
+        await update.message.reply_text("👆 Upar wale buttons me se option chuno.", parse_mode=HTML)
+        return
+
+    if mode == "media_ytmp3":
+        await do_ytmp3(update, context, uid, raw_text.strip())
+        return
+
+    if mode in ("media_ringtone", "media_karaoke", "media_8d", "media_bass", "media_voice_wait",
+                "media_v2mp3", "media_trim_wait", "media_compress_wait", "media_status_audio"):
+        await update.message.reply_text("🎵 Pehle <b>audio/video file bhejo</b> (upar wale instruction ke hisaab se).", parse_mode=HTML)
+        return
+
+    if mode == "media_ringtone_start":
+        raw = context.user_data.get("media_audio")
+        if not raw:
+            context.user_data["mode"] = "media_ringtone"
+            await update.message.reply_text("⚠️ Audio phir se bhejo.", parse_mode=HTML)
+            return
+        m = re.search(r"(\d{1,2}):(\d{2})", raw_text)
+        if m:
+            start = int(m.group(1)) * 60 + int(m.group(2))
+        else:
+            digits = re.sub(r"[^\d]", "", raw_text)
+            start = int(digits) if digits else 0
+        st = await update.message.reply_text("🎧 Ringtone ban raha hai...")
+        res = await asyncio.to_thread(desi.audio_cut, raw, str(start), str(start + 30), "mp3")
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("RINGTONE FAILED", res.get("error", "")), parse_mode=HTML)
+            return
+        await st.delete()
+        await update.message.reply_audio(
+            audio=res["bytes"], filename="ringtone.mp3", title="Ringtone", performer="Utility Duniya",
+            duration=int(res.get("duration") or 30),
+            caption=(f"🎧 <b>RINGTONE READY</b> — {res.get('duration')}s\n"
+                     f"<i>{start // 60}:{start % 60:02d} se shuru</i>\n\n" + spend_credit_msg(uid, "mediastudio")),
+            parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        context.user_data.pop("media_audio", None)
+        add_use(uid)
+        return
+
+    if mode == "media_trim_time":
+        m = re.findall(r"\d{1,2}:\d{2}|\d+", raw_text)
+        if len(m) < 2:
+            await update.message.reply_text("❌ Aise likho: <code>0:10 0:45</code> (shuru se aakhir tak)", parse_mode=HTML)
+            return
+        context.user_data["media_trim"] = (m[0], m[1])
+        raw = context.user_data.get("media_video")
+        if not raw:
+            context.user_data["mode"] = "media_trim_wait"
+            await update.message.reply_text("⚠️ Video phir se bhejo.")
+            return
+        await update.message.reply_text("✂️ Video cut ho rahi hai... (10-60 second)")
+        res = desi.video_trim(raw, m[0], m[1])
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            return
+        await update.message.reply_video(video=res["bytes"], filename="trimmed.mp4", supports_streaming=True,
+                                         caption=f"✂️ <b>VIDEO READY</b> — {res.get('duration')}s · {res.get('size_mb')}MB\n\n"
+                                                 + spend_credit_msg(uid, "mediastudio"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        context.user_data.pop("media_video", None)
+        add_use(uid)
+        return
+
+    if mode == "media_status_text":
+        txt = raw_text.strip()
+        img = context.user_data.get("media_status_photo")
+        aud = context.user_data.get("media_status_audio")
+        if not (img and aud):
+            await update.message.reply_text("⚠️ Pehle photo aur gaana dono bhejo.", parse_mode=HTML)
+            context.user_data["mode"] = "media_status_photo"
+            return
+        await update.message.reply_text("🎬 Status video ban rahi hai... (20-90 second)")
+        res = desi.make_status_video(img, aud, txt, seconds=30)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            return
+        await update.message.reply_video(video=res["bytes"], filename="status.mp4", supports_streaming=True,
+                                         caption=("🎬 <b>STATUS VIDEO READY ✅</b> (9:16 — WhatsApp/Instagram status)\n"
+                                                  "📥 Download karke seedha status me daal do.\n\n"
+                                                  + spend_credit_msg(uid, "mediastudio")), parse_mode=HTML)
+        for k in ("media_status_photo", "media_status_audio", "mode"):
+            context.user_data.pop(k, None)
+        add_use(uid)
+        return
+
     if mode == "qr_wifi":
         context.user_data["qr_wifi_ssid"] = raw_text.strip()
         context.user_data["mode"] = "qr_wifi_pass"
@@ -4183,6 +4777,212 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- PHOTO / DOCUMENT HANDLERS ----------------
+async def deliver_statement(update, context, uid, res):
+    """Bank statement ka CSV + summary bhejo (1 credit)."""
+    if not can_use_premium_tool(get_user(uid), uid):
+        await update.message.reply_text(get_credits_over_text("bankpdf"),
+                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+        return
+    await update.message.reply_document(
+        document=res["csv"], filename=f"statement_{datetime.now().strftime('%d-%m-%Y')}.csv",
+        caption=statement_summary_text(res), parse_mode=HTML)
+    await update.message.reply_text(spend_credit_msg(uid, "bankpdf"), parse_mode=HTML)
+    context.user_data.pop("mode", None)
+    context.user_data.pop("bankpdf_bytes", None)
+    add_use(uid)
+
+
+async def do_ytmp3(update, context, uid, url):
+    """YouTube link → MP3 (1 credit)."""
+    if "youtu" not in url.lower() and "youtube" not in url.lower():
+        await update.message.reply_text("❌ Ye YouTube link nahi lagta. Aise link bhejo: <code>https://youtu.be/xxxx</code>",
+                                        parse_mode=HTML)
+        return
+    if not can_use_premium_tool(get_user(uid), uid):
+        await update.message.reply_text(get_credits_over_text("mediastudio"),
+                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+        return
+    st = await update.message.reply_text("🎵 Gaana download ho raha hai... (15-60 second)")
+    res = await asyncio.to_thread(desi.youtube_mp3, url, "192")
+    if not res.get("ok"):
+        await st.edit_text(fail_msg("MP3 FAILED", res.get("error", "")), parse_mode=HTML)
+        return
+    dur = int(res.get("duration") or 0)
+    await st.delete()
+    await update.message.reply_audio(
+        audio=res["bytes"], filename="song.mp3",
+        title=(res.get("title") or "Audio")[:60], performer=(res.get("uploader") or "Utility Duniya")[:40],
+        duration=dur,
+        caption=(f"🎵 <b>{hesc((res.get('title') or 'AUDIO')[:80])}</b>\n"
+                 f"⏱️ {dur // 60}:{dur % 60:02d} · 📦 {res.get('size_mb')} MB\n\n"
+                 + spend_credit_msg(uid, "mediastudio")),
+        parse_mode=HTML)
+    context.user_data.pop("mode", None)
+    add_use(uid)
+
+
+async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime=""):
+    """v38: aayi hui file ko mode ke hisaab se process karo. True = handle ho gaya."""
+    say = msg.reply_text
+
+    # ---------- 🏦 BANK PDF ----------
+    if mode in ("bankpdf", "bankpdf_pass") and kind == "pdf":
+        context.user_data["bankpdf_bytes"] = data
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("bankpdf"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return True
+        st = await say("🔎 PDF khol ke table nikal raha hoon... (5-30 second)")
+        res = await asyncio.to_thread(parse_bank_statement, data)
+        if res.get("ok"):
+            await st.delete()
+            await deliver_statement(update, context, uid, res)
+            return True
+        if res.get("locked"):
+            context.user_data["mode"] = "bankpdf_pass"
+            await st.edit_text(
+                "🔒 <b>Ye PDF password se locked hai!</b>\n\nPassword bhejo (text me).\n"
+                "<i>Aam pattern:</i>\n"
+                "• account ke <b>aakhri 4 ank</b> (jaise <code>7561</code>)\n"
+                "• <b>naam ke pehle 4 akshar + janm saal</b> (jaise <code>rame1990</code>)\n"
+                "• ya bank ne jo bataya tha (jaise <code>ABCD1234</code>)\n\n"
+                "🔑 <b>Ab password bhejo:</b>", parse_mode=HTML)
+            return True
+        await st.edit_text(fail_msg("PDF READ FAILED", res.get("error", "")), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        return True
+
+    # ---------- 🕵️ PHOTO INFO (document ke roop me aayi image) ----------
+    if mode == "metaphoto" and kind in ("image", "photo"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("metaphoto"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return True
+        st = await say("🕵️ Photo ki jaanch ho rahi hai... (3-10 second)")
+        res = await asyncio.to_thread(photo_forensics, data)
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("PHOTO FAILED", res.get("error", "")), parse_mode=HTML)
+            return True
+        await st.delete()
+        await msg.reply_text(photo_meta_text(res), parse_mode=HTML)
+        marked = res.get("marked_image")
+        if marked is not None:
+            buf = io.BytesIO()
+            marked.convert("RGB").save(buf, "JPEG", quality=90)
+            buf.seek(0)
+            await msg.reply_photo(photo=buf, caption="🔴 Lal dabbe = jahan shak hai (edit/chyu-paste ke nishaan)",
+                                  parse_mode=HTML)
+        await msg.reply_text(spend_credit_msg(uid, "metaphoto"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return True
+
+    # ---------- ⚡ MEDIA STUDIO ----------
+    if mode == "media_menu":
+        await say("👆 Upar wale buttons me se option chuno (MP3 / Status / Karaoke...).")
+        return True
+
+    if mode == "media_ytmp3" and kind == "text":
+        return False
+
+    if mode in ("media_ringtone",) and kind in ("audio", "video", "voice", "video_note"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return True
+        context.user_data["media_audio"] = data
+        context.user_data["mode"] = "media_ringtone_start"
+        await say("⏱️ Kis second se ringtone shuru karna hai? (jaise <code>45</code> ya <code>1:20</code>)\n"
+                  "<i>30 second ka ringtone banega.</i>", parse_mode=HTML)
+        return True
+
+    if mode in ("media_karaoke", "media_8d", "media_bass") and kind in ("audio", "video", "voice", "video_note"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return True
+        names = {"media_karaoke": ("🎤 Karaoke", desi.make_karaoke),
+                 "media_8d": ("🔊 8D sound", desi.eff_8d),
+                 "media_bass": ("💥 Bass boost", desi.bass_boost)}
+        label, fn = names[mode]
+        st = await say(f"{label} ban raha hai... (10-60 second)")
+        res = await asyncio.to_thread(fn, data)
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("FAILED", res.get("error", "")), parse_mode=HTML)
+            return True
+        await st.delete()
+        extra = res.get("note") or ""
+        await msg.reply_audio(audio=res["bytes"], filename="audio.mp3", title=label, performer="Utility Duniya",
+                              caption=f"✅ <b>{label} ready!</b>\n{extra}\n\n" + spend_credit_msg(uid, "mediastudio"),
+                              parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return True
+
+    if mode == "media_v2mp3" and kind in ("video", "video_note"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return True
+        st = await say("🎼 Video se MP3 nikal raha hoon...")
+        res = await asyncio.to_thread(desi.video_to_mp3, data)
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("FAILED", res.get("error", "")), parse_mode=HTML)
+            return True
+        await st.delete()
+        await msg.reply_audio(audio=res["bytes"], filename="audio.mp3", title="Video ka audio",
+                              performer="Utility Duniya",
+                              caption="🎼 <b>MP3 ready!</b>\n\n" + spend_credit_msg(uid, "mediastudio"),
+                              parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return True
+
+    if mode == "media_voice_wait" and kind in ("audio", "video", "voice", "video_note"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return True
+        context.user_data["media_audio"] = data
+        await say("🗣️ Ab <b>awaaz chuno</b> (bachcha / motu / robot / bhoot / gadget / pahad-echo):",
+                  reply_markup=voice_preset_kb(), parse_mode=HTML)
+        return True
+
+    if mode == "media_trim_wait" and kind in ("video", "video_note"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return True
+        context.user_data["media_video"] = data
+        context.user_data["mode"] = "media_trim_time"
+        await say("✂️ Kab se kab tak kaatna hai? Aise likho: <code>0:10 0:45</code>\n"
+                  "<i>(shuru ka time aur aakhir ka time)</i>", parse_mode=HTML)
+        return True
+
+    if mode == "media_compress_wait" and kind in ("video", "video_note"):
+        if not can_use_premium_tool(get_user(uid), uid):
+            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return True
+        st = await say("🗜️ Video compress ho rahi hai... (30 second - 3 minute)\n<i>Badi video me time zyada lagta hai.</i>")
+        res = await asyncio.to_thread(desi.video_compress, data, 18.0)
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("COMPRESS FAILED", res.get("error", "")) +
+                               ("\n\n✂️ <b>TRIM</b> se pehle chhoti banao, phir compress karo." if res.get("too_long") else ""),
+                               parse_mode=HTML)
+            return True
+        await st.delete()
+        await msg.reply_video(video=res["bytes"], filename="compressed.mp4", supports_streaming=True,
+                              caption=(f"🗜️ <b>VIDEO COMPRESSED</b> — {res.get('size_mb')} MB\n"
+                                       f"{res.get('note') or ''}\n\n" + spend_credit_msg(uid, "mediastudio")),
+                              parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return True
+
+    if mode == "media_status_audio" and kind in ("audio", "voice"):
+        context.user_data["media_status_audio"] = data
+        context.user_data["mode"] = "media_status_text"
+        await say("✍️ Ab <b>status par kya likhna hai</b>? (1-3 line)\n<i>jaise: Happy Birthday Rahul 🎂</i>", parse_mode=HTML)
+        return True
+
+    return False
+
+
 async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
     mode = context.user_data.get("mode")
@@ -4199,6 +4999,26 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_cloner_config(uid, thumbnail_file_id=thumb_id)
         context.user_data.pop("mode", None)
         await update.message.reply_text("✅ <b>Custom Thumbnail Saved!</b> Ab se sabhi forwarded videos/docs par yeh thumbnail lagega.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
+    # ---------- v38: PHOTO INFO + FAKE DETECT ----------
+    if mode == "metaphoto":
+        photo_file = await update.message.photo[-1].get_file()
+        buf = io.BytesIO()
+        await photo_file.download_to_memory(buf)
+        await handle_new_tool_file(update, context, uid, update.message, mode, "photo", buf.getvalue())
+        return
+
+    # ---------- v38: STATUS VIDEO (photo) ----------
+    if mode == "media_status_photo":
+        photo_file = await update.message.photo[-1].get_file()
+        buf = io.BytesIO()
+        await photo_file.download_to_memory(buf)
+        context.user_data["media_status_photo"] = buf.getvalue()
+        context.user_data["mode"] = "media_status_audio"
+        await update.message.reply_text(
+            "🎵 Ab <b>gaana bhejo</b> (MP3/audio file — jispe status banega).\n"
+            "<i>YouTube se gaana chahiye to pehle 🎵 YouTube → MP3 se banao, phir yahan bhejo.</i>", parse_mode=HTML)
         return
 
     # ---------- PAYMENT: screenshot aane par strict verify ----------
@@ -4350,6 +5170,50 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ok, res = await forward_cloned_message(context.bot, msg, uid)
         await msg.reply_text(res, parse_mode=HTML)
         return
+
+    # ---------- v38: naye tools ke files (PDF / audio / video / image) ----------
+    _our_modes = ("bankpdf", "bankpdf_pass", "metaphoto", "media_ringtone", "media_ringtone_start",
+                  "media_karaoke", "media_8d", "media_bass", "media_voice_wait", "media_v2mp3",
+                  "media_trim_wait", "media_compress_wait", "media_status_audio")
+    if mode in _our_modes:
+        kind, att, fname, mime = None, None, "", ""
+        if msg.document:
+            fname = (msg.document.file_name or "").lower()
+            mime = (msg.document.mime_type or "").lower()
+            att = msg.document
+            if "pdf" in mime or fname.endswith(".pdf"):
+                kind = "pdf"
+            elif mime.startswith("image/") or fname.endswith((".jpg", ".jpeg", ".png", ".webp")):
+                kind = "image"
+            elif mime.startswith("audio/") or fname.endswith((".mp3", ".m4a", ".wav", ".ogg", ".opus", ".aac")):
+                kind = "audio"
+            elif mime.startswith("video/") or fname.endswith((".mp4", ".mkv", ".mov", ".webm", ".3gp")):
+                kind = "video"
+        elif msg.video:
+            kind, att = "video", msg.video
+        elif msg.animation:
+            kind, att = "video", msg.animation
+        elif msg.video_note:
+            kind, att = "video_note", msg.video_note
+        elif msg.audio:
+            kind, att = "audio", msg.audio
+        elif msg.voice:
+            kind, att = "voice", msg.voice
+        if kind and att is not None:
+            try:
+                if getattr(att, "file_size", 0) and att.file_size > 20 * 1024 * 1024:
+                    await msg.reply_text("⚠️ File 20MB se badi hai — Telegram bot limit hai. Chhoti file bhejo "
+                                         "(ya video ho to pehle ✂️ TRIM karo).", parse_mode=HTML)
+                    return
+                tf = await att.get_file()
+                buf = io.BytesIO()
+                await tf.download_to_memory(buf)
+                handled = await handle_new_tool_file(update, context, uid, msg, mode, kind, buf.getvalue(), mime)
+                if handled:
+                    return
+            except Exception as e:
+                await msg.reply_text(fail_msg("FILE ERROR", str(e)[:150]), parse_mode=HTML)
+                return
 
     # ID Finder: forwarded media ka original user/channel ID batao
     if getattr(msg, "forward_origin", None):
