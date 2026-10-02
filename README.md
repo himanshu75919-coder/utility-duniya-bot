@@ -1,11 +1,11 @@
-# ⚡ Utility Duniya Super-Bot — **v42**
+# ⚡ Utility Duniya Super-Bot — **v43**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v42):** ✂️ **chhote prompts** — har tool ab sirf TITLE + 1 line + 📌 Example + "Now send…" dikhata hai
-> (lambi instructions hat gayi — tutorial video har tool ke neeche hai). Details: **`v42-CHHOTE-PROMPTS.md`**.
-> **v41:** 📲 **IMEI / PHONE DETAILS** tool + 🚗 vehicle ab aapke **asli API hub** se. Setup: **`v41-API-HUB.md`**.
+> **Naya (v43):** 🎬 **CLIP MAKER** — video (file / direct .mp4 link / YouTube) → **4-7 short clips** (25-60 sec),
+> Best Moments ya Equal Parts, 16:9 ya 9:16. Guide: **`v43-CLIP-MAKER.md`**.
+> **v42:** ✂️ chhote prompts · **v41:** 📲 IMEI tool + 🚗 vehicle asli API hub se.
 >
 > **v39:** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
 > Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
@@ -38,7 +38,7 @@ UPI_NAME=Utility Duniya
 | VIP (paid) / Owner | **Unlimited** — premium tools bhi free, koi credit nahi |
 
 **Premium tools (8):** 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup ·
-🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio · 🚗 Vehicle Info + Challan · 📲 IMEI / Phone Details.
+🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio · 🚗 Vehicle Info + Challan · 📲 IMEI / Phone Details · 🎬 Clip Maker.
 
 VIP buy: `/premium` → plan chuno → QR se paisa → **Step 2**: UTR bhejo (12 digit) → **Step 3**: screenshot bhejo →
 admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` → plan select → `/activate <user_id>`.
@@ -102,6 +102,7 @@ modules/
   vip_payment.py    — VIP plans, UPI QR, payment flow
 requirements.txt    — saare packages
 v39-KYA-BADLA.md    — v39 me kya badla (2 minute read)
+v43-CLIP-MAKER.md — clip maker (video → 4-7 clips) setup, limits, best-moment logic
 v42-CHHOTE-PROMPTS.md — chhote prompts (pehle vs ab, har tool ka example)
 v41-API-HUB.md — IMEI tool + vehicle hub (3 endpoint) setup, env vars, credit rules
 v40-VEHICLE-CHALLAN.md — purana single-endpoint vehicle setup (optional) + privacy notes

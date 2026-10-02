@@ -177,6 +177,22 @@ from modules.vehicle_challan import (
     render_report as render_vehicle_report,
     valid_plate as vehicle_plate_ok,
 )
+from modules import clip_maker as clipm
+from modules.clip_maker import (
+    CLIP_COUNT as CLIP_MAKER_COUNT,
+    MAX_MINUTES as CLIP_MAKER_MAX_MIN,
+    best_of_best as clips_best_of_best,
+    caption_for as clips_caption,
+    cleanup as clips_cleanup,
+    download_direct as clips_download_direct,
+    fmt_t as clips_fmt_t,
+    help_card as clips_help_card,
+    is_direct_video_url as clips_is_direct_url,
+    is_youtube_url as clips_is_yt_url,
+    probe_info as clips_probe,
+    ytdlp_available as clips_ytdlp_available,
+    youtube_download as clips_youtube_download,
+)
 from modules.imei_lookup import (
     device_title as imei_title,
     fallback_links as imei_fallback_links,
@@ -301,6 +317,8 @@ PREMIUM_TOOLS = {
     "vehicle",             # 🚗 VEHICLE & CHALLAN REPORT
     # ---- v41 IMEI / PHONE DETAILS (live API) ----
     "imei",                # 📲 IMEI & PHONE SPEC CARD
+    # ---- v43 CLIP MAKER (video → 4-7 clips) ----
+    "clips",               # 🎬 CLIP MAKER
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -313,6 +331,7 @@ PREMIUM_TOOL_NAMES = {
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
     "vehicle": "🚗 Vehicle Info + Challan Report",
     "imei": "📲 IMEI / Phone Details",
+    "clips": "🎬 Clip Maker (video → 4-7 clips)",
 }
 
 
@@ -365,6 +384,7 @@ def get_credits_over_text(action: str = "") -> str:
         "• 🏦 Bank PDF → Excel • 📜 Document Suite • ⚡ Media Studio — <b>unlimited</b>\n"
         "• 🚗 Vehicle Info + Challan Report — <b>unlimited</b>\n"
         "• 📲 IMEI / Phone Details — <b>unlimited</b>\n"
+        "• 🎬 Clip Maker (video → 4-7 clips) — <b>unlimited</b>\n"
         "• ♾️ Whole bot unlimited (no limits at all)\n\n"
         "🎁 <i>Want VIP free? Share with {n} friends (/refer).</i>"
     ).replace("{n}", str(REFER_NEED))
@@ -580,7 +600,7 @@ KB_BTNS = [
     [f"🖼️ {to_bold('SITE SCREENSHOT')}", f"🏦 {to_bold('BANK STATEMENT → EXCEL')}"],
     [f"📜 {to_bold('SARKARI KAGAZ SUITE')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
-    [f"📲 {to_bold('IMEI / PHONE DETAILS')}"],
+    [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"🎬 {to_bold('CLIP MAKER')}"],
     [f"💎 {to_bold('VIP PREMIUM')}", f"🎁 {to_bold('REFER & EARN')}"],
     [f"👤 {to_bold('MY ACCOUNT')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -632,6 +652,9 @@ BTN_MODE_MAP = {
     "IMEI INFO": "imei",
     "IMEI LOOKUP": "imei",
     "PHONE INFO (IMEI)": "imei",
+    "CLIP MAKER": "clips",
+    "CLIPS MAKER": "clips",
+    "VIDEO CLIP MAKER": "clips",
     "NUMBER INFO": "numinfo",
     "IFSC INFO": "ifsc",
     "PINCODE INFO": "pin",
@@ -729,6 +752,13 @@ PROMPTS = {
         "Brand, model, device photo + full spec sheet + <code>.json</code> copy file.\n"
         "📍 IMEI: dial <code>*#06#</code> · 📌 Example: <code>353010111111110</code>\n"
         "🔢 <b>Now send the 15 digit IMEI:</b>"
+    ),
+    "clips": (
+        f"🎬 <b>{to_bold('CLIP MAKER')}</b>\n"
+        "Video → 4-7 short clips (25-60 sec). Best moments = loud + action parts.\n"
+        "📌 Limit: 15 min · 20MB file · ya direct <code>.mp4</code> link\n"
+        "⚠️ Use your own video or one you are allowed to reuse.\n"
+        "📸 <b>Now send the video file (or link):</b>"
     ),
     "numinfo": (
         f"📱 <b>{to_bold('NUMBER INFO')}</b>\n"
@@ -1386,6 +1416,120 @@ def _veh_has_rc_data(live: dict) -> bool:
     return bool((live.get("summary") or {}).get("count"))
 
 
+# ---------------- v43: CLIP MAKER ----------------
+def clip_choice_kb(mode=None, vertical=None):
+    def _tick(txt, on):
+        return txt + ("  ✅" if on else "")
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(_tick("🎯 Best Moments", mode == "smart"), callback_data="clmode:smart"),
+         InlineKeyboardButton(_tick("⏱️ Equal Parts", mode == "equal"), callback_data="clmode:equal")],
+        [InlineKeyboardButton(_tick("🖥️ Normal 16:9", vertical is False), callback_data="clorient:169"),
+         InlineKeyboardButton(_tick("📱 9:16 (Shorts)", vertical is True), callback_data="clorient:916")],
+        [InlineKeyboardButton("🚀 Make clips", callback_data="clipgo")],
+    ])
+
+
+def clip_choice_text(mode=None, vertical=None) -> str:
+    m = "🎯 Best Moments (loud + action parts)" if mode != "equal" else "⏱️ Equal Parts (barabar hisse)"
+    o = "📱 9:16 (status/Shorts)" if vertical else "🖥️ 16:9 (normal)"
+    return (
+        "🎬 <b>CLIP MAKER</b>\n"
+        f"Mode: <b>{m}</b> · Format: <b>{o}</b>\n"
+        f"Clips: <b>{CLIP_MAKER_COUNT}</b> (har ek 25-60 sec)\n"
+        "👇 Mode aur format chuno, phir <b>🚀 Make clips</b> dabao:"
+    )
+
+
+async def send_clips_now(context, chat_id: int, uid: int, status, src_path: str,
+                         mode: str, vertical: bool) -> bool:
+    """Clips banao + bhejo. Success par True. Credit sirf success par katta hai."""
+    t0 = time.time()
+    try:
+        res = await asyncio.to_thread(clipm.analyze, src_path, mode, vertical, CLIP_MAKER_COUNT)
+    except Exception as e:
+        res = {"ok": False, "error": f"Clip engine error: {str(e)[:120]}"}
+    if not res.get("ok"):
+        err = hesc(str(res.get("error") or "Clips could not be made.")[:220])
+        try:
+            await status.edit_text(
+                "❌ <b>CLIPS NOT MADE</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⚠️ {err}\n"
+                "✅ <b>No credit was cut</b> — you can try again.", parse_mode=HTML)
+        except Exception:
+            pass
+        clips_cleanup(res.get("outdir") or "")
+        add_use(uid)
+        return False
+
+    clips = res.get("clips") or []
+    best_idx = {c.get("idx") for c in clips_best_of_best(clips)}
+    try:
+        await status.edit_text(
+            f"✂️ <b>{len(clips)} clips ready</b> — sending now…\n"
+            f"<i>{res.get('scenes', 0)} scene cuts · {res.get('loud_peaks', 0)} loud moments mile</i>",
+            parse_mode=HTML)
+    except Exception:
+        pass
+
+    sent = 0
+    for c in clips:
+        cap = clips_caption(c, len(clips), vertical)
+        if c.get("idx") in best_idx:
+            cap += "\n🔥 <b>Best of best</b>"
+        try:
+            with open(c["path"], "rb") as fh:
+                await context.bot.send_video(
+                    chat_id=chat_id, video=fh, caption=cap, parse_mode="HTML",
+                    width=int(c.get("width") or 0) or None, height=int(c.get("height") or 0) or None,
+                    duration=int(c.get("dur") or 0) or None, supports_streaming=True)
+            sent += 1
+        except RetryAfter as e:
+            await asyncio.sleep(float(getattr(e, "retry_after", 3)) + 1)
+            try:
+                with open(c["path"], "rb") as fh:
+                    await context.bot.send_video(chat_id=chat_id, video=fh, caption=cap,
+                                                 parse_mode="HTML", supports_streaming=True)
+                sent += 1
+            except Exception:
+                pass
+        except Exception as e:
+            log.warning("clip send fail: %s", e)
+        await asyncio.sleep(0.7)
+
+    clips_cleanup(res.get("outdir") or "")
+    clips_cleanup(os.path.dirname(src_path) if src_path else "")
+
+    if not sent:
+        try:
+            await status.edit_text("❌ The clips were made but could not be sent — please try again. "
+                                   "No credit was cut.", parse_mode=HTML)
+        except Exception:
+            pass
+        add_use(uid)
+        return False
+
+    try:
+        await status.edit_text(
+            f"✅ <b>{sent} clips sent</b> ({'9:16' if vertical else '16:9'}) — "
+            f"took {int(time.time() - t0)} sec.\n"
+            "🔥 = best of best (score-wise top). Baaki clips upar hain.", parse_mode=HTML)
+    except Exception:
+        pass
+    await context.bot.send_message(chat_id=chat_id, text=spend_credit_msg(uid, "clips"), parse_mode=HTML)
+    add_use(uid)
+    return True
+
+
+async def start_clip_job(context, chat_id: int, uid: int, src_path: str, mode: str, vertical: bool):
+    status = await context.bot.send_message(
+        chat_id=chat_id,
+        text=("🔍 <b>Analysing the video…</b>\n<i>Loud moments + scene cuts dekh raha hoon. "
+              "10-15 min video par 1-3 minute lag sakte hain.</i>"),
+        parse_mode=HTML)
+    await send_clips_now(context, chat_id, uid, status, src_path, mode, vertical)
+
+
 async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/vehstatus — admin: check the vehicle API is working (live test on a sample plate)."""
     if not is_admin(update.effective_user.id):
@@ -1443,6 +1587,26 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await st.edit_text(f"❌ <b>IMEI API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
                            "Check IMEI_API_BASE / IMEI_API_KEY.", parse_mode=HTML)
+
+
+async def cmd_clipstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/clipstatus — admin: clip engine ready hai ya nahi (ffmpeg + limits)."""
+    if not is_admin(update.effective_user.id):
+        return
+    ff = clipm.ffmpeg_path()
+    ok_ff = bool(ff and (os.path.exists(ff) or __import__("shutil").which(ff)))
+    await update.message.reply_text(
+        "🎬 <b>CLIP MAKER — status</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"• ffmpeg: {'✅ ' + hesc(ff[:60]) if ok_ff else '❌ not found (Render build me ffmpeg install karo)'}\n"
+        f"• Limit: <b>{int(CLIP_MAKER_MAX_MIN)} min</b> video · <b>{CLIP_MAKER_COUNT}</b> clips · "
+        "clip 25-60 sec\n"
+        f"• YouTube (yt-dlp): {'✅ available' if clips_ytdlp_available() else '❌ not installed (file ya direct .mp4 link chalega)'}\n"
+        f"• Direct .mp4 link download: ✅\n"
+        f"• Output: 16:9 (480p) ya 9:16 (540x960)\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<i>Test: menu se 🎬 CLIP MAKER kholo aur ek chhota video bhejo.</i>",
+        parse_mode=HTML)
 
 
 async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2064,6 +2228,50 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await q.answer(str(live.get("error"))[:180], show_alert=True)
         add_use(uid)
+        return
+
+    if data.startswith("clmode:") or data.startswith("clorient:") or data == "clipgo":
+        _src = context.user_data.get("clip_src") or ""
+        if not _src or not os.path.exists(_src):
+            await q.answer("Send the video first.", show_alert=True)
+            await q.message.reply_text(tool_prompt("clips"), parse_mode=HTML)
+            return
+        if data.startswith("clmode:"):
+            context.user_data["clip_mode"] = "equal" if data.endswith("equal") else "smart"
+            await q.answer("Mode set ✅")
+            await q.message.edit_text(clip_choice_text(context.user_data.get("clip_mode"),
+                                                       context.user_data.get("clip_vert")),
+                                      reply_markup=clip_choice_kb(context.user_data.get("clip_mode"),
+                                                                  context.user_data.get("clip_vert")),
+                                      parse_mode=HTML)
+            return
+        if data.startswith("clorient:"):
+            context.user_data["clip_vert"] = data.endswith("916")
+            await q.answer("Format set ✅")
+            await q.message.edit_text(clip_choice_text(context.user_data.get("clip_mode"),
+                                                       context.user_data.get("clip_vert")),
+                                      reply_markup=clip_choice_kb(context.user_data.get("clip_mode"),
+                                                                  context.user_data.get("clip_vert")),
+                                      parse_mode=HTML)
+            return
+        # 🚀 clipgo
+        _u_cg = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_cg, uid):
+            await q.answer("No credits left — get VIP for unlimited clips.", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("clips"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        mode_c = context.user_data.get("clip_mode") or "smart"
+        vert_c = bool(context.user_data.get("clip_vert"))
+        context.user_data["mode"] = None
+        context.user_data["clip_src"] = None
+        await q.answer("Making clips… 🎬")
+        await q.message.edit_text(
+            "🎬 <b>Clips ban rahe hain…</b>\n"
+            f"Mode: <b>{'🎯 Best Moments' if mode_c == 'smart' else '⏱️ Equal Parts'}</b> · "
+            f"<b>{'9:16' if vert_c else '16:9'}</b>\n"
+            "<i>Analysing (loud + scene) phir cutting. Please wait.</i>", parse_mode=HTML)
+        asyncio.create_task(start_clip_job(context, q.message.chat.id, uid, _src, mode_c, vert_c))
         return
 
     if data.startswith("imeiagain:"):
@@ -3770,6 +3978,66 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    if mode in ("clips", "clips_wait", "clips_mode"):
+        url = (raw_text or "").strip()
+        _u_cl = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_cl, uid):
+            await update.message.reply_text(get_credits_over_text("clips"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            add_use(uid)
+            return
+        if url.lower().startswith("http") and (clips_is_direct_url(url) or clips_is_yt_url(url)):
+            st = await update.message.reply_text("⬇️ <b>Downloading the video…</b>\n<i>Please wait.</i>",
+                                                 parse_mode=HTML)
+            d = tempfile.mkdtemp(prefix="clipin_")
+            if clips_is_yt_url(url):
+                if not clips_ytdlp_available():
+                    clips_cleanup(d)
+                    await st.edit_text(
+                        "⚠️ <b>YouTube download is not available right now.</b>\n\n"
+                        "👉 Send the <b>video file</b> itself, or a <b>direct .mp4 link</b>.",
+                        parse_mode=HTML)
+                    add_use(uid)
+                    return
+                r = await asyncio.to_thread(clips_youtube_download, url, d,
+                                            CLIP_MAKER_MAX_MIN, 400.0)
+            else:
+                r = await asyncio.to_thread(clips_download_direct, url, os.path.join(d, "src.mp4"))
+            if not r.get("ok"):
+                clips_cleanup(d)
+                await st.edit_text(
+                    "❌ <b>DOWNLOAD FAILED</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"⚠️ {hesc(str(r.get('error'))[:200])}\n"
+                    "✅ No credit was cut. 👉 Send the video <b>file</b> instead — that always works.",
+                    parse_mode=HTML)
+                add_use(uid)
+                return
+            info = await asyncio.to_thread(clips_probe, r["path"])
+            dur = float(info.get("duration") or 0)
+            if dur and dur > CLIP_MAKER_MAX_MIN * 60:
+                clips_cleanup(d)
+                await st.edit_text("⚠️ Video is <b>%d min</b> long — limit is <b>%d min</b>."
+                                   % (int(dur // 60), int(CLIP_MAKER_MAX_MIN)), parse_mode=HTML)
+                add_use(uid)
+                return
+            context.user_data["clip_src"] = r["path"]
+            context.user_data["clip_mode"] = None
+            context.user_data["clip_vert"] = None
+            context.user_data["mode"] = "clips_mode"
+            await st.edit_text(
+                "✅ <b>Video downloaded</b> — %s · %sMB\n\n" % (
+                    clips_fmt_t(dur) if dur else "?", r.get("size_mb")) + clip_choice_text(None, None),
+                reply_markup=clip_choice_kb(None, None), parse_mode=HTML)
+            add_use(uid)
+            return
+        await update.message.reply_text(
+            clips_help_card() + "\n\n📸 <b>Now send the video file (or a direct .mp4 link):</b>",
+            parse_mode=HTML)
+        add_use(uid)
+        return
+
     if mode == "numinfo":
         _u = get_user(uid, update.effective_user.first_name)
         if not can_use_premium_tool(_u, uid):
@@ -4567,6 +4835,46 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
         context.user_data.pop("mode", None)
         return True
 
+    # ---------- 🎬 CLIP MAKER ----------
+    if mode in ("clips", "clips_wait", "clips_mode") and kind in ("video", "video_note", "animation"):
+        _u_c = get_user(uid)
+        if not can_use_premium_tool(_u_c, uid):
+            await say(get_credits_over_text("clips"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return True
+        d = tempfile.mkdtemp(prefix="clipin_")
+        p = os.path.join(d, "src.mp4")
+        try:
+            with open(p, "wb") as fh:
+                fh.write(data)
+        except Exception as e:
+            await say(fail_msg("FILE SAVE FAILED", str(e)[:120]), parse_mode=HTML)
+            return True
+        info = await asyncio.to_thread(clips_probe, p)
+        dur = float(info.get("duration") or 0)
+        if dur and dur > CLIP_MAKER_MAX_MIN * 60:
+            clips_cleanup(d)
+            await say(
+                "⚠️ <b>Video is too long</b> — this one is <b>%d min</b>. Limit is <b>%d min</b> "
+                "(server limit).\n👉 Send a shorter part of the video."
+                % (int(dur // 60) or 1, int(CLIP_MAKER_MAX_MIN)), parse_mode=HTML)
+            return True
+        if dur and dur < 20:
+            clips_cleanup(d)
+            await say("⚠️ <b>Video is too short</b> — need at least 20 seconds of video.", parse_mode=HTML)
+            return True
+        context.user_data["clip_src"] = p
+        context.user_data["clip_mode"] = None
+        context.user_data["clip_vert"] = None
+        context.user_data["mode"] = "clips_mode"
+        await say(
+            "✅ <b>Video received</b> — %s · %sMB%s\n\n" % (
+                clips_fmt_t(dur) if dur else "?", round(len(data) / 1048576, 1),
+                "" if info.get("has_audio") else " · ⚠️ no sound (scene-wise clips)") +
+            clip_choice_text(None, None),
+            reply_markup=clip_choice_kb(None, None), parse_mode=HTML)
+        return True
+
     # ---------- ⚡ MEDIA STUDIO ----------
     if mode == "media_menu":
         await say("👆 Pick an option from the buttons above (MP3 / Status / Karaoke...).")
@@ -4857,7 +5165,8 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v38: naye tools ke files (PDF / audio / video / image) ----------
     _our_modes = ("bankpdf", "bankpdf_pass", "media_ringtone", "media_ringtone_start",
                   "media_karaoke", "media_8d", "media_bass", "media_voice_wait", "media_v2mp3",
-                  "media_trim_wait", "media_compress_wait", "media_status_audio")
+                  "media_trim_wait", "media_compress_wait", "media_status_audio",
+                  "clips", "clips_wait", "clips_mode")
     if mode in _our_modes:
         kind, att, fname, mime = None, None, "", ""
         if msg.document:
@@ -5043,6 +5352,7 @@ def main():
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
+    app.add_handler(CommandHandler(["clipstatus", "clipapi"], cmd_clipstatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
