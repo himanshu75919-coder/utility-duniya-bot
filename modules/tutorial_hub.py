@@ -193,6 +193,8 @@ TUTORIAL_VIDEO_KEYS = {
     # ---- v40/v41 live API tools (closest video; apna video banega) ----
     "imei": "numinfo",
     "clips": "video_dl",
+    # ---- v45 AADHAAR FAMILY (closest video; apna video baad me) ----
+    "aadhaar": "numinfo",
 }
 
 # video ke caption me tool ki jhalak (video title)
@@ -209,6 +211,7 @@ VIDEO_TITLES = {
     "tutorial": "❓ HOW TO USE BOT",
     "bankpdf": "🏦 BANK PDF → EXCEL", "kagaz": "📜 DOCUMENT SUITE", "mediastudio": "⚡ MEDIA STUDIO",
     "imei": "📲 IMEI / PHONE DETAILS", "clips": "🎬 CLIP MAKER",
+    "aadhaar": "🆔 AADHAAR FAMILY",
 }
 
 

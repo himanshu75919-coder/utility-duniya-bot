@@ -1,3 +1,16 @@
+---
+## 🆕 v45 — Aapka apna OSINT HUB jud gaya (Number / Vehicle / Aadhaar Family)
+
+| Tool | Kya badla |
+|---|---|
+| 📱 **Number Info** | Ab naam, father, address, linked numbers, ID — **ek hi card** me (apne hub se) |
+| 🚗 **Vehicle + Challan** | Ab **ek hi API call** `/api/vehicle-report` — RC + insurance + PUC + challan (~1-4s) |
+| 🆔 **Aadhaar Family** | **NAYA TOOL** — 12 digit Aadhaar se family card (members, district, masked) |
+
+- Admin: `/hubstatus` — teeno API ka live test
+- **Credit sirf tab katta hai jab record mile** (nahi to free)
+- Poora detail: **[v45-OSINT-HUB.md](v45-OSINT-HUB.md)**
+
 # 📖 1-PADHO-PEHLE.md — v44 (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
