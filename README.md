@@ -1,11 +1,11 @@
-# ⚡ Utility Duniya Super-Bot — **v41**
+# ⚡ Utility Duniya Super-Bot — **v42**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v41):** 📲 **IMEI / PHONE DETAILS** — 15 digit IMEI bhejo → brand, model, device photo + poori spec sheet
-> + `.json` copy file. 🚗 **VEHICLE INFO + CHALLAN** ab aapke **asli API hub** se (vehicle-rc + challan + challan-v4 merge).
-> Setup: **`v41-API-HUB.md`** (vehicle wala purana guide: `v40-VEHICLE-CHALLAN.md`)
+> **Naya (v42):** ✂️ **chhote prompts** — har tool ab sirf TITLE + 1 line + 📌 Example + "Now send…" dikhata hai
+> (lambi instructions hat gayi — tutorial video har tool ke neeche hai). Details: **`v42-CHHOTE-PROMPTS.md`**.
+> **v41:** 📲 **IMEI / PHONE DETAILS** tool + 🚗 vehicle ab aapke **asli API hub** se. Setup: **`v41-API-HUB.md`**.
 >
 > **v39:** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
 > Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
@@ -102,6 +102,7 @@ modules/
   vip_payment.py    — VIP plans, UPI QR, payment flow
 requirements.txt    — saare packages
 v39-KYA-BADLA.md    — v39 me kya badla (2 minute read)
+v42-CHHOTE-PROMPTS.md — chhote prompts (pehle vs ab, har tool ka example)
 v41-API-HUB.md — IMEI tool + vehicle hub (3 endpoint) setup, env vars, credit rules
 v40-VEHICLE-CHALLAN.md — purana single-endpoint vehicle setup (optional) + privacy notes
 EARNING-TOOLS-V39.md— 12 naye earning-tool ideas (no AI)

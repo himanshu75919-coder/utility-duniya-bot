@@ -666,202 +666,152 @@ BTN_MODE_MAP = {
 
 PROMPTS = {
     "terabox": (
-        f"⚡ <b>{to_bold('TERABOX & CLOUD DOWNLOADER')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "✅ Works with: <b>Terabox, Mediafire, Google Drive, Mega</b>\n"
-        "🎁 You get: <b>direct download link</b> — no ads, full speed\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔗 <b>Now send your link</b> (example <code>https://terabox.com/s/xxxxx</code>):"
+        f"⚡ <b>{to_bold('TERABOX & CLOUD')}</b>\n"
+        "✅ <b>Ad-free</b> download + stream (Terabox, Mediafire, Drive, Mega)\n"
+        "⚠️ Server rejects sometimes — just send the link again.\n"
+        "📌 Example: <code>https://terabox.com/s/xxxxx</code>\n"
+        "🔗 <b>Now send your link:</b>"
     ),
     "insta_dl": (
         f"📥 <b>{to_bold('VIDEO DOWNLOADER')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "✅ Works with: <b>Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit, Vimeo</b> (20+ sites)\n"
-        "📦 Video up to 48MB comes here in Telegram. Big videos: you get a direct link.\n"
-        "🎵 Instagram Reels: original sound included.\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit (20+ sites)\n"
+        "📌 Example: <code>https://www.instagram.com/reel/xxxxx</code>\n"
         "🔗 <b>Now send the video link:</b>"
     ),
     "pp_stamp": (
         f"📸 <b>{to_bold('GOVT EXAM PASSPORT PHOTO')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Steps: 1️⃣ Send photo → 2️⃣ Type your <b>name</b> → 3️⃣ Type photo <b>date</b> (DD-MM-YYYY)\n"
-        "🎁 You get: official <b>3.5 × 4.5 cm</b> photo (20-50KB) with name + date stamp (SSC/Railway/BPSC forms)\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Send photo → then name → then date. Output: 3.5 × 4.5 cm with name/date stamp.\n"
+        "📌 Example: photo, <code>Rahul Kumar</code>, <code>02-10-2026</code>\n"
         "📸 <b>Now send your passport photo:</b>"
     ),
     "print_sheet": (
         f"🖨️ <b>{to_bold('8-IN-1 PRINT SHEET')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send one passport photo. Bot makes a <b>4×6 inch sheet with 8 copies</b>.\n"
-        "🖨️ Print it at any photo shop (₹10-20). You get 8 photos.\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "One photo → 4×6 inch sheet with 8 copies (print at any shop, ₹10-20).\n"
+        "📌 Example: any passport size photo\n"
         "📸 <b>Now send one photo:</b>"
     ),
     "doc_compress": (
-        f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b>\n\n"
-        "<blockquote>10th/12th/caste marksheet photo → sharp PDF. Size: you pick 100KB to 500KB.</blockquote>\n\n"
-        "<i>Size buttons appear right after the photo 👇</i>\n"
-        "📸 <b>Now send the marksheet or certificate photo</b> (2-3 photos also fine — all go in one PDF):"
+        f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b>\n"
+        "Marksheet or certificate photo → sharp PDF (100KB-500KB, size buttons come after).\n"
+        "📌 Example: 10th marksheet photo\n"
+        "📸 <b>Now send the marksheet or certificate photo:</b>"
     ),
     "ip": (
-        f"🌐 <b>{to_bold('IP / DOMAIN INFO')}</b>\n\n"
-        "Full details of any <b>IP address</b> or <b>website</b>:\n"
-        "• Country, state, city  • Company (ISP)  • VPN/Proxy: yes or no\n\n"
-        "👉 <b>Send IP</b> (example <code>8.8.8.8</code>) or <b>website name</b> (example <code>google.com</code>):"
+        f"🌐 <b>{to_bold('IP / DOMAIN INFO')}</b>\n"
+        "📌 Example: <code>8.8.8.8</code> or <code>google.com</code>\n"
+        "👉 <b>Now send the IP or website name:</b>"
     ),
     "bankpdf": (
         f"🏦 <b>{to_bold('BANK STATEMENT PDF TO EXCEL')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send your bank statement <b>PDF</b> (as a file, not a photo).\n"
-        "🎁 You get an <b>Excel/CSV table</b>: date, details, debit, credit, balance + totals.\n"
-        "🔓 Password PDF? The bot will ask — just send the password.\n"
-        "🏦 Works with all big banks (SBI, HDFC, PNB, ICICI, BOB, Kotak, IPPB, Paytm...).\n"
-        "<i>Your file stays on our server, nowhere else.</i>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Send the <b>PDF file</b> (not a photo). Password PDF? The bot will ask for it.\n"
+        "📌 Example: SBI / HDFC / PNB statement PDF\n"
         "📄 <b>Now send your bank statement PDF:</b>"
     ),
     "kagaz": (
         f"📜 <b>{to_bold('DOCUMENT SUITE (BIHAR/UP)')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Rent agreement, affidavit, legal notice (138), land deal receipt, loan paper, "
-        "registry total cost, bigha/kattha converter.\n"
-        "⚠️ These are computer drafts. Get them finalised by a notary or sub-registrar.\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "👇 <b>Select your document from the menu below</b>:"
+        "Rent agreement, affidavit, notice 138, bayana, loan paper, registry cost, bigha→kattha.\n"
+        "⚡ 1 credit per document · ⚠️ Get the draft checked by a notary\n"
+        "👇 <b>Select your document from the menu below:</b>"
     ),
     "mediastudio": (
         f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Everything is made on our server. <b>No watermark.</b>\n"
-        "🎵 <b>YouTube → MP3</b> • 🎬 <b>Status Video</b> (photo + song + text)\n"
-        "🎧 <b>Ringtone cutter</b> • 🎤 <b>Karaoke</b> • 🔊 <b>8D</b> • 💥 <b>Bass boost</b>\n"
-        "🗣️ <b>Voice change</b> • ✂️ <b>Video trim</b> • 🗜️ <b>Video compress</b> • 🎼 <b>Video → MP3</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "👇 <b>Select an option below</b>:"
+        "YouTube→MP3, status video, ringtone, karaoke, 8D, voice change, trim, compress. No watermark.\n"
+        "👇 <b>Select an option below:</b>"
     ),
     "rto": (
-        f"🚗 <b>{to_bold('VEHICLE INFO + CHALLAN REPORT')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send the number plate. You get the <b>full report</b>:\n"
-        "• 🚘 Vehicle: maker, model, fuel, colour, engine cc, chassis/engine no.\n"
-        "• 📋 RC: RTO office, registration date + validity, manufacture year, tax\n"
-        "• 🛡️ Insurance (company + valid till) • 🌫️ PUC • 🏦 Finance/hypothecation\n"
-        "• 🚨 <b>Challans</b>: pending / paid / in-court, amount, date, offence\n"
-        "<i>Owner mobile and chassis/engine are shown masked (privacy).</i>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔢 <b>Now send the number plate</b> (example <code>BR30AR0802</code>):"
+        f"🚗 <b>{to_bold('VEHICLE INFO + CHALLAN')}</b>\n"
+        "Full RC record + all challans (pending/paid, amount, offence).\n"
+        "📌 Example: <code>BR30AR0802</code>\n"
+        "🔢 <b>Now send the number plate:</b>"
     ),
     "imei": (
         f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send the <b>15 digit IMEI</b> of any phone or tablet.\n"
-        "📍 Where to find it: dial <code>*#06#</code> on that phone — the IMEI shows on the screen "
-        "(it is also printed on the box or the bill).\n"
-        "✅ You get: brand, model, device photo + full spec sheet (display, chipset, RAM/storage, "
-        "camera, battery, network) + a <code>.json</code> copy file.\n"
-        "⚠️ Use it only for your own device or a phone you are buying.\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔢 <b>Now send the 15 digit IMEI</b> (example <code>353010111111110</code>):"
+        "Brand, model, device photo + full spec sheet + <code>.json</code> copy file.\n"
+        "📍 IMEI: dial <code>*#06#</code> · 📌 Example: <code>353010111111110</code>\n"
+        "🔢 <b>Now send the 15 digit IMEI:</b>"
     ),
     "numinfo": (
-        f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send a 10 digit mobile number.\n"
-        "✅ You get: <b>operator, circle (region), number type</b> + 6 useful links "
-        "(WhatsApp, Telegram, Truecaller, Google, spam report, 1930 cyber helpline).\n"
-        "<i>After MNP the operator can change. For legal use only.</i>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔢 <b>Now send the 10 digit number</b> (example <code>9876543210</code>):"
+        f"📱 <b>{to_bold('NUMBER INFO')}</b>\n"
+        "Operator, circle (region), number type + 6 useful links.\n"
+        "📌 Example: <code>9876543210</code>\n"
+        "🔢 <b>Now send the 10 digit mobile number:</b>"
     ),
     "ifsc": (
-        f"🏦 <b>{to_bold('IFSC BANK BRANCH LOOKUP')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "The IFSC code is printed on your passbook or cheque. Send that code here.\n"
-        "✅ You get: <b>bank name, branch, address, MICR code</b> + UPI/NEFT/RTGS support + Maps link.\n"
-        "💸 Always check the branch before sending money. Wrong IFSC means the money comes back.\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔤 <b>Now send the IFSC code</b> (example <code>SBIN0000001</code>):"
+        f"🏦 <b>{to_bold('IFSC BANK BRANCH')}</b>\n"
+        "Bank, branch, address, MICR (printed on passbook / cheque).\n"
+        "📌 Example: <code>SBIN0000001</code>\n"
+        "🔤 <b>Now send the IFSC code:</b>"
     ),
     "pin": (
-        f"📮 <b>{to_bold('PINCODE & POST OFFICE INFO')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Useful for online forms, orders and courier.</i>\n"
-        "Two ways:\n"
-        "1️⃣ Send a <b>6 digit pincode</b> (example <code>800001</code>) → district, state + all post offices\n"
-        "2️⃣ Send <b>area or post office name</b> (example <code>Rajendra Nagar</code>) → you get the pincode\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📮 <b>{to_bold('PINCODE & POST OFFICE')}</b>\n"
+        "6 digit pincode → district, state + all post offices.\n"
+        "📌 Example: <code>800001</code> or <code>Rajendra Nagar</code>\n"
         "📮 <b>Now send the pincode or area name:</b>"
     ),
     "idfind": (
         f"🆔 <b>{to_bold('ID & USERNAME FINDER')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Three ways:\n"
-        "1️⃣ Send <code>me</code> → your ID and username\n"
-        "2️⃣ Forward any message → ID of that user or channel\n"
-        "3️⃣ Send <code>@username</code> → real check on 5 platforms + 9 links\n"
-        "<i>Useful for channel ID, force-subscribe setup or reporting someone.</i>\n"
-        "🆔 <b>Now send</b> <code>me</code> / <code>@username</code> / or forward any message:"
+        "Your ID, someone's ID (forward a message) or @username check on 5 platforms.\n"
+        "📌 Example: <code>me</code> / <code>@username</code> / forward any message\n"
+        "🆔 <b>Now send me / @username / or forward a message:</b>"
     ),
     "qr": (
-        f"📷 <b>{to_bold('HD QR CODE GENERATOR')}</b>\n\n"
-        "Send any <b>text</b> or <b>link</b>. You get a clean HD QR code:"
+        f"📷 <b>{to_bold('HD QR CODE GENERATOR')}</b>\n"
+        "📌 Example: <code>https://t.me/utility_duniya_bot</code>\n"
+        "🔗 <b>Now send the text or link:</b>"
     ),
     "pdf": (
-        f"🖼️ <b>{to_bold('IMAGE TO MULTI-PAGE PDF')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send photos one by one (<b>up to 10</b>), then tap the button below.\n"
-        "📄 <b>Normal PDF</b> = same as photo  |  <b>A4 PDF</b> = perfect for printing\n"
+        f"🖼️ <b>{to_bold('IMAGE TO PDF')}</b> — up to 10 photos\n"
+        "Send photos one by one, then tap the button (A4 = best for printing).\n"
+        "📌 Example: 3 marksheet photos, then tap <b>A4 PDF</b>\n"
         "📸 <b>Now send your photos:</b>"
     ),
     "short": (
         f"🔗 <b>{to_bold('URL SHORTENER')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Long link → short link. Easy to share on WhatsApp or Telegram.\n"
-        "🔗 <b>Now send the long link</b> (example <code>https://example.com/very/long/path?x=1</code>):"
+        "📌 Example: <code>https://example.com/very/long/path?x=1</code>\n"
+        "🔗 <b>Now send the long link:</b>"
     ),
     "linkbypass": (
-        f"🔓 <b>{to_bold('LINK BYPASS / UNPACK')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Get the <b>real link</b> behind ad links (GPLinks, VPLinks, redirects) — no ads.\n"
+        f"🔓 <b>{to_bold('LINK BYPASS')}</b>\n"
+        "Real link behind ad links — no ads, no waiting.\n"
+        "📌 Example: <code>https://gplinks.co/xxxxx</code>\n"
         "🔗 <b>Now send that link:</b>"
     ),
     "linkcheck": (
-        f"🔍 <b>{to_bold('LINK SAFETY CHECKER')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Check the link <b>before opening</b>. Know if it is fake or safe.\n"
-        "🔍 <b>Now send the link</b> (example <code>http://sbi-kyc-verify.xyz</code>):"
+        f"🔍 <b>{to_bold('LINK SAFETY CHECK')}</b>\n"
+        "Check before opening — fake or safe.\n"
+        "📌 Example: <code>http://sbi-kyc-verify.xyz</code>\n"
+        "🔍 <b>Now send the link:</b>"
     ),
     "appfind": (
-        f"📦 <b>{to_bold('APP FINDER (8 TRUSTED STORES)')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send the app name. You get <b>direct links</b> from 8 trusted stores "
-        "(Play Store, APKPure, APKCombo, UptoDown, F-Droid...).\n"
-        "<i>Do not download APK from random sites — virus risk.</i>\n"
-        "📦 <b>Now send the app name</b> (example <code>instagram</code>):"
+        f"📦 <b>{to_bold('APP FINDER')}</b>\n"
+        "Direct links from 8 trusted stores (Play Store, APKPure, UptoDown...).\n"
+        "📌 Example: <code>instagram</code>\n"
+        "📦 <b>Now send the app name:</b>"
     ),
     "shot": (
-        f"🖼️ <b>{to_bold('WEBSITE SCREENSHOT (HD)')}</b>\n\n"
-        "Send the website URL (example: <code>github.com</code>):\n"
-        "<i>Need the full long page? Open SITE SCREENSHOT in menu → 📜 Full Page.</i>"
+        f"🖼️ <b>{to_bold('WEBSITE SCREENSHOT (HD)')}</b>\n"
+        "📌 Example: <code>github.com</code>\n"
+        "🌐 <b>Now send the website URL:</b>"
     ),
     "shot_full": (
-        f"📜 <b>{to_bold('FULL PAGE SCREENSHOT')}</b>\n\n"
-        "<i>This takes 10-20 seconds. Please wait.</i>\n"
+        f"📜 <b>{to_bold('FULL PAGE SCREENSHOT')}</b>\n"
+        "Takes 10-20 seconds (full long page).\n"
+        "📌 Example: <code>flipkart.com</code>\n"
         "📜 <b>Now send the website URL:</b>"
     ),
     "qr_wifi": (
-        f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n\n"
-        "<i>Guest scans it → phone connects to WiFi automatically.</i>\n"
-        "📶 <b>Now send the WiFi name (SSID)</b> (example: <code>JioFiber_Home</code>):"
+        f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n"
+        "Guest scans it → phone connects to WiFi automatically.\n"
+        "📌 Example: <code>JioFiber_Home</code>\n"
+        "📶 <b>Now send the WiFi name (SSID):</b>"
     ),
     "qr_vcard": (
-        f"👤 <b>{to_bold('CONTACT CARD QR')}</b>\n\n"
-        "<i>Scan it → contact saves automatically.</i>\n"
-        "👤 <b>Now send your name</b> (example: <code>Himanshu Kumar</code>):"
+        f"👤 <b>{to_bold('CONTACT CARD QR')}</b>\n"
+        "Scan it → contact saves automatically.\n"
+        "📌 Example: <code>Himanshu Kumar</code>\n"
+        "👤 <b>Now send your name:</b>"
     ),
 }
-
 TUTORIAL_TEXT = (
     f"❓ <b>{to_bold('HELP / TUTORIAL — EVERY TOOL IN 1 LINE')}</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1020,29 +970,18 @@ ASK_LINES = {
 
 KAGAZ_MENU_TEXT = (
     f"📜 <b>{to_bold('DOCUMENT SUITE (BIHAR/UP)')}</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "Ready drafts — no need to run to a notary first:\n"
-    "📄 <b>Rent agreement</b> • ⚖️ <b>Affidavit</b> • 🚫 <b>Legal Notice 138</b> (cheque bounce)\n"
-    "🤝 <b>Land deal receipt</b> (bayana) • 📝 <b>Loan paper</b> • 🧾 <b>Name/Address/Income affidavit</b>\n"
-    "🧮 <b>Registry total cost</b> (MVR + stamp duty + registration) • 📐 <b>Bigha/Kattha converter</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "⚡ Every document or lookup = <b>1 credit</b>\n"
-    "👇 Select from the menu below:"
+    "Ready drafts: rent agreement, affidavit, notice 138, bayana, loan paper, "
+    "registry total cost, bigha/kattha converter.\n"
+    "⚡ Every document = <b>1 credit</b> · ⚠️ Get the draft checked by a notary\n"
+    "👇 <b>Select from the menu below:</b>"
 )
 
 MEDIA_MENU_TEXT = (
     f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "🎵 <b>YouTube → MP3</b> — send a song link, get the MP3\n"
-    "🎬 <b>Status Video</b> — photo + song + your text (9:16, ready for WhatsApp status)\n"
-    "🎧 <b>Ringtone cutter</b> — 30 second ringtone from any song or video\n"
-    "🎤 <b>Karaoke</b> — remove the vocals, keep the music\n"
-    "🔊 <b>8D / Bass boost</b> — better sound\n"
-    "🗣️ <b>Voice change</b> — kid / heavy / robot / ghost voice\n"
-    "✂️ <b>Video trim</b> • 🗜️ <b>Video compress</b> (WhatsApp size) • 🎼 <b>Video → MP3</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "YouTube→MP3, status video, ringtone, karaoke, 8D, bass boost, voice change, "
+    "video trim/compress, video→MP3. <b>No watermark.</b>\n"
     "⚡ Every option = <b>1 credit</b>\n"
-    "👇 Select from the menu below:"
+    "👇 <b>Select from the menu below:</b>"
 )
 
 CITY_COORDS = {
@@ -2491,7 +2430,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         extra = ""
         if is_premium_tool(data):
-            extra = "\n\n" + credits_line(_u0, uid) + "\n<i>(1 use of this tool = 1 credit)</i>"
+            extra = "\n\n" + credits_line(_u0, uid)   # v42: lambi lines nahi — tutorial video samjhata hai
         await q.message.reply_text(tool_prompt(data) + extra, reply_markup=tool_tutorial_kb(data), parse_mode=HTML)
         return
 
@@ -3139,7 +3078,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             extra = ""
             if is_premium_tool(action):
-                extra = "\n\n" + credits_line(u, uid) + "\n<i>(1 use of this tool = 1 credit)</i>"
+                extra = "\n\n" + credits_line(u, uid)   # v42: lambi lines nahi
             await update.message.reply_text(tool_prompt(action) + extra + "\n\n<i>Tap /cancel any time to stop.</i>",
                                             reply_markup=tool_tutorial_kb(action), parse_mode=HTML)
             return

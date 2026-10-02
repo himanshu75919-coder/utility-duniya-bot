@@ -142,165 +142,151 @@ Any question? Message /support or @Supermannn_x.
 
 # Har tool ki poori detail
 
-## ⚡ TERABOX & CLOUD DOWNLOADER
+## ⚡ TERABOX & CLOUD
 
-✅ Works with: **Terabox, Mediafire, Google Drive, Mega**
-🎁 You get: **direct download link** — no ads, full speed
-🔗 **Now send your link** (example `https://terabox.com/s/xxxxx`):
+✅ **Ad-free** download + stream (Terabox, Mediafire, Drive, Mega)
+⚠️ Server rejects sometimes — just send the link again.
+📌 Example: `https://terabox.com/s/xxxxx`
+🔗 **Now send your link:**
 
 ## 📥 VIDEO DOWNLOADER
 
-✅ Works with: **Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit, Vimeo** (20+ sites)
-📦 Video up to 48MB comes here in Telegram. Big videos: you get a direct link.
-🎵 Instagram Reels: original sound included.
+Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit (20+ sites)
+📌 Example: `https://www.instagram.com/reel/xxxxx`
 🔗 **Now send the video link:**
 
 ## 📸 GOVT EXAM PASSPORT PHOTO
 
-Steps: 1️⃣ Send photo → 2️⃣ Type your **name** → 3️⃣ Type photo **date** (DD-MM-YYYY)
-🎁 You get: official **3.5 × 4.5 cm** photo (20-50KB) with name + date stamp (SSC/Railway/BPSC forms)
+Send photo → then name → then date. Output: 3.5 × 4.5 cm with name/date stamp.
+📌 Example: photo, `Rahul Kumar`, `02-10-2026`
 📸 **Now send your passport photo:**
 
 ## 🖨️ 8-IN-1 PRINT SHEET
 
-Send one passport photo. Bot makes a **4×6 inch sheet with 8 copies**.
-🖨️ Print it at any photo shop (₹10-20). You get 8 photos.
+One photo → 4×6 inch sheet with 8 copies (print at any shop, ₹10-20).
+📌 Example: any passport size photo
 📸 **Now send one photo:**
 
 ## 📄 DOCUMENT / MARKSHEET PDF
 
-> 10th/12th/caste marksheet photo → sharp PDF. Size: you pick 100KB to 500KB.
-_Size buttons appear right after the photo 👇_
-📸 **Now send the marksheet or certificate photo** (2-3 photos also fine — all go in one PDF):
+Marksheet or certificate photo → sharp PDF (100KB-500KB, size buttons come after).
+📌 Example: 10th marksheet photo
+📸 **Now send the marksheet or certificate photo:**
 
 ## 🌐 IP / DOMAIN INFO
 
-Full details of any **IP address** or **website**:
-• Country, state, city  • Company (ISP)  • VPN/Proxy: yes or no
-👉 **Send IP** (example `8.8.8.8`) or **website name** (example `google.com`):
+📌 Example: `8.8.8.8` or `google.com`
+👉 **Now send the IP or website name:**
 
 ## 🏦 BANK STATEMENT PDF TO EXCEL
 
-Send your bank statement **PDF** (as a file, not a photo).
-🎁 You get an **Excel/CSV table**: date, details, debit, credit, balance + totals.
-🔓 Password PDF? The bot will ask — just send the password.
-🏦 Works with all big banks (SBI, HDFC, PNB, ICICI, BOB, Kotak, IPPB, Paytm...).
-_Your file stays on our server, nowhere else._
+Send the **PDF file** (not a photo). Password PDF? The bot will ask for it.
+📌 Example: SBI / HDFC / PNB statement PDF
 📄 **Now send your bank statement PDF:**
 
 ## 📜 DOCUMENT SUITE (BIHAR/UP)
 
-Rent agreement, affidavit, legal notice (138), land deal receipt, loan paper, registry total cost, bigha/kattha converter.
-⚠️ These are computer drafts. Get them finalised by a notary or sub-registrar.
-👇 **Select your document from the menu below**:
+Rent agreement, affidavit, notice 138, bayana, loan paper, registry cost, bigha→kattha.
+⚡ 1 credit per document · ⚠️ Get the draft checked by a notary
+👇 **Select your document from the menu below:**
 
 ## ⚡ MEDIA STUDIO
 
-Everything is made on our server. **No watermark.**
-🎵 **YouTube → MP3** • 🎬 **Status Video** (photo + song + text)
-🎧 **Ringtone cutter** • 🎤 **Karaoke** • 🔊 **8D** • 💥 **Bass boost**
-🗣️ **Voice change** • ✂️ **Video trim** • 🗜️ **Video compress** • 🎼 **Video → MP3**
-👇 **Select an option below**:
+YouTube→MP3, status video, ringtone, karaoke, 8D, voice change, trim, compress. No watermark.
+👇 **Select an option below:**
 
-## 🚗 VEHICLE INFO + CHALLAN REPORT
+## 🚗 VEHICLE INFO + CHALLAN
 
-Send the number plate. You get the **full report**:
-• 🚘 Vehicle: maker, model, fuel, colour, engine cc, chassis/engine no.
-• 📋 RC: RTO office, registration date + validity, manufacture year, tax
-• 🛡️ Insurance (company + valid till) • 🌫️ PUC • 🏦 Finance/hypothecation
-• 🚨 **Challans**: pending / paid / in-court, amount, date, offence
-_Owner mobile and chassis/engine are shown masked (privacy)._
-🔢 **Now send the number plate** (example `BR30AR0802`):
+Full RC record + all challans (pending/paid, amount, offence).
+📌 Example: `BR30AR0802`
+🔢 **Now send the number plate:**
 
 ## 📲 IMEI / PHONE DETAILS
 
-Send the **15 digit IMEI** of any phone or tablet.
-📍 Where to find it: dial `*#06#` on that phone — the IMEI shows on the screen (it is also printed on the box or the bill).
-✅ You get: brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a `.json` copy file.
-⚠️ Use it only for your own device or a phone you are buying.
-🔢 **Now send the 15 digit IMEI** (example `353010111111110`):
+Brand, model, device photo + full spec sheet + `.json` copy file.
+📍 IMEI: dial `*#06#` · 📌 Example: `353010111111110`
+🔢 **Now send the 15 digit IMEI:**
 
-## 📱 NUMBER INFORMATION
+## 📱 NUMBER INFO
 
-Send a 10 digit mobile number.
-✅ You get: **operator, circle (region), number type** + 6 useful links (WhatsApp, Telegram, Truecaller, Google, spam report, 1930 cyber helpline).
-_After MNP the operator can change. For legal use only._
-🔢 **Now send the 10 digit number** (example `9876543210`):
+Operator, circle (region), number type + 6 useful links.
+📌 Example: `9876543210`
+🔢 **Now send the 10 digit mobile number:**
 
-## 🏦 IFSC BANK BRANCH LOOKUP
+## 🏦 IFSC BANK BRANCH
 
-The IFSC code is printed on your passbook or cheque. Send that code here.
-✅ You get: **bank name, branch, address, MICR code** + UPI/NEFT/RTGS support + Maps link.
-💸 Always check the branch before sending money. Wrong IFSC means the money comes back.
-🔤 **Now send the IFSC code** (example `SBIN0000001`):
+Bank, branch, address, MICR (printed on passbook / cheque).
+📌 Example: `SBIN0000001`
+🔤 **Now send the IFSC code:**
 
-## 📮 PINCODE & POST OFFICE INFO
+## 📮 PINCODE & POST OFFICE
 
-_Useful for online forms, orders and courier._
-Two ways:
-1️⃣ Send a **6 digit pincode** (example `800001`) → district, state + all post offices
-2️⃣ Send **area or post office name** (example `Rajendra Nagar`) → you get the pincode
+6 digit pincode → district, state + all post offices.
+📌 Example: `800001` or `Rajendra Nagar`
 📮 **Now send the pincode or area name:**
 
 ## 🆔 ID & USERNAME FINDER
 
-Three ways:
-1️⃣ Send `me` → your ID and username
-2️⃣ Forward any message → ID of that user or channel
-3️⃣ Send `@username` → real check on 5 platforms + 9 links
-_Useful for channel ID, force-subscribe setup or reporting someone._
-🆔 **Now send** `me` / `@username` / or forward any message:
+Your ID, someone's ID (forward a message) or @username check on 5 platforms.
+📌 Example: `me` / `@username` / forward any message
+🆔 **Now send me / @username / or forward a message:**
 
 ## 📷 HD QR CODE GENERATOR
 
-Send any **text** or **link**. You get a clean HD QR code:
+📌 Example: `https://t.me/utility_duniya_bot`
+🔗 **Now send the text or link:**
 
-## 🖼️ IMAGE TO MULTI-PAGE PDF
+## 🖼️ IMAGE TO PDF — up to 10 photos
 
-Send photos one by one (**up to 10**), then tap the button below.
-📄 **Normal PDF** = same as photo  |  **A4 PDF** = perfect for printing
+Send photos one by one, then tap the button (A4 = best for printing).
+📌 Example: 3 marksheet photos, then tap **A4 PDF**
 📸 **Now send your photos:**
 
 ## 🔗 URL SHORTENER
 
-Long link → short link. Easy to share on WhatsApp or Telegram.
-🔗 **Now send the long link** (example `https://example.com/very/long/path?x=1`):
+📌 Example: `https://example.com/very/long/path?x=1`
+🔗 **Now send the long link:**
 
-## 🔓 LINK BYPASS / UNPACK
+## 🔓 LINK BYPASS
 
-Get the **real link** behind ad links (GPLinks, VPLinks, redirects) — no ads.
+Real link behind ad links — no ads, no waiting.
+📌 Example: `https://gplinks.co/xxxxx`
 🔗 **Now send that link:**
 
-## 🔍 LINK SAFETY CHECKER
+## 🔍 LINK SAFETY CHECK
 
-Check the link **before opening**. Know if it is fake or safe.
-🔍 **Now send the link** (example `http://sbi-kyc-verify.xyz`):
+Check before opening — fake or safe.
+📌 Example: `http://sbi-kyc-verify.xyz`
+🔍 **Now send the link:**
 
-## 📦 APP FINDER (8 TRUSTED STORES)
+## 📦 APP FINDER
 
-Send the app name. You get **direct links** from 8 trusted stores (Play Store, APKPure, APKCombo, UptoDown, F-Droid...).
-_Do not download APK from random sites — virus risk._
-📦 **Now send the app name** (example `instagram`):
+Direct links from 8 trusted stores (Play Store, APKPure, UptoDown...).
+📌 Example: `instagram`
+📦 **Now send the app name:**
 
 ## 🖼️ WEBSITE SCREENSHOT (HD)
 
-Send the website URL (example: `github.com`):
-_Need the full long page? Open SITE SCREENSHOT in menu → 📜 Full Page._
+📌 Example: `github.com`
+🌐 **Now send the website URL:**
 
 ## 📜 FULL PAGE SCREENSHOT
 
-_This takes 10-20 seconds. Please wait._
+Takes 10-20 seconds (full long page).
+📌 Example: `flipkart.com`
 📜 **Now send the website URL:**
 
 ## 📶 WIFI SHARE QR
 
-_Guest scans it → phone connects to WiFi automatically._
-📶 **Now send the WiFi name (SSID)** (example: `JioFiber_Home`):
+Guest scans it → phone connects to WiFi automatically.
+📌 Example: `JioFiber_Home`
+📶 **Now send the WiFi name (SSID):**
 
 ## 👤 CONTACT CARD QR
 
-_Scan it → contact saves automatically._
-👤 **Now send your name** (example: `Himanshu Kumar`):
+Scan it → contact saves automatically.
+📌 Example: `Himanshu Kumar`
+👤 **Now send your name:**
 
 ---
 
