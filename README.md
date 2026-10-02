@@ -1,10 +1,11 @@
-# ⚡ Utility Duniya Super-Bot — **v40**
+# ⚡ Utility Duniya Super-Bot — **v41**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v40):** 🚗 **VEHICLE INFO + CHALLAN** — number plate bhejo → poora RC record (maker, model, fuel, insurance, PUC, finance)
-> + saare challan (pending / paid / court, amount, date, offence). Live API se. Setup: **`v40-VEHICLE-CHALLAN.md`**.
+> **Naya (v41):** 📲 **IMEI / PHONE DETAILS** — 15 digit IMEI bhejo → brand, model, device photo + poori spec sheet
+> + `.json` copy file. 🚗 **VEHICLE INFO + CHALLAN** ab aapke **asli API hub** se (vehicle-rc + challan + challan-v4 merge).
+> Setup: **`v41-API-HUB.md`** (vehicle wala purana guide: `v40-VEHICLE-CHALLAN.md`)
 >
 > **v39:** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
 > Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
@@ -37,7 +38,7 @@ UPI_NAME=Utility Duniya
 | VIP (paid) / Owner | **Unlimited** — premium tools bhi free, koi credit nahi |
 
 **Premium tools (8):** 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup ·
-🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio · 🚗 Vehicle Info + Challan.
+🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio · 🚗 Vehicle Info + Challan · 📲 IMEI / Phone Details.
 
 VIP buy: `/premium` → plan chuno → QR se paisa → **Step 2**: UTR bhejo (12 digit) → **Step 3**: screenshot bhejo →
 admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` → plan select → `/activate <user_id>`.
@@ -60,7 +61,7 @@ admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` �
 🗣️ Voice change (kid / heavy / robot / ghost / gadget / echo) · ✂️ Trim · 🗜️ Compress · 🎼 Video→MP3
 
 **Info**
-🚗 Vehicle Info + Challan (full RC + challan report) · 📱 Number Info (operator/circle/type + 6 links) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
+🚗 Vehicle Info + Challan (full RC + challan report) · 📲 IMEI / Phone Details (device + full spec sheet + .json) · 📱 Number Info (operator/circle/type + 6 links) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
 🆔 ID & Username Finder (me / forward / @username → 5 platforms + 9 links) · 🌐 IP/Domain · 🚗 RTO vehicle info ·
 📦 App Finder (8 trust stores)
 
@@ -101,7 +102,8 @@ modules/
   vip_payment.py    — VIP plans, UPI QR, payment flow
 requirements.txt    — saare packages
 v39-KYA-BADLA.md    — v39 me kya badla (2 minute read)
-v40-VEHICLE-CHALLAN.md — vehicle+challan setup (API env vars) + privacy notes
+v41-API-HUB.md — IMEI tool + vehicle hub (3 endpoint) setup, env vars, credit rules
+v40-VEHICLE-CHALLAN.md — purana single-endpoint vehicle setup (optional) + privacy notes
 EARNING-TOOLS-V39.md— 12 naye earning-tool ideas (no AI)
 TUTORIAL.md         — text tutorial (fallback link)
 _audit_tools_v39.py — tool-by-tool audit script (68 engines — chala kar dekh lo)

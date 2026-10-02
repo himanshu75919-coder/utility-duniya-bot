@@ -177,6 +177,18 @@ from modules.vehicle_challan import (
     render_report as render_vehicle_report,
     valid_plate as vehicle_plate_ok,
 )
+from modules.imei_lookup import (
+    device_title as imei_title,
+    fallback_links as imei_fallback_links,
+    fetch_imei_details,
+    help_card as imei_help_card,
+    is_configured as imei_api_ready,
+    render_caption as render_imei_caption,
+    render_text as render_imei_text,
+    specs_filename as imei_specs_filename,
+    specs_json_bytes as imei_specs_json,
+    validate_imei as imei_validate,
+)
 from modules.osint_tools import (
     NUM_LEAK_ENABLED,
     PUBLIC_RECORD_WARNING,
@@ -287,6 +299,8 @@ PREMIUM_TOOLS = {
     "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
     # ---- v40 VEHICLE INFO + CHALLAN (live API) ----
     "vehicle",             # 🚗 VEHICLE & CHALLAN REPORT
+    # ---- v41 IMEI / PHONE DETAILS (live API) ----
+    "imei",                # 📲 IMEI & PHONE SPEC CARD
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -298,6 +312,7 @@ PREMIUM_TOOL_NAMES = {
     "kagaz": "📜 Sarkari Kagaz Suite",
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
     "vehicle": "🚗 Vehicle Info + Challan Report",
+    "imei": "📲 IMEI / Phone Details",
 }
 
 
@@ -349,6 +364,7 @@ def get_credits_over_text(action: str = "") -> str:
         "• 🔒 Private Channel Setup — <b>unlimited</b>\n"
         "• 🏦 Bank PDF → Excel • 📜 Document Suite • ⚡ Media Studio — <b>unlimited</b>\n"
         "• 🚗 Vehicle Info + Challan Report — <b>unlimited</b>\n"
+        "• 📲 IMEI / Phone Details — <b>unlimited</b>\n"
         "• ♾️ Whole bot unlimited (no limits at all)\n\n"
         "🎁 <i>Want VIP free? Share with {n} friends (/refer).</i>"
     ).replace("{n}", str(REFER_NEED))
@@ -564,6 +580,7 @@ KB_BTNS = [
     [f"🖼️ {to_bold('SITE SCREENSHOT')}", f"🏦 {to_bold('BANK STATEMENT → EXCEL')}"],
     [f"📜 {to_bold('SARKARI KAGAZ SUITE')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
+    [f"📲 {to_bold('IMEI / PHONE DETAILS')}"],
     [f"💎 {to_bold('VIP PREMIUM')}", f"🎁 {to_bold('REFER & EARN')}"],
     [f"👤 {to_bold('MY ACCOUNT')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -611,6 +628,10 @@ BTN_MODE_MAP = {
     "RTO VEHICLE INFO": "rto",
     "VEHICLE INFO + CHALLAN": "rto",
     "VEHICLE INFO": "rto",
+    "IMEI / PHONE DETAILS": "imei",
+    "IMEI INFO": "imei",
+    "IMEI LOOKUP": "imei",
+    "PHONE INFO (IMEI)": "imei",
     "NUMBER INFO": "numinfo",
     "IFSC INFO": "ifsc",
     "PINCODE INFO": "pin",
@@ -730,6 +751,18 @@ PROMPTS = {
         "<i>Owner mobile and chassis/engine are shown masked (privacy).</i>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "🔢 <b>Now send the number plate</b> (example <code>BR30AR0802</code>):"
+    ),
+    "imei": (
+        f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Send the <b>15 digit IMEI</b> of any phone or tablet.\n"
+        "📍 Where to find it: dial <code>*#06#</code> on that phone — the IMEI shows on the screen "
+        "(it is also printed on the box or the bill).\n"
+        "✅ You get: brand, model, device photo + full spec sheet (display, chipset, RAM/storage, "
+        "camera, battery, network) + a <code>.json</code> copy file.\n"
+        "⚠️ Use it only for your own device or a phone you are buying.\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "🔢 <b>Now send the 15 digit IMEI</b> (example <code>353010111111110</code>):"
     ),
     "numinfo": (
         f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>\n"
@@ -1400,6 +1433,20 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
+def _veh_has_rc_data(live: dict) -> bool:
+    """Live jawab me asli RC/challan data hai?
+
+    Hub khaali/unknown plate par sirf RTO office info deta hai (koi owner/maker/challan nahi).
+    Aisi report par credit nahi katta — purana free RTO card dikha dete hain.
+    """
+    rc = live.get("rc") or {}
+    if any(rc.get(k) for k in ("maker", "model", "owner", "reg_date", "chassis", "engine", "ins_company")):
+        return True
+    if live.get("challans"):
+        return True
+    return bool((live.get("summary") or {}).get("count"))
+
+
 async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/vehstatus — admin: check the vehicle API is working (live test on a sample plate)."""
     if not is_admin(update.effective_user.id):
@@ -1424,6 +1471,39 @@ async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await st.edit_text(f"❌ <b>API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
                            "Check VEHICLE_API_URL / KEY / PARAM.", parse_mode=HTML)
+
+
+async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/imeistatus — admin: check the IMEI API is working (live test)."""
+    if not is_admin(update.effective_user.id):
+        return
+    if not imei_api_ready():
+        await update.message.reply_text(
+            "⚠️ <b>IMEI API is not set.</b>\n\nAdd this on Render → Environment:\n"
+            "<code>IMEI_API_KEY</code> = your key\n"
+            "<i>(base is already set: osint-apis-hub.onrender.com/api · key Demo is public)</i>",
+            parse_mode=HTML)
+        return
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    ok15, imei_in, imei_e = imei_validate(args[0] if args else "353010111111110")
+    if not ok15:
+        await update.message.reply_text(f"❌ {imei_e}", parse_mode=HTML)
+        return
+    st = await update.message.reply_text(f"🔎 Testing the IMEI API with <code>{imei_in}</code>…",
+                                         parse_mode=HTML)
+    res = fetch_imei_details(imei_in, use_cache=False)
+    if res.get("ok"):
+        await st.edit_text(
+            "✅ <b>IMEI API is working</b>\n"
+            f"📲 <b>{hesc(imei_title(res))}</b>\n"
+            f"• Brand: {hesc(str(res.get('brand') or '-'))}\n"
+            f"• Spec sections: {len(res.get('sections') or [])}\n"
+            f"• JSON file: {len(imei_specs_json(res))} bytes · {hesc(imei_specs_filename(res))}\n"
+            f"• Photo: {'✅' if res.get('photo') else '❌'}\n\n" +
+            hesc(render_imei_text(res))[:900], parse_mode=HTML)
+    else:
+        await st.edit_text(f"❌ <b>IMEI API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
+                           "Check IMEI_API_BASE / IMEI_API_KEY.", parse_mode=HTML)
 
 
 async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2027,6 +2107,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
         live = fetch_vehicle_report(plate)
+        if live.get("ok") and not _veh_has_rc_data(live):
+            await q.answer("No RC / challan record found for this number — no credit was cut.", show_alert=True)
+            add_use(uid)
+            return
         if live.get("ok"):
             await q.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
             rows_live = [
@@ -2041,6 +2125,36 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await q.answer(str(live.get("error"))[:180], show_alert=True)
         add_use(uid)
+        return
+
+    if data.startswith("imeiagain:"):
+        imei = re.sub(r"\D", "", data.split(":", 1)[1])[:15]
+        _u_ii = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_ii, uid):
+            await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
+            return
+        await q.message.reply_text("🔎 <b>Checking this IMEI again…</b>", parse_mode=HTML)
+        res_ii = fetch_imei_details(imei, use_cache=False)
+        if res_ii.get("ok"):
+            await q.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
+            if res_ii.get("photo") and not str(res_ii["photo"]).lower().endswith(".gif"):
+                try:
+                    await q.message.reply_photo(photo=res_ii["photo"],
+                                                caption=render_imei_caption(res_ii), parse_mode=HTML)
+                except Exception:
+                    pass
+            await q.message.reply_text(render_imei_text(res_ii), parse_mode=HTML,
+                                       disable_web_page_preview=True)
+        else:
+            await q.answer(str(res_ii.get("error"))[:180], show_alert=True)
+        add_use(uid)
+        return
+
+    if data == "imei_new":
+        context.user_data["mode"] = "imei"
+        _u_in = get_user(uid, q.from_user.first_name)
+        await q.message.reply_text(tool_prompt("imei") + "\n\n" + credits_line(_u_in, uid),
+                                   reply_markup=tool_tutorial_kb("imei"), parse_mode=HTML)
         return
 
     if data.startswith("admpay_view:"):
@@ -3614,6 +3728,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await wait.delete()
             except Exception:
                 pass
+            if live.get("ok") and not _veh_has_rc_data(live):
+                card_txt, kb_free = _free_card(
+                    "🔎 <b>No RC / challan record found for this number.</b>\n"
+                    "✅ <b>No credit was cut</b> — check the number plate once and send again.")
+                await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
+                add_use(uid)
+                return
             if live.get("ok"):
                 await update.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
                 rows_live = [
@@ -3635,6 +3756,78 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         card_txt, kb_free = _free_card("🚨 <b>Challan + full RC report:</b> VIP users get the live report (challan pending/paid, insurance, PUC, finance). → /premium")
         await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "imei":
+        _u_i = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_i, uid):
+            await update.message.reply_text(get_credits_over_text("imei"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            add_use(uid)
+            return
+        ok15, imei_clean, imei_err = imei_validate(raw_text)
+        if not ok15:
+            await update.message.reply_text(
+                "❌ <b>" + hesc(imei_err) + "</b>\n\n" + imei_help_card(),
+                parse_mode=HTML)
+            add_use(uid)
+            return                       # mode chalu rehta hai — dobara bhej sakte ho
+        if not imei_api_ready():
+            await update.message.reply_text(
+                imei_help_card("Live IMEI details are not available right now. Please try later."),
+                parse_mode=HTML)
+            add_use(uid)
+            return
+        wait = await update.message.reply_text(
+            "🔎 <b>Fetching the device details…</b>\n<i>Please wait 5-15 seconds.</i>", parse_mode=HTML)
+        res_i = fetch_imei_details(imei_clean)
+        try:
+            await wait.delete()
+        except Exception:
+            pass
+        if not res_i.get("ok"):
+            rows_fb = [[InlineKeyboardButton(t, url=u)] for t, u in imei_fallback_links(imei_clean)]
+            await update.message.reply_text(
+                "❌ <b>DEVICE DETAILS NOT FOUND</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n"
+                f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
+                "✅ <b>No credit was cut</b> — check the number and send again.\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "👇 You can also check on the official site:",
+                reply_markup=InlineKeyboardMarkup(rows_fb), parse_mode=HTML)
+            add_use(uid)
+            return
+        await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
+        photo_sent = False
+        if res_i.get("photo") and not str(res_i["photo"]).lower().endswith(".gif"):
+            try:
+                await update.message.reply_photo(photo=res_i["photo"],
+                                                 caption=render_imei_caption(res_i), parse_mode=HTML)
+                photo_sent = True
+            except Exception:
+                photo_sent = False
+        body = render_imei_text(res_i)
+        if not photo_sent:
+            body = ("📲 <b>" + hesc(imei_title(res_i)) + "</b>\n"
+                    f"🔢 <b>IMEI:</b> <code>{hesc(str(res_i.get('imei') or ''))}</code>\n" + body)
+        await update.message.reply_text(body, parse_mode=HTML, disable_web_page_preview=True)
+        try:
+            buf_spec = io.BytesIO(imei_specs_json(res_i))
+            buf_spec.name = imei_specs_filename(res_i)
+            await update.message.reply_document(
+                document=buf_spec,
+                caption=("📄 <b>" + hesc(imei_title(res_i)) + "</b> — full specifications\n"
+                         "<i>JSON copy file — open it or paste it anywhere (copy code style).</i>"),
+                parse_mode=HTML)
+        except Exception as e:
+            log.warning("imei json file send fail: %s", e)
+        rows_i = [[InlineKeyboardButton(t, url=u)] for t, u in (res_i.get("links") or [])[:3]]
+        rows_i.append([InlineKeyboardButton("🔄 Check another IMEI", callback_data="imei_new")])
+        await update.message.reply_text("👇 More:", reply_markup=InlineKeyboardMarkup(rows_i), parse_mode=HTML)
+        context.user_data.pop("mode", None)
         add_use(uid)
         return
 
@@ -4910,6 +5103,7 @@ def main():
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
+    app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
