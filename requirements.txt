@@ -12,3 +12,4 @@ yt-dlp
 beautifulsoup4
 parth-dl
 imageio-ffmpeg
+numpy

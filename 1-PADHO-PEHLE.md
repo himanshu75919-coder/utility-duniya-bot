@@ -1,7 +1,61 @@
-# 📖 1-PADHO-PEHLE.md — v32 (PHASE 3) GUIDE
+# 📖 1-PADHO-PEHLE.md — v33 (ADMIN + PAYMENT) GUIDE
 
 **Bhai, ye file pehle padh lo — 5 minute me sab samajh aa jayega.**
-Ye version = **Phase 3 professional upgrade**. Isme saare tools ek-ek karke check kiye gaye, jo galat the wo theek kiye, aur naye useful tools add kiye.
+Ye version = **v33 — Admin Panel + Payment Verification upgrade** (jo teen dikkatein tumne batayi thi, wo teeno theek).
+
+---
+
+## 🆕 v33 ME TUMHARI 3 DIKKATEIN THEEK HUI
+
+### 1️⃣ Owner ko bhi "premium lo" bol raha tha — THEEK ✅
+**Wajah:** bot ke paas pata hi nahi tha ki tum owner ho — sabko ek jaisa treat kar raha tha.
+**Ab kya hoga:**
+- Tumhari ID (`ADMIN_ID` = 8607774564) = **OWNER** maani jayegi
+- Owner ko **na daily limit**, na "VIP lo" wala message
+- `/premium` dabane par ab tumhe dikhega: *"Aap owner ho — sab unlimited, paisa nahi lagta"* + seedha pending payments ka shortcut
+- Naya **👑 OWNER MODE** button bhi aayega (keyboard me)
+- ⚠️ **Ek kaam tumhe karna hai:** Render ke Environment me `ADMIN_ID=8607774564` hona chahiye (check kar lena)
+
+### 2️⃣ Koi bhi kuch bhi bhej raha tha proof me — THEEK ✅
+**Ab 4 layer ka strict check hai:**
+
+| # | Check | Kya hota hai |
+|---|---|---|
+| 1 | **UTR format** | Sirf 12-digit UPI UTR ya 16-22 char bank ref chalega. 10-digit mobile / random text / "hello paisa kar diya" = ❌ reply me wajah batayega |
+| 2 | **UTR duplicate** | Wahi UTR dobara = ❌ "ye UTR pehle use ho chuka hai" (ek UTR = ek hi VIP) |
+| 3 | **Screenshot check** | Bot image dekhta hai — asli app screenshot hai ya selfie/photo/meme. Photo = ❌ reject + sahi tareeka samjhata hai |
+| 4 | **Screenshot duplicate** | Wahi image dobara = ❌ reject (purani screenshot se dobara VIP nahi) |
+
+**Flow ab 3 step ka hai:**
+1️⃣ QR se pay karo → 2️⃣ **UTR number** bhejo (check hoga) → 3️⃣ **screenshot** bhejo (check hoga) → admin ke paas jayega
+
+**Admin ko ab kya dikhta hai (verification card):**
+```
+🔔 PAYMENT VERIFY KARO — #12
+👤 User ID / Username / Naam
+💎 Plan + ₹Amount + Days
+🧾 UTR: 448612394857
+      • Format: ✅ sahi — UPI / Bank UTR (12 digit)
+      • Pehle use hua?: ✅ Nahi — naya hai
+🖼️ Screenshot: ✅ Mili
+      • Screenshot check: 🟢 Screenshot lagti hai (score 87/100)
+      • Same image dobara?: ✅ Nahi
+👑 User ka VIP / ⚡ Uses today
+📜 Is user ki history: ✅ 2 approved · ❌ 0 rejected
+```
+Uske neeche **Approve / Reject / User se dobara maango** ke buttons.
+
+### 3️⃣ Premium Activate button kaam nahi kar raha tha — THEEK ✅
+**Asli wajah (mila kaise):** Jab proof **text message** me aata tha, tab code `edit_caption` chala raha tha — par text message me caption hota hi nahi, isliye Telegram error deta tha aur button **chup-chaap mar** jata tha (isliye VIP lagta nahi tha).
+**Ab:** photo card ho ya text card — dono par button kaam karega (caption→text→naya message, teen tarike se try karta hai). Test bhi ho gaya.
+**Saath me:**
+- Button dabane par turant **"✅ VIP activate ho gaya!"** ka jawab aata hai (pehle spinner ghoomta rehta tha)
+- User ko **automatic MUBARAK message** jata hai (plan + valid till date ke saath)
+- **Dobara click** karne par "ye payment pehle hi approve ho chuka hai" — double VIP nahi milegi
+- Reject karne par user ko **wajah** ke saath message jata hai
+
+---
+
 
 ---
 
@@ -41,9 +95,23 @@ Ye version = **Phase 3 professional upgrade**. Isme saare tools ek-ek karke chec
 4. Neeche **Commit changes** → **Commit changes** (green button)
 5. **Nayi file add** karne ke liye: repo me **Add file → Upload files** → file drag-drop → Commit
 
-**Kaun-kaun si files update karni hain (v32):**
+### 🛠️ naye admin commands (v33)
+| Command | Kaam |
+|---|---|
+| `/admin` | Naya admin panel (buttons wala) |
+| `/payments` | Pending payment list (approve/reject) |
+| `/grant [user_id] [din]` | VIP do (9999 = lifetime) |
+| `/revoke [user_id]` | VIP hatao |
+| `/broadcast [message]` | Sab users ko message |
+| `/ban` / `/unban [user_id]` | Ban / unban |
+| `/mypay` | (user khud apni payments dekh sakta hai) |
+
+**Kaun-kaun si files update karni hain (v33):**
 ```
-bot.py                     (BADLA)
+bot.py                     (BADLA — admin panel + strict payment + owner bypass)
+modules/payguard.py        (NAYI FILE — UTR + screenshot verification, ye bhoolna mat!)
+modules/osint_tools.py     (BADLA — public records feature)
+database.py                (BADLA — payment tables/functions)
 modules/voice_studio.py    (BADLA — 24 asli voices)
 modules/general_tools.py   (BADLA — naye QR/password/search)
 modules/cyber_studio.py    (BADLA — B&W compress, signature cleaner hata)
@@ -64,6 +132,11 @@ Render me GitHub repo se deploy hai, isliye **GitHub push karte hi Render khud n
 
 Telegram me bot kholo: **@utility_duniya_bot**
 
+0. **Pehle ye 3 cheezein test karo (v33):**
+   - `/admin` bhejo → naya **Admin Panel** khule (Users, Pending Payments, Revenue, Revenue sab)
+   - `/premium` bhejo → **"Aap owner ho, paisa nahi lagta"** likha aana chahiye (VIP plan nahi!)
+   - Kisi tool ko 5-6 baar chalao → **koi "daily limit" wala message nahi** aana chahiye (tum owner ho)
+   - Koi dost/bhai se test payment karwao: galat UTR bhejega → reject; selfie bhejega → reject; sahi screenshot → tumhare paas card aayega → **Approve** dabao → usko VIP mil jayegi
 1. **/start** dabao → menu dikhna chahiye + **❓ MADAD / TUTORIAL** button bhi
 2. **❓ MADAD / TUTORIAL** → poora guide aana chahiye
 3. **🎙️ ACTORS VOICE STUDIO** → 🎭 Actor Voices → **Don wali** chuno → likho: `नमस्ते दोस्तों` → asli awaaz aani chahiye
