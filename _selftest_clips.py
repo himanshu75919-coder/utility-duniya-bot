@@ -305,7 +305,7 @@ class Ctx:
 async def flows():
     print("\n--- 2) BOT FLOW ---")
     ok("menu me CLIP MAKER button", bool(kb_label("clips")), kb_label("clips"))
-    ok("premium list me clips (#10)", "clips" in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 10,
+    ok("premium list me clips (#11)", "clips" in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 11,
        sorted(bot.PREMIUM_TOOLS))
     ok("prompt chhota + ask line", "Now send the video" in bot.tool_prompt("clips")
        and len([l for l in bot.tool_prompt("clips").split("\n") if l.strip()]) <= 5, bot.tool_prompt("clips"))

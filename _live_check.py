@@ -1,11 +1,12 @@
 """LIVE health-check: bot ke saare tools ko real network calls se test karta hai."""
 import io
+import os
 import json
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FTimeout
 
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 RESULTS = []
 
@@ -159,7 +160,11 @@ def _shot(path, expect_good):
     r = analyze_screenshot(data)
     return r["ok"] == expect_good
 
-check("Screenshot check: asli Telegram screenshot pass", lambda: _shot("/home/user/uploads/Screenshot_20261002_054432_Telegram.jpg", True))
+_SHOT_FIXTURE = "/home/user/uploads/Screenshot_20261002_054432_Telegram.jpg"
+if os.path.exists(_SHOT_FIXTURE):
+    check("Screenshot check: asli Telegram screenshot pass", lambda: _shot(_SHOT_FIXTURE, True))
+else:
+    RESULTS.append(("Screenshot check", "SKIP", "fixture file nahi mili — test chhod diya"))
 check("Bot: admin bypass (is_admin function)", lambda: "def is_admin" in open("bot.py", encoding="utf-8").read())
 check("Bot: limit me admin bypass laga hai", lambda: "if uid and is_admin(uid):" in open("bot.py", encoding="utf-8").read())
 check("Bot: purana edit_caption bug fix (fallback)", lambda: "_edit_admin_msg" in open("bot.py", encoding="utf-8").read())
@@ -174,7 +179,7 @@ check("DB: payments table me plan_days + flags", lambda: "plan_days" in open("da
 print("\n" + "=" * 100)
 fails = []
 for n, st, info in RESULTS:
-    icon = {"PASS": "✅", "FAIL": "❌", "ERROR": "💥", "TIMEOUT": "⏱️"}[st]
+    icon = {"PASS": "✅", "FAIL": "❌", "ERROR": "💥", "TIMEOUT": "⏱️", "SKIP": "⏭️"}.get(st, "•")
     print(f"{icon} {st:8} | {n}\n            -> {info}")
     if st != "PASS":
         fails.append((n, st, info))
@@ -331,11 +336,12 @@ check("VEHICLE: live hub (RC + challan + v4 summary)",
       timeout=90)
 check("VEHICLE: card HTML-safe (& escape)",
       lambda: "&amp;" in _vc.render_report(_vc.fetch_vehicle_report("HR26EV0001")))
-check("Bot: IMEI menu button + premium list (10 tools, 32 buttons)",
+check("Bot: IMEI menu button + premium list (11 tools, 33 buttons)",
       lambda: "imei" in _bot.PREMIUM_TOOLS and "clips" in _bot.PREMIUM_TOOLS
-      and len(_bot.PREMIUM_TOOLS) == 10
+      and len(_bot.PREMIUM_TOOLS) == 11
       and any("IMEI" in _bot.unbold(b).upper() for row in _bot.KB_BTNS for b in row)
-      and sum(len(r) for r in _bot.KB_BTNS) == 32)
+      and sum(len(r) for r in _bot.KB_BTNS) == 33
+      and "aadhaar" in _bot.PREMIUM_TOOLS)
 check("Bot: IMEI prompt + video button",
       lambda: "Now send the 15 digit IMEI" in _bot.tool_prompt("imei") and bool(_bot.tool_tutorial_kb("imei")))
 check("ClipMaker: limits + url detect",

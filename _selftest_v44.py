@@ -99,8 +99,8 @@ def test_exam_removed():
        io.open("/home/user/fix/modules/tutorial_hub.py", encoding="utf-8").read())
     rows = bot.KB_BTNS
     ok("har menu row 2 buttons (aakhri row bhi)", all(1 <= len(r) <= 2 for r in rows), [len(r) for r in rows])
-    ok("menu rows 16", len(rows) == 16, len(rows))
-    ok("buttons 32", sum(len(r) for r in rows) == 32, sum(len(r) for r in rows))
+    ok("menu rows 17 (v45: +AADHAAR FAMILY)", len(rows) == 17, len(rows))
+    ok("buttons 33 (v45: +AADHAAR FAMILY)", sum(len(r) for r in rows) == 33, sum(len(r) for r in rows))
     ok("numinfo/ifsc wali row bani (exam ki jagah)", any("NUMBER INFO" in norm(str(r)).upper()
                                                          and "IFSC" in norm(str(r)).upper() for r in rows))
 

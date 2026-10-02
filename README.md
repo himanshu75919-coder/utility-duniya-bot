@@ -1,3 +1,16 @@
+---
+## 🆕 v45 — Aapka apna OSINT HUB jud gaya (Number / Vehicle / Aadhaar Family)
+
+| Tool | Kya badla |
+|---|---|
+| 📱 **Number Info** | Ab naam, father, address, linked numbers, ID — **ek hi card** me (apne hub se) |
+| 🚗 **Vehicle + Challan** | Ab **ek hi API call** `/api/vehicle-report` — RC + insurance + PUC + challan (~1-4s) |
+| 🆔 **Aadhaar Family** | **NAYA TOOL** — 12 digit Aadhaar se family card (members, district, masked) |
+
+- Admin: `/hubstatus` — teeno API ka live test
+- **Credit sirf tab katta hai jab record mile** (nahi to free)
+- Poora detail: **[v45-OSINT-HUB.md](v45-OSINT-HUB.md)**
+
 # ⚡ Utility Duniya Super-Bot — **v44**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
