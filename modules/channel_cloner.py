@@ -43,33 +43,25 @@ HTML = "HTML"
 # USER GUIDE (simple Hinglish — pehli baar use karne wale ke liye)
 # --------------------------------------------------------------------------------
 CLONER_GUIDE_TEXT = (
-    "📘 <b>AUTO FORWARD KAISE KAAM KARTA HAI?</b>\n"
+    "📘 <b>HOW DOES AUTO FORWARD WORK?</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "Dekho, samajh lo aise 👇\n\n"
-    "1️⃣ <b>SOURCE</b> = jis channel se posts aayengi\n"
-    "   (jaise: tumhara lecture wala channel, PDF/notes wala channel)\n\n"
-    "2️⃣ <b>TARGET</b> = jis channel me posts bhejni hain\n"
-    "   (jaise: apna new channel, apni website/group, apna paid channel)\n\n"
-    "3️⃣ Bot <b>khud</b> source ki nayi post uthata hai → 2-5 second me target me daal deta hai\n"
-    "   (Caption, tag, watermark, thumbnail — sab tumhari settings ke saath) 🎉\n\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "⚠️ <b>2 ZAROORI BAATEIN:</b>\n"
-    "• Bot ko <b>Source</b> aur <b>Target</b> dono channel me <b>Admin</b> banana padega\n"
-    "• Private channel ho? Koi dikkat nahi — us private channel me bot ko admin add karo,\n"
-    "   phir us channel ki koi bhi post bot ko <b>forward</b> kar do — bot khud ID pakad lega ✅\n\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "📦 <b>Kya-kya bhej sakte ho:</b>\n"
-    "• 🎥 Video lectures • 📄 PDF / notes • 🖼️ Photos • 🎵 Audio • 📁 Files\n"
-    "• 🖼️ Album (2-10 photos/videos ek saath) bhi album hi ban kar jayenge\n\n"
-    "⚡ <b>Sirf NAYI posts</b> clone hoti hain (jo post already source me hai wo nahi).\n"
-    "Purani posts chahiye to <b>🚀 Manual Forward Mode</b> use karo — jitni chaaho forward kar do, bot ek-ek ko target me daal dega."
+    "1️⃣ <b>SOURCE</b> = channel you copy from\n"
+    "2️⃣ <b>TARGET</b> = channel you post to\n"
+    "3️⃣ The bot copies every <b>new</b> post automatically in 2-5 seconds,\n"
+    "   with your caption, tag, watermark and thumbnail.\n\n"
+    "⚠️ <b>2 things needed:</b>\n"
+    "• Make the bot <b>Admin</b> in both channels.\n"
+    "• Private channel? Add the bot as admin there, then forward any post\n"
+    "   from it to the bot — the bot will read the ID itself. ✅\n\n"
+    "📦 <b>Works with:</b> videos, PDF/notes, photos, audio, files and albums (2-10 items).\n"
+    "⚡ Only <b>new</b> posts are copied. For old posts use <b>🚀 Manual Forward Mode</b>."
 )
 
 
 def cloner_summary_text(cfg: dict) -> str:
-    src = cfg.get("source_chat_id") or "❌ Set nahi"
-    tgt = cfg.get("target_chat_id") or "❌ Set nahi"
-    auto = "🟢 ON (chal raha hai)" if cfg.get("auto_status") == "on" else "🔴 OFF"
+    src = cfg.get("source_chat_id") or "❌ Not set"
+    tgt = cfg.get("target_chat_id") or "❌ Not set"
+    auto = "🟢 ON (running)" if cfg.get("auto_status") == "on" else "🔴 OFF"
     tag = cfg.get("rename_tag") or "—"
     wm = cfg.get("watermark") or "—"
     return (
@@ -80,7 +72,7 @@ def cloner_summary_text(cfg: dict) -> str:
         f"3️⃣ 🤖 <b>Full Auto:</b> {auto}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🏷️ Tag: {tag}\n💧 Watermark: {wm}\n"
-        f"🖼️ Thumbnail: {'✅ set hai' if cfg.get('thumbnail_file_id') else '❌ nahi'}"
+        f"🖼️ Thumbnail: {'✅ set' if cfg.get('thumbnail_file_id') else '❌ no'}"
     )
 
 
@@ -91,15 +83,15 @@ def get_cloner_settings_kb(uid: int):
     cfg = get_cloner_config(uid)
 
     target = cfg.get("target_chat_id") or ""
-    target_txt = f"{target[:16]}" if target else "Set nahi ❌"
+    target_txt = f"{target[:16]}" if target else "Not set ❌"
     source = cfg.get("source_chat_id") or ""
-    source_txt = f"{source[:16]}" if source else "Set nahi ❌"
+    source_txt = f"{source[:16]}" if source else "Not set ❌"
     auto_on = cfg.get("auto_status") == "on"
     auto_txt = "ON 🟢" if auto_on else "OFF 🔴"
 
     buttons = [
         [InlineKeyboardButton("🚀 AUTO FORWARD SETUP (3 Steps)", callback_data="cloner_setup")],
-        [InlineKeyboardButton("📘 Kaise Use Karein? (Guide)", callback_data="cloner_guide")],
+        [InlineKeyboardButton("📘 How to Use? (Guide)", callback_data="cloner_guide")],
         [
             InlineKeyboardButton("🤖 FULL AUTO: " + auto_txt, callback_data="cloner_toggle_auto"),
             InlineKeyboardButton("🧪 Test Forward", callback_data="cloner_test"),
@@ -108,7 +100,7 @@ def get_cloner_settings_kb(uid: int):
             InlineKeyboardButton(f"📡 Source: {source_txt}", callback_data="cloner_set_source"),
             InlineKeyboardButton(f"📑 Target: {target_txt}", callback_data="cloner_set_target"),
         ],
-        [InlineKeyboardButton("🔒 Private Channel? Aise karo", callback_data="cloner_private")],
+        [InlineKeyboardButton("🔒 Private Channel? Do this", callback_data="cloner_private")],
         [InlineKeyboardButton("🚀 Manual Forward Mode (ek-ek post)", callback_data="cloner_start_mode")],
         [
             InlineKeyboardButton("🏷️ Rename Tag", callback_data="cloner_set_tag"),
@@ -126,7 +118,7 @@ def get_cloner_settings_kb(uid: int):
             InlineKeyboardButton("❌ Thumbnail Hatao", callback_data="cloner_clear_thumb"),
             InlineKeyboardButton("🔄 Reset Settings", callback_data="cloner_reset"),
         ],
-        [InlineKeyboardButton("📊 Meri Setting Dekho", callback_data="cloner_status")],
+        [InlineKeyboardButton("📊 My Settings", callback_data="cloner_status")],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home")],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -188,7 +180,7 @@ async def _safe_call(func, **kwargs):
         return await func(**kwargs)
     except RetryAfter as e:
         wait = int(getattr(e, "retry_after", 5) or 5) + 1
-        log.warning("FloodWait: %ss wait kar rahe hain...", wait)
+        log.warning("FloodWait: waiting %ss...", wait)
         await asyncio.sleep(wait)
         return await func(**kwargs)
     except BadRequest as e:
@@ -331,7 +323,7 @@ async def send_album(bot: Bot, msgs: list, target: str, cfg: dict):
     try:
         await bot.send_media_group(chat_id=target, media=media)
     except Exception as e:
-        log.warning("Album send fail (%s) -> ek-ek karke bhej rahe hain", e)
+        log.warning("Album send failed (%s) -> sending one by one", e)
         for m in msgs:
             await send_single(bot, m, target, cfg)
 
@@ -343,12 +335,12 @@ async def clone_messages(bot: Bot, msgs: list, uid: int) -> tuple:
     """Ek ya ek se zyada (album) messages ko user ki settings ke hisaab se clone karta hai."""
     msgs = [m for m in msgs if m is not None]
     if not msgs:
-        return False, "❌ Koi message nahi mila."
+        return False, "❌ No message found."
 
     cfg = get_cloner_config(uid)
     target = (cfg.get("target_chat_id") or "").strip()
     if not target:
-        return False, "⚠️ <b>Target Chat ID set nahi hai!</b> Pehle <b>📑 Target</b> button se channel set karein."
+        return False, "⚠️ <b>Target Chat ID is not set!</b> First set the channel with the <b>📑 Target</b> button."
 
     try:
         if len(msgs) == 1:
@@ -357,12 +349,12 @@ async def clone_messages(bot: Bot, msgs: list, uid: int) -> tuple:
             await send_album(bot, msgs, target, cfg)
         count = len(msgs)
         extra = f" ({count} items album)" if count > 1 else ""
-        return True, f"⚡ <b>Success!</b> Post{extra} target channel me chala gaya with your branding ✅"
+        return True, f"⚡ <b>Success!</b> Post{extra} sent to the target channel with your branding ✅"
     except Exception as e:
         log.error("Clone failed: %s", e)
         return False, (
             f"❌ <b>Error:</b> <code>{str(e)[:200]}</code>\n\n"
-            "<i>Check karo: bot target channel me ADMIN hai? (Post Messages permission ke saath)</i>"
+            "<i>Check: is the bot ADMIN in the target channel? (with Post Messages permission)</i>"
         )
 
 

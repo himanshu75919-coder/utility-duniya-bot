@@ -9,7 +9,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 # 🏛️ CITIZEN SERVICES
 SARKARI_CITIZEN_TEXT = (
     "🏛️ <b>OFFICIAL GOVERNMENT SERVICES HUB</b> 🏛️\n"
-    "<blockquote>Saare 100% verified official Sarkari portals — bina fake ads ke direct link!</blockquote>\n\n"
+    "<blockquote>100% verified official government portals — direct links, no fake ads.</blockquote>\n\n"
     "📌 <b>Available Services:</b>\n"
     "• 💳 <b>Aadhaar:</b> Download, PVC Card, Mobile Link & Lock\n"
     "• 🪪 <b>PAN Card:</b> 10-Min Free e-PAN, Link Status & Apply\n"
@@ -18,7 +18,7 @@ SARKARI_CITIZEN_TEXT = (
     "• 🎓 <b>APAAR ID:</b> One Nation One Student ID Portal\n"
     "• 📜 <b>State Portals:</b> RTPS Bihar, UP e-District, Jharsewa\n"
     "• 💼 <b>EPFO / PF:</b> UAN Passbook & Online Claim\n\n"
-    "👉 Neeche button dabakar direct official portal kholein:"
+    "👉 Tap a button below to open the official portal:"
 )
 
 def get_sarkari_citizen_kb():
@@ -57,7 +57,7 @@ def get_sarkari_citizen_kb():
 # 🎓 STUDENT EXAM HUB
 STUDENT_EXAM_TEXT = (
     "🎓 <b>STUDENT EXAM & SARKARI RESULT HUB</b> 🎓\n"
-    "<blockquote>Har govt exam ka official notification, live admit card aur answer keys!</blockquote>\n\n"
+    "<blockquote>Official notifications, live admit cards and answer keys for every government exam.</blockquote>\n\n"
     "📌 <b>Major Portals:</b>\n"
     "• 🏛️ <b>SSC:</b> CGL, CHSL, MTS, GD, CPO, Steno\n"
     "• 🚂 <b>Railway RRB:</b> NTPC, Group D, ALP, Tech\n"

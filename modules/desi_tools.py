@@ -165,7 +165,6 @@ def _f(x) -> float:
         return 0.0
 
 
-
 def _decide_amounts(nums: list, detail: str, prev_bal: float) -> tuple:
     """nums me se (debit, credit, balance) nikaalo — balance delta + keyword hints se."""
     amts = [_f(x) for x in nums]
@@ -213,7 +212,7 @@ def parse_bank_statement(pdf_bytes: bytes, password: str = "") -> dict:
     try:
         import pdfplumber  # noqa
     except Exception:
-        return {"ok": False, "error": "pdfplumber install nahi hai (requirements check karo)"}
+        return {"ok": False, "error": "pdfplumber is not installed (check requirements)"}
 
     rows, bank, raw_text = [], "UNKNOWN", ""
     open_kw = {"password": password} if password else {}
@@ -247,8 +246,8 @@ def parse_bank_statement(pdf_bytes: bytes, password: str = "") -> dict:
         if (not msg) or ("password" in msg.lower()) or ("encrypt" in msg.lower()) or ("decrypt" in msg.lower()):
             if password:
                 return {"ok": False, "locked": True, "wrong_password": True,
-                        "error": "Ye password sahi nahi hai"}
-            return {"ok": False, "locked": True, "error": "PDF locked (password) hai — password chahiye"}
+                        "error": "This password is wrong"}
+            return {"ok": False, "locked": True, "error": "The PDF is locked (password) — password needed"}
         return {"ok": False, "error": f"PDF kholne me dikkat: {msg[:120]}"}
 
     bank = detect_bank(raw_text)
@@ -280,7 +279,7 @@ def parse_bank_statement(pdf_bytes: bytes, password: str = "") -> dict:
 
     if not rows:
         return {"ok": False, "bank": bank,
-                "error": "Is PDF me transaction table nahi mili. (Scanned photo-PDF hai? Usme text nahi hota.)"}
+                "error": "No transaction table found in this PDF. (Is it a scanned photo-PDF? Those have no text.)"}
 
     tot_dr = round(sum(r["debit"] for r in rows), 2)
     tot_cr = round(sum(r["credit"] for r in rows), 2)
@@ -290,12 +289,12 @@ def parse_bank_statement(pdf_bytes: bytes, password: str = "") -> dict:
     summary = {
         "count": len(rows), "total_debit": tot_dr, "total_credit": tot_cr,
         "opening": round(opening, 2), "closing": round(closing, 2),
-        "months": len(months), "period": f"{rows[0]['date']} se {rows[-1]['date']}",
+        "months": len(months), "period": f"{rows[0]['date']} to {rows[-1]['date']}",
     }
 
     # CSV
     buf = io.StringIO()
-    buf.write("Date,Detail,Debit (nikala),Credit (aaya),Balance\n")
+    buf.write("Date,Detail,Debit (out),Credit (in),Balance\n")
     for r in rows:
         d = (r["detail"] or "").replace('"', "'").replace(",", " ")
         buf.write(f'{r["date"]},"{d}",{r["debit"] or ""},{r["credit"] or ""},{r["balance"] or ""}\n')
@@ -311,12 +310,12 @@ def statement_summary_text(res: dict) -> str:
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🏛️ <b>Bank:</b> {res.get('bank', 'UNKNOWN')}\n"
         f"📅 <b>Period:</b> {s['period']}\n"
-        f"🧾 <b>Transactions:</b> {s['count']}  ({s['months']} mahine)\n"
-        f"🔴 <b>Total nikala (Debit):</b> ₹{s['total_debit']:,.2f}\n"
-        f"🟢 <b>Total aaya (Credit):</b> ₹{s['total_credit']:,.2f}\n"
+        f"🧾 <b>Transactions:</b> {s['count']}  ({s['months']} months)\n"
+        f"🔴 <b>Total debit:</b> ₹{s['total_debit']:,.2f}\n"
+        f"🟢 <b>Total credit (in):</b> ₹{s['total_credit']:,.2f}\n"
         f"📂 <b>Opening:</b> ₹{s['opening']:,.2f}   →   <b>Closing:</b> ₹{s['closing']:,.2f}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "⬇️ Neeche Excel/CSV file — Google Sheets ya Excel me kholo, seedha table ban jayega."
+        "⬇️ Excel/CSV file is below — open it in Google Sheets or Excel and the table is ready."
     )
 
 
@@ -354,7 +353,7 @@ def convert_land(value: float, from_unit: str, region: str = "bihar") -> dict:
     """Bigha/Kattha/Dhur/Decimal/Acre/SqFt — sab me convert + deshi jhalak."""
     f = LAND_ALIASES.get(from_unit.strip().lower(), from_unit.strip().lower())
     if f not in LAND_UNITS:
-        return {"ok": False, "error": f"'{from_unit}' samajh nahi aaya. Likho: bigha, katha, dhur, decimal, acre, sqft, gaj, hectare"}
+        return {"ok": False, "error": f"'{from_unit}' not understood. Type: bigha, katha, dhur, decimal, acre, sqft, gaj, hectare"}
     region = (region or "bihar").lower()
     if region.startswith("up") or region.startswith("u."):
         LAND_UNITS["katha_bihar"], LAND_UNITS["bigha_bihar"] = 1361.25, 27225.0
@@ -381,8 +380,8 @@ def land_text(res: dict) -> str:
         f"🧮 <b>Decimal (Dismil):</b> {res['decimal']}  |  <b>Gaj:</b> {res['gaj']}\n"
         f"🏞️ <b>Acre:</b> {res['acre']}  |  <b>Hectare:</b> {res['hectare']}  |  <b>Guntha:</b> {res['guntha']}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Bihar ka deshi naap: 1 Bigha = 20 Kattha = 1361.25 Sq Ft har Kattha · 1 Dhur = 68.06 Sq Ft</i>\n"
-        "<b>Kaam:</b> zameen kharidna/bechna, registry, naap-taul — sab me."
+        "<i>Bihar local units: 1 Bigha = 20 Kattha = 1361.25 Sq Ft per Kattha · 1 Dhur = 68.06 Sq Ft</i>\n"
+        "<b>Use for:</b> buying/selling land, registry, all land measurement work."
     )
 
 
@@ -399,10 +398,10 @@ def registry_cost(state: str, area_sqft: float, circle_rate_per_sqft: float,
     slab_note = ""
     if b.startswith("f"):
         pct = max(st["stamp_pct"] - 1.0, 0.5)      # mahila ko 1% kam (Bihar/Haryana style)
-        slab_note = "Mahila khareedar — 1% kam stamp"
+        slab_note = "Woman buyer — 1% less stamp duty"
     elif b.startswith("j") or "joint" in b:
         pct = max(st["stamp_pct"] - 1.0, 0.5)
-        slab_note = "Joint (mahila saath) — 1% kam stamp"
+        slab_note = "Joint (with a woman owner) — 1% less stamp duty"
     for limit, p in st["male_slab"]:
         if value <= limit * 10000000 or (limit < 1e8):  # slab ₹ crore ke hisaab se (approx)
             break
@@ -421,12 +420,12 @@ def registry_cost(state: str, area_sqft: float, circle_rate_per_sqft: float,
 
 def registry_text(r: dict) -> str:
     if not r.get("ok"):
-        return "❌ Hishaab nahi bana."
+        return "❌ Could not prepare the statement."
     extra = ""
     if r.get("panchayat"):
         extra = f"🏘️ <b>Panchayat/Anchal (extra {r['panchayat_pct']}%):</b> ₹{r['panchayat']:,.0f}\n"
     return (
-        f"🏛️ <b>REGISTRY TOTAL KHARCHA ({r['state']})</b>\n"
+        f"🏛️ <b>REGISTRY TOTAL COST ({r['state']})</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"📐 <b>Zameen:</b> {r['area_sqft']:,.0f} Sq Ft  ×  <b>MVR ₹{r['rate']:,.0f}/SqFt</b>\n"
         f"💰 <b>Kul Value:</b> ₹{r['value']:,.0f}\n"
@@ -436,9 +435,9 @@ def registry_text(r: dict) -> str:
         f"📝 <b>Registration ({r['reg_pct']}%):</b> ₹{r['reg']:,.0f}\n"
         f"{extra}"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"💵 <b>Kul Kharcha (sarkari): ₹{r['total']:,.0f}</b>\n\n"
-        "➕ <b>Alag se:</b> notary/advocate fee, e-stamp, gawah, dalali — ye riwaaj ke hisaab se.\n"
-        "<i>⚠️ Ye andaaza hai (tumhare bataye MVR par) — final amount sub-registrar office me confirm karo.</i>"
+        f"💵 <b>Total government cost: ₹{r['total']:,.0f}</b>\n\n"
+        "➕ <b>Extra (not included):</b> notary/advocate fee, e-stamp, witness, broker — as per local practice.\n"
+        "<i>⚠️ This is an estimate (based on the MVR you gave) — confirm the final amount at the sub-registrar office.</i>"
     )
 
 
@@ -695,287 +694,82 @@ KAGAZ_MAKERS = {
 }
 
 KAGAZ_FIELDS = {
-    "kirayanama": [("landlord", "Makan malik ka naam", "jaise: Ramesh Kumar"),
-                   ("landlord_addr", "Malik ka pata", "gaon/mohalla, jila"),
-                   ("tenant", "Kirayedar ka naam", "jaise: Suresh Sharma"),
-                   ("tenant_addr", "Kirayedar ka pata", "gaon/mohalla, jila"),
-                   ("property", "Makan/dukaan ka details", "jaise: 2 kamra, 1x rasoi, chhat"),
-                   ("place", "Jagah (kahan hai)", "jaise: Boring Road, Patna"),
-                   ("rent", "Kiraya (mahine ka ₹)", "jaise: 6000"),
-                   ("deposit", "Advance/Deposit ₹", "jaise: 12000"),
-                   ("months", "Kitne mahine ka agreement", "jaise: 11"),
-                   ("start", "Kab se", "jaise: 01-11-2026"),
-                   ("end", "Kab tak", "jaise: 30-09-2027")],
-    "affidavit": [("name", "Aapka naam", "jaise: Ravi Kumar"),
-                  ("father", "Pita/Pat ka naam", "jaise: Ram Kumar"),
-                  ("age", "Umar", "jaise: 32"),
-                  ("address", "Pura pata", "jaise: Ward 5, Sitamarhi"),
-                  ("purpose", "Affidavit kisliye", "jaise: naam sudhar / pata / income"),
-                  ("body", "Kya likhna hai (poora bayan)", "jaise: mera sahi naam Ravi Kumar hai..."),
-                  ("place", "Jagah", "jaise: Patna"),
-                  ("date", "Tareekh", "jaise: 15-11-2026")],
-    "notice138": [("from_name", "Aapka naam (bhejne wale)", "jaise: Suresh Kumar"),
-                  ("from_addr", "Aapka pata", "gaon/mohalla"),
-                  ("to_name", "Jisko notice bhejna hai", "jaise: Mahesh Yadav"),
-                  ("to_addr", "Unka pata", "gaon/mohalla"),
-                  ("amount", "Cheque ka amount ₹", "jaise: 50000"),
-                  ("cheque_no", "Cheque number", "jaise: 456789"),
-                  ("cheque_date", "Cheque ki tareekh", "jaise: 10-08-2026"),
-                  ("bank", "Bank ka naam", "jaise: SBI"),
-                  ("present_date", "Bank me lagane ki tareekh", "jaise: 12-09-2026"),
-                  ("reason", "Bank ne kya likha", "jaise: Fund Insufficient"),
-                  ("advocate", "Advocate ka naam (ya khali)", "jaise: Adv. A.K. Singh")],
-    "bayana": [("seller", "Beche wale ka naam", "jaise: Ram Singh"),
-               ("seller_father", "Uske pita ka naam", "jaise: Shyam Singh"),
-               ("seller_addr", "Beche wale ka pata", "gaon/mohalla"),
-               ("buyer", "Kharidne wale ka naam", "jaise: Ajay Kumar"),
-               ("buyer_father", "Uske pita ka naam", "jaise: Vijay Kumar"),
-               ("buyer_addr", "Kharidne wale ka pata", "gaon/mohalla"),
-               ("property", "Zameen/Makan ki jankari", "jaise: 2 katha zameen, dhan"),
-               ("khata", "Khata number", "jaise: 342"),
-               ("khasra", "Khasra/Plot number", "jaise: 1125"),
-               ("mouza", "Mouza / gaon", "jaise: Bishunpura"),
-               ("thana", "Thana", "jaise: Runnisaidpur"),
-               ("anchal", "Anchal/Block", "jaise: Belsand"),
-               ("district", "Jila", "jaise: Sitamarhi"),
-               ("area", "Kitni zameen (bigha/kattha)", "jaise: 2 katha 5 dhur"),
-               ("total", "Kul sauda ₹", "jaise: 800000"),
-               ("token", "Aaj ka bayana ₹", "jaise: 100000"),
-               ("balance", "Baki paisa ₹", "jaise: 700000"),
-               ("reg_date", "Registry ki tareekh", "jaise: 20-12-2026")],
-    "loan": [("borrower", "Karz lene wale ka naam", "jaise: Rahul Kumar"),
-             ("father", "Uske pita ka naam", "jaise: Suresh Kumar"),
-             ("address", "Uska pata", "gaon/mohalla"),
-             ("lender", "Paisa dene wale ka naam", "jaise: Mahesh Kumar"),
-             ("lender_addr", "Dene wale ka pata", "gaon/mohalla"),
-             ("amount", "Amount ₹", "jaise: 50000"),
-             ("words", "Amount shabdon me", "jaise: Fifty Thousand"),
-             ("mode", "Paisa kaise diya", "jaise: Cash / UPI"),
-             ("rate", "Byaaj (rate)", "jaise: 3% per month"),
-             ("basis", "byaaj ka aadhaar", "month / saal"),
-             ("due", "Kab tak wapas karega", "jaise: 31-03-2027"),
-             ("place", "Jagah", "jaise: Sitamarhi"),
-             ("date", "Tareekh", "jaise: 15-11-2026")],
-    "nameaff": [("name", "Aapka naam", "jaise: Ravi Kumar"),
-                ("father", "Pita ka naam", "jaise: Ram Kumar"),
-                ("age", "Umar", "jaise: 28"),
-                ("address", "Pura pata", "gaon/mohalla"),
-                ("kind", "Kis type ka affidavit", "NAME / ADDRESS / INCOME / GAP / DOB"),
-                ("new", "Sahi/naya detail", "jaise: Ravi Kumar"),
-                ("old", "Purana/record me likha", "jaise: Rabi Kumar"),
-                ("place", "Jagah", "jaise: Patna"),
-                ("date", "Tareekh", "jaise: 15-11-2026")],
+    "kirayanama": [("landlord", "House owner name", "example: Ramesh Kumar"),
+                   ("landlord_addr", "Owner address", "village/area, district"),
+                   ("tenant", "Tenant name", "example: Suresh Sharma"),
+                   ("tenant_addr", "Tenant address", "village/area, district"),
+                   ("property", "House/shop details", "example: 2 rooms, 1 kitchen, roof"),
+                   ("place", "Place (where it is)", "example: Boring Road, Patna"),
+                   ("rent", "Rent (₹ per month)", "example: 6000"),
+                   ("deposit", "Advance / Deposit ₹", "example: 12000"),
+                   ("months", "Agreement for how many months", "example: 11"),
+                   ("start", "From date", "example: 01-11-2026"),
+                   ("end", "To date", "example: 30-09-2027")],
+    "affidavit": [("name", "Your name", "example: Ravi Kumar"),
+                  ("father", "Father\'s name", "example: Ram Kumar"),
+                  ("age", "Age", "example: 32"),
+                  ("address", "Full address", "example: Ward 5, Sitamarhi"),
+                  ("purpose", "Purpose of affidavit", "example: name correction / address / income"),
+                  ("body", "What to write (full statement)", "example: my correct name is Ravi Kumar..."),
+                  ("place", "Place", "example: Patna"),
+                  ("date", "Date", "example: 15-11-2026")],
+    "notice138": [("from_name", "Your name (sender)", "example: Suresh Kumar"),
+                  ("from_addr", "Your address", "village/area"),
+                  ("to_name", "Person to send the notice to", "example: Mahesh Yadav"),
+                  ("to_addr", "His/her address", "village/area"),
+                  ("amount", "Cheque amount ₹", "example: 50000"),
+                  ("cheque_no", "Cheque number", "example: 456789"),
+                  ("cheque_date", "Cheque date", "example: 10-08-2026"),
+                  ("bank", "Bank name", "example: SBI"),
+                  ("present_date", "Date presented in bank", "example: 12-09-2026"),
+                  ("reason", "What the bank wrote", "example: Fund Insufficient"),
+                  ("advocate", "Advocate name (or leave empty)", "example: Adv. A.K. Singh")],
+    "bayana": [("seller", "Seller name", "example: Ram Singh"),
+               ("seller_father", "His father\'s name", "example: Shyam Singh"),
+               ("seller_addr", "Seller address", "village/area"),
+               ("buyer", "Buyer name", "example: Ajay Kumar"),
+               ("buyer_father", "His father\'s name", "example: Vijay Kumar"),
+               ("buyer_addr", "Buyer address", "village/area"),
+               ("property", "Land/House details", "example: 2 katha land, paddy"),
+               ("khata", "Khata number", "example: 342"),
+               ("khasra", "Khasra/Plot number", "example: 1125"),
+               ("mouza", "Mouza / gaon", "example: Bishunpura"),
+               ("thana", "Thana", "example: Runnisaidpur"),
+               ("anchal", "Anchal/Block", "example: Belsand"),
+               ("district", "Jila", "example: Sitamarhi"),
+               ("area", "Kitni zameen (bigha/kattha)", "example: 2 katha 5 dhur"),
+               ("total", "Kul sauda ₹", "example: 800000"),
+               ("token", "Token money today ₹", "example: 100000"),
+               ("balance", "Balance amount ₹", "example: 700000"),
+               ("reg_date", "Registry date", "example: 20-12-2026")],
+    "loan": [("borrower", "Borrower name", "example: Rahul Kumar"),
+             ("father", "His father\'s name", "example: Suresh Kumar"),
+             ("address", "His/her address", "village/area"),
+             ("lender", "Lender name", "example: Mahesh Kumar"),
+             ("lender_addr", "Lender address", "village/area"),
+             ("amount", "Amount ₹", "example: 50000"),
+             ("words", "Amount shabdon me", "example: Fifty Thousand"),
+             ("mode", "How the money was given", "example: Cash / UPI"),
+             ("rate", "Interest (rate)", "example: 3% per month"),
+             ("basis", "interest basis", "month / year"),
+             ("due", "Repayment date", "example: 31-03-2027"),
+             ("place", "Place", "example: Sitamarhi"),
+             ("date", "Date", "example: 15-11-2026")],
+    "nameaff": [("name", "Your name", "example: Ravi Kumar"),
+                ("father", "Father\'s name", "example: Ram Kumar"),
+                ("age", "Age", "example: 28"),
+                ("address", "Full address", "village/area"),
+                ("kind", "Type of affidavit", "NAME / ADDRESS / INCOME / GAP / DOB"),
+                ("new", "Correct / new detail", "example: Ravi Kumar"),
+                ("old", "Old / as per record", "example: Rabi Kumar"),
+                ("place", "Place", "example: Patna"),
+                ("date", "Date", "example: 15-11-2026")],
 }
 
 
 # ============================================================
 #  3) 🕵️ PHOTO INFO + FAKE / EDIT DETECTOR
 # ============================================================
-def _gps_decimal(gps, ref) -> float:
-    def _to_deg(v):
-        try:
-            d, m, s = (float(x) for x in v)
-            return d + m / 60 + s / 3600
-        except Exception:
-            return 0.0
-
-    try:
-        val = _to_deg(gps)
-        if ref in ("S", "W"):
-            val = -val
-        return round(val, 6)
-    except Exception:
-        return 0.0
-
-
-def photo_forensics(image_bytes: bytes) -> dict:
-    """
-    EXIF (camera, date, GPS) + ELA (edit ke nishaan) + quality check.
-    Sab offline — koi API nahi.
-    """
-    out = {"ok": False, "exif": {}, "flags": [], "notes": []}
-    try:
-        from PIL import Image, ImageChops, ImageDraw
-        import numpy as np
-    except Exception as e:
-        out["error"] = f"Pillow/numpy nahi mila: {e}"
-        return out
-
-    try:
-        im = Image.open(io.BytesIO(image_bytes))
-        im.load()
-    except Exception as e:
-        out["error"] = f"Photo kholne me dikkat: {e}"
-        return out
-
-    ex = {}
-    try:
-        raw = im.getexif() or {}
-        for k, v in raw.items():
-            tag = {271: "Make", 272: "Model", 305: "Software", 306: "DateTime", 36867: "DateTimeOriginal",
-                   36868: "DateTimeDigitized", 274: "Orientation", 296: "ResolutionUnit", 34855: "ISO",
-                   33437: "FNumber", 33434: "ExposureTime", 37386: "FocalLength", 42036: "LensModel"}.get(k)
-            if tag:
-                ex[tag] = str(v)
-        gps_ifd = raw.get_ifd(0x8825) if hasattr(raw, "get_ifd") else {}
-        if gps_ifd:
-            lat = _gps_decimal(gps_ifd.get(2), gps_ifd.get(1, "N"))
-            lon = _gps_decimal(gps_ifd.get(4), gps_ifd.get(3, "E"))
-            if lat or lon:
-                ex["GPS"] = f"{lat}, {lon}"
-                ex["MapsLink"] = f"https://www.google.com/maps?q={lat},{lon}"
-                if gps_ifd.get(1) or gps_ifd.get(3):
-                    ex["GPSRef"] = f"{gps_ifd.get(1, '')}{gps_ifd.get(3, '')}"
-    except Exception:
-        pass
-
-    out["exif"] = ex
-    out["format"] = im.format or "?"
-    out["size"] = f"{im.width} x {im.height}"
-    out["mode"] = im.mode
-    out["file_kb"] = round(len(image_bytes) / 1024, 1)
-
-    # ---------- ELA + Noise-block analysis (edit ke nishaan) ----------
-    ela_score, ela_verdict, ela_img, marked = 0.0, "—", None, None
-    suspicious = 0
-    try:
-        rgb = im.convert("RGB")
-        small = rgb.copy()
-        small.thumbnail((720, 720))
-        buf = io.BytesIO()
-        small.save(buf, "JPEG", quality=90)
-        buf.seek(0)
-        recomp = Image.open(buf)
-        diff = ImageChops.difference(small, recomp)
-        arr = np.asarray(diff).astype("float32")
-        ela_score = float(arr.mean())
-
-        # block-wise ELA (16px) — median/MAD se bahar wale blocks = shak
-        g = arr.mean(axis=2)
-        h, w = g.shape
-        bs = 16
-        blocks = []
-        for by in range(0, h - bs + 1, bs):
-            for bx in range(0, w - bs + 1, bs):
-                blocks.append((bx, by, float(g[by:by + bs, bx:bx + bs].mean())))
-        vals = np.array([b[2] for b in blocks]) if blocks else np.array([0.0])
-        med = float(np.median(vals))
-        mad = max(float(np.median(np.abs(vals - med))), 0.30 * med, 0.25)
-        hot = [b for b in blocks if b[2] > med + 6 * mad and b[2] > med * 1.7 + 0.8]
-
-        # noise map (Laplacian std) — pasted/flat hisse alag noise dikhate hain
-        gray = np.asarray(small.convert("L")).astype("float32")
-        lap = np.abs(np.diff(gray, axis=0)[:, :-1]) + np.abs(np.diff(gray, axis=1)[:-1, :])
-        nb = 32
-        noises = []
-        for by in range(0, lap.shape[0] - nb + 1, nb):
-            for bx in range(0, lap.shape[1] - nb + 1, nb):
-                noises.append((bx, by, float(lap[by:by + nb, bx:bx + nb].mean())))
-        nvals = np.array([x[2] for x in noises]) if noises else np.array([0.0])
-        nmed = float(np.median(nvals))
-        flat = [n for n in noises if n[2] < max(nmed * 0.28, 1.0) and nmed > 6.0]
-        flat_ratio = (len(flat) / max(len(noises), 1))
-        if flat_ratio > 0.28:
-            flat = []          # itni badi flat jagah = aakash/deewar (normal baat), shak nahi
-        rough = [n for n in noises if n[2] > nmed * 3.2 and nmed > 4.0]
-
-        suspicious = len(hot) + len(flat)
-        std_all = float(g.std())
-
-        if suspicious == 0:
-            ela_verdict = "✅ Editing ke nishaan NAHI mile (photo asli lagti hai)"
-        elif suspicious <= 4:
-            ela_verdict = f"🟡 Halka shak — {suspicious} hisse alag lag rahe hain (filter/app ya halki editing ho sakti hai)"
-        else:
-            ela_verdict = f"🔴 Edit hone ka shak — {suspicious} hisse alag nikle (cut-paste/editing ke nishaan)"
-        out["hot_blocks"] = len(hot)
-        out["flat_blocks"] = len(flat)
-        if rough:
-            out["rough_blocks"] = len(rough)
-
-        # ELA heatmap
-        ela_img = Image.fromarray((np.clip(arr * 10, 0, 255)).astype("uint8"))
-
-        # marked photo (shak wale block par laal dabba)
-        marked = rgb.copy()
-        md = ImageDraw.Draw(marked)
-        scale_x = marked.width / max(small.width, 1)
-        scale_y = marked.height / max(small.height, 1)
-        for (bx, by, _v) in (hot[:12] + flat[:12]):
-            x0, y0 = int(bx * scale_x), int(by * scale_y)
-            x1 = int(min(bx + bs, small.width) * scale_x)
-            y1 = int(min(by + bs, small.height) * scale_y)
-            md.rectangle([x0, y0, x1, y1], outline=(255, 40, 40), width=max(2, int(3 * scale_x)))
-        out["ela_std"] = round(std_all, 2)
-        out["ela_score"] = round(ela_score, 2)
-    except Exception as e:
-        out["notes"].append(f"Edit-check fail: {e}")
-
-    out["ela_verdict"] = ela_verdict
-    out["ela_image"] = ela_img
-    out["marked_image"] = marked
-    out["suspicious_blocks"] = suspicious
-
-    # ---------- Flags ----------
-    if not ex:
-        out["flags"].append("EXIF/meta data nahi mila — WhatsApp/Telegram/Instagram se aayi photo me company "
-                            "meta hata deti hai (isliye asli-photo check ELA se hi ho raha hai).")
-    sw = (ex.get("Software") or "").lower()
-    if any(k in sw for k in ("photoshop", "lightroom", "snapseed", "picsart", "canva", "editor", "adobe", "pixlr", "meitu", "remaker")):
-        out["flags"].append(f"⚠️ Photo '{ex.get('Software')}' me process hui hai (editing app ka nishaan).")
-    if any(k in sw for k in ("whatsapp", "instagram", "telegram")):
-        out["flags"].append(f"📲 Ye photo {ex.get('Software')} se bhejne par save hui hai (asli camera meta hat gaya).")
-    if ex.get("DateTimeOriginal") and ex.get("DateTime") and ex["DateTimeOriginal"] != ex["DateTime"]:
-        out["flags"].append("⚠️ Photo ki 'original date' aur 'save date' alag hain — baad me badli/save ki gayi hai.")
-    if re.match(r"^Screenshot", str(im.format or ""), re.I) or (not ex and im.info.get("screenshot")):
-        out["flags"].append("📱 Ye screenshot lagti hai (camera photo nahi).")
-
-    out["ok"] = True
-    return out
-
-
-def photo_meta_text(res: dict) -> str:
-    if not res.get("ok"):
-        return f"❌ {res.get('error', 'Photo read nahi hui')}"
-    ex = res.get("exif") or {}
-    lines = [
-        "🕵️ <b>PHOTO KI ASLI JANKARI</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━",
-        f"📐 <b>Size:</b> {res['size']} px   |   <b>Format:</b> {res['format']}   |   <b>File:</b> {res['file_kb']} KB",
-    ]
-    if ex:
-        if ex.get("Make") or ex.get("Model"):
-            lines.append(f"📱 <b>Camera:</b> {ex.get('Make', '')} {ex.get('Model', '')}".strip())
-        dt = ex.get("DateTimeOriginal") or ex.get("DateTime")
-        if dt:
-            lines.append(f"📅 <b>Kab kheechi (camera date):</b> {dt}")
-        if ex.get("Software"):
-            lines.append(f"⚙️ <b>Software/App:</b> {ex['Software']}")
-        if ex.get("GPS"):
-            lines.append(f"📍 <b>Jagah (GPS):</b> {ex['GPS']}\n🗺️ <a href=\"{ex.get('MapsLink')}\">Google Maps me kholo</a>")
-        if ex.get("LensModel"):
-            lines.append(f"🔭 <b>Lens:</b> {ex['LensModel']}")
-        extra = []
-        for k, lbl in (("FNumber", "F"), ("ExposureTime", "Shutter"), ("ISO", "ISO"), ("FocalLength", "Focal(mm)")):
-            if ex.get(k):
-                extra.append(f"{lbl} {ex[k]}")
-        if extra:
-            lines.append("🎛️ " + " · ".join(extra))
-    else:
-        lines.append("📭 <b>Camera meta:</b> Nahi mila (WhatsApp/Telegram ne hata diya, ya screenshot hai)")
-    lines += [
-        "━━━━━━━━━━━━━━━━━━━━━━",
-        f"🔍 <b>Edit Check (ELA):</b> {res.get('ela_verdict', '—')}",
-        f"<i>(score {res.get('ela_score', 0)} · jitna kam utni asli)</i>",
-    ]
-    for f in res.get("flags", []):
-        lines.append(f"• {f}")
-    lines += [
-        "━━━━━━━━━━━━━━━━━━━━━━",
-        "🖼️ Neeche <b>ELA</b> wali photo bhi bhej raha hoon — jahan white/chamakdar dhabbe hain, wahan edit ka shak hai.",
-        "<i>⚠️ Ye court ka expert report nahi hai — sirf pakadne ka ishara. Bade maamle me forensic lab se verify karwao.</i>",
-    ]
-    return "\n".join(lines)
 
 
 # ============================================================
@@ -1001,7 +795,7 @@ def _out(cp: subprocess.CompletedProcess, path: str, extra: dict = None) -> dict
 def audio_cut(data: bytes, start: str, end: str = "", fmt: str = "mp3") -> dict:
     """Audio ka hissa kaato (ringtone). start/end = 'mm:ss' ya seconds."""
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp("." + fmt), _tmp("." + fmt)
     try:
         open(pin, "wb").write(data)
@@ -1030,7 +824,7 @@ def make_ringtone(data: bytes, start: str = "0", dur: int = 30) -> dict:
 def eff_8d(data: bytes) -> dict:
     """8D audio — gaana kaan me ghumta hua feel."""
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
         open(pin, "wb").write(data)
@@ -1049,7 +843,7 @@ def eff_8d(data: bytes) -> dict:
 
 def bass_boost(data: bytes, gain_db: int = 8) -> dict:
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
         open(pin, "wb").write(data)
@@ -1067,7 +861,7 @@ def bass_boost(data: bytes, gain_db: int = 8) -> dict:
 def make_karaoke(data: bytes) -> dict:
     """Gaana hata ke sirf music (center channel cancel) — karaoke style."""
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
         open(pin, "wb").write(data)
@@ -1076,7 +870,7 @@ def make_karaoke(data: bytes) -> dict:
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=900)
         res = _out(cp, pout, {"effect": "Karaoke (vocal cut)"})
         if res.get("ok"):
-            res["note"] = "Vocal 80-90% kam ho jata hai (studio mixing ke hisaab se farak hota hai)."
+            res["note"] = "Vocals are reduced by 80-90% (studio mixing may vary)."
         return res
     finally:
         for p in (pin, pout):
@@ -1087,20 +881,20 @@ def make_karaoke(data: bytes) -> dict:
 
 
 VOICE_PRESETS = {
-    "bachcha": ("Ladki/Bachcha awaaz (patli)", "asetrate=44100*1.35,aresample=44100,atempo=1/1.35"),
-    "motu": ("Bhaari/Motu awaaz", "asetrate=44100*0.78,aresample=44100,atempo=1/0.78"),
-    "robot": ("Robot awaaz", "afftfilt=real='hypot(re,im)*sin(0)':imag='hypot(re,im)*cos(0)',acrusher=bits=6:mode=log:aa=1"),
-    "bhoot": ("Bhoot/Dar wali awaaz", "asetrate=44100*0.82,aresample=44100,atempo=1/0.82,aecho=0.8:0.85:500:0.45"),
-    "gadget": ("Gadget/Radio awaaz", "highpass=f=700,lowpass=f=3000,acrusher=bits=8:mode=log:aa=1"),
-    "pahad": ("Pahad/Echo wali awaaz", "aecho=0.85:0.9:700:0.5"),
+    "bachcha": ("Girl/Child voice (thin)", "asetrate=44100*1.35,aresample=44100,atempo=1/1.35"),
+    "motu": ("Deep/Heavy voice", "asetrate=44100*0.78,aresample=44100,atempo=1/0.78"),
+    "robot": ("Robot voice", "afftfilt=real='hypot(re,im)*sin(0)':imag='hypot(re,im)*cos(0)',acrusher=bits=6:mode=log:aa=1"),
+    "bhoot": ("Ghost/Scary voice", "asetrate=44100*0.82,aresample=44100,atempo=1/0.82,aecho=0.8:0.85:500:0.45"),
+    "gadget": ("Radio/Gadget voice", "highpass=f=700,lowpass=f=3000,acrusher=bits=8:mode=log:aa=1"),
+    "pahad": ("Echo voice", "aecho=0.85:0.9:700:0.5"),
 }
 
 
 def voice_change(data: bytes, preset: str) -> dict:
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     if preset not in VOICE_PRESETS:
-        return {"ok": False, "error": "preset samajh nahi aaya"}
+        return {"ok": False, "error": "preset not understood"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
         open(pin, "wb").write(data)
@@ -1121,7 +915,7 @@ _VIDEO_EXT_OK = (".mp4", ".mkv", ".mov", ".webm", ".m4v", ".3gp", ".avi")
 def video_trim(data: bytes, start: str, end: str, ext: str = ".mp4") -> dict:
     """Video ka hissa kaato aur WhatsApp-friendly chhota MP4 banao."""
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")
     try:
         open(pin, "wb").write(data)
@@ -1141,19 +935,19 @@ def video_trim(data: bytes, start: str, end: str, ext: str = ".mp4") -> dict:
 def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_seconds: float = 150.0) -> dict:
     """Video ko target size ke andar laao (CRF iterate — size pakka target ke andar)."""
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")
     try:
         open(pin, "wb").write(data)
         dur = ffprobe_duration(pin) or 30.0
         if dur > max_seconds:
             return {"ok": False, "too_long": True, "duration": round(dur, 1),
-                    "error": f"Video {int(dur)} second ki hai — itni badi compress karne me server zyada time lega. "
-                             f"Pehle ✂️ TRIM se {int(max_seconds)} second se chhoti banao, phir compress karo."}
+                    "error": f"Video is {int(dur)} seconds long — this is too big to compress fast. "
+                             f"First use ✂️ TRIM to make it {int(max_seconds)} seconds short, then compress."}
         # agar pehle se hi target se chhoti hai to dobara kyun
         if len(data) <= target_mb * 1048576:
             return {"ok": True, "bytes": data, "size_mb": round(len(data) / 1048576, 2),
-                    "note": "File pehle se hi target se chhoti thi — waisi hi bhej di.", "duration": round(dur, 1)}
+                    "note": "The file was already smaller than the target — sending it as it is.", "duration": round(dur, 1)}
         vf = "scale='min(1280,iw)':-2"
         for crf in (26, 30, 33, 36):
             cp = _ff(["-i", pin, "-vf", vf, "-c:v", "libx264", "-preset", "ultrafast",
@@ -1163,7 +957,7 @@ def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_
             if not res.get("ok"):
                 return res
             if res.get("size_mb", 99) <= target_mb:
-                res["note"] = f"Quality level CRF {crf} par target me aa gaya."
+                res["note"] = f"Quality level CRF {crf} reached the target size."
                 return res
         return res  # sabse chhoti koshish (36) — jo bani
     finally:
@@ -1176,7 +970,7 @@ def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_
 
 def video_to_mp3(data: bytes, ext: str = ".mp4") -> dict:
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp3")
     try:
         open(pin, "wb").write(data)
@@ -1197,7 +991,7 @@ def make_status_video(photo_bytes: bytes, audio_bytes: bytes, text: str = "",
     WhatsApp / Instagram status me seedha daal sakte ho.
     """
     if not HAS_FFMPEG:
-        return {"ok": False, "error": "ffmpeg nahi mila"}
+        return {"ok": False, "error": "ffmpeg not found"}
     try:
         from PIL import Image, ImageDraw, ImageFont
     except Exception:
@@ -1259,7 +1053,7 @@ def youtube_mp3(url: str, quality: str = "192") -> dict:
     try:
         import yt_dlp
     except Exception:
-        return {"ok": False, "error": "yt-dlp install nahi hai"}
+        return {"ok": False, "error": "yt-dlp is not installed"}
     out = _tmp(".mp3")
     opts = {
         "format": "bestaudio/best",
@@ -1282,97 +1076,17 @@ def youtube_mp3(url: str, quality: str = "192") -> dict:
         dur = (info or {}).get("duration") or 0
         real = out[:-4] + ".mp3"
         if not os.path.exists(real):
-            return {"ok": False, "error": "MP3 ban nahi paya (link private/age-restricted ho sakta hai)"}
+            return {"ok": False, "error": "Could not make the MP3 (the link may be private or age-restricted)"}
         with open(real, "rb") as fh:
             data = fh.read()
         os.remove(real)
         return {"ok": True, "bytes": data, "title": title, "uploader": uploader,
                 "duration": dur, "size_mb": round(len(data) / 1048576, 2)}
     except Exception as e:
-        return {"ok": False, "error": f"YouTube se nahi mila: {str(e)[:140]}"}
+        return {"ok": False, "error": f"Not found on YouTube: {str(e)[:140]}"}
 
 
 # ============================================================
 #  5) (BONUS) 🪔 RUHU KAAL + DIN SHUBH MUHURAT (offline hisaab)
 # ============================================================
-def _sun_times(lat: float, lon: float, d: datetime) -> tuple:
-    """Sunrise/sunset (NOAA simple formula) — 0.833° refraction ke saath."""
-    import math
-    n = d.timetuple().tm_yday
-    lng_hour = lon / 15.0
-    t = n + ((6 - lng_hour) / 24.0)
-    M = (0.9856 * t) - 3.289
-    L = M + (1.916 * math.sin(math.radians(M))) + (0.020 * math.sin(math.radians(2 * M))) + 282.634
-    L %= 360
-    RA = math.degrees(math.atan(0.91764 * math.tan(math.radians(L)))) % 360
-    Lq = (math.floor(L / 90)) * 90
-    RAq = (math.floor(RA / 90)) * 90
-    RA = (RA + (Lq - RAq)) / 15.0
-    sinDec = 0.39782 * math.sin(math.radians(L))
-    cosDec = math.cos(math.asin(sinDec))
-    cosH = (math.cos(math.radians(90.833)) - (sinDec * math.sin(math.radians(lat)))) / (cosDec * math.cos(math.radians(lat)))
-    if cosH > 1 or cosH < -1:
-        return (0.0, 0.0)
-    H = 360 - math.degrees(math.acos(cosH))
-    H /= 15.0
-    T = H + RA - (0.06571 * t) - 6.622
-    UT = (T - lng_hour) % 24
-    sr = (UT + 5.5) % 24  # IST
-    H2 = math.degrees(math.acos(cosH)) / 15.0
-    T2 = H2 + RA - (0.06571 * t) - 6.622
-    UT2 = (T2 - lng_hour) % 24
-    ss = (UT2 + 5.5) % 24
-    return (sr, ss)
 
-
-def _h(hours: float) -> str:
-    h = int(hours) % 24
-    m = int(round((hours - int(hours)) * 60))
-    if m == 60:
-        h, m = h + 1, 0
-    return f"{h:02d}:{m:02d}"
-
-
-RAHU_SEG = {"Monday": 2, "Tuesday": 7, "Wednesday": 5, "Thursday": 6, "Friday": 4, "Saturday": 3, "Sunday": 8}
-RAHU_HINDI = {"Monday": "Somvar", "Tuesday": "Mangalvar", "Wednesday": "Budhvar", "Thursday": "Guruvar",
-              "Friday": "Shukravar", "Saturday": "Shanivar", "Sunday": "Ravivar"}
-
-
-def rahu_kaal(d: datetime = None, lat: float = 25.5941, lon: float = 85.1376) -> dict:
-    """
-    Aaj ka Rahu Kaal + din ke 8 hisse (Choghadiya style) — Bihar (Patna) default, user apna jila daal sakta hai.
-    """
-    d = d or datetime.now()
-    day = d.strftime("%A")
-    sr, ss = _sun_times(lat, lon, d)
-    if not sr and not ss:
-        return {"ok": False, "error": "Is jagah ka sunrise/sunset nahi nikal paya"}
-    day_len = (ss - sr) % 24
-    part = day_len / 8.0
-    idx = RAHU_SEG.get(day, 2)
-    rahu_start = sr + (idx - 1) * part
-    out = {
-        "ok": True, "day": RAHU_HINDI.get(day, day), "sunrise": _h(sr), "sunset": _h(ss),
-        "rahu": f"{_h(rahu_start)} – {_h(rahu_start + part)}",
-        "daylight": f"{int(day_len)}h {int((day_len % 1) * 60)}m",
-        "parts": [{"name": f"Part {i+1}", "time": f"{_h(sr + i*part)} – {_h(sr + (i+1)*part)}"} for i in range(8)],
-        "advice": "Rahu Kaal me naya kaam/khareed/shaadi/registry/gaadi lena — sab avoid karo. Isme jo kaam "
-                  "chal raha ho, use poora karna theek hai.",
-    }
-    return out
-
-
-def rahu_text(r: dict) -> str:
-    if not r.get("ok"):
-        return f"❌ {r.get('error', 'Error')}"
-    return (
-        f"🪔 <b>AAJ KA RAHU KAAL ({r['day']})</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🌅 <b>Sunrise:</b> {r['sunrise']}   |   🌇 <b>Sunset:</b> {r['sunset']}\n"
-        f"🚫 <b>Rahu Kaal:</b> <b>{r['rahu']}</b>\n"
-        f"⏳ <b>Din:</b> {r['daylight']} (8 hisse)\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        + "\n".join(f"• <b>{p['name']}:</b> {p['time']}" for p in r["parts"])
-        + "\n━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📌 <i>{r['advice']}</i>"
-    )

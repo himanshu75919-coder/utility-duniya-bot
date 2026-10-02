@@ -1,317 +1,295 @@
-# 📖 Utility Duniya Bot — Poora Tutorial (Hinglish)
+# 📖 Utility Duniya Bot — Full Tutorial
 
-> Ye wahi tutorial hai jo bot ke andar **link** se khulta hai. Bot me har tool ke neeche yahi link milta hai.
+> This is the same tutorial that opens from the link inside the bot. Every tool in the bot has this same link.
 
-## 1. Bot kaise chalta hai (3 basic baatein)
+## 1. How this bot works (3 basics)
 
-Ye bot 30+ kaam karta hai — download, cloner, photo/document, info, QR, hisaab, voice — sab kuch.
+This bot does 30+ jobs — download, auto-forward, photo/documents, information, QR, calculations, media.
 
-> 1. Neeche wale KEYBOARD se tool chuno (ya /menu bhejo).
-> 2. Tool apna sawaal poochhega — bas wahi cheez bhej do (link / number / photo).
-> 3. Kabhi bhi /cancel bhejo → tool band, wapas menu.
+> 1. Pick a tool from the KEYBOARD below (or send /menu).
+> 2. The tool asks one thing at a time — just send that (link / number / photo).
+> 3. Send /cancel any time to close the tool and return to the menu.
 
-Pehli baar aa rahe ho? Free me roz kuch tools chal sukte hain (free limit khatam ho jaye to bot VIP ka option dikhayega). VIP = unlimited, bina koi limit.
+New here? You get free credits for the premium tools. VIP = unlimited, no limits at all.
 
-## 2. Channel Cloner / Auto-Forward (3 step)
+## 2. Channel Cloner / Auto-Forward (3 steps)
 
-Apne ek channel ki posts doosre channel me khud-ba-khud bhejni ho to ye tool.
+Use this to copy posts from one channel to another automatically.
 
-> Step 1 — SOURCE: jahan se posts leni hain. Public channel ho to link/username bhej do (@mychannel). Private channel ho to us channel ki koi ek post bot ko forward karo — bot ID pakad lega.
-> Step 2 — TARGET: jahan posts bhejni hain (bot wahan admin hona chahiye).
-> Step 3 — FULL AUTO ON kar do.
+> Step 1 — SOURCE: the channel you copy from. For a public channel send the link/username (@mychannel). For a private channel forward any one post to the bot — it will read the ID.
+> Step 2 — TARGET: the channel to send posts to (the bot must be admin there).
+> Step 3 — Turn FULL AUTO ON.
 
-Uske baad jo bhi post source channel me aayegi, bot target me bhej dega. Tag, caption, watermark, replace-words, thumbnail sab settings me set kar sakte ho.
-Private channel me bot ko admin banana zaroori hai — "🔒 PRIVATE CHANNEL SETUP" button wahi batata hai.
+After that every new post in the source goes to the target automatically. Tag, caption, watermark, replace-words and thumbnail can all be set in settings.
+For a private channel the bot must be added as admin — the "🔒 PRIVATE CHANNEL SETUP" button explains it.
 
-## 3. Actors Voice Studio (text se awaaz)
+## 3. Video and file downloader
 
-Text likho → asli awaaz (voiceover) ban jayegi.
+> • 📥 VIDEO DOWNLOADER — send a public post link from Instagram / YouTube / Facebook / X / TikTok / Pinterest / Reddit / Vimeo. Videos up to 48MB come straight in the bot; bigger files give a direct download link.
+> • ⚡ TERABOX & CLOUD — paste a Terabox, Mediafire, Google Drive or Mega link → direct link with no ads and no speed limit.
+> • How to copy a link: in the app tap Share → Copy Link → paste in the bot.
 
-> • Actor/Character Voices: 24 alag awaazein (Don, South mass hero, Shayar, Robot, Anime girl, News anchor...).
-> • Voice Lab: 30 awaazein + speed control (Hindi, English, Tamil, Telugu, Bengali, Marathi, Urdu, Arabic, French...).
-> • Hindi me likhoge to Hindi awaaz, English me likhoge to English awaaz — bot khud set kar leta hai.
+Private or age-restricted posts do not work. Some sites rate-limit — try again after 30-60 seconds.
 
-## 4. Video aur File Downloader
+## 4. Photo and document tools
 
-> • 📥 VIDEO DOWNLOADER — Instagram / YouTube / Facebook / X / TikTok / Pinterest / Reddit / Vimeo ke public post ka link bhejo. 48MB tak video seedha bot me, bada file ho to direct download link.
-> • ⚡ TERABOX & CLOUD — Terabox, Mediafire, Google Drive, Mega ka link paste karo → bina ad, bina speed-limit direct link + browser player.
-> • Link kaise copy karein: app me Share → Copy Link → bot me paste.
+> • 📸 PASSPORT PHOTO — send photo → type name → type date → official 3.5 × 4.5 cm photo with name/date stamp (for SSC/Railway/BPSC forms).
+> • 🖨️ 8-IN-1 SHEET — one photo → 8 copies on a 4×6 inch sheet. Print it at any studio for ₹10-20.
+> • 📄 DOCUMENT PDF COMPRESS — send a marksheet/certificate photo → sharp PDF, you choose the size (100KB to 500KB).
+> • 🖼️ IMAGE→PDF — up to 10 photos → one PDF. "A4 PDF" gives the correct size for printing.
+> • 🏦 BANK STATEMENT PDF → EXCEL — send the statement PDF → Excel/CSV table with totals.
+> • 📜 DOCUMENT SUITE — rent agreement, affidavit, legal notice 138, land deal receipt, loan paper, registry total cost, bigha/kattha converter.
+> • 🖼️ SITE SCREENSHOT — send a website URL → HD screenshot (full page also).
 
-Private/age-restricted account ki post nahi chalti. Kuch site rate-limit lagati hai — 30-60 second baad dobara try karo.
+## 5. Information tools
 
-## 5. Photo aur Document ke tools (cyber cafe wala kaam)
-
-> • 📸 PASSPORT PHOTO — photo bhejo → naam likho → date likho → official 3.5 × 4.5 cm photo with naam/date stamp (SSC/Railway/BPSC form ke liye).
-> • 🖨️ 8-IN-1 SHEET — ek photo se 8 copies ek 4×6 inch sheet par. Kisi studio se ₹10-20 me print karwa lo.
-> • 📄 DOCUMENT PDF COMPRESS — marksheet/certificate ki photo bhejo → sharp PDF, size 100KB se 500KB tak aap chuno.
-> • 🖼️ IMAGE→PDF — 10 photo tak → ek PDF. "A4 PDF" printer ke liye sahi size.
-> • 🖼️ SITE SCREENSHOT — website ka URL → HD screenshot (full page bhi).
-
-## 6. Information tools
-
-> • 🚗 RTO VEHICLE INFO — number plate (BR01AB1234) → state, RTO office, district + VAHAN/e-Challan/insurance/DL ke official links.
+> • 🚗 RTO VEHICLE INFO — number plate (BR01AB1234) → state, RTO office, district + VAHAN/e-Challan/insurance/DL official links.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
-> • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Paisa bhejne se pehle check karo.
-> • 📮 PINCODE INFO — 6-digit pincode ya area ka naam → district/state + saare post offices.
-> • 🌐 IP / DOMAIN INFO — IP ya website → location, ISP, VPN/proxy check.
-> • 🆔 ID & USERNAME FINDER — "me" bhejo (apni ID), ya kisi ka message forward karo (uski ID), ya @username bhejo (GitHub/Telegram/YouTube/TikTok/Steam par account hai ya nahi).
-> • 🏛️ SARKARI SEVA / 🎓 STUDENT EXAM HUB — official sarkari portal aur exam ke direct links.
+> • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
+> • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
+> • 🌐 IP / DOMAIN INFO — IP or website → location, ISP, VPN/proxy check.
+> • 🆔 ID & USERNAME FINDER — send "me" (your ID), or forward any message (their ID), or send @username (checks GitHub/Telegram/YouTube/TikTok/Steam).
+> • 🏛️ SARKARI SEVA / 🎓 STUDENT EXAM HUB — direct links to official government portals and exam sites.
 
-## 7. Roz ke chhote tools
+## 6. Media Studio
 
-> • 📷 QR CODE — link, UPI, WiFi, contact card ka QR (dukaan/auto ke liye payment QR bhi).
-> • 🔐 PASSWORD GENERATOR — naam wala, easy-words, random, PIN.
-> • 🧮 EMI CALC — "500000 9% 24m" → EMI + loan kitne mahine/din me poora.
-> • 📈 VYAAJ (INTEREST) — 50000 → 5 (₹100 par ₹5) → 12 mahine → chakravriddhi hisaab.
-> • 🎂 AGE CALC — DOB (DD-MM-YYYY) → exact umar, agla birthday, rashi.
-> • 🧑‍🤝‍🧑 FAMILY TREE — naam → relationship calculator.
-> • 🔎 WEB SEARCH — Google jaisa search, ek saath DuckDuckGo + Bing ke results.
-> • 📦 APP FINDER — app ka naam → 8 trusted store ke direct links (random site se APK mat lo, virus ka khatra).
-> • 🔗 URL SHORT — lamba link chhota. 🔓 LINK BYPASS — ad-wale short link ka asli link. 🔍 LINK CHECK — link fake/scam hai ya asli.
+> • 🎵 YouTube → MP3 — song link → MP3 file.
+> • 🎬 Status Video — photo + song + your text → 9:16 status video.
+> • 🎧 Ringtone cutter — 30 second ringtone from any song or video.
+> • 🎤 Karaoke — removes the vocals, keeps the music.
+> • 🔊 8D / Bass boost — better, deeper sound.
+> • 🗣️ Voice change — kid / heavy / robot / ghost / gadget / echo.
+> • ✂️ Video trim • 🗜️ Video compress (WhatsApp size) • 🎼 Video → MP3.
 
-## 8. VIP / Premium — kya milta hai
+## 7. Small daily tools
 
-> • ♾️ Unlimited daily usage (free limit khatam).
-> • 🚀 Terabox/cloud ki high-speed download.
-> • 🔄 Cloner + Auto-Forward with custom branding.
-> • 🎙️ Poora Actors Voice Studio.
-> • 📸 Saare photo/document tools.
+> • 📷 QR CODE — link/text, WiFi share, contact card.
+> • 📈 INTEREST CALC — compound interest the village way (per ₹100 per month).
+> • 📦 APP FINDER — app name → direct links from 8 trusted stores (do not download APKs from random sites).
+> • 🔗 URL SHORT — shorten a long link. 🔓 LINK BYPASS — get the real link behind ad links. 🔍 LINK CHECK — is a link fake or safe.
+> • 🧮 REGISTRY TOTAL COST (inside Document Suite) — stamp duty + registration + MVR.
 
-Plan: /premium bhejo → plan chuno → QR se paisa → phir bot 3 step me proof maangta hai:
+## 8. VIP / Premium — what you get
 
-> 1. UTR number — payment ke baad PhonePe/GPay/Paytm ki History ya Passbook me "UTR / Ref No" likha hota hai (12 digit, jaise 448612394857). Wahi bot ko bhejo.
-> 2. Screenshot — usi payment ki History/Passbook ka screenshot bhejo (poora screen, jisme amount aur UTR dikhe).
-> 3. Bas itna — admin verify karke VIP on kar dega, aapko message aa jayega. /mypay se status dekh sakte ho.
+> • ♾️ Unlimited usage (no credit limits).
+> • 🚀 Video downloader, Number info, Channel cloner, Private channel setup.
+> • 🏦 Bank PDF → Excel, 📜 Document Suite, ⚡ Media Studio.
+> • 📸 All photo and document tools (these are free for everyone).
 
-⚠️ Kya nahi chalega: apni photo/selfie, meme, dusri purani screenshot, kisi aur ka UTR, ya sirf text "paisa bhej diya". Aisa bhejne par bot mana kar dega.
+Plan: send /premium → pick a plan → pay by QR → the bot asks for proof in 3 steps:
+
+> 1. UTR number — after payment you can see "UTR / Ref No" in PhonePe/GPay/Paytm History or Passbook (12 digits, like 448612394857). Send that to the bot.
+> 2. Screenshot — send the screenshot of that same payment (amount and UTR must be visible).
+> 3. That is all — the admin verifies and turns on VIP, and you get a message. Check the status with /mypay.
+
+⚠️ What will not work: your own photo/selfie, a meme, an old screenshot, someone else's UTR, or only the text "I paid". The bot rejects such proof.
 
 ## 9. Refer & Earn
 
-Apna referral link dost ko bhejo → wo join kare to aapko bonus din milte hain. "🎁 REFER & EARN" button me link aur count dikhta hai.
+Send your referral link to a friend → when they join, you get bonus days. The "🎁 REFER & EARN" button shows your link and count.
 
-## 10. Problem aaye to?
+## 10. If something goes wrong
 
-> • Tool chal raha hai nahi ruk raha? → /cancel bhejo.
-> • "Daily limit khatam" dikha? → /premium se VIP lo, ya kal dobara free use karo.
-> • Account ban? → admin se contact karo.
-> • Kabhi bhi madad chahiye → bot me keyboard ke neeche "❓ MADAD / TUTORIAL" button dabao, yahi page khul jayega.
+> • Tool stuck? → send /cancel.
+> • "All credits used" shown? → get VIP with /premium.
+> • Account banned? → contact the admin.
+> • Need help any time → tap the "❓ HELP / TUTORIAL" button under the keyboard.
 
-## 11. Neeche har tool ka short tareeka (1-1 line)
+## 11. One line for every tool
 
-Uske baad har tool ki poori detail bhi isi page par di gayi hai — scroll karte jao.
+Below this, every tool is explained in full detail — keep scrolling.
 
-Sawaal ho to bot me /support ya @Supermannn_x par message kar do.
+Any question? Message /support or @Supermannn_x.
 
 ---
 
 # Har tool — ek line me
 
-❓ **MADAD / TUTORIAL — HAR TOOL 1 LINE ME**
+❓ **HELP / TUTORIAL — EVERY TOOL IN 1 LINE**
 ━━━━━━━━━━━━━━━━━━━━━━
-🎯 **Roz kaam ke tools:**
-• 🔄 **CHANNEL CLONER** → Source channel do, Target do, FULL AUTO ON — posts khud copy hongi. Bot ko dono channel me Admin banao. Private channel? Uski koi post bot ko forward karo, bot ID pakad lega.
-• 📥 **VIDEO DOWNLOADER** → Instagram/YouTube/Facebook ka link bhejo, video mil jayega
-• ⚡ **TERABOX** → TeraBox link bhejo, direct download link milega
-• 💎 **TERABOX/CLOUD** (GDrive, MediaFire, Mega) → link paste karo, direct link milega
+📥 **Download & sharing:**
+• VIDEO DOWNLOADER → send an Instagram/YouTube/FB/X link, get the video
+• TERABOX / CLOUD → TeraBox, Drive, MediaFire or Mega link → direct download link
+• CHANNEL CLONER → set Source + Target, turn FULL AUTO ON, posts copy by themselves
 
-🎙️ **Voice:**
-• 🎙️ **VOICE STUDIO** → Koi bhi text likho, asli awaaz me audio ban jayega (24 actor + 30 lab voices)
+📄 **Documents:**
+• DOC PDF COMPRESS → marksheet photo → 100-500KB PDF
+• IMAGE→PDF → up to 10 photos in one PDF (A4 print ready)
+• PASSPORT PHOTO → photo + name/date → print-ready photo with stamp
+• 8-IN-1 SHEET → one photo → 8 copies on a 4x6 sheet
+• BANK PDF → EXCEL → statement PDF → Excel/CSV table
+• DOCUMENT SUITE → rent agreement, affidavit, notice, registry cost, bigha/kattha
 
-📄 **Document:**
-• 📄 **DOC PDF COMPRESS** → Marksheet ki photo bhejo, 100-500KB ka PDF banao
-• 🖼️ **IMAGE→PDF** → 10 photos tak → ek PDF (A4 print bhi)
-• 📸 **PASSPORT PHOTO** → Photo + naam/DOB do → print-ready sheet
-• 🖨️ **8-IN-1 SHEET** → Ek photo se 8 copies ek A4 par
+🔍 **Information:**
+• RTO → number plate → state + RTO office + official links
+• NUMBER INFO → 10 digit number → operator, circle, useful links
+• IFSC → code → bank, branch, MICR
+• PINCODE → pincode or area name → post offices
+• IP INFO → IP or website → location, ISP
+• ID FINDER → `me` or `@username` → real check
 
-🔍 **Info:**
-• 🚗 **RTO** → Gaadi ka number bhejo → state/RTO/links
-• 📱 **NUMBER INFO** → 10 digit number → operator/circle (+ 🧾 chaho to public records button)
-• 🏦 **IFSC** → IFSC code → bank, branch, MICR
-• 📮 **PINCODE** → pincode ya area ka naam → post offices
-• 🌐 **IP INFO** → IP ya website → location, ISP
-• 🆔 **ID FINDER** → `me` ya `@username` → asli check
+⚡ **Media Studio:** YouTube→MP3, status video, ringtone, karaoke, 8D, bass boost, voice change, trim, compress
 
-🧰 **Roz ke chhote tools:**
-• 📷 **QR** → link, UPI, WiFi, contact card ka QR
-• 🔐 **PASSWORD** → naam wala / easy words / random / PIN
-• 🧮 **EMI** → `500000 9% 24m` → EMI + kitne din me poora
-• 📈 **VYAAJ** → `50000` → `5` (₹100 par ₹5) → `12` mahine → chakravriddhi hisaab
-• 📸 **SCREENSHOT** → website ka URL → HD ya full page photo
-• 🔎 **WEB SEARCH** → kuch bhi dhoondo
-• 📦 **APP FINDER** → app ka naam → safe download links
-• 🔗 **URL SHORT** / 🔓 **LINK BYPASS** / 🔍 **LINK CHECK**
-• 🎂 **AGE CALC** → DOB → kitne saal/mahine/din
-• 👨‍👩‍👦 **FAMILY TREE** → naam → relationship calculator
+🧰 **Small tools:** QR code, site screenshot, URL short, link bypass, link check, app finder, interest calculator
 
 ━━━━━━━━━━━━━━━━━━━━━━
 ⌨️ **Commands:** /start /menu /help /tutorial /cancel
 
-💬 **Stuck ho gaye?** Neeche wale tutorial link me har tool ka poora tareeka likha hai. Aur har tool me **⚙️ /cancel** dabakar nikal sakte ho.
+💬 **Stuck?** Every tool has a 🎬 Tutorial Video button under it. Close any tool with **/cancel**.
 
 ---
 
 # Har tool ki poori detail
 
-## ⚡ TERABOX & CLOUD DIRECT DOWNLOADER
+## ⚡ TERABOX & CLOUD DOWNLOADER
 
-💡 **Kaise use karein:** app me file ka **Share** → **Copy link** → wo link yahan paste karke bhejo.
-✅ Chalte hain: **Terabox, Mediafire, Google Drive, Mega**
-🎁 Milega: bina ad, bina speed-limit **direct download link** + browser player
-🔗 **Ab apna link bhejo** (jaise `https://terabox.com/s/xxxxx`):
+✅ Works with: **Terabox, Mediafire, Google Drive, Mega**
+🎁 You get: **direct download link** — no ads, full speed
+🔗 **Now send your link** (example `https://terabox.com/s/xxxxx`):
 
-## 📥 UNIVERSAL VIDEO DOWNLOADER
+## 📥 VIDEO DOWNLOADER
 
-💡 **Kaise use karein:** app me video ke **Share** → **Copy link** → yahan paste karke bhejo.
-✅ Chalte hain: **Instagram, YouTube, Facebook, X/Twitter, TikTok, Pinterest, Reddit, Vimeo** (20+ sites)
-📦 48MB tak video seedha bot me aayega; bada file ho to **direct download link** milega.
-🎵 Instagram Reel ka **original audio** bhi milta hai.
-🔗 **Ab video ka link bhejo:**
+✅ Works with: **Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit, Vimeo** (20+ sites)
+📦 Video up to 48MB comes here in Telegram. Big videos: you get a direct link.
+🎵 Instagram Reels: original sound included.
+🔗 **Now send the video link:**
 
-## 📸 GOVT EXAM PASSPORT PHOTO STUDIO
+## 📸 GOVT EXAM PASSPORT PHOTO
 
-💡 **Kaise use karein:** 1️⃣ photo bhejo → 2️⃣ **naam** likho → 3️⃣ **photo ki date** (DD-MM-YYYY) → ready ✅
-🎁 Milega: official **3.5 × 4.5 cm** photo (20-50KB) + neeche naam & date ka stamp (SSC/Railway/BPSC form ke liye)
-📸 **Ab apni passport photo bhejo:**
+Steps: 1️⃣ Send photo → 2️⃣ Type your **name** → 3️⃣ Type photo **date** (DD-MM-YYYY)
+🎁 You get: official **3.5 × 4.5 cm** photo (20-50KB) with name + date stamp (SSC/Railway/BPSC forms)
+📸 **Now send your passport photo:**
 
-## 🖨️ PRINTABLE 8-IN-1 PASSPORT SHEET
+## 🖨️ 8-IN-1 PRINT SHEET
 
-💡 **Kaise use karein:** ek passport photo bhejo → bot usi ki **8 copies ek 4×6 inch sheet** par laga dega.
-🖨️ Ye sheet kisi bhi photo studio par ₹10-20 me print karwa lo — 8 photo mil jayengi!
-📸 **Ab apni ek photo bhejo:**
+Send one passport photo. Bot makes a **4×6 inch sheet with 8 copies**.
+🖨️ Print it at any photo shop (₹10-20). You get 8 photos.
+📸 **Now send one photo:**
 
-## 📄 DOCUMENT & MARKSHEET PDF COMPRESSOR
+## 📄 DOCUMENT / MARKSHEET PDF
 
-> 10th/12th/Caste marksheet → sharp PDF, 100KB se 500KB tak size aap chuno
-📸 Marksheet ya certificate ki **photo bhejo** (2-3 photos bhi bhej sakte ho, sab ek PDF me aayengi):
-_Photo bhejte hi size ke buttons aa jayenge 👇_
+> 10th/12th/caste marksheet photo → sharp PDF. Size: you pick 100KB to 500KB.
+_Size buttons appear right after the photo 👇_
+📸 **Now send the marksheet or certificate photo** (2-3 photos also fine — all go in one PDF):
 
 ## 🌐 IP / DOMAIN INFO
 
-Kisi bhi **IP address** ya **website** ke baare me poori detail:
-• Kahan hai (desha/state/city) • Kaunsi company (ISP) • VPN/Proxy hai ya nahi
-👉 IP bhejo (jaise `8.8.8.8`) ya website ka naam (jaise `google.com`):
+Full details of any **IP address** or **website**:
+• Country, state, city  • Company (ISP)  • VPN/Proxy: yes or no
+👉 **Send IP** (example `8.8.8.8`) or **website name** (example `google.com`):
 
-## 🚗 RTO VEHICLE INFORMATION
+## 🏦 BANK STATEMENT PDF TO EXCEL
 
-💡 **Kaise use karein:** number plate bhejo → pata chalega ki **kaunse state + kaunse RTO (district)** ki gaadi hai.
-✅ Milega: state, RTO office, district + **5 official link** (VAHAN, e-Challan, insurance, DL, mParivahan) — wahan se asli RC/owner/challan status dekh sakte ho.
-_Asli RC details Parivahan par OTP daal kar hi milti hain — hum aapko seedha wahan pahuncha dete hain._
-🔢 **Ab number plate bhejo** (jaise `BR01AB1234`):
+Send your bank statement **PDF** (as a file, not a photo).
+🎁 You get an **Excel/CSV table**: date, details, debit, credit, balance + totals.
+🔓 Password PDF? The bot will ask — just send the password.
+🏦 Works with all big banks (SBI, HDFC, PNB, ICICI, BOB, Kotak, IPPB, Paytm...).
+_Your file stays on our server, nowhere else._
+📄 **Now send your bank statement PDF:**
+
+## 📜 DOCUMENT SUITE (BIHAR/UP)
+
+Rent agreement, affidavit, legal notice (138), land deal receipt, loan paper, registry total cost, bigha/kattha converter.
+⚠️ These are computer drafts. Get them finalised by a notary or sub-registrar.
+👇 **Select your document from the menu below**:
+
+## ⚡ MEDIA STUDIO
+
+Everything is made on our server. **No watermark.**
+🎵 **YouTube → MP3** • 🎬 **Status Video** (photo + song + text)
+🎧 **Ringtone cutter** • 🎤 **Karaoke** • 🔊 **8D** • 💥 **Bass boost**
+🗣️ **Voice change** • ✂️ **Video trim** • 🗜️ **Video compress** • 🎼 **Video → MP3**
+👇 **Select an option below**:
+
+## 🚗 RTO VEHICLE INFO
+
+Send the number plate. You will know which **state and RTO district** the vehicle is from.
+✅ You get: state, RTO office, district + **5 official links** (VAHAN, e-Challan, insurance, DL, mParivahan).
+_Real RC details need OTP on the Parivahan site. We take you straight there._
+🔢 **Now send the number plate** (example `BR01AB1234`):
 
 ## 📱 NUMBER INFORMATION
 
-💡 **Kaise use karein:** 10 digit number bhejo → **operator, circle (region), number type** + aage check karne ke 6 link (WhatsApp, Telegram, Truecaller, Google, Chakshu spam-report, 1930 cyber helpline).
-🧾 Result ke neeche **Public Records** ka button milega — chaho to wahan se naam/pata bhi dekh sakte ho (_uska misuse crime hai — sirf legal kaam ke liye_). MNP ke baad operator badal bhi sakta hai.
-🔢 **Ab 10 digit number bhejo** (jaise `9876543210`):
+Send a 10 digit mobile number.
+✅ You get: **operator, circle (region), number type** + 6 useful links (WhatsApp, Telegram, Truecaller, Google, spam report, 1930 cyber helpline).
+_After MNP the operator can change. For legal use only._
+🔢 **Now send the 10 digit number** (example `9876543210`):
 
 ## 🏦 IFSC BANK BRANCH LOOKUP
 
-💡 **Kaise use karein:** passbook/cheque par IFSC code likha hota hai — wahi yahan bhejo.
-✅ Milega: **bank ka naam, branch, address, MICR code**, UPI/NEFT/RTGS/IMPS support + Maps link.
-💸 Paisa bhejne se pehle **branch check karna** zaroori hai — galat IFSC se paisa wapas aata hai.
-🔤 **Ab IFSC code bhejo** (jaise `SBIN0000001`):
+The IFSC code is printed on your passbook or cheque. Send that code here.
+✅ You get: **bank name, branch, address, MICR code** + UPI/NEFT/RTGS support + Maps link.
+💸 Always check the branch before sending money. Wrong IFSC means the money comes back.
+🔤 **Now send the IFSC code** (example `SBIN0000001`):
 
 ## 📮 PINCODE & POST OFFICE INFO
 
-💡 **Kaise use karein — 2 tareeke:**
-1️⃣ **6-digit pincode** bhejo (jaise `800001`) → district, state, division + saare post offices
-2️⃣ **Area / post office ka naam** bhejo (jaise `Rajendra Nagar`) → pincode mil jayega
-📦 Online form, order ya courier me pincode galat ho to ye tool kaam aayega.
+_Useful for online forms, orders and courier._
+Two ways:
+1️⃣ Send a **6 digit pincode** (example `800001`) → district, state + all post offices
+2️⃣ Send **area or post office name** (example `Rajendra Nagar`) → you get the pincode
+📮 **Now send the pincode or area name:**
 
 ## 🆔 ID & USERNAME FINDER
 
-💡 **Kaise use karein (3 tareeke):**
-1️⃣ `me` bhejo → apni Telegram ID + username
-2️⃣ Kisi ka **message forward** karo → uski Telegram ID (user ya channel ki)
-3️⃣ `@username` bhejo → **asli check**: GitHub, Telegram, YouTube, TikTok, Steam par account hai ya nahi (✅/❌) + 9 aur platforms ke direct link
-_Ye ID kaam aati hai: channel ID nikalne, force-subscribe lagane, kisi ko report/block karne ke liye._
+Three ways:
+1️⃣ Send `me` → your ID and username
+2️⃣ Forward any message → ID of that user or channel
+3️⃣ Send `@username` → real check on 5 platforms + 9 links
+_Useful for channel ID, force-subscribe setup or reporting someone._
+🆔 **Now send** `me` / `@username` / or forward any message:
 
 ## 📷 HD QR CODE GENERATOR
 
-Koi bhi TEXT, UPI ID, WiFi ya LINK bhejo:
+Send any **text** or **link**. You get a clean HD QR code:
 
 ## 🖼️ IMAGE TO MULTI-PAGE PDF
 
-💡 **Kaise use karein:** ek-ek karke **10 photos tak** bhejo → phir neeche wala button dabao.
-📄 **Normal PDF** = jaisa hai waisa | **A4 PDF** = printer par sahi size (kuch kat nahi aayega)
-📸 **Ab photos bhejo:**
+Send photos one by one (**up to 10**), then tap the button below.
+📄 **Normal PDF** = same as photo  |  **A4 PDF** = perfect for printing
+📸 **Now send your photos:**
 
 ## 🔗 URL SHORTENER
 
-💡 **Kaam:** lamba link chhota kar dena, taaki WhatsApp/Telegram par share karna aasan ho.
-🔗 **Ab lamba link bhejo** (jaise `https://example.com/very/long/path?x=1`):
+Long link → short link. Easy to share on WhatsApp or Telegram.
+🔗 **Now send the long link** (example `https://example.com/very/long/path?x=1`):
 
 ## 🔓 LINK BYPASS / UNPACK
 
-💡 **Kaam:** ad-wale short link (GPLinks/VPLinks/redirect) ka **asli destination** nikalna — bina ad ke.
-🔗 **Ab woh link bhejo:**
+Get the **real link** behind ad links (GPLinks, VPLinks, redirects) — no ads.
+🔗 **Now send that link:**
 
-## 🔍 LINK SAFETY & FRAUD CHECKER
+## 🔍 LINK SAFETY CHECKER
 
-💡 **Kaam:** link kholne se pehle check karo — **fake/scam hai ya asli** (bank wale fake link aksar aise pakde jaate hain).
-🔍 **Ab link bhejo** (jaise `http://sbi-kyc-verify.xyz`):
+Check the link **before opening**. Know if it is fake or safe.
+🔍 **Now send the link** (example `http://sbi-kyc-verify.xyz`):
 
-## 🧮 LOAN EMI CALCULATOR
+## 📦 APP FINDER (8 TRUSTED STORES)
 
-💡 **Kaam:** batata hai **har mahine kitni EMI** jayegi aur **loan kitne mahine/din me poora chuk jayega**.
-📝 Aise likh kar bhejo:
-• `100000` → ₹1 lakh, 10.5% saalana, 12 mahine
-• `5,00,000 9% 24m` → poora control
-• `3 lakh 8.5% 5 saal` → Hindi me bhi chalega
-
-## 🎂 AGE & BIRTHDAY CALCULATOR
-
-💡 **Kaam:** janm tithi se **exact umar** (saal-mahine-din) + agla birthday kitne din baad + rashi.
-🎂 **Birth date bhejo** (DD-MM-YYYY), jaise `15-08-2005`:
-
-## 💰 UPI QR GENERATOR WITH AMOUNT
-
-💡 **Kaam:** apna payment QR banana (dukaan, auto, tuition fees) — customer scan karega, paisa seedha account me.
-💰 **Apni UPI ID bhejo** (jaise `9876543210@ybl`):
-
-## 🔎 FAST & ACCURATE WEB SEARCH
-
-💡 **Kaam:** Google jaisa search — **DuckDuckGo + Bing ke asli results** ek saath (title + link + description).
-🔎 **Kya dhoondhna hai? Likh kar bhejo** (jaise `Bihar board 12th result date`):
-
-## 📦 APP & MOD STORE FINDER (8 TRUSTED STORES)
-
-💡 **Kaam:** app ka naam bhejo → 8 trusted store ke **direct links** (Play Store, APKPure, APKCombo, HappyMod, Uptodown, F-Droid...) — kisi random site se APK download mat karo, virus ka khatra hota hai.
-📦 **App ka naam bhejo** (jaise `instagram`):
+Send the app name. You get **direct links** from 8 trusted stores (Play Store, APKPure, APKCombo, UptoDown, F-Droid...).
+_Do not download APK from random sites — virus risk._
+📦 **Now send the app name** (example `instagram`):
 
 ## 🖼️ WEBSITE SCREENSHOT (HD)
 
-Website ka URL bhejo (jaise: `github.com`):
-_Poora lamba page chahiye? Menu se 'SITE SCREENSHOT' → 📜 Full Page chunein._
+Send the website URL (example: `github.com`):
+_Need the full long page? Open SITE SCREENSHOT in menu → 📜 Full Page._
 
 ## 📜 FULL PAGE SCREENSHOT
 
-Website ka URL bhejo — poora upar se neeche tak page capture hoga (lambi site ke liye best):
-_Thoda time lagega (10-20 sec), wait karein._
-
-## 💰 UPI PAYMENT QR
-
-Apni **UPI ID** bhejo (jaise: `9876543210@ybl`)
-_Isse dukaan/gadi ke liye payment QR ban jayega._
+_This takes 10-20 seconds. Please wait._
+📜 **Now send the website URL:**
 
 ## 📶 WIFI SHARE QR
 
-Apne **WiFi ka naam (SSID)** bhejo (jaise: `JioFiber_Home`):
-_Guest scan karega → WiFi automatic connect ho jayega._
+_Guest scans it → phone connects to WiFi automatically._
+📶 **Now send the WiFi name (SSID)** (example: `JioFiber_Home`):
 
 ## 👤 CONTACT CARD QR
 
-Apna **naam** bhejo (jaise: `Himanshu Kumar`):
-_Scan karne par contact save ho jayega._
-
-## 🔢 RANDOM PIN GENERATOR
-
-_Ye mode khud 5 random 6-digit PIN bana dega._
-
-## 🧠 EASY WORDS PASSWORD
-
-_Ye mode 4 strong password dega jo yaad rakhna aasan hai._
+_Scan it → contact saves automatically._
+👤 **Now send your name** (example: `Himanshu Kumar`):
 
 ---
 
-Koi dikkat ho to bot me `@Supermannn_x` par message kar do. 🙂
+Any problem? Message `@Supermannn_x` inside the bot. 🙂

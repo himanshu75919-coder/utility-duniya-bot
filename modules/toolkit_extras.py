@@ -2,15 +2,14 @@
 """
 Toolkit Extras (v31 Professional Upgrade Pack)
 ==============================================
-Yahan wo naye engines hain jo purane tools ko "professional" banate hain:
+Engines that make the older tools professional:
 
-1.  shorten_url()        -> 6 shortener providers, jo chale wahi use hota hai (is.gd dead tha).
-2.  expand_url()         -> Redirect chain kholta hai + tracking params saaf karta hai (LINK BYPASS upgrade).
+1.  shorten_url()        -> 6 shortener providers, uses whichever works (is.gd was dead).
+2.  expand_url()         -> Opens the redirect chain + cleans tracking params (LINK BYPASS upgrade).
 3.  check_link_safety()  -> Real multi-signal link safety analyzer (OpenPhish live feed + urlscan.io
-                            + 15+ heuristics). Pehle sirf 8 keyword match tha.
-4.  calc_interest()      -> INTEREST CALC tool ka poora engine (ye tool pehle TOOTA hua tha).
-5.  parse_emi_input()    -> EMI tool ab flexible input leta hai (amount, rate, months).
-6.  file_size_human()    -> bytes ko MB/GB me.
+                            + 15 heuristics).
+4.  rate_from_per_hundred() + village_compound_interest() -> the INTEREST CALC engine.
+5.  file_size_human()    -> bytes to MB/GB.
 """
 
 import base64
@@ -275,40 +274,40 @@ def check_link_safety(raw_url: str) -> dict:
     # --- A) redirect chain (shorteners chhupate hain asli destination) ---
     if exp.get("is_shortener"):
         risk += 18
-        reasons.append("🔀 Shortened/redirect link hai — asli destination chhupa hua tha (khola gaya).")
+        reasons.append("🔀 This is a shortened/redirect link — the real destination was hidden (now opened).")
     if exp.get("hops", 0) >= 3:
         risk += 12
-        reasons.append(f"🔁 {exp['hops']} baar redirect ho raha hai (multi-hop cloaking ke signs).")
+        reasons.append(f"🔁 {exp['hops']} times (signs of multi-hop cloaking).")
 
     # --- B) host structure ---
     if re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host_no_port):
         risk += 30
-        reasons.append("🧮 Domain ki jagah seedha IP address hai — 95% phishing isi tarah aata hai.")
+        reasons.append("🧮 A raw IP address instead of a domain — 95% of phishing comes this way.")
     if "xn--" in host_no_port:
         risk += 25
-        reasons.append("🔤 Punycode (xn--) domain — milte-julte foreign characters se dhokha diya ja sakta hai.")
+        reasons.append("🔤 Punycode (xn--) domain — lookalike foreign characters can be used to trick you.")
     if "@" in target.split("://", 1)[-1].split("/")[0]:
         risk += 35
-        reasons.append("🎭 URL me '@' trick — asli site '@' ke baad hoti hai, isliye ye dhoka hai.")
+        reasons.append("🎭 The '@' trick in the URL — the real site is after the '@', so this is a trick.")
     labels = host_no_port.split(".")
     if len(labels) >= 5:
         risk += 15
-        reasons.append(f"🧩 Bahut saare subdomain ({len(labels)} parts) — brand ko fake banaya gaya lag raha hai.")
+        reasons.append(f"🧩 Too many subdomains ({len(labels)} parts) — the brand looks faked.")
     tld = "." + labels[-1] if labels else ""
     if tld in SUSPICIOUS_TLDS:
         risk += 18
-        reasons.append(f"🌍 '{tld}' TLD scam/phishing me bahut use hota hai.")
+        reasons.append(f"🌍 '{tld}' TLD is heavily used in scams/phishing.")
     if host_no_port.count("-") >= 2:
         risk += 8
-        reasons.append("➖ Domain me 2+ hyphen (brand mimicry ka common pattern).")
+        reasons.append("➖ 2+ hyphens in the domain (a common brand-mimicry pattern).")
 
     # --- C) HTTPS + port ---
     if p.scheme != "https":
         risk += 12
-        reasons.append("🔓 Connection 'http' hai (not secure) — form/OTP kabhi na daalein.")
+        reasons.append("🔓 The connection is 'http' (not secure) — never enter a form or OTP.")
     if ":" in host and not host.endswith((":443", ":80")):
         risk += 15
-        reasons.append(f"🚪 Unusual port ({host.split(':')[-1]}) — normal websites ise use nahi karte.")
+        reasons.append(f"🚪 Unusual port ({host.split(':')[-1]}) — normal websites do not use this.")
 
     # --- D) lure words + brand combos ---
     low = (host_no_port + path_q).lower()
@@ -316,59 +315,59 @@ def check_link_safety(raw_url: str) -> dict:
     if hit_words:
         add = min(30, sum(LURE_WORDS[w] for w in hit_words))
         risk += add
-        reasons.append("🎣 Suspicious words mile: " + ", ".join(hit_words[:6]))
+        reasons.append("🎣 Suspicious words found: " + ", ".join(hit_words[:6]))
     brand_hit = [b for b in BRANDS if b in low]
     # Brand + free hosting/other domain me = impersonation
     if brand_hit and not any(host_no_port.endswith(b + ".com") or host_no_port == b + ".com"
                              or host_no_port.endswith(b + ".in") or host_no_port == b + ".in" for b in brand_hit):
         risk += 22
-        reasons.append("🏦 Brand ka naam lekin official domain nahi: " + ", ".join(brand_hit[:4]) +
-                       f" (asli site {brand_hit[0]}.com/.in hoti hai)")
+        reasons.append("🏦 Brand name used but not the official domain: " + ", ".join(brand_hit[:4]) +
+                       f" (asli site {brand_hit[0]}.com/.in expected)")
     if any(x in host_no_port for x in ("vercel.app", "netlify.app", "pages.dev", "workers.dev", "web.app",
                                        "firebaseapp.com", "duckdns.org", "myftp.org", "000webhostapp.com",
                                        "github.io", "glitch.me", "repl.co", "blogspot.")) and (hit_words or brand_hit):
         risk += 12
-        reasons.append("🆓 Free hosting domain par bank/login jaisa page — scam ke liye popular combo.")
+        reasons.append("🆓 A bank/login style page on a free hosting domain — a popular scam combo.")
 
     # --- E) OpenPhish live feed ---
     _load_openphish()
     if _PHISH_CACHE["urls"]:
         if target in _PHISH_CACHE["urls"] or any(u.startswith(target) for u in _PHISH_CACHE["urls"] if len(u) > 20):
             risk += 60
-            reasons.append("🚨 Ye link OpenPhish ke LIVE phishing feed me hai (pakka scam).")
+            reasons.append("🚨 This link is in the OpenPhish LIVE phishing feed (definite scam).")
         elif host_no_port in _PHISH_CACHE["hosts"]:
             risk += 50
-            reasons.append("🚨 Is domain ka naam OpenPhish live phishing feed me hai.")
+            reasons.append("🚨 This domain name is in the OpenPhish live phishing feed.")
     signals["openphish_size"] = len(_PHISH_CACHE["urls"])
 
     # --- F) urlscan.io reputation ---
     scans = _urlscan_reputation(host_no_port) if host_no_port else -1
     signals["urlscan_scans"] = scans
     if scans == 0:
-        reasons.append("🆕 urlscan.io par ye domain kabhi scan nahi hua (naya/less-known).")
+        reasons.append("🆕 This domain was never scanned on urlscan.io (new / less known).")
 
     # --- G) length / entropy signals ---
     if len(target) > 120:
         risk += 8
-        reasons.append("📏 Link bahut lamba hai (tracking/obfuscation).")
+        reasons.append("📏 The link is very long (tracking/obfuscation).")
     if re.search(r"(login|verify|kyc|otp|bank|update)[-_]?(page|form|verify|secure|account)", low):
         risk += 15
-        reasons.append("📋 URL path me 'fake login page' jaisa pattern mila.")
+        reasons.append("📋 The URL path has a 'fake login page' pattern.")
 
     risk = max(0, min(100, risk))
     if risk >= 60:
-        verdict, level, advice = "DANGEROUS 🚨", "danger", ("Ye link KABHI na kholein, na kisi ko bhejein. " 
-                                                           "OTP/password/UPI PIN kisi bhi link me kabhi na daalein.")
+        verdict, level, advice = "DANGEROUS 🚨", "danger", ("NEVER open this link and never forward it. " 
+                                                           "Never enter an OTP, password or UPI PIN on any link.")
     elif risk >= 25:
-        verdict, level, advice = "SUSPICIOUS ⚠️", "suspicious", ("Ehtiyat karein — sirf tab kholein jab aapko site ka "
-                                                                  "pata ho. Login/payment details na dein.")
+        verdict, level, advice = "SUSPICIOUS ⚠️", "suspicious", ("Be careful — open it only if you know the site. "
+                                                                  "Do not enter login or payment details.")
     elif risk > 0:
-        verdict, level, advice = "LOW RISK ✅", "low", "Chhote-chhote minor signals hain. Normal browsing theek hai."
+        verdict, level, advice = "LOW RISK ✅", "low", "Only minor signals. Normal browsing is fine."
     else:
-        verdict, level, advice = "SAFE ✅", "safe", "Koi suspicious signal nahi mila. Phir bhi OTP/PIN kabhi share na karein."
+        verdict, level, advice = "SAFE ✅", "safe", "No suspicious signal found. Still, never share an OTP or PIN."
 
     if not reasons:
-        reasons.append("✅ Koi redirect, IP, punycode, lure-word ya phishing-feed match nahi mila.")
+        reasons.append("✅ No redirect, IP, punycode, lure-word or phishing-feed match found.")
     return {
         "ok": True,
         "verdict": verdict,
@@ -386,102 +385,11 @@ def check_link_safety(raw_url: str) -> dict:
 # =====================================================================================
 # 4) INTEREST CALCULATOR (ye tool pehle TOOTA hua tha — ab poora engine)
 # =====================================================================================
-def calc_interest(principal: float, rate_pct: float, months: int, mode: str = "both") -> dict:
-    """Simple + Compound interest calculation (poore breakdown ke saath)."""
-    months = max(1, int(months))
-    years = months / 12.0
-    simple = principal * (rate_pct / 100.0) * years
-
-    # Compound (monthly compounding — banks/EMI jaisa)
-    r = (rate_pct / 100.0) / 12.0
-    comp_amount = principal * ((1 + r) ** months) if r > 0 else principal
-    compound = comp_amount - principal
-
-    # Quarterly / half-yearly / yearly compounding bhi dikhate hain (FD comparison)
-    def comp_with(freq_per_year):
-        rr = (rate_pct / 100.0) / freq_per_year
-        n = freq_per_year * years
-        return principal * ((1 + rr) ** n) - principal
-
-    return {
-        "ok": True,
-        "principal": principal,
-        "rate": rate_pct,
-        "months": months,
-        "years": round(years, 2),
-        "simple_interest": simple,
-        "simple_total": principal + simple,
-        "compound_monthly": compound,
-        "compound_monthly_total": comp_amount,
-        "compound_quarterly": comp_with(4),
-        "compound_halfyearly": comp_with(2),
-        "compound_yearly": comp_with(1),
-        "mode": mode,
-    }
 
 
 # =====================================================================================
 # 5) EMI flexible input parser
 # =====================================================================================
-def parse_emi_input(text: str):
-    """
-    Flexible EMI input parser. Ye sab chalega:
-      "100000"            -> 1,00,000 @ 10.5% / 12 months
-      "100000 10.5"       -> amount + rate
-      "100000 24"         -> amount + 24 months (rate default)
-      "5,00,000 9% 24m"   -> Indian commas + % + m/mahine
-      "3 lakh 9.5% 2 saal"
-    Returns (principal, rate, months) ya (None, None, None)
-    """
-    raw = (text or "").strip().lower().replace("₹", " ").replace("rs.", " ").replace("rs", " ")
-    s = re.sub(r"(?<=\d),(?=\d)", "", raw)          # Indian/standard thousand separators
-    s = re.sub(r"(\d+(?:\.\d+)?)\s*(?:lakh|lac|lakhs)\b", lambda m: str(float(m.group(1)) * 100000), s)
-    s = re.sub(r"(\d+(?:\.\d+)?)\s*(?:crore|cr)\b", lambda m: str(float(m.group(1)) * 10000000), s)
-    s = re.sub(r"(\d+(?:\.\d+)?)\s*(?:hazaar|hazar|k)\b", lambda m: str(float(m.group(1)) * 1000), s)
-
-    months = None
-    rate = None
-    m = re.search(r"(\d+(?:\.\d+)?)\s*(?:m|mo|months?|mahine|mahina)\b", s)
-    if m:
-        months = float(m.group(1))
-        s = s.replace(m.group(0), " ")
-    m = re.search(r"rate\s*=?\s*(\d+(?:\.\d+)?)", s)
-    if m:
-        rate = float(m.group(1))
-        s = s.replace(m.group(0), " ")
-    m = re.search(r"(\d+(?:\.\d+)?)\s*(?:%|percent|pct)", s)
-    if m:
-        rate = float(m.group(1))
-        s = s.replace(m.group(0), " ")
-    m = re.search(r"(\d+(?:\.\d+)?)\s*(?:y|yr|years?|saal|varsh)\b", s)
-    if m:
-        months = float(m.group(1)) * 12
-        s = s.replace(m.group(0), " ")
-
-    nums = [float(x) for x in re.findall(r"\d+(?:\.\d+)?", s)]
-    if not nums:
-        return None, None, None
-
-    principal = nums[0]
-    for v in nums[1:]:
-        if rate is None and months is None:
-            if (not float(v).is_integer()) and v <= 60:
-                rate = v
-            else:
-                months = v
-        elif rate is None:
-            if v <= 60:
-                rate = v
-        elif months is None:
-            months = v
-
-    if rate is None:
-        rate = 10.5
-    if months is None:
-        months = 12
-    months = int(min(max(months, 1), 480))
-    rate = max(0.0, min(float(rate), 60.0))
-    return principal, rate, months
 
 
 # =====================================================================================
@@ -539,17 +447,17 @@ def village_compound_interest(principal: float, monthly_rate_pct: float, months:
         "principal": float(principal),
         "monthly_rate": float(monthly_rate_pct),
         "months": months,
-        "per_hundred_note": f"₹100 par ₹{monthly_rate_pct:g} har mahina",
+        "per_hundred_note": f"₹{monthly_rate_pct:g} per ₹100 every month",
         "first_month_interest": rows[0]["interest"] if rows else 0.0,
         "total_interest": total_interest,
         "total_payable": principal + total_interest,
         "double_amount": principal * 2,
         "rows": rows,
         "milestones": {k: v for k, v in {
-            "6 mahine": at(6) if months >= 6 else None,
-            "12 mahine": at(12) if months >= 12 else None,
-            "24 mahine": at(24) if months >= 24 else None,
-            "36 mahine": at(36) if months >= 36 else None,
+            "6 months": at(6) if months >= 6 else None,
+            "12 months": at(12) if months >= 12 else None,
+            "24 months": at(24) if months >= 24 else None,
+            "36 months": at(36) if months >= 36 else None,
         }.items() if v is not None},
     }
 
@@ -557,62 +465,6 @@ def village_compound_interest(principal: float, monthly_rate_pct: float, months:
 # =====================================================================================
 # 7) EMI FULL REPORT — "kitne mahine / kitne din me poora chukega"
 # =====================================================================================
-def emi_full_report(principal: float, annual_rate: float, months: int, start=None) -> dict:
-    """
-    EMI ka poora hisaab + payoff date:
-      • monthly EMI, total interest, total payment
-      • pehli aur aakhri EMI ki date
-      • poora loan kitne MAHINE aur kitne DIN me khatam hoga
-    """
-    from datetime import date as _date
-    months = max(1, int(months))
-    r = (float(annual_rate) / 100.0) / 12.0
-    p = float(principal)
-    if r <= 0:
-        emi = p / months
-    else:
-        emi = p * r * ((1 + r) ** months) / (((1 + r) ** months) - 1)
-
-    start = start or _date.today()
-    first_emi = _add_months(start, 1)
-    last_emi = _add_months(start, months)
-    total_days = (last_emi - start).days
-    total_pay = emi * months
-
-    # saal/mahine breakdown
-    y, m = divmod(months, 12)
-
-    # month-wise (pehle 6 + aakhir 3) + har saal ka balance
-    bal = p
-    rows = []
-    yearly = []
-    for i in range(1, months + 1):
-        interest = bal * r
-        principal_part = emi - interest
-        bal = max(0.0, bal - principal_part)
-        rows.append({
-            "no": i, "emi": emi, "principal": principal_part, "interest": interest,
-            "balance": bal, "date": _add_months(start, i),
-        })
-        if i % 12 == 0 or i == months:
-            yearly.append({"after": i, "balance": bal})
-
-    return {
-        "ok": True,
-        "principal": p,
-        "annual_rate": float(annual_rate),
-        "months": months,
-        "years_text": (f"{y} saal {m} mahine" if y else f"{m} mahine"),
-        "emi": emi,
-        "total_interest": total_pay - p,
-        "total_payment": total_pay,
-        "start_date": start,
-        "first_emi_date": first_emi,
-        "last_emi_date": last_emi,
-        "total_days": total_days,
-        "rows": rows,
-        "yearly": yearly,
-    }
 
 
 # =====================================================================================

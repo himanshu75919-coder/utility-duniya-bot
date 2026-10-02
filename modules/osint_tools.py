@@ -69,16 +69,16 @@ def lookup_vehicle_rto(plate: str) -> dict:
     """Parses Indian number plate: state, RTO office, vehicle class + official check links."""
     clean = re.sub(r"[^A-Za-z0-9]", "", plate or "").upper()
     if len(clean) < 6:
-        return {"ok": False, "error": "Galat format. Aise bhejein: <code>BR01AB1234</code> ya <code>DL8CAF5030</code>"}
+        return {"ok": False, "error": "Wrong format. Type it like: <code>BR01AB1234</code> or <code>DL8CAF5030</code>"}
 
     m = re.match(r"^([A-Z]{2})(\d{1,2})([A-Z]{0,3})(\d{1,4})$", clean)
     if not m:
-        return {"ok": False, "error": "Number plate format samajh nahi aaya. Example: <code>BR01AB1234</code>"}
+        return {"ok": False, "error": "Number plate format not understood. Example: <code>BR01AB1234</code>"}
 
     state_code, rto_no, series, number = m.groups()
     state_name = RTO_STATES.get(state_code)
     if not state_name:
-        return {"ok": False, "error": f"'{state_code}' state code valid nahi hai (example: BR, UP, DL, MH...)"}
+        return {"ok": False, "error": f"'{state_code}' state code is not valid (example: BR, UP, DL, MH...)"}
 
     rto_code = f"{state_code}{int(rto_no):02d}"
     district = RTO_DISTRICTS.get(rto_code, "RTO office (district code " + str(int(rto_no)) + ")")
@@ -101,7 +101,7 @@ def lookup_vehicle_rto(plate: str) -> dict:
             ("📄 Sarathi DL Status", "https://sarathi.parivahan.gov.in/sarathiservice/stateSelection.do"),
             ("📲 mParivahan App", "https://play.google.com/store/apps/details?id=com.nic.mparivahan"),
         ],
-        "note": "VAHAN/Parivahan par OTP aur captcha hota hai, isliye asli RC details wahan jaa kar hi milti hain — ye tool aapko sahi jagah pahuncha deta hai.",
+        "note": "VAHAN/Parivahan needs OTP and captcha, so real RC details are only available there — this tool takes you to the right place.",
     }
 
 
@@ -112,7 +112,7 @@ def lookup_phone_info(number_str: str) -> dict:
     """Carrier, circle/region, timezone, number type + safety links (100% public data)."""
     clean = re.sub(r"[^\d+]", "", number_str or "")
     if not clean:
-        return {"ok": False, "error": "Number bhejein (jaise <code>9876543210</code> ya <code>+919876543210</code>)"}
+        return {"ok": False, "error": "Send a number (example <code>9876543210</code> or <code>+919876543210</code>)"}
 
     if not clean.startswith("+"):
         clean = ("+91" + clean) if len(clean) == 10 else ("+" + clean)
@@ -120,14 +120,14 @@ def lookup_phone_info(number_str: str) -> dict:
     try:
         parsed = phonenumbers.parse(clean, None)
     except Exception as e:
-        return {"ok": False, "error": f"Number parse nahi hua: {str(e)[:80]}"}
+        return {"ok": False, "error": f"Could not read the number: {str(e)[:80]}"}
 
     region_code = phonenumbers.region_code_for_number(parsed)
     valid = phonenumbers.is_valid_number(parsed)
     possible = phonenumbers.is_possible_number(parsed)
 
     if not possible:
-        return {"ok": False, "error": "Ye number possible hi nahi lagta (digits galat hain)."}
+        return {"ok": False, "error": "This number does not look possible (wrong digits)."}
 
     ntype_map = {
         PhoneNumberType.MOBILE: "📱 Mobile", PhoneNumberType.FIXED_LINE: "☎️ Landline",
@@ -160,7 +160,7 @@ def lookup_phone_info(number_str: str) -> dict:
         "e164": e164,
         "country": country,
         "country_code": region_code or "-",
-        "operator": operator or "Nahi pata chala (naya/ported number ho sakta hai)",
+        "operator": operator or "Could not detect (may be a new or ported number)",
         "circle": country or "India",
         "timezones": zones,
         "type": ntype,
@@ -173,7 +173,7 @@ def lookup_phone_info(number_str: str) -> dict:
             ("🚨 Chakshu (Spam Report - TRAI)", "https://sancharsaathi.gov.in/sfc/"),
             ("🚔 Cyber Crime Helpline 1930", "https://cybercrime.gov.in/"),
         ],
-        "note": "Carrier/circle badal sakta hai agar number port (MNP) hua ho.",
+        "note": "Carrier/circle can change if the number was ported (MNP).",
     }
 
 
@@ -184,7 +184,7 @@ def lookup_ifsc(code: str) -> dict:
     """Razorpay public IFSC API — bank branch, MICR, UPI/NEFT/IMPS, map link."""
     clean = re.sub(r"[^A-Za-z0-9]", "", code or "").upper()
     if len(clean) != 11:
-        return {"ok": False, "error": "IFSC 11 characters ka hota hai (jaise SBIN0000001, HDFC0001234)"}
+        return {"ok": False, "error": "IFSC is 11 characters (example SBIN0000001, HDFC0001234)"}
     try:
         r = requests.get(f"https://ifsc.razorpay.com/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
@@ -207,9 +207,9 @@ def lookup_ifsc(code: str) -> dict:
                 "upi": bool(d.get("UPI")),
                 "maps_link": f"https://maps.google.com/?q={maps_q}",
             }
-        return {"ok": False, "error": f"'{clean}' RBI database me nahi mila. Spelling check karein."}
+        return {"ok": False, "error": f"'{clean}' not found in the RBI database. Check the spelling."}
     except Exception as e:
-        return {"ok": False, "error": f"API busy hai: {str(e)[:80]}"}
+        return {"ok": False, "error": f"API is busy: {str(e)[:80]}"}
 
 
 # =====================================================================================
@@ -219,7 +219,7 @@ def lookup_pincode(pincode: str) -> dict:
     """India Post API — district, state, taluk, division + map link."""
     clean = re.sub(r"[^\d]", "", pincode or "")
     if len(clean) != 6:
-        return {"ok": False, "error": "Pincode 6 digit ka hota hai (jaise 800001)"}
+        return {"ok": False, "error": "Pincode is 6 digits (example 800001)"}
     try:
         r = requests.get(f"https://api.postalpincode.in/pincode/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
@@ -243,7 +243,7 @@ def lookup_pincode(pincode: str) -> dict:
                     "total_offices": len(po_list),
                     "maps_link": f"https://maps.google.com/?q={requests.utils.quote(primary.get('District', '') + ' ' + primary.get('State', ''))}",
                 }
-        return {"ok": False, "error": "Pincode nahi mila. Sahi 6-digit pincode bhejein."}
+        return {"ok": False, "error": "Pincode not found. Send a correct 6-digit pincode."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
 
@@ -252,7 +252,7 @@ def search_by_area_name(area: str) -> dict:
     """Area/post-office ke naam se pincode dhoondhta hai (India Post API)."""
     q = re.sub(r"[^A-Za-z\s.]", "", area or "").strip()
     if len(q) < 3:
-        return {"ok": False, "error": "Kam se kam 3 letters ka area naam bhejein (jaise: Patna GPO, Kankarbagh)"}
+        return {"ok": False, "error": "Send an area name with at least 3 letters (example: Patna GPO, Kankarbagh)"}
     try:
         r = requests.get(f"https://api.postalpincode.in/postoffice/{requests.utils.quote(q)}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
@@ -274,8 +274,8 @@ def search_by_area_name(area: str) -> dict:
                     ],
                     "total": len(data[0].get("PostOffice", [])),
                 }
-        return {"ok": False, "error": ("Is naam ka post office nahi mila. Post office ka <b>asli naam</b> bhejein "
-                                       "(jaise <code>Rajendra Nagar</code>, <code>Patna GPO</code>, <code>Boring Road SO</code>).")}
+        return {"ok": False, "error": ("No post office found with this name. Send the <b>real name</b> "
+                                       "(example <code>Rajendra Nagar</code>, <code>Patna GPO</code>, <code>Boring Road SO</code>).")}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
 
@@ -287,7 +287,7 @@ def lookup_ip_domain(target: str) -> dict:
     """IP & Domain geolocation + ISP (ip-api.com)."""
     clean = re.sub(r"^https?://", "", (target or "").strip()).split("/")[0].strip()
     if not clean:
-        return {"ok": False, "error": "Domain ya IP bhejein (jaise google.com ya 8.8.8.8)"}
+        return {"ok": False, "error": "Send a domain or IP (example google.com or 8.8.8.8)"}
     try:
         r = requests.get(f"http://ip-api.com/json/{clean}", params={"fields": "status,message,query,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting"},
                          headers=UA_HEADERS, timeout=8)
@@ -313,7 +313,7 @@ def lookup_ip_domain(target: str) -> dict:
                     "is_hosting": bool(d.get("hosting")),
                     "maps_link": f"https://maps.google.com/?q={d.get('lat')},{d.get('lon')}" if d.get("lat") else "",
                 }
-            return {"ok": False, "error": d.get("message", "Info nahi mili")}
+            return {"ok": False, "error": d.get("message", "No info found")}
         return {"ok": False, "error": f"API status {r.status_code}"}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
@@ -327,12 +327,12 @@ NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
 NUM_LEAK_ENABLED = lambda: os.environ.get("NUM_LEAK_ENABLED", "on").strip().lower() not in ("off", "0", "false", "no")
 
 PUBLIC_RECORD_WARNING = (
-    "⚠️ <b>DHYAAN DO (zaroori):</b>\n"
-    "Ye <b>public/leaked records</b> ki jaankari hai (kisi ki personal detail ho sakti hai).\n"
-    "• Ise kisi ko <b>pareshan karne, blackmail karne ya fraud</b> ke liye use karna India me <b>CRIME</b> hai "
-    "(IT Act + DPDP Act — jail/jurmana ho sakta hai)\n"
-    "• Sirf <b>apni</b> jaankari, ya <b>legal</b> kaam (jaise fraud number ki complaint) ke liye dekho\n"
-    "• Bot owner chahe to is feature ko band kar sakta hai (NUM_LEAK_ENABLED=off)"
+    "⚠️ <b>IMPORTANT:</b>\n"
+    "This is <b>public/leaked record</b> information (it may contain someone's personal details).\n"
+    "• Using it to <b>harass, blackmail or defraud</b> anyone is a <b>CRIME</b> in India "
+    "(IT Act + DPDP Act — jail/fine possible)\n"
+    "• Look up only <b>your own</b> information, or for <b>legal</b> work (example: complaint about a fraud number)\n"
+    "• The bot owner can switch this feature off any time (NUM_LEAK_ENABLED=off)"
 )
 
 
@@ -343,26 +343,26 @@ def lookup_public_records(number: str) -> dict:
     """
     if not NUM_LEAK_ENABLED():
         return {"ok": False, "disabled": True,
-                "error": "Ye feature owner ne band kar diya hai (NUM_LEAK_ENABLED=off)."}
+                "error": "The owner has disabled this feature (NUM_LEAK_ENABLED=off)."}
 
     digits = re.sub(r"\D", "", number or "")
     if len(digits) == 10:
         digits = "91" + digits
     if len(digits) != 12:
-        return {"ok": False, "error": "10 digit mobile number bhejein (jaise 9876543210)"}
+        return {"ok": False, "error": "Send a 10 digit mobile number (example 9876543210)"}
 
     try:
         r = requests.get(f"{NUM_INFO_API_BASE()}/api/num-info",
                          params={"key": NUM_INFO_API_KEY(), "q": digits},
                          headers=UA_HEADERS, timeout=45)
         if r.status_code != 200:
-            return {"ok": False, "error": f"API ne jawab nahi diya (HTTP {r.status_code})"}
+            return {"ok": False, "error": f"API did not answer (HTTP {r.status_code})"}
         j = r.json()
     except Exception as e:
-        return {"ok": False, "error": f"API tak nahi pahunch paye: {str(e)[:90]}"}
+        return {"ok": False, "error": f"Could not reach the API: {str(e)[:90]}"}
 
     if not j.get("status"):
-        return {"ok": False, "error": j.get("error") or "Is number ka koi record nahi mila"}
+        return {"ok": False, "error": j.get("error") or "No record found for this number"}
 
     data = j.get("data") or {}
     raw = list(data.get("main_records") or []) + list(data.get("alternative_records") or [])
@@ -378,7 +378,7 @@ def lookup_public_records(number: str) -> dict:
         })
 
     if not records:
-        return {"ok": False, "error": "Record mila par khaali hai. Koi dusra number try karo."}
+        return {"ok": False, "error": "Record found but it is empty. Try another number."}
 
     return {"ok": True, "number": digits, "records": records, "count": len(records),
             "record_count": j.get("record_count", len(records)), "warning": PUBLIC_RECORD_WARNING}
@@ -481,7 +481,7 @@ def check_username_platforms(username: str) -> dict:
     u = (username or "").lstrip("@").strip()
     u = re.sub(r"[^A-Za-z0-9._\-]", "", u)
     if len(u) < 2:
-        return {"ok": False, "error": "Username kam se kam 2 letter ka ho (jaise <code>@himanshu</code>)"}
+        return {"ok": False, "error": "Username must be at least 2 letters (example <code>@himanshu</code>)"}
 
     results = []
     for key, (label, fn, url_tpl) in CHECKERS.items():
