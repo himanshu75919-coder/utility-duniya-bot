@@ -233,6 +233,40 @@ def equal_split(duration: float, count: int = CLIP_COUNT, scenes: list = None) -
 
 
 # ---------------------------------------------------------------- cutting
+def candidates_for_ai(src: str, count: int = 12) -> list:
+    """AI ko dikhane ke liye candidate windows (energy + cuts) — sirf suggestion, final AI chunta hai."""
+    try:
+        info = probe_info(src)
+        dur = float(info.get("duration") or 0)
+        if dur < MIN_VIDEO:
+            return []
+        rms = audio_rms(src)
+        scenes = scene_times(src)
+        cands = pick_best(rms, scenes, dur, count=count)
+        rms_map = dict(rms)
+        out = []
+        for i, c in enumerate(sorted(cands, key=lambda x: x["start"])):
+            hits = 0
+            t = c["start"]
+            step = max(0.5, c["dur"] / 20.0)
+            while t < c["start"] + c["dur"]:
+                if rms_map.get(round(t, 1), -99) > -22:
+                    hits += 1
+                t += step
+            sc = c.get("score", 0)
+            try:
+                sc = float(sc)
+            except Exception:
+                sc = 0.0
+            out.append({"idx": i + 1, "start": c["start"], "end": c["start"] + c["dur"],
+                        "dur": c["dur"], "score": round(sc, 2), "loud": hits,
+                        "scenes": sum(1 for st in scenes if c["start"] <= st <= c["start"] + c["dur"])})
+        out.sort(key=lambda x: -x["score"])
+        return out
+    except Exception:
+        return []
+
+
 def make_clip(src: str, out: str, start: float, dur: float, vertical: bool = False,
               has_audio: bool = True, quality: str = "normal") -> dict:
     """Ek clip kaato (re-encode — accurate cut + Telegram-friendly size)."""
@@ -276,7 +310,8 @@ def make_clip(src: str, out: str, start: float, dur: float, vertical: bool = Fal
 
 
 # ---------------------------------------------------------------- main
-def analyze(src: str, mode: str = "smart", vertical: bool = False, count: int = CLIP_COUNT) -> dict:
+def analyze(src: str, mode: str = "smart", vertical: bool = False, count: int = CLIP_COUNT,
+            ai_moments: list = None, ai_engine: str = "") -> dict:
     """Video file → clips (files ban jaate hain, send bot karega)."""
     if not shutil.which(ffmpeg_path()) and not os.path.exists(ffmpeg_path()):
         return {"ok": False, "error": "ffmpeg is not available on the server."}
@@ -293,7 +328,21 @@ def analyze(src: str, mode: str = "smart", vertical: bool = False, count: int = 
                          f"(server limit) — send a shorter part."}
     rms = audio_rms(src)
     scenes = scene_times(src)
-    if mode == "smart":
+    if ai_moments:
+        # 🤖 AI ke chune hue moments (v44) — score ke hisaab se rank
+        clips = []
+        for i, m in enumerate(ai_moments):
+            s0 = max(0.0, min(float(m.get("start", 0)), max(0.0, dur - 5)))
+            e0 = min(dur, float(m.get("end", s0 + TARGET_LEN)))
+            if e0 - s0 < MIN_LEN:
+                e0 = min(dur, s0 + MIN_LEN)
+            clips.append({"idx": i + 1, "start": round(s0, 2), "dur": round(e0 - s0, 2),
+                          "score": float(m.get("score", 0) or 0),
+                          "title": m.get("title") or "", "why": m.get("reason") or ""})
+        order = sorted(range(len(clips)), key=lambda i: -clips[i]["score"])
+        for rank, i in enumerate(order):
+            clips[i]["rank"] = rank + 1
+    elif mode == "smart":
         clips = pick_best(rms, scenes, dur, count=count)
         want = min(count, max(1, int(dur // MIN_LEN)))
         L = TARGET_LEN
@@ -312,13 +361,14 @@ def analyze(src: str, mode: str = "smart", vertical: bool = False, count: int = 
                       has_audio=info.get("has_audio", True))
         if not r.get("ok"):
             continue
-        r.update({"start": c["start"], "dur": c["dur"], "idx": c["idx"],
-                  "score": c.get("score", 0), "rank": c.get("rank", c["idx"])})
+        r.update({"start": c["start"], "dur": c["dur"], "idx": c["idx"], "score": c.get("score", 0),
+                  "rank": c.get("rank", c["idx"]), "title": c.get("title") or "",
+                  "why": c.get("why") or ""})
         made.append(r)
     if not made:
         return {"ok": False, "error": "Clips could not be made (encoding failed) — try again."}
     return {"ok": True, "clips": made, "outdir": outdir, "count": len(made),
-            "mode": mode, "vertical": vertical, "info": info,
+            "mode": mode, "vertical": vertical, "info": info, "ai_engine": ai_engine,
             "loud_peaks": len([1 for _t, v in rms if v > -25]),
             "scenes": len(scenes), "took_sec": None}
 
@@ -377,50 +427,103 @@ def ytdlp_available() -> bool:
         return shutil.which("yt-dlp") is not None
 
 
-def youtube_download(url: str, dest_dir: str, max_minutes: float = MAX_MINUTES, max_mb: float = 400.0) -> dict:
-    """YouTube/Direct link → file (yt-dlp). Kabhi fail ho sakta hai — saaf error deta hai."""
+def _yt_friendly(err: str) -> str:
+    """yt-dlp ka gandha error → user ke liye saaf line (link/kachra hata kar)."""
+    e = re.sub(r"https?://\S+", "", str(err or ""))
+    e = re.sub(r"\s{2,}", " ", e).strip(" .;,-")
+    low = e.lower()
+    if "sign in to confirm" in low or "not a bot" in low or "cookies" in low:
+        return ("YouTube is blocking server downloads (its bot-check). "
+                "YouTube link se download abhi possible nahi.")
+    if "429" in low or "too many requests" in low:
+        return "YouTube server ne rate-limit lagaya (429). Thodi der baad try karo."
+    if "reload" in low or "player response" in low or "requested format" in low:
+        return "YouTube ne is video ka format change kar diya — server se download nahi ho paya."
+    if "private" in low or "unavailable" in low or "removed" in low:
+        return "Ye video private / deleted / region-locked lagta hai."
+    if "long" in low:
+        return e[:160]
+    return e[:160] or "Download failed."
+
+
+def youtube_download(url: str, dest_dir: str, max_minutes: float = MAX_MINUTES,
+                     max_mb: float = 400.0, quiet: bool = False) -> dict:
+    """YouTube/Direct link → file (yt-dlp). Client fallback chain + cookies (env se)."""
     if not ytdlp_available():
         return {"ok": False, "no_ytdlp": True,
-                "error": "YouTube download is not available right now. Send the video file itself "
-                         "or a direct .mp4 link."}
-    opts = {
-        "format": f"bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720]/b",
+                "error": "YouTube download is not available on the server right now. "
+                         "Send the video file itself, or a direct .mp4 link."}
+    import yt_dlp
+    base = {
+        "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720]/b",
         "outtmpl": os.path.join(dest_dir, "src.%(ext)s"),
-        "quiet": True, "noprogress": True, "noplaylist": True,
+        "quiet": True, "no_warnings": True, "noprogress": True, "noplaylist": True,
         "max_filesize": int(max_mb * 1048576),
-        "match_filter": None,
-        "retries": 2, "socket_timeout": 60,
+        "retries": 2, "fragment_retries": 2, "socket_timeout": 45,
         "merge_output_format": "mp4",
     }
     ck = os.environ.get("YTDLP_COOKIES_FILE", "")
     if ck and os.path.exists(ck):
-        opts["cookiefile"] = ck
-    try:
-        import yt_dlp
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            meta = ydl.extract_info(url, download=True)
+        base["cookiefile"] = ck
+    if os.environ.get("YTDLP_PROXY"):
+        base["proxy"] = os.environ["YTDLP_PROXY"]
+
+    # pehle user ka setting, phir apne aap client badal-badal ke try (v44)
+    clients = []
+    env_client = (os.environ.get("YTDLP_CLIENT") or "").strip()
+    if env_client:
+        clients.append([c.strip() for c in env_client.split(",") if c.strip()])
+    clients += [["android_vr"], ["tv"], ["ios"], ["web_safari"], ["android"], []]
+    seen, tried = set(), []
+    last_err = ""
+    for cl in clients:
+        key = tuple(cl)
+        if key in seen:
+            continue
+        seen.add(key)
+        opts = dict(base)
+        if cl:
+            opts["extractor_args"] = {"youtube": {"player_client": cl}}
+        tag = ",".join(cl) or "default"
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                meta = ydl.extract_info(url, download=True)
             if meta and meta.get("duration") and float(meta["duration"]) > max_minutes * 60:
                 return {"ok": False, "too_long": True, "duration": float(meta["duration"]),
                         "error": f"This video is {int(float(meta['duration']) // 60)} min long — "
                                  f"limit is {int(max_minutes)} min."}
-        files = [os.path.join(dest_dir, f) for f in os.listdir(dest_dir) if f.startswith("src.")]
-        if not files:
-            return {"ok": False, "error": "Download failed (no file came)."}
-        return {"ok": True, "path": files[0], "size_mb": round(os.path.getsize(files[0]) / 1048576, 2)}
-    except Exception as e:
-        msg = str(e)[:150]
-        if "Sign in to confirm" in msg or "bot" in msg.lower() and "sign" in msg.lower():
-            msg = "YouTube is asking for login (bot check) — try again later or send the video file."
-        return {"ok": False, "error": f"Download failed: {msg}"}
+            files = [os.path.join(dest_dir, f) for f in os.listdir(dest_dir) if f.startswith("src.")]
+            if not files:
+                raise RuntimeError("no file came")
+            return {"ok": True, "path": files[0], "size_mb": round(os.path.getsize(files[0]) / 1048576, 2),
+                    "engine": f"yt-dlp ({tag})"}
+        except Exception as e:                       # noqa: BLE001
+            last_err = str(e)
+            tried.append(tag)
+            for f in os.listdir(dest_dir):           # adhura file saaf karo
+                if f.startswith("src."):
+                    try:
+                        os.remove(os.path.join(dest_dir, f))
+                    except Exception:
+                        pass
+            continue
+    return {"ok": False, "tried": tried, "error": _yt_friendly(last_err)}
 
 
 def caption_for(clip: dict, total: int, vertical: bool) -> str:
     """Clip ka caption (chhota — user ne chhote text maange the)."""
     stars = "⭐" * max(1, 4 - int(clip.get("rank", 9)))
     kind = "📱 9:16" if vertical else "🖥️ 16:9"
-    return (f"🎬 <b>Clip {clip.get('idx')}/{total}</b> {stars} · {kind}\n"
+    line1 = f"🎬 <b>Clip {clip.get('idx')}/{total}</b> {stars} · {kind}\n"
+    if clip.get("title"):
+        line1 = f"🎬 <b>Clip {clip.get('idx')}/{total}</b> {stars} · {kind}\n🤖 <i>{_clip_esc(clip.get('title'))}</i>\n"
+    return (line1 +
             f"<code>{fmt_t(clip.get('start', 0))}</code> · {int(clip.get('dur', 0))}s · "
             f"{clip.get('size_mb', 0)}MB")
+
+
+def _clip_esc(t: str) -> str:
+    return (str(t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))[:60]
 
 
 def best_of_best(clips: list, k: int = 3) -> list:
@@ -430,6 +533,6 @@ def best_of_best(clips: list, k: int = 3) -> list:
 
 def help_card() -> str:
     return ("🎬 <b>CLIP MAKER</b>\n"
-            "Video → 4-7 short clips (25-60 sec). No AI — loud moments + scene changes se.\n"
+            "Video → 4-7 short clips (25-60 sec). 🤖 AI + loud moments + scene changes se best parts.\n"
             "📌 Limit: 15 min tak ka video · file 20MB tak (Telegram) ya direct .mp4 link\n"
             "⚠️ Use only your own video or a video you are allowed to reuse.")

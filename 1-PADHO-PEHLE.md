@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v43 (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v44 (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -10,7 +10,33 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
 ---
 
-## 0️⃣ v43 (naya) — 🎬 CLIP MAKER
+## 0️⃣ v44 (naya) — 🧠 AI + crash fixes + 🎓 EXAM HUB hata
+
+**1) 🎓 STUDENT EXAM HUB poori tarah hata diya** — button, code aur tutorial se (aapka order).
+
+**2) 3 crash fix (screenshot wale):**
+- 📸 **PASSPORT PHOTO** — naam + date (DOP) bhejne par pehle bot menu par phenk deta tha (bug).
+  Ab: photo → `SHWETA KUMARI 01-07-2011` → stamped photo ready ✅ (3.5×4.5 cm, 20-50KB).
+- 📥 **VIDEO DOWNLOADER** — bada video bhejte waqt Telegram "Timed out" deta tha. Ab bot
+  **timeout bade** kar deta hai, aur pehli koshish fail ho to **compressed version** khud bhej deta hai.
+- 🎬 **YOUTUBE** — gandha error (`[youtube] ... github.com/yt-dlp ...`) hata diya. Ab saaf line
+  + **credit nahi katta**.
+- Saath me: galti se galat input bhejo to bot **us tool ka prompt dobara** dikhata hai (menu par nahi phenkta).
+
+**3) 🧠 AI Clip Maker (asli AI):** Render → Environment me ek key daalo —
+- `GEMINI_API_KEY` (free, aistudio.google.com/apikey) → AI **video ke frames + audio** dekh kar
+  best moments chunta hai (hasi, cheer, shout, action, drama).
+- ya `GROQ_API_KEY` (free, console.groq.com/keys) → **Whisper** transcript + loudness mila kar
+  best windows + **AI se clip ke title**.
+- Key na ho to bot apne purane **loud + scene** engine se chalta rahega (kuch tootega nahi).
+- Card me naya button: `🧠 Smart AI` (ON/OFF). Admin: **/aistatus** se check karo.
+
+**4) 🔬 26 tools ka deep audit** — `v44-TOOLS-AUDIT.md` (217 checks, sab pass): har tool ka prompt,
+tutorial video, wiring, credit guard, network timeout, error leak, fallback.
+
+---
+
+## 0️⃣1️⃣ v43 — 🎬 CLIP MAKER
 
 Video bhejo → **4-7 short clips (25-60 sec)**. Mode: 🎯 Best Moments (awaaz tez + action hisse) ya
 ⏱️ Equal Parts. Format: 🖥️ 16:9 ya 📱 9:16 (Shorts/status). Limit **15 min**, file 20MB, ya direct
