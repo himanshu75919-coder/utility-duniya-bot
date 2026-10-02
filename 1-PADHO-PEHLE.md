@@ -104,7 +104,7 @@ Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount
 
 1. **Push karo:**
    ```bash
-   GITHUB_TOKEN=ghp_xxxxxxx bash /home/user/push_v39_ready.sh
+   GITHUB_TOKEN=ghp_<REDACTED> bash /home/user/push_v39_ready.sh
    ```
    (Token GitHub → Settings → Developer settings → Tokens me banao; **ek token sirf ek baar** — jo purane use ho chuke hain unhe **revoke** kar dena.)
 2. **Render → apni service → Manual Deploy → "Clear build cache & deploy"** dabao.
