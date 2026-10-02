@@ -462,13 +462,13 @@ def download_instagram_media(url: str) -> dict:
 
     if media_cat == "story":
         return {"ok": False, "category": "story",
-                "error": "Instagram Stories sirf 24 ghante live rehti hain. Expired/private stories Instagram bina login allow nahi karta."}
+                "error": "Instagram Stories stay live only 24 hours. Instagram does not allow expired or private stories without login."}
     if media_cat == "reel":
         return {"ok": False, "category": "reel",
-                "error": ("Instagram ne is Reel ko rate-limit/login wall se rok diya (shared server IP ki wajah se). "
-                          "30-60 second baad dobara try karein, ya IG_COOKIES_FILE env set karne se ye hamesha chalega.")}
+                "error": ("Instagram blocked this Reel with a rate-limit/login wall (shared server IP). "
+                          "Try again after 30-60 seconds, or set the IG_COOKIES_FILE env to make it always work.")}
     return {"ok": False, "category": media_cat,
-            "error": "Media extract nahi ho saka — post public hai ya nahi check karein (private/age-restricted nahi chalti)."}
+            "error": "Could not extract the media — check if the post is public (private/age-restricted posts do not work)."}
 
 
 # =====================================================================================
@@ -487,17 +487,17 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
         if link:
             return {"ok": True, "type": "link", "platform": "Instagram", "title": title or "",
                     "size_mb": round((size or 0) / (1024 * 1024), 2) if size else 0,
-                    "direct_url": link, "note": "Video mil gayi par upload limit se badi hui — ye direct link use karein (browser me turant chalega).",
+                    "direct_url": link, "note": "Got the video but it is bigger than the upload limit — use this direct link (it plays in a browser right away).",
                     "reason": res.get("error", "")}
         return res
 
     # --- Baaki platforms: yt-dlp ---
     if not yt_dlp:
-        return {"ok": False, "error": "yt-dlp engine load nahi hua (requirements.txt install check karein)."}
+        return {"ok": False, "error": "The yt-dlp engine did not load (check requirements.txt install)."}
 
     info = _ytdlp_info(url)
     if not info:
-        return {"ok": False, "error": "Is link ko yt-dlp support nahi kar paya. Link public hai ya nahi check karein."}
+        return {"ok": False, "error": "yt-dlp could not handle this link. Check if the link is public."}
 
     plat = platform_name(url)
 
@@ -532,10 +532,10 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
         mb = round((size or 0) / (1024 * 1024), 2) if size else 0
         return {"ok": True, "type": "link", "platform": plat, "title": title or "",
                 "direct_url": link, "size_mb": mb,
-                "note": (f"File {mb} MB ki hai (Telegram upload limit {max_mb} MB). "
-                         "Neeche wale direct link se browser/IDM me download karein.") if mb else
-                        "Direct link ready hai — browser/IDM me turant download hoga."}
-    return {"ok": False, "error": "Download nahi ho paya. Site ne block kiya ya link private hai."}
+                "note": (f"File is {mb} MB (Telegram upload limit {max_mb} MB). "
+                         "Download it with the direct link below in a browser or IDM.") if mb else
+                        "Direct link is ready — it downloads at once in a browser or IDM."}
+    return {"ok": False, "error": "Download failed. The site blocked it or the link is private."}
 
 
 async def download_instagram_async(url: str) -> dict:

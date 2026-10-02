@@ -64,21 +64,21 @@ def validate_utr(raw: str) -> dict:
     """
     text = (raw or "").strip()
     if not text:
-        return {"ok": False, "utr": "", "reason": "Khaali hai — UTR number likh kar bhejo."}
+        return {"ok": False, "utr": "", "reason": "Empty — type the UTR number and send it."}
 
     cleaned = _UTR_LABELS.sub(" ", text)                    # "UTR: 123456789012" → "123456789012"
     cleaned = re.sub(r"[\s\-\.,#/:]+", "", cleaned).strip()
     up = cleaned.upper()
 
     if not cleaned:
-        return {"ok": False, "utr": "", "reason": "Sirf 'UTR' likha hai — iske aage ka number bhi bhejo."}
+        return {"ok": False, "utr": "", "reason": "You only typed 'UTR' — send the number after it too."}
 
     digits_only = re.sub(r"\D", "", cleaned)
 
     # --- 12 digit = UPI / NEFT / IMPS UTR (sabse common) ---
     if re.fullmatch(r"\d{12}", cleaned):
         if cleaned[0] == "0":
-            return {"ok": False, "utr": cleaned, "reason": "0 se shuru hone wala 12-digit UTR nahi hota — dubara check karo."}
+            return {"ok": False, "utr": cleaned, "reason": "A UTR never starts with 0 — please check again."}
         return {"ok": True, "utr": cleaned, "kind": "UPI / Bank UTR (12 digit)"}
 
     # --- 16-22 char alphanumeric = bank reference ---
@@ -88,22 +88,22 @@ def validate_utr(raw: str) -> dict:
     # --- common galtiyan, saaf-saaf batao ---
     if re.fullmatch(r"[6-9]\d{9}", digits_only) and len(cleaned) <= 12:
         return {"ok": False, "utr": cleaned,
-                "reason": "Ye to <b>mobile number</b> lag raha hai (10 digit). UTR usually 12 digit ka hota hai."}
+                "reason": "This looks like a <b>mobile number</b> (10 digits). A UTR is usually 12 digits."}
     if len(digits_only) == 10:
         return {"ok": False, "utr": cleaned,
-                "reason": "10 digit ka number UTR nahi hota. UPI app me <b>UTR / Transaction ID</b> 12 digit ka hota hai."}
+                "reason": "A 10 digit number is not a UTR. In the UPI app the <b>UTR / Transaction ID</b> is 12 digits."}
     if len(cleaned) < 10:
-        return {"ok": False, "utr": cleaned, "reason": f"Bahut chhota hai ({len(cleaned)} char) — UTR kam se kam 12 digit ka hota hai."}
+        return {"ok": False, "utr": cleaned, "reason": f"Too short ({len(cleaned)} char) — a UTR is at least 12 digits."}
     if len(cleaned) > 25:
-        return {"ok": False, "utr": cleaned, "reason": f"Bahut lamba hai ({len(cleaned)} char) — UTR 12-22 char tak hota hai."}
+        return {"ok": False, "utr": cleaned, "reason": f"Too long ({len(cleaned)} char) — a UTR is 12-22 characters."}
     if not any(c.isdigit() for c in cleaned):
-        return {"ok": False, "utr": cleaned, "reason": "UTR me numbers hone chahiye — sirf akshar nahi."}
+        return {"ok": False, "utr": cleaned, "reason": "A UTR must contain numbers — not only letters."}
     if re.fullmatch(r"\d{11}|\d{13,15}", cleaned):
         return {"ok": False, "utr": cleaned,
-                "reason": f"{len(cleaned)} digit ka number UTR format me nahi aata. UPI app se <b>poora 12 digit UTR</b> copy karo "
-                          "(ya bank app ka 16-22 character reference)."}
+                "reason": f"{len(cleaned)} digit number is not a valid UTR. Copy the <b>full 12 digit UTR</b> from the UPI app "
+                          "(or the 16-22 character reference from the bank app)."}
     return {"ok": False, "utr": cleaned,
-            "reason": "Ye UTR format nahi lag raha. Payment app kholo → transaction details → <b>UTR / Ref No</b> wahan se copy karo."}
+            "reason": "This does not look like a UTR. Open the payment app → transaction details → copy the <b>UTR / Ref No</b> from there."}
 
 
 # ===========================================================================
@@ -156,23 +156,23 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
     """
     size_kb = len(img_bytes) / 1024.0
     if size_kb < MIN_KB:
-        return {"ok": False, "score": 0, "verdict": "bad", "label": "🔴 Photo nahi, screenshot bhejo",
-                "flags": [f"File bahut chhoti hai ({size_kb:.0f} KB)"], "notes": "", "kb": round(size_kb),
+        return {"ok": False, "score": 0, "verdict": "bad", "label": "🔴 Not a photo — send a screenshot",
+                "flags": [f"File is too small ({size_kb:.0f} KB)"], "notes": "", "kb": round(size_kb),
                 "size": (0, 0)}
     if size_kb > MAX_MB * 1024:
-        return {"ok": False, "score": 0, "verdict": "bad", "label": "🔴 File bahut badi hai",
-                "flags": [f"{size_kb/1024:.1f} MB — screenshot itna bada nahi hota"], "notes": "",
+        return {"ok": False, "score": 0, "verdict": "bad", "label": "🔴 File is too big",
+                "flags": [f"{size_kb/1024:.1f} MB — a screenshot is never that big"], "notes": "",
                 "kb": round(size_kb), "size": (0, 0)}
 
     if not _PIL_OK:
-        return {"ok": True, "score": 50, "verdict": "maybe", "label": "🟡 Check nahi ho paya (admin dekhega)",
-                "flags": ["Image engine available nahi"], "notes": "", "kb": round(size_kb), "size": (0, 0)}
+        return {"ok": True, "score": 50, "verdict": "maybe", "label": "🟡 Could not check (admin will look)",
+                "flags": ["Image engine not available"], "notes": "", "kb": round(size_kb), "size": (0, 0)}
 
     try:
         img = Image.open(io.BytesIO(img_bytes))
         img = img.convert("RGB")
     except Exception as e:
-        return {"ok": False, "score": 0, "verdict": "bad", "label": "🔴 Ye image khol hi nahi paye",
+        return {"ok": False, "score": 0, "verdict": "bad", "label": "🔴 Could not open this image",
                 "flags": [str(e)[:80]], "notes": "", "kb": round(size_kb), "size": (0, 0)}
 
     w, h = img.size
@@ -185,7 +185,7 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
     elif m["dominant"] >= 20:
         score += 12
     else:
-        flags.append("Koi bada plain background block nahi mila (photo me aisa hota hai)")
+        flags.append("No big plain background block found (photos usually have one)")
 
     # --- b) seedhi UI lines (button border / separator / card edges) ---
     lines = m["rowlines"] + m["collines"]
@@ -194,7 +194,7 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
     elif lines >= 6:
         score += 12
     else:
-        flags.append("UI wali seedhi lines nahi mili")
+        flags.append("No straight UI lines found")
 
     # --- c) text ki sharpness (screenshot me text tez hota hai; photo blurry/smooth hoti hai) ---
     if m["sharp_full"] >= 1.5:
@@ -202,7 +202,7 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
     elif m["sharp_full"] >= 0.4:
         score += 12
     else:
-        flags.append("Text/number jaisa sharp content nahi mila (photo lagti hai)")
+        flags.append("No sharp text/number content found (looks like a photo)")
 
     # --- d) text / sharp edges ---
     if m["strong"] >= 3:
@@ -210,13 +210,13 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
     elif m["strong"] >= 1:
         score += 8
     else:
-        flags.append("Screenshot jaisi detail nahi mili")
+        flags.append("No screenshot-like detail found")
 
     # --- e) resolution ---
     if w >= 500 and h >= 500:
         score += 10
     elif w < MIN_WIDTH or h < MIN_HEIGHT:
-        flags.append(f"Resolution bahut kam hai ({w}×{h})")
+        flags.append(f"Resolution is too low ({w}×{h})")
 
     # --- f) OCR (agar available) ---
     ocr_ran, ocr_found = _ocr_keywords(img_bytes)
@@ -225,7 +225,7 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
             score = min(100, score + 15)
         else:
             score = max(0, score - 20)
-            flags.append("Screenshot me payment wale shabd (paid/UTR/₹) nahi mile")
+            flags.append("No payment words (paid/UTR/₹) found in the screenshot")
 
     # --- g) amount check (agar amount pata ho) ---
     if expected_amount and ocr_ran:
@@ -236,11 +236,11 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
 
     score = int(max(0, min(100, score)))
     if score >= SHOT_GOOD:
-        verdict, label = "good", "🟢 Screenshot lagti hai"
+        verdict, label = "good", "🟢 Looks like a screenshot"
     elif score >= SHOT_MAYBE:
-        verdict, label = "maybe", "🟡 Shaq hai — admin dhyan se dekhe"
+        verdict, label = "maybe", "🟡 Suspicious — the admin should look carefully"
     else:
-        verdict, label = "bad", "🔴 Ye photo lagti hai, screenshot nahi"
+        verdict, label = "bad", "🔴 This looks like a photo, not a screenshot"
 
     return {"ok": verdict != "bad", "score": score, "verdict": verdict, "label": label,
             "flags": flags, "notes": f"UI-match {score}%", "kb": round(size_kb), "size": (w, h),
@@ -252,7 +252,7 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
 # ===========================================================================
 def shot_verdict_line(analysis: dict) -> str:
     if not analysis:
-        return "❔ Check nahi ho paya"
+        return "❔ Could not check"
     icon = {"good": "🟢", "maybe": "🟡", "bad": "🔴"}.get(analysis.get("verdict"), "❔")
     fl = analysis.get("flags") or []
     txt = f"{icon} <b>Screenshot check:</b> {analysis.get('label', '-')} (score {analysis.get('score', 0)}/100)"
@@ -260,7 +260,7 @@ def shot_verdict_line(analysis: dict) -> str:
         txt += "\n      • " + "\n      • ".join(str(f)[:70] for f in fl[:3])
     if analysis.get("ocr_ran"):
         found = analysis.get("ocr_found") or []
-        txt += f"\n      • OCR: {'✅ payment shabd mile: ' + ', '.join(found[:4]) if found else '❌ payment shabd nahi mile'}"
+        txt += f"\n      • OCR: {'✅ payment words found: ' + ', '.join(found[:4]) if found else '❌ no payment words found'}"
     return txt
 
 
@@ -274,62 +274,62 @@ def admin_payment_card(pay: dict, user_row: dict = None, history: dict = None) -
 
     utr_v = validate_utr(pay.get("utr_ref") or "")
     lines = [
-        f"🔔 <b>PAYMENT VERIFY KARO — #{pay['id']}</b>",
+        f"🔔 <b>VERIFY THIS PAYMENT — #{pay['id']}</b>",
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"👤 <b>User ID:</b> <code>{pay['user_id']}</code>",
         f"🏷️ <b>Username:</b> @{flags.get('username') or 'NoUser'}",
-        f"👋 <b>Naam:</b> {flags.get('name') or '-'}",
+        f"👋 <b>Name:</b> {flags.get('name') or '-'}",
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"💎 <b>Plan:</b> {pay.get('plan_name') or pay.get('plan_key')}",
         f"💰 <b>Amount:</b> ₹{pay.get('amount')}",
         f"📅 <b>Days:</b> {pay.get('plan_days')}",
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"🧾 <b>UTR:</b> <code>{pay.get('utr_ref')}</code>",
-        f"      • Format: {'✅ sahi — ' + utr_v['kind'] if utr_v['ok'] else '❌ GALAT: ' + utr_v.get('reason', '')[:90]}",
-        f"      • Pehle use hua?: {'⚠️ HAAN (duplicate!)' if flags.get('utr_dup') else '✅ Nahi — naya hai'}",
+        f"      • Format: {'✅ correct — ' + utr_v['kind'] if utr_v['ok'] else '❌ WRONG: ' + utr_v.get('reason', '')[:90]}",
+        f"      • Used before?: {'⚠️ YES (duplicate!)' if flags.get('utr_dup') else '✅ No — it is new'}",
         "━━━━━━━━━━━━━━━━━━━━━━",
-        f"🖼️ <b>Screenshot:</b> {'✅ Mili' if pay.get('shot_file_id') else '❌ Nahi mili'}",
+        f"🖼️ <b>Screenshot:</b> {'✅ Received' if pay.get('shot_file_id') else '❌ Not found'}",
         shot_verdict_line(flags.get("shot") or {}),
-        f"      • Same image dobara?: {'⚠️ HAAN (duplicate!)' if flags.get('shot_dup') else '✅ Nahi'}",
+        f"      • Same image again?: {'⚠️ YES (duplicate!)' if flags.get('shot_dup') else '✅ No'}",
         "━━━━━━━━━━━━━━━━━━━━━━",
-        f"🕒 <b>Bheja:</b> {pay.get('created_at', '-')}",
+        f"🕒 <b>Sent:</b> {pay.get('created_at', '-')}",
     ]
     if isinstance(user_row, dict) and user_row:
         prem = user_row.get("premium_until") or ""
-        lines.append(f"👑 <b>User ka VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (str(prem)[:10] if prem else '❌ Nahi')}")
+        lines.append(f"👑 <b>User VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (str(prem)[:10] if prem else '❌ No')}")
         lines.append(f"⚡ <b>Uses today:</b> {user_row.get('uses_today', 0) if isinstance(user_row, dict) else 0}")
     if history:
-        lines.append(f"📜 <b>Is user ki history:</b> ✅ {history.get('approved', 0)} approved · "
+        lines.append(f"📜 <b>This user's history:</b> ✅ {history.get('approved', 0)} approved · "
                      f"❌ {history.get('rejected', 0)} rejected · ⏳ {history.get('pending', 0)} pending")
     lines.append("━━━━━━━━━━━━━━━━━━━━━━")
-    lines.append("🤔 <b>Decision:</b> neeche button dabao" if not (flags.get("utr_dup") or flags.get("shot_dup"))
-                 else "🚨 <b>Dhyan do:</b> duplicate signal mila hai — approve karne se pehle socho!")
+    lines.append("🤔 <b>Decision:</b> tap a button below" if not (flags.get("utr_dup") or flags.get("shot_dup"))
+                 else "🚨 <b>Careful:</b> a duplicate signal was found — think before approving!")
     return "\n".join(lines)
 
 
 def user_payment_reply(pay_id: int, plan_name: str, amount: int, analysis: dict) -> str:
     return (
-        f"✅ <b>Payment proof submit ho gaya!</b>\\n"
+        f"✅ <b>Payment proof submitted!</b>\\n"
         "━━━━━━━━━━━━━━━━━━━━━━\\n"
         f"🧾 <b>Payment ID:</b> <code>#{pay_id}</code>\\n"
         f"💎 <b>Plan:</b> {plan_name}\\n"
         f"💰 <b>Amount:</b> ₹{amount}\\n"
         f"{shot_verdict_line(analysis)}\\n"
         "━━━━━━━━━━━━━━━━━━━━━━\\n"
-        "⏳ Admin verify karke VIP activate kar dega (usually 5-30 minute).\\n"
-        f"📌 Status dekhne ke liye: <code>/mypay</code> bhejo.\\n\\n"
-        "<i>Tip: UTR aur screenshot dono sahi hain to jaldi approve ho jata hai.</i>"
+        "⏳ The admin will verify and activate VIP (usually 5-30 minutes).\\n"
+        f"📌 To check status send <code>/mypay</code>.\\n\\n"
+        "<i>Tip: correct UTR and screenshot get approved faster.</i>"
     )
 
 
 def utr_help_text() -> str:
     return (
-        "🧾 <b>UTR / Transaction ID kahan milega?</b>\\n"
+        "🧾 <b>Where do I find the UTR / Transaction ID?</b>\\n"
         "━━━━━━━━━━━━━━━━━━━━━━\\n"
-        "📱 <b>PhonePe:</b> History → us payment par tap → <b>UTR</b> (12 digit)\\n"
+        "📱 <b>PhonePe:</b> History → tap that payment → <b>UTR</b> (12 digit)\\n"
         "📱 <b>GPay:</b> Transaction → <b>UPI transaction ID</b>\\n"
         "📱 <b>Paytm:</b> Passbook → payment → <b>Order/Txn ID</b>\\n"
-        "🏦 <b>Bank app/SMS:</b> SMS me <b>Ref No / UTR</b> likha hota hai (12 digit ya 16-22 char)\\n\\n"
-        "⚠️ <b>Dhyan do:</b> Mobile number ya random number UTR nahi hota — wahi <b>asli</b> number bhejo "
-        "jo payment ke baad aaya ho. Galat UTR par VIP nahi milega."
+        "🏦 <b>Bank app/SMS:</b> the SMS shows a <b>Ref No / UTR</b> (12 digits or 16-22 chars)\\n\\n"
+        "⚠️ <b>Careful:</b> a mobile number or a random number is not a UTR — send the <b>real</b> number "
+        "you got after the payment. VIP is not given on a wrong UTR."
     )

@@ -1,317 +1,123 @@
-# ⚡ Utility Duniya Super-Bot (v38 — CHHUPE 'MARU-TOAD' TOOLS + CREDITS)
+# ⚡ Utility Duniya Super-Bot — **v39**
 
-An All-in-One Super Automation & Utility Engine for Telegram — **38+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+**Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
+media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
----
-
-## 🆕 v38 — "MARU-TOAD PACK": 4 chhupe tools (jo koi bot nahi deta)
-
-Ye woh tools hain jo YouTube/market me **nahi dikhte**, par jinke liye log **dukaan/cyber cafe me paise dete hain**.
-Sab **100% server par** chalte hain — koi AI nahi, koi paid API nahi, koi captcha nahi.
-
-| Tool | Kaam | Kitna kamaal |
-|---|---|---|
-| 🏦 **BANK STATEMENT PDF → EXCEL** | Bank ka statement PDF bhejo → **Excel/CSV** (date, detail, nikala, aaya, balance) + total nikala/aaya + closing | 3 ghante ka typing kaam 30 second me. **Locked PDF ka password** bhi poochta hai · SBI/HDFC/PNB/ICICI/BOB/Kotak/IPPB/sab |
-| 📜 **SARKARI KAGAZ SUITE** | Kirayanama, Affidavit, **Legal Notice 138** (cheque bounce), Bayana/Pakki Rasid, Rin Shodh (loan paper), Name/Address/Income affidavit — sab **ready PDF** | Field ek-ek karke poochta hai (naam, khesra, khata...) → PDF ready · **Registry Total Kharcha** (MVR + stamp duty + registration, Bihar/UP/झारखंड) · **Bigha/Kattha/Dhur/Decimal converter** |
-| 🕵️ **PHOTO INFO + FAKE DETECT** | Kaunse **mobile/camera** se, **kab**, **kahan (GPS + Maps link)**, aur **edit ki hui hai ya nahi** (ELA + noise-block analysis) | Shak wale hisson par **laal dabba** wali photo bhejta hai. Kisi bot me nahi hai |
-| ⚡ **MEDIA STUDIO** | 🎵 YouTube→MP3 · 🎬 **Status video** (photo + gaana + likha text, 9:16) · 🎧 ringtone cutter · 🎤 **Karaoke** (vocal cut) · 🔊 8D · 💥 bass boost · 🗣️ **voice change** (bachcha/motu/robot/bhoot) · ✂️ video trim · 🗜️ video compress · 🎼 video→MP3 | Sab **ffmpeg** se, koi watermark nahi, bina API |
-
-**Bonus (FREE tool):**
-- 🪔 **RAHU KAAL / PANCHANG** — aaj/kal ka Rahu Kaal, sunrise/sunset, din ke 8 hisse (choghadiya) — 20+ shehar ka support (Patna default). Ye **bilkul free** hai (0 credits par bhi chalta hai) — daily habit banane ke liye.
-
-**Credits:** in 4 naye tools ka **1 use = 1 credit** (khatam hone par VIP upsell). Panchang free.
-**Naya env var:** kuch nahi (sab optional). Naye python packages: `pdfplumber`, `reportlab`, `pypdf` (requirements.txt me aa gaye).
+> **Naya (v39):** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
+> Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
+> Poora detail: **`v39-KYA-BADLA.md`**. Naye earning tools ki list: **`EARNING-TOOLS-V39.md`**.
 
 ---
 
-## 🆕 v37 — CREDITS SYSTEM (naye user ko 25 free credits, ek baar ke)
+## 🚀 Deploy (Render) — 4 step
 
-- **Naye user ko 25 credits** milte hain jab wo pehli baar bot me aata hai — **ek baar ke, daily reset NAHI**.
-  Khatam = khatam (kal khud se nahi badhenge). Admin kabhi bhi credits de sakta hai.
-- **PREMIUM tools (sirf 4, 1 use = 1 credit):**
-  📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner (FULL AUTO ON / Fast-Forward ON) · 🔒 Private Channel Setup
-- **BAAKI SAARE TOOLS 100% FREE** — 25+ tools (passport photo, 8-in-1 sheet, doc PDF, Image→PDF, Voice Studio,
-  IFSC, pincode, ID finder, IP, QR/UPI, password, URL short, link bypass/check, EMI, vyaj, age, search, app finder,
-  screenshot, sarkani/exam hub, virtual numbers, Terabox...) me **koi credit nahi, koi daily limit nahi** —
-  credits 0 hone par bhi ye sab pura chalte hain.
-- **Credit kab katta hai:** kaam **poora hone par** hi (video/photo mil gayi, number info aa gayi, FULL AUTO ON ho gaya).
-  Fail hone par (link nahi chala, network error) **credit nahi katta**.
-- **Credits khatam hone par:** premium tool band + "👑 VIP Lo (Unlimited)" button + free tools ka bharosa dilane wala
-  message. Cloner dashboard par warning + `0 / 25` line dikhti hai.
-- **VIP / Owner / Admin = ♾️ Unlimited** — koi credit nahi lagta (dono taraf kabhi block nahi).
-- **Naya command:** `/credits <user_id> [n]` — admin kisi ko credits de (default 25, `0` likho to khatam).
-  Bina ID likhne par rules + kitne users ke paas credits hain, yeh dikhata hai.
-- **Jahan-jahan credits dikhte hain:** `/account` (credits line + FREE/PREMIUM list), admin panel (kitne users ke paas
-  credits hain / kitne khatam), admin user-search (`🎟️ Credits bache: x / 25`), `/premium` ke upar ek note.
-- **Naya env (optional):** `FREE_CREDITS` (default 25) — naye user ko kitne credits milen.
+1. GitHub par push karo (`push_v39_ready.sh` chalao, `GITHUB_TOKEN` env ke saath).
+2. Render → apni service → **Manual Deploy** → **Clear build cache & deploy**.
+3. Environment tab me ye 4 cheezein zaroor honi chahiye:
+```
+BOT_TOKEN=BotFather se mila token
+ADMIN_ID=tumhari Telegram user ID   (owner — unlimited, free)
+UPI_ID=tumhara@upi                  (VIP payment ke liye)
+UPI_NAME=Utility Duniya
+```
+4. Telegram me `/start` bhejo → menu aa jayega. `/premium` → VIP plans. `/admin` → admin panel.
 
 ---
 
-## 🆕 v36 — Bot me sirf 🎬 VIDEO tutorial (text tutorial poora hata diya)
+## 💎 Credits + VIP ka hisaab (v37 se, v39 me wahi)
 
-- Har tool ke andar **sirf 2 cheezein**: (1) tool ka kaam + **aakhir me ask** ("Ab apna link bhejo:"),
-  (2) neeche **🎬 Tutorial Video (30 sec) — HIMANSHU** button.
-- **Text tutorial aur uska link bot se poora hata diya:** na "Kaise use karein" lines, na telegra.ph/GitHub link,
-  na menu footer — kuch bhi nahi. (Text page sirf admin ke panel me hai — `/tutrefresh` + "📖 Text Tutorial Page (admin)".)
-- MADAD / TUTORIAL button ab **video buttons** ka chhota menu dikhata hai (Video DL, Terabox, Cloner, Voice, VIP, How-to).
-- Voice Studio, Cloner aur VIP menu me bhi sirf 🎬 video button.
-- Jahan prompt ka aakhir khaali tha, wahan clear ask line jodi (pin, emi, idfind, qr_upi, qr_wifi, qr_vcard, shot_full, pwd_pin, pwd_phrase).
-- Bug fix: `tutorial_hub._api()` ka param `path` → `method` (isliye page update fail hota tha; ab theek).
-
----
-
-## 🆕 v35 — Har tool ka apna Tutorial VIDEO (HIMANSHU ke saath)
-
-- **33 tutorial videos** (har tool ka apna, 26-32 second, Hindi voiceover, vertical 1080x1920):
-  video downloader, terabox, cloner, voice studio, passport photo, 8-in-1 sheet, doc compress, image→PDF,
-  screenshot, RTO, number info, IFSC, pincode, ID finder, IP, QR, UPI QR, password, URL short, link bypass,
-  link check, EMI, vyaj, age, web search, app finder, sarkari, exam hub, VIP premium, refer, account, virtual numbers, how-to.
-- **Video me kya hai:** Telegram-dark + purple theme, bot ka logo, tool ka naam, Telegram jaisa chat demo
-  (step by step message aate hain), Hindi subtitle, aur neeche **HIMANSHU** character (hoodie par bold HIMANSHU,
-  black hoodie + purple neon) + Hindi voiceover + halka music bed.
-- **Bot me:** har tool ke neeche **🎬 Tutorial Video (30 sec)** button → `send_video` (streaming on).
-  Video **jsDelivr CDN** se aata hai, fail hone par GitHub raw, phir document, phir seedha link — 4 layer fallback.
-- **Settings:** `TUTORIAL_VIDEO_BASE` (apna CDN/URL), `TUTORIAL_VIDEO_BASE_FALLBACK`, `TUTORIAL_REPO`.
-- **Naya video banane ke liye:** `tutorial_videos/build_tutorial_videos.py` (PIL + ffmpeg + edge-tts),
-  ek tool: `python3 build_tutorial_videos.py emi`, sab: `--all --jobs 2`.
-
----
-
-## 🆕 v34 — Quick VIP Activate (`/activate`) + Tutorial ab link par
-
-### 🎁 1. Seedha VIP (bina payment) — `/activate`
-Dost ya koi user seedha aapke number/UPI par paisa bhej de, ya aap kisi ko free me VIP dena chaho:
-1. `/admin` → **🎁 VIP Activate** button → plan chuno (30/60/90/120 din ya Lifetime)
-2. Phir likho: `/activate <user_id>` → us user ko wahi plan
-   - `/activate 123456789 90` → alag din chahiye to
-   - `/activate @username` → username se bhi chalta hai
-- User ko turant "Mubarak ho, VIP mil gayi + valid till" message jata hai
-- Poora record **📜 Manual VIP Log** me (kaun, kab, kitne din, kis admin ne)
-- `meta` table + `vip_grants` table naye; stats me "Aaj manual VIP diye" count
-
-### 📖 2. Tutorial ab bot me nahi — ek page par (link)
-- Tool ke andar wale "💡 Kaise use karein" línes hata di gayi → ab har tool me sirf kaam + neeche **tutorial link**
-- Poora tutorial (saare tools ka tareeka + har tool ki detail) ek page par embed:
-  - Bot **khud** telegra.ph par page banata/update karta hai (startup par, background me)
-  - `TUTORIAL_URL` env se apna link bhi laga sakte ho (jaise channel post)
-  - Fallback: repo ka `TUTORIAL.md`
-- `/tutorial`, `/help`, keyboard ka ❓ MADAD/TUTORIAL, Voice Studio aur Cloner ke guide buttons — sab isi link par le jaate hain
-- Admin panel me **📖 Tutorial Page** button (turant refresh) + `/tutrefresh` command
-
----
-
-## 🆕 v33 — Admin Panel + Strict Payment Verification
-
-### 🛠️ 1. Naya Admin Panel (`/admin`)
-- Live dashboard: users, active today, uses, VIP count, **pending payments**, revenue, approved/rejected totals.
-- Buttons: Pending Payments · Payment History · Recent Users · **User Search (VIP do/hatao/ban/unban)** · Broadcast · Ban/Unban · Command list.
-- `/payments` = sirf pending list (tap → poora verification card + approve/reject).
-- `/grant`, `/revoke`, `/broadcast`, `/ban`, `/unban` — sab pehle jaise, plus **double-admin support** (`ADMINS=id1,id2`).
-
-### 👑 2. Owner ko ab koi premium/limit nahi
-- `ADMIN_ID` wali ID = **OWNER** → na daily limit, na "Buy VIP" message.
-- `/premium` par owner ko dikhta hai: *"Aap owner ho — sab unlimited"* + pending payments shortcut.
-- Keyboard me naya **👑 OWNER MODE** button. (Purana bug: owner bhi free-limit me fas jata tha.)
-
-### 🧾 3. Payment proof ab STRICTLY verify hota hai (`modules/payguard.py`)
-- **Layer 1 — UTR format:** 12-digit UPI UTR ya 16-22 char bank ref. Mobile number / random text / 15-digit = ❌ wajah ke saath reject. (`/premium` → "❓ UTR kahan milega?" helper bhi)
-- **Layer 2 — UTR duplicate:** ek UTR se sirf ek baar VIP (DB check).
-- **Layer 3 — Screenshot check (bina internet, fast):** flat-block + UI-line + text-sharpness metrics se score 0-100 → 🟢/🟡/🔴. Photo/selfie/meme = ❌ reject (3 try tak, phir flag ke saath admin ko).
-- **Layer 4 — Screenshot duplicate:** same image (Telegram `file_unique_id`) dobara = ❌ reject.
-- Extra: per-user pending limit (3), sare admins ko card, `pytesseract` ho to OCR keyword check bhi.
-
-### ✅ 4. Premium Activate button ka BUG FIX
-- **Root cause:** text-message wale proof par `edit_caption` chalta tha → Telegram error → handler chup-chaap marta tha → VIP lagta nahi tha.
-- Ab `edit_caption → edit_text → reply` fallback chain hai, `q.answer()` bhi hota hai, aur approve **idempotent** hai (dobara click = "pehle hi approve").
-- Approve/reject/"dobara maango" — teeno par user ko automatic message jata hai.
-
----
-
-## 🆕 v32 PHASE-3 — Har tool check + professional upgrade
-
-### 🎙️ 1. Voice Studio → **24 ASLI alag awaazein** (pehle "sab ek jaise" the)
-- 24 actor/character presets — har ek **alag real neural voice**: Don (hi-IN-Madhur), South Mass Hero (te-IN-Mohan), Rowdy (mr-IN-Manohar), Shayar (ur-IN-Salman), Sweet Girlfriend (hi-IN-Swara), Hollywood Trailer (en-US-Christopher), UK Documentary (en-GB-Ryan), Spooky Demon (en-US-Eric), Anime Girl (ja-JP-Nanami), Robot AI (en-US-Steffan), Arabic (ar-SA-Hamed), French, Spanish, Russian + 11 Indian languages.
-- **🧪 Voice Lab:** 30 voices × 4 speeds (🐢 −25% · ▶️ 0 · ⚡ +25% · 🚀 +50%).
-- Hindi (Devanagari) text + English voice = engine kuch nahi deta tha → ab bot **khud sahi voice par switch** karta hai aur caption me note bhi likhta hai.
-- Generation me 3 retries + size-verify; audio na bane to saaf error.
-
-### 🔄 2. Auto-Forwarding → **source-first 3-step wizard** + private channel flow
-- Pehle **SOURCE** poochhega → phir **TARGET** → phir **🤖 FULL AUTO ON** (button) → bas.
-- **🔒 Private channel:** koi login/password nahi — bot ko private channel me **admin** banao aur us channel ki **koi post bot ko forward** karo → bot khud chat-ID pakad kar Source/Target set karne ke **buttons** de deta hai.
-- **📘 Kaise Use Karein?** (poora guide), **🧪 Test Forward** (bot admin hai ya nahi + target me test post), **📊 Meri Setting Dekho** (summary card).
-- Video / PDF / Doc / Audio / Voice / GIF / Sticker / Album (2–10) — sab auto-forward hota hai.
-
-### 📈 3. Vyaaj → **sirf CHAKRAVRIDDHI (compound)**, gaon-kasbe wali bhasha me
-- Input: paisa → *"₹100 par kitne rupaye mahina?"* → kitne mahine.
-- Output: pehle mahine ka byaaj, kul byaaj, **wapas dena hoga kitna**, mahine-dar-mahine table, milestones (6/12/24/36 mahine), aur "agar har mahine sirf byaaj dete raho to kitna lagta" wala comparison. Simple interest **hata diya**.
-- Money ab **Indian format** me: ₹1,00,000 (1 lakh), ₹1.25 crore.
-
-### 🧮 4. EMI → ab **"kitne din me poora chukega"**
-- EMI, kul byaaj, kul payment, **pehli EMI ki date, aakhri EMI ki date**, aur `24 mahine = 731 din me` — simple bhasha me.
-
-### 📱 5. Number Info → **carrier info + 🧾 Public Records (button)**
-- Operator, circle/region, number type, country, timezone + **6 real check links** (WhatsApp chat, Telegram, Truecaller, Google, **Chakshu spam-report (TRAI)**, **Cyber Crime 1930**).
-- **🧾 Public Records button:** owner ke diye hue API (`osint-apis-hub.onrender.com/api/num-info`) se naam / pita ka naam / pata / linked number dikhata hai (5 records tak) + misuse warning + 1930/Chakshu report buttons.
-- ⚠️ Ye leaked/personal data hai — misuse **crime** (IT Act + DPDP Act) aur Telegram/host ban ka risk. Isliye **owner-controlled on/off switch**: `NUM_LEAK_ENABLED=off` karte hi button gayab.
-
-### 🆔 6. ID & Username Finder → **asli existence check** (pehle sirf links the)
-- GitHub · Telegram · YouTube · TikTok · Steam par **200/404-styled real check** → ✅ account MILA / ❌ account nahi hai / ❔ check nahi hua.
-- Baaki 9 platforms (Instagram, X, Reddit, Pinterest, Snapchat, Facebook, Spotify, Twitch, Threads) = **direct open links** (inka server-side check honestly possible nahi — jhooth nahi bolte).
-- Telegram heuristic: real/deactivated/bot page se naam nikalta hai, fake/generic page ko sahi se reject karta hai (7/7 verified).
-
-### 🧰 7. Roz ke tools ka upgrade
-| Tool | Kya naya |
+| Cheez | Kitna |
 |---|---|
-| 📷 QR | 4 type — Link/Text · 💰 UPI (fixed amount ke saath) · 📶 WiFi share · 👤 Contact card |
-| 🔐 Password | 4 mode — Naam wala · 🧠 Easy words (passphrase) · 🎲 Random strong · 🔢 6-digit PIN (strength meter ke saath) |
-| 📄 Doc PDF Compress | 100/200/300/500 KB choose karo + ⚫ Black & White mode + multi-photo → ek PDF |
-| 🖼️ Image→PDF | Normal + **A4 Print PDF** (printer par kuch kat nahi aata) |
-| 📸 Screenshot | HD + **📜 Full Page** (3-engine chain: thum.io → thum.io full → microlink backup) |
-| 📮 Pincode | Pincode se post offices **ya area ke naam se pincode** (bade buttons, copy-friendly) |
-| 🚗 RTO | 36 state codes + ~45 RTO districts + **5 official links** (VAHAN, e-Challan, IIB insurance, Sarathi DL, mParivahan) |
-| 🏦 IFSC | MICR + contact + UPI/NEFT/RTGS/IMPS flags + Maps |
-| 📖 **Tutorial Page (NAYA)** | Saare tools ka tareeka ek page par, bot me sirf link |
-| 🎁 **Quick Activate (NAYA)** | `/activate` — dost/direct paisa wale ko bina proof VIP |
-| 🛠️ **Admin Panel (NAYA)** | Dashboard + pending payments + user search + VIP/ban + broadcast |
-| 🌐 **IP / Domain (NAYA)** | ip-api se ISP, org, geo, timezone + **VPN/Proxy & Datacenter flags** |
-| 📱 **Public Records (optional)** | Naam/pita/pata/linked-number — env se on/off, warning + report buttons ke saath |
-| 🔎 Web Search | **3-engine parallel** (DuckDuckGo Lite + DDG HTML + Bing) → merge + dedupe (pehle sirf DDG) |
-| 📦 App Finder | 6 → **8 stores** (+ APKCombo, F-Droid) |
-| ❓ **MADAD / TUTORIAL (NAYA)** | Bot ke andar har tool ka 1-line simple matlab + `/tutorial` command |
-| 💬 Har tool ke andar | "Kaise use karein" mini-guide (users ko kuch poochhna hi na pade) |
+| Naya user | **25 credits free** (one time — roz nahi milte) |
+| Premium tools (7) | **1 use = 1 credit** |
+| Baaki **saare tools** | **FREE** (koi credit nahi) |
+| VIP (paid) / Owner | **Unlimited** — premium tools bhi free, koi credit nahi |
 
-### ❌ 8. Signature Cleaner **DELETE**
-- Menu, code, handler aur module se poori tarah hata diya gaya (jaisa aapne kaha).
+**Premium tools (7):** 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup ·
+🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio.
+
+VIP buy: `/premium` → plan chuno → QR se paisa → **Step 2**: UTR bhejo (12 digit) → **Step 3**: screenshot bhejo →
+admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` → plan select → `/activate <user_id>`.
 
 ---
 
----
+## 🧰 Poori tool list (v39)
 
-## 🆕 v31 PRO — Kya naya hai (What's New)
+**Download / forward**
+📥 Video Downloader (Instagram, YouTube, FB, X, TikTok, Pinterest… 20+ sites) · ⚡ Terabox/Mediafire/GDrive resolver ·
+🔄 Channel Cloner — manual + **full-auto** (source → target, caption/watermark/thumbnail) · 🔒 Private Channel Setup
 
-### 🔄 1. Channel Cloner → ab **100% FULL AUTO**
-- **Source channel set karo → bot khud**, 2–5 second me har **nayi post** tumhare target channel me daal deta hai (caption, tag, watermark, replace/remove words, thumbnail — sab branding ke saath).
-- **Manual forward mode** bhi pehle jaisa kaam karta hai (`🚀 Manual Forward Mode`).
-- Video / Document / Audio / Voice / GIF / Sticker / Video-Note **sab support** (pehle sirf text + photo chalta tha).
-- **Album (2–10 photos/videos)** ek saath album ban kar jata hai.
-- FloodWait (Telegram rate-limit) par khud wait; galat caption HTML ya thumbnail par automatic fallback — bot crash nahi hota.
-- Source == Target par **loop-protection**; target/source set karte waqt bot **khud admin-check** karta hai.
+**Photo / document**
+📸 Govt Exam Passport Photo (naam + DOP stamp, 20-50KB) · 🖨️ 8-in-1 Print Sheet · 📄 Doc/Marksheet PDF Compress (100KB-500KB) ·
+🖼️ Image → Multi-page PDF · 🏦 **Bank Statement PDF → Excel** (locked PDF bhi) · 📜 **Document Suite**
+(kirayanama, affidavit, notice 138, bayana/pakki rasid, rin shodh, naam sudhar + **registry total cost** + **bigha/kattha converter**)
 
-### 📥 2. Video Downloader → ab **UNIVERSAL (20+ platforms)**
-- Instagram (Reels / Posts / Carousels / Stories) + **YouTube, Shorts, Facebook, X (Twitter), TikTok, Snapchat, Pinterest, Reddit, Vimeo, Dailymotion, Threads** aur bahut kuch.
-- **3-engine chain:** `parth-dl` → `yt-dlp` → `og:video` scrape (jo chale wahi), plus optional cookie support (`IG_COOKIE`) se 100% reliable.
-- 48 MB se bada file ho to bot **clean direct download link** de deta hai (kaam rukta nahi).
-- Bundled FFmpeg (`imageio-ffmpeg`) — YouTube ke DASH streams ko 360p+audio merge karke bhejta hai.
+**Media studio**
+⚡ YouTube→MP3 · 🎬 Status Video (9:16) · 🎧 Ringtone cutter · 🎤 Karaoke · 🔊 8D · 💥 Bass boost ·
+🗣️ Voice change (kid / heavy / robot / ghost / gadget / echo) · ✂️ Trim · 🗜️ Compress · 🎼 Video→MP3
 
-### 🛡️ 3. LINK CHECK → ab **REAL multi-signal scanner** (pehle sirf 8 keyword match tha)
-- Redirect-chain unpacking, IP-host / punycode / `@`-trick detection, suspicious TLDs, brand-impersonation detection, lure words, free-hosting scam patterns, unusual ports, non-HTTPS.
-- **OpenPhish LIVE phishing feed** + **urlscan.io** reputation lookup.
-- Result: Verdict (SAFE / LOW RISK / SUSPICIOUS / DANGEROUS) + Risk score 0–100 + "Aap kya karein".
+**Info**
+📱 Number Info (operator/circle/type + 6 links) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
+🆔 ID & Username Finder (me / forward / @username → 5 platforms + 9 links) · 🌐 IP/Domain · 🚗 RTO vehicle info ·
+📦 App Finder (8 trust stores)
 
-### 📈 4. INTEREST CALCULATOR — **FIXED** (ye tool pehle completely toota hua tha)
-- 3-step flow: Principal → Rate (%) → Time (months/saal) → **Simple + Compound (monthly/quarterly/half-yearly/yearly)** poora breakdown.
-
-### 🧮 5. EMI CALC → ab **flexible input**
-- `100000` · `5,00,000 9% 24m` · `3 lakh 8.5% 5 saal` — sab chalega; Total Interest + Total Payment + 6 mahine ka breakdown.
-
-### 🔗 6. URL SHORT + LINK BYPASS → upgraded
-- **6 shortener providers** (da.gd, spoo.me, cleanuri, clck.ru, tinyurl, is.gd) — jo chale wahi (pehle wala is.gd dead tha).
-- LINK BYPASS ab **asli redirect chain** kholta hai + **tracking parameters (utm, fbclid, si, igshid…)** saaf karta hai.
-
-### ☁️ 7. Terabox / Cloud → **6-layer engine chain** (2026 reality handled)
-- Public workers → Guest listing → **NDUS cookie mode** (`TERABOX_COOKIE` env) → apna custom provider (`TERABOX_API_BASE`) → **trusted web-downloader fallback buttons**.
-- Mediafire: naya `data-scrambled-url` (base64) decode; Google Drive: large-file **confirm-token** handling + filename/size.
-
-### 🔍 8. Baaki sab **waise hi kaam kar raha hai** (regression-tested)
-- QR, Password, Age, Pincode, IFSC, RTO, Number Info, ID Finder, IMAGE→PDF, Cyber Cafe Studio (Passport photo / Signature / Print sheet / PDF compress), Web Search, App Finder, Site Screenshot, Sarkari & Exam Hub, VIP/UPI, Voice Studio, ID… — sab pehle jaisa, aur 44 live checks me se 43 PASS.
+**Chhote tools**
+📷 QR (link/text, WiFi, contact) · 🔗 URL Short · 🔓 Link Bypass (tracking clean) · 🔍 Link Check (scam detector) ·
+📈 Interest Calc (chakravriddhi — gaon wala byaaj) · 🖼️ Website Screenshot (HD + full page) ·
+🏛️ Sarkari Seva Portals · 🎓 Student Exam Hub · 👤 My Account · ❓ Help/Tutorial · 💎 VIP · 🎁 Refer & Earn (5 refer = 30 din VIP)
 
 ---
 
-# ⚡ Utility Duniya Super-Bot (v31 PRO Edition)
+## 📖 Tutorial
 
-An All-in-One Super Automation & Utility Engine built for Telegram with **25+ High-Power Tools**, **Sarkari & Student Portals**, **AI Cyber Cafe Studio**, **Terabox Multi-Cloud Downloader**, **Channel Cloner & Auto-Forwarder**, **AI Voiceover Studio**, and **Automated VIP Subscription & UPI Dynamic QR Engine**.
-
----
-
-## 🔥 Features Overview
-
-### 1. ⚡ Terabox & Multi-Cloud Direct Downloader
-- **Ad-Free Bypass:** Extracts direct high-speed download links and web stream links for **Terabox**, **Mediafire**, and **Google Drive**.
-
-### 2. 🔄 Channel Cloner & Auto-Forwarder with Custom Branding
-- **Auto-Forward / Batch Clone:** Clone posts from public channels or batch forward media.
-- **Custom Branding:** Automatically replaces captions, removes old links, and appends custom channel watermarks.
-
-### 3. 🎙️ AI Voice Clone & Celebrity Voiceover Studio
-- Powered by high-speed neural TTS engines:
-  - 🎙️ *Modi Ji / Deep Indian Male Voice*
-  - 🌸 *Sweet Hindi Female (Swara)*
-  - ⚡ *Viral Deep Alpha Male (Hormozi / Sigma Style)*
-  - 🏏 *Aggressive Sports Commentary*
-  - 🎭 *Anime Cute Girl Voice*
-  - 🇮🇳 *Indian & British English Accents*
-
-### 4. 🏛️ Official Government Services & Student Exam Hub
-- **100% Direct Official Portals:**
-  - 💳 **Aadhaar:** e-Aadhaar Download, PVC Card Order, Mobile Link & Lock
-  - 🪪 **PAN Card:** 10-Minute Free Instant e-PAN, Link Status & Corrections
-  - 🍚 **Ration & Ayushman:** NFSA State Portals, ABHA Health ID Download
-  - 🎓 **APAAR ID:** One Nation One Student ID Portal
-  - 🚗 **Parivahan:** Driving License, Learner Apply, RC & e-Challan
-  - 📜 **State Certificates:** Bihar RTPS, UP e-District, Jharsewa
-  - 💼 **EPFO / PF:** UAN Passbook & Online Claim
-- **Student Exam Hub:** SSC, Railway RRB, UPSC, Defence Agniveer, State Police, Banking IBPS/SBI, CTET Admit Cards & Official Answer Keys.
-
-### 5. 📸 AI Cyber Cafe Document Studio
-- **Candidate Name & DOP Stamp:** Auto creates standard 3.5cm x 4.5cm passport photo with official white bottom box, uppercase name & date, compressed to exact 20KB-50KB.
-- **Printable 8-in-1 Sheet:** Creates 4x6 inch (1200x1800 @ 300 DPI) sheet with crop lines for ₹5-10 photo lab printing.
-- **Signature Cleaner & Enhancer:** Converts camera photos into high-contrast black ink on pure white background, compressed to 10KB-20KB.
-- **Document / Marksheet PDF Compressor:** Compresses marksheet photos into crisp PDFs under 250KB for Govt portal compliance.
-
-### 6. 🕵️ Smart OSINT & Digital Investigation Hub
-- 🚗 **Vehicle RTO Lookup:** Parses number plates, state, district RTO, and parivahan links.
-- 📱 **Phone Carrier & Circle:** Telecom circle, carrier, and one-tap WhatsApp link.
-- 🏦 **IFSC Bank Branch Lookup:** Real-time bank branch details + Google Maps location.
-- 📮 **Pincode Lookup:** Postal circle, district, and post offices list.
-- 🌐 **IP / Domain WHOIS:** Host, ISP, region, city, and ASN details.
-- 👤 **Social Media Username Checker:** Checks availability across 30+ platforms.
-
-### 7. 🛠️ Classic High-Speed Utilities
-- 📷 HD QR Code Generator (WiFi, UPI, URL, Text)
-- 🖼️ Multi-Page Image to PDF Converter
-- 🔗 URL Shortener (is.gd & tinyurl)
-- 🧮 Loan EMI & Amortization Schedule
-- 🎂 Age, Zodiac & Next Birthday Countdown
-- 🔐 Strong Password Generator
-- 🔎 Web Search & Play Store App Finder
-- 🖼️ Full HD Website Screenshot
-
-### 8. 💎 Automated VIP Subscription & Earning System
-- Dynamic UPI QR Code generation with plan amounts (₹19, ₹49, ₹99).
-- Payment proof submission with 1-click Admin Approval / Rejection buttons.
-- Referral system: Invite 5 friends = 30 Days Free VIP.
+- Bot me: har tool ke **neeche 🎬 video button** (30 sec video) — aur ❓ **Help/Tutorial** me saare video.
+- Text tutorial: `TUTORIAL.md` (aur bot ka telegra.ph page — `/tutrefresh` se refresh).
+- Admin: `/admin` (dashboard: users, revenue, pending payments), `/payments` (pending list), `/activate <id> [days]`,
+  `/credits <id> [n]`, `/tutrefresh`.
 
 ---
 
-## 🚀 Deployment Instructions
+## 🗂️ Files
 
-### 1. Environment Variables (`.env`)
-```env
-BOT_TOKEN=your_telegram_bot_token_from_botfather
-ADMIN_ID=your_telegram_user_id
-FORCE_CHANNEL=@YourChannelUsername
-FORCE_CHANNEL_LINK=https://t.me/YourChannelUsername
-UPI_ID=yourname@upi
-UPI_NAME=UtilityDuniya
-FREE_LIMIT=20
-REFER_NEED=5
+```
+bot.py              — main bot (handlers, menus, credits, VIP, admin, kagaz flow, media studio flow)
+database.py         — SQLite (users, credits, payments, VIP, referrals, cloner config)
+modules/
+  channel_cloner.py — cloner engine (auto-forward, branding, albums, floodwait retry)
+  cloud_tools.py    — terabox / mediafire / gdrive direct-link resolvers
+  cyber_studio.py   — passport photo, print sheet, PDF compress (grayscale/A4)
+  desi_tools.py     — bank statement parser, kagaz PDFs, registry cost, land units, media studio (ffmpeg)
+  general_tools.py  — QR, vCard, WiFi QR, image→PDF, screenshot, app store links
+  media_downloader.py — yt-dlp/parth engine (20+ sites)
+  osint_tools.py    — RTO, phone info, IFSC, pincode, IP, username finder
+  payguard.py       — payment proof check (UTR format + duplicate + screenshot analysis)
+  sarkari_hub.py    — government portals + student exam hub
+  toolkit_extras.py — URL shortener, link bypass, link safety scanner, interest engine
+  tutorial_hub.py   — tutorial page (telegra.ph) + video links
+  vip_payment.py    — VIP plans, UPI QR, payment flow
+requirements.txt    — saare packages
+v39-KYA-BADLA.md    — v39 me kya badla (2 minute read)
+EARNING-TOOLS-V39.md— 12 naye earning-tool ideas (no AI)
+TUTORIAL.md         — text tutorial (fallback link)
+_audit_tools_v39.py — tool-by-tool audit script (68 engines — chala kar dekh lo)
 ```
 
-### 2. Run Locally
+---
+
+## 🧪 Khud test karo
+
 ```bash
-pip install -r requirements.txt
-python bot.py
+python3 _audit_tools_v39.py     # 68 engines: PDF, ffmpeg, QR, link safety, land, kagaz — sab
 ```
 
-### 3. Deploy to Render / Koyeb / VPS
-The repository includes `render.yaml` and a built-in background keepalive web server on port `8080` for 24/7 uninterrupted uptime.
+Aur bot me: `/start` → menu → koi bhi tool kholo → prompt saaf English me aayega + aakhir me "Now send ..." line.
+
+---
+
+## ⚠️ Zaroori baatein
+
+- **Koi AI tool nahi** — sab kuch offline/deterministic (server pe koi AI model nahi, Render 512MB me aaram se chalega).
+- **Legal:** Number info = live carrier/type + links (kisi ki niji jaankari nahi). Public-records feature
+  **owner ki marzi se off** rakhi ja sakti hai: `NUM_LEAK_ENABLED=off`.
+- **Copyright:** downloader sirf public links ke liye — kisi ka paid content dobara bechna galat hai.
+- Payment proof sakhti se check hota hai: UTR format + duplicate + screenshot asli hai ya photo.

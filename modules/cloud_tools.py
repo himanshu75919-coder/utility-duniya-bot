@@ -400,12 +400,12 @@ def resolve_terabox(url: str) -> dict:
 
     # Sab fail — kabhi bhi user ko khali haath nahi bhejte: fallback card
     surl = _extract_surl(url)
-    hint = ("Direct link ke liye TERABOX_COOKIE (ndus) set karein — 100% chalta hai. "
-            "Ya neeche ke web downloader use karein.")
+    hint = ("Set TERABOX_COOKIE (ndus) for a direct link — that always works. "
+            "Or use the web downloader below.")
     return {
         "ok": False,
         "provider": "Terabox",
-        "error": "Direct link nahi mil paya (2026 me Terabox ne public API band kar diya hai).",
+        "error": "Direct link not found (Terabox closed its public API in 2026).",
         "hint": hint,
         "fallback_links": TERABOX_WEB_FALLBACKS,
         "surl": surl,
@@ -473,7 +473,7 @@ def resolve_mediafire_direct(url: str) -> dict:
                 "stream_url": direct,
                 "files": [{"name": title[:120], "size": size, "size_bytes": 0, "dlink": direct, "stream": direct}],
             }
-        return {"ok": False, "error": "Direct download button nahi mila (file private/deleted ho sakti hai)."}
+        return {"ok": False, "error": "Direct download button not found (the file may be private or deleted)."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:150]}
 
@@ -487,7 +487,7 @@ def resolve_gdrive_direct(url: str) -> dict:
     if m:
         file_id = m.group(1)
     if not file_id:
-        return {"ok": False, "error": "Invalid Google Drive link (file ID nahi mila)."}
+        return {"ok": False, "error": "Invalid Google Drive link (file ID not found)."}
 
     direct = f"https://drive.usercontent.google.com/download?id={file_id}&export=download"
     title = f"Google Drive File ({file_id[:10]}...)"
@@ -512,7 +512,7 @@ def resolve_gdrive_direct(url: str) -> dict:
                 direct = f"{direct}&confirm={tok.group(1)}"
                 if uuid:
                     direct += f"&uuid={uuid.group(1)}"
-                confirm_note = "Bada file hai — neeche wala link browser me kholo, download turant shuru hoga."
+                confirm_note = "This is a big file — open the link below in a browser and the download starts at once."
     except Exception:
         pass
 
@@ -542,6 +542,6 @@ def resolve_cloud_url(url: str) -> dict:
     else:
         return {
             "ok": False,
-            "error": ("Ye cloud domain support nahi hai. Abhi ye chalta hai: Terabox (20+ domains), "
-                      "Mediafire, Google Drive. Kisi doosre link ka direct URL chahiye to 'LINK BYPASS' tool use karein."),
+            "error": ("This cloud domain is not supported. Working now: Terabox (20+ domains), "
+                      "Mediafire, Google Drive. For a direct URL of any other link, use the 'LINK BYPASS' tool."),
         }
