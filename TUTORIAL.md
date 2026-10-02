@@ -43,7 +43,8 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 ## 5. Information tools
 
-> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. VIP feature.
+> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
+> • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
@@ -210,6 +211,14 @@ Send the number plate. You get the **full report**:
 • 🚨 **Challans**: pending / paid / in-court, amount, date, offence
 _Owner mobile and chassis/engine are shown masked (privacy)._
 🔢 **Now send the number plate** (example `BR30AR0802`):
+
+## 📲 IMEI / PHONE DETAILS
+
+Send the **15 digit IMEI** of any phone or tablet.
+📍 Where to find it: dial `*#06#` on that phone — the IMEI shows on the screen (it is also printed on the box or the bill).
+✅ You get: brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a `.json` copy file.
+⚠️ Use it only for your own device or a phone you are buying.
+🔢 **Now send the 15 digit IMEI** (example `353010111111110`):
 
 ## 📱 NUMBER INFORMATION
 

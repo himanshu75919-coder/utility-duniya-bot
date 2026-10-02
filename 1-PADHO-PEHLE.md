@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v40 (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v41 (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -10,7 +10,17 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
 ---
 
-## 0️⃣ v40 (naya) — VEHICLE INFO + CHALLAN
+## 0️⃣ v41 (naya) — IMEI / PHONE DETAILS + asli VEHICLE hub
+
+**📲 IMEI / PHONE DETAILS:** 15 digit IMEI bhejo (phone me `*#06#`) → brand, model, **device photo** +
+poori **spec sheet** (display, chipset, camera, battery, network) + **`.json` copy file**.
+Galat IMEI / na mila / API band = **credit nahi katta**. Guide: **`v41-API-HUB.md`**.
+
+**🚗 VEHICLE INFO + CHALLAN:** ab aapke **asli API hub** se — `vehicle-rc` + `vehicle-challan` + `vehicle-challan-v4`
+teeno merge hote hain (challan list + total amount summary). Khaali plate par credit nahi katta.
+Key Render me daalni hai (`VEHICLE_API_KEY` / `IMEI_API_KEY`) — **default abhi `Demo` hai**.
+
+## 0️⃣ (purana) v40 — VEHICLE INFO + CHALLAN
 
 Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount, date, offence) — jaise aapne example dikhaya.
 - **API lagani hai:** Render → Environment me `VEHICLE_API_URL` + `VEHICLE_API_KEY` (+ `VEHICLE_API_PARAM` agar naam alag ho) →
@@ -26,7 +36,8 @@ Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount
 |---|---|
 | **8 tools poore hata diye** | 🎙️ Actors Voice Studio · 🧮 EMI Calc · 🎂 Age Calculator · 🔐 Password Generator · 🔎 Web Search · 💰 UPI QR · 🕵️ Photo Info + Fake Detect · 🪔 Rahu Kaal/Panchang — **menu, button, code, tutorial: sab se gayab** |
 | **Text simple English** | Pehle Hindi me tha ("Ab number bhejein", "CREDITS KHATAM") — ab **simple English** ("Now send the number:", "ALL CREDITS USED"). Lambe instructions bhi chhote kar diye |
-| **v40 naya tool** | 🚗 Vehicle Info + Challan (RC + challan report, live API) — premium tool #8 |
+| **v40 tool** | 🚗 Vehicle Info + Challan (RC + challan report, live API) — premium tool #8 |
+| **v41 naya tool** | 📲 IMEI / Phone Details (device + full spec sheet + .json) — premium tool #9 · vehicle ab asli hub API par |
 | **Bug fix** | tutorial me "voice" video ka button (tool hi nahi tha) · admin plan select par double line · purane imports |
 | **Test** | sab suites green: 51/51 flows, 54/54 admin, 46/46 video, 81/81 credits, 80/80 naye tools, 93/93 live checks, 68 engines audit |
 

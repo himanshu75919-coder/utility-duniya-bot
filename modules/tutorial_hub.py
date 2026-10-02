@@ -75,7 +75,8 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 ## 5. Information tools
 
-> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. VIP feature.
+> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
+> • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
@@ -189,6 +190,8 @@ TUTORIAL_VIDEO_KEYS = {
     "bankpdf": "doc_compress",
     "kagaz": "pdf",
     "mediastudio": "video_dl",
+    # ---- v40/v41 live API tools (closest video; apna video banega) ----
+    "imei": "numinfo",
 }
 
 # video ke caption me tool ki jhalak (video title)
@@ -204,6 +207,7 @@ VIDEO_TITLES = {
     "refer": "🎁 REFER & EARN", "account": "👤 MY ACCOUNT", "vnum": "🌐 VIRTUAL NUMBERS",
     "tutorial": "❓ HOW TO USE BOT",
     "bankpdf": "🏦 BANK PDF → EXCEL", "kagaz": "📜 DOCUMENT SUITE", "mediastudio": "⚡ MEDIA STUDIO",
+    "imei": "📲 IMEI / PHONE DETAILS",
 }
 
 
@@ -231,7 +235,7 @@ def has_video(action: str) -> bool:
 
 def video_caption(action: str) -> str:
     key = video_key(action)
-    title = VIDEO_TITLES.get(key, "🎬 TUTORIAL")
+    title = VIDEO_TITLES.get(action) or VIDEO_TITLES.get(key, "🎬 TUTORIAL")
     return (
         f"🎬 <b>{title}</b> — TUTORIAL\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
