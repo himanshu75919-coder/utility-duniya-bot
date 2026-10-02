@@ -59,6 +59,19 @@ from telegram.ext import (
 
 # Internal modules
 from database import (
+    create_payment,
+    get_payment,
+    payment_stats,
+    pending_payments,
+    pending_payments_count,
+    recent_payments,
+    revoke_premium,
+    set_payment_admin_msg,
+    set_payment_status,
+    shot_exists,
+    user_payment_history,
+    user_payments,
+    utr_exists,
     add_referral,
     add_trial,
     add_use,
@@ -169,6 +182,15 @@ from modules.general_tools import (
     site_screenshot,
     zodiac,
 )
+from modules.payguard import (
+    MAX_BAD_TRIES,
+    admin_payment_card,
+    analyze_screenshot,
+    shot_verdict_line,
+    user_payment_reply,
+    utr_help_text,
+    validate_utr,
+)
 from modules.vip_payment import (
     VIP_PLANS,
     generate_plan_payment_qr,
@@ -179,6 +201,16 @@ from modules.vip_payment import (
 # ---------------- CONFIG ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
+
+# v33: ek se zyada admin (ADMINS=123,456) — owner + helper admins kaam kar sakte hain
+_ADMIN_EXTRA = [int(x) for x in re.split(r"[,\s]+", os.getenv("ADMINS", "")) if x.strip().isdigit()]
+ADMIN_IDS = {x for x in {ADMIN_ID, *_ADMIN_EXTRA} if x}
+OWNER_ID = ADMIN_ID
+
+
+def is_admin(uid: int) -> bool:
+    """Owner/admin hai? Uske liye koi premium limit nahi lagti."""
+    return bool(ADMIN_IDS) and uid in ADMIN_IDS
 FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
 FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
@@ -215,7 +247,10 @@ def to_bold(text: str) -> str:
     return "".join(res)
 
 
-def check_limit_exceeded(u: dict) -> bool:
+def check_limit_exceeded(u: dict, uid: int = 0) -> bool:
+    """Owner/admin ke liye koi limit nahi. VIP ke liye nahi. Free users ke liye FREE_LIMIT."""
+    if uid and is_admin(uid):
+        return False
     if is_premium(u):
         return False
     return u.get("uses_today", 0) >= FREE_LIMIT
@@ -424,7 +459,7 @@ KB_BTNS = [
 def main_keyboard(admin: bool = False):
     rows = [row[:] for row in KB_BTNS]
     if admin:
-        rows.append([f"🛠️ {to_bold('ADMIN PANEL')}"])
+        rows.append([f"🛠️ {to_bold('ADMIN PANEL')}", f"👑 {to_bold('OWNER MODE')}"])
     return ReplyKeyboardMarkup(
         [[KeyboardButton(t) for t in row] for row in rows],
         resize_keyboard=True,
@@ -433,7 +468,7 @@ def main_keyboard(admin: bool = False):
 
 
 def kb_for(uid: int):
-    return main_keyboard(admin=(uid == ADMIN_ID and ADMIN_ID != 0))
+    return main_keyboard(admin=is_admin(uid))
 
 
 # Exact Action Mapping
@@ -491,6 +526,7 @@ BTN_MODE_MAP = {
     "MADAD": "tutorial",
     "HELP / TUTORIAL": "tutorial",
     "ADMIN PANEL": "admin",
+    "OWNER MODE": "owner",
 }
 
 PROMPTS = {
@@ -863,6 +899,24 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if is_admin(update.effective_user.id):
+        st = payment_stats()
+        await update.message.reply_text(
+            f"👑 <b>Aap is bot ke OWNER/ADMIN ho</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "✅ Aapke liye <b>sab kuch unlimited</b> hai — na daily limit, na VIP paisa.\n"
+            "Aapko premium lene ki koi zaroorat nahi 😄\n\n"
+            f"💳 <b>Pending payments (verify karne hain):</b> {st['pending']}\n"
+            f"💰 <b>Total revenue:</b> ₹{st['revenue']}\n\n"
+            "👉 Payment verify karne ke liye <b>/payments</b> bhejo ya <b>/admin</b> kholein.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"💳 Pending Payments ({st['pending']})", callback_data="admpay_list")],
+                [InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
+            ]),
+            parse_mode=HTML,
+        )
+        return
+
     text = (
         f"💎 <b>{to_bold('VIP PREMIUM MEMBERSHIP')}</b> 💎\n"
         "<blockquote>Unlock Unlimited High-Speed Cloud Downloads, Cloner, Photo Studio & AI Voices!</blockquote>\n\n"
@@ -878,32 +932,111 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+    if not is_admin(update.effective_user.id):
         return
+    await admin_panel_send(update.message, context, update.effective_user.id)
+
+
+async def admin_panel_send(message, context, uid: int):
+    """Naya advanced admin panel (buttons ke saath)."""
     st = stats()
+    ps = payment_stats()
+    pend = pending_payments_count()
     text = (
-        f"🛠️ <b>{to_bold('ADMIN CONTROL DASHBOARD')}</b> 🛠️\n\n"
-        f"📊 <b>Bot Live Statistics:</b>\n"
-        f"• 👥 <b>Total Users:</b> {st['total_users']}\n"
-        f"• 🟢 <b>Active Today:</b> {st['active_today']}\n"
-        f"• ⚡ <b>Total Uses Today:</b> {st['uses_today']}\n"
-        f"• 💎 <b>Active VIP Users:</b> {st['vip_users']}\n\n"
-        f"👑 <b>Grant VIP Duration Commands:</b>\n"
-        f"• 🌟 <b>30 Days (1 Month):</b> <code>/grant [userid] 30</code>\n"
-        f"• 🌟 <b>60 Days (2 Months):</b> <code>/grant [userid] 60</code>\n"
-        f"• 🌟 <b>90 Days (3 Months):</b> <code>/grant [userid] 90</code>\n"
-        f"• 🌟 <b>120 Days (4 Months):</b> <code>/grant [userid] 120</code>\n"
-        f"• 👑 <b>Lifetime VIP:</b> <code>/grant [userid] 9999</code>\n\n"
-        f"🛠️ <b>Management Commands:</b>\n"
-        f"• 📢 <code>/broadcast [message]</code> - Send to all users\n"
-        f"• 🚫 <code>/ban [userid]</code> - Ban user\n"
-        f"• 🟢 <code>/unban [userid]</code> - Unban user"
+        f"🛠️ <b>{to_bold('ADMIN CONTROL DASHBOARD')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"👥 <b>Total Users:</b> {st['total_users']}   |   🟢 <b>Aaj Active:</b> {st['active_today']}\n"
+        f"⚡ <b>Aaj ke Uses:</b> {st['uses_today']}   |   💎 <b>Active VIP:</b> {st['vip_users']}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"💳 <b>Pending Payments:</b> {pend}  {'🔴 (verify karo!)' if pend else '✅'}\n"
+        f"✅ <b>Approved Total:</b> {ps['approved']}   |   ❌ <b>Rejected:</b> {ps['rejected']}\n"
+        f"💰 <b>Total Revenue:</b> ₹{ps['revenue']:,}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "👇 Neeche se kuch bhi karo:"
     )
-    await update.message.reply_text(text, parse_mode=HTML)
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"💳 Pending Payments ({pend})", callback_data="admpay_list"),
+         InlineKeyboardButton("🧾 Payment History", callback_data="admhist")],
+        [InlineKeyboardButton("👥 Recent Users", callback_data="admusers"),
+         InlineKeyboardButton("🔍 User Search / VIP Dena", callback_data="admsearch")],
+        [InlineKeyboardButton("🚫 Ban / Unban", callback_data="admbanmenu"),
+         InlineKeyboardButton("📢 Broadcast", callback_data="admbcmenu")],
+        [InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
+    ])
+    await message.reply_text(text, reply_markup=kb, parse_mode=HTML)
+
+
+async def cmd_payments(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/payments — sirf admin ke liye: pending payments ki list."""
+    if not is_admin(update.effective_user.id):
+        return
+    pend = pending_payments(10)
+    if not pend:
+        await update.message.reply_text("✅ <b>Koi pending payment nahi hai!</b> Sab verify ho chuke hain.", parse_mode=HTML)
+        return
+    await update.message.reply_text(
+        f"💳 <b>{to_bold('PENDING PAYMENTS')}</b> ({len(pend)})\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "Neeche kisi bhi payment par tap karke <b>poora proof + approve/reject</b> buttons dekho 👇",
+        reply_markup=admin_pending_kb(pend), parse_mode=HTML)
+
+
+def admin_pending_kb(pend: list):
+    rows = []
+    for p in pend:
+        amt = p.get("amount", 0)
+        rows.append([InlineKeyboardButton(
+            f"#{p['id']} · ₹{amt} · {str(p.get('plan_key') or p.get('plan_name'))[:14]} · user {p['user_id']}",
+            callback_data=f"admpay_view:{p['id']}")])
+    rows.append([InlineKeyboardButton("🔄 Refresh", callback_data="admpay_list")])
+    rows.append([InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def admin_payment_kb(pid: int):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("✅ Approve 30 din", callback_data=f"apay:{pid}:30"),
+         InlineKeyboardButton("✅ Approve 60 din", callback_data=f"apay:{pid}:60")],
+        [InlineKeyboardButton("✅ Approve 90 din", callback_data=f"apay:{pid}:90"),
+         InlineKeyboardButton("✅ Approve 120 din", callback_data=f"apay:{pid}:120")],
+        [InlineKeyboardButton("👑 Approve LIFETIME", callback_data=f"apay:{pid}:9999"),
+         InlineKeyboardButton("❌ Reject", callback_data=f"rpay:{pid}")],
+        [InlineKeyboardButton("📩 User se dobara maango", callback_data=f"askpay:{pid}")],
+    ])
+
+
+async def cmd_mypay(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User apni payments ka status dekh sakta hai."""
+    uid = update.effective_user.id
+    rows = user_payments(uid, 5)
+    if not rows:
+        await update.message.reply_text("📭 Abhi tak koi payment nahi bheji. VIP lene ke liye <b>/premium</b> dabao.", parse_mode=HTML)
+        return
+    icons = {"pending": "⏳", "approved": "✅", "rejected": "❌"}
+    lines = []
+    for r in rows:
+        lines.append(f"{icons.get(r.get('status'), '❔')} <b>#{r['id']}</b> · {r.get('plan_name')} · ₹{r.get('amount')} · "
+                     f"UTR <code>{r.get('utr_ref')}</code> · <b>{str(r.get('status')).upper()}</b>")
+    await update.message.reply_text(
+        "🧾 <b>Meri Payments</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
+        "\n━━━━━━━━━━━━━━━━━━━━━━\n⏳ admin verify kar raha hai · ✅ VIP mil gaya · ❌ reject",
+        parse_mode=HTML)
+
+
+async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Admin: /revoke [user_id] — VIP hata do."""
+    if not is_admin(update.effective_user.id):
+        return
+    if not context.args or not context.args[0].isdigit():
+        await update.message.reply_text("Format: <code>/revoke [user_id]</code>", parse_mode=HTML)
+        return
+    target = int(context.args[0])
+    revoke_premium(target)
+    await update.message.reply_text(f"🚫 User <code>{target}</code> ki VIP hata di gayi.", parse_mode=HTML)
 
 
 async def cmd_grant(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+    if not is_admin(update.effective_user.id):
         return
     args = context.args
     if len(args) < 2:
@@ -934,7 +1067,7 @@ async def cmd_grant(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+    if not is_admin(update.effective_user.id):
         return
     msg_text = " ".join(context.args) if context.args else ""
     if not msg_text:
@@ -954,7 +1087,7 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+    if not is_admin(update.effective_user.id):
         return
     if not context.args:
         await update.message.reply_text("Format: <code>/ban [userid]</code>", parse_mode=HTML)
@@ -968,7 +1101,7 @@ async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID or ADMIN_ID == 0:
+    if not is_admin(update.effective_user.id):
         return
     if not context.args:
         await update.message.reply_text("Format: <code>/unban [userid]</code>", parse_mode=HTML)
@@ -1059,17 +1192,37 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("buy_plan_"):
         plan_key = data.replace("buy_", "")
         qr_buf, plan_name, amt = generate_plan_payment_qr(UPI_ID, UPI_NAME, plan_key, uid)
+        pending_n = len(pending_payments(20))
+        if pending_n >= 3:
+            mine = [p for p in pending_payments(20) if p.get("user_id") == uid]
+            if len(mine) >= 3:
+                await q.answer("Aapke 3 payment already pending hain — admin verify karega.", show_alert=True)
+                return
+        context.user_data["mode"] = f"pay_utr_{plan_key}"
+        context.user_data["pay_utr_tries"] = 0
+        context.user_data["pay_shot_tries"] = 0
         caption = (
-            f"💎 <b>{to_bold(plan_name)}</b>\n\n"
+            f"💎 <b>{to_bold(plan_name)}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"💰 <b>Amount:</b> ₹{amt}\n"
-            f"🏦 <b>UPI ID:</b> <code>{UPI_ID}</code>\n\n"
-            f"👉 <b>Payment Steps:</b>\n"
-            f"1️⃣ QR Code scan karke ₹{amt} pay karein (PhonePe/GPay/Paytm)\n"
-            f"2️⃣ Payment ka <b>Screenshot ya UTR / Transaction ID</b> yahan bhejein.\n\n"
-            f"⚡ Admin verify karke turant VIP activate kar dega!"
+            f"🏦 <b>UPI ID:</b> <code>{UPI_ID}</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📲 <b>Step 1:</b> Is QR ko scan karke ₹" f"{amt} pay karein\n"
+            "   (PhonePe / GPay / Paytm / BHIM)\n\n"
+            "📝 <b>Step 2:</b> Payment hone ke baad <b>UTR / Transaction ID</b> yahan bhejein\n"
+            "📸 <b>Step 3:</b> Payment ka <b>screenshot</b> bhejein\n\n"
+            "⚠️ <b>Strict check:</b> UTR sahi hona chahiye aur screenshot asli payment ka hona chahiye "
+            "(photo/hasne wali image nahi). Galat proof par VIP nahi milega."
         )
-        context.user_data["mode"] = f"pay_proof_{plan_key}"
-        await q.message.reply_photo(photo=qr_buf, caption=caption, parse_mode=HTML)
+        kb_pay = InlineKeyboardMarkup([
+            [InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")],
+            [InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
+        ])
+        await q.message.reply_photo(photo=qr_buf, caption=caption, reply_markup=kb_pay, parse_mode=HTML)
+        return
+
+    if data == "pay_utr_help":
+        await q.message.reply_text(utr_help_text(), parse_mode=HTML)
         return
 
     if data == "open_vip_menu":
@@ -1082,30 +1235,303 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(f"🎁 <b>Aapka Invite Link:</b>\n<code>{ref_link}</code>", parse_mode=HTML)
         return
 
-    # Admin Approval Handlers
-    if data.startswith("adm_appr_") and uid == ADMIN_ID:
-        parts = data.split("_")
-        target_uid = int(parts[2])
-        days = int(parts[3])
-        grant_premium(target_uid, days)
-        await q.message.edit_caption(caption=f"✅ <b>Approved!</b> User <code>{target_uid}</code> ko {days} din VIP diya gaya.", parse_mode=HTML)
+    # ================= ADMIN: PAYMENT APPROVE / REJECT (v33 — FIXED + STRICT) =================
+    async def _edit_admin_msg(text, kb=None):
+        """Admin message chahe photo-caption ho ya text — dono me kaam kare (purana bug yahi tha)."""
+        for fn, kw in ((q.message.edit_caption, {"caption": text, "parse_mode": HTML, "reply_markup": kb}),
+                       (q.message.edit_text, {"text": text, "parse_mode": HTML, "reply_markup": kb})):
+            try:
+                await fn(**kw)
+                return True
+            except Exception:
+                continue
         try:
+            await q.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
+            return True
+        except Exception:
+            return False
+
+    if data.startswith("apay:"):
+        if not is_admin(uid):
+            await q.answer("Ye sirf admin ke liye hai.", show_alert=True)
+            return
+        _, pid_s, days_s = data.split(":")
+        pid, days = int(pid_s), int(days_s)
+        pay = get_payment(pid)
+        if not pay:
+            await q.answer("Payment record nahi mila.", show_alert=True)
+            return
+        if pay.get("status") == "approved":
+            await q.answer("✅ Ye payment pehle hi approve ho chuka hai!", show_alert=True)
+            return
+        target_uid = int(pay["user_id"])
+        grant_premium(target_uid, days)
+        set_payment_status(pid, "approved", reviewer=uid, note=f"{days} din")
+        dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} din VIP"
+        ok_edit = await _edit_admin_msg(
+            f"✅ <b>APPROVED — Payment #{pid}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>User:</b> <code>{target_uid}</code>\n"
+            f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
+            f"👑 <b>Diya:</b> {dur}\n"
+            f"🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "✅ User ko message chala gaya.",
+            kb=InlineKeyboardMarkup([
+                [InlineKeyboardButton(f"💳 Aur Pending ({pending_payments_count()})", callback_data="admpay_list"),
+                 InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]))
+        await q.answer("✅ VIP activate ho gaya!")
+        try:
+            user_obj = get_user(target_uid)
+            new_until = "👑 LIFETIME" if days >= 9999 else premium_expiry(user_obj)
             await context.bot.send_message(
                 target_uid,
-                f"🎉 <b>Badhai ho!</b> Aapka payment approve ho gaya hai aur {days} din ka VIP Access activate ho gaya hai! 💎",
-                parse_mode=HTML,
-            )
+                "🎉 <b>MUBARAK HO! VIP ACTIVATE HO GAYA</b> 💎\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🧾 <b>Payment ID:</b> #{pid}\n"
+                f"👑 <b>Plan:</b> {dur}\n"
+                f"📅 <b>Valid till:</b> {new_until}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Ab aapko <b>koi daily limit nahi</b> — saare tools unlimited chalayein! 🚀\n"
+                "<i>Bot enjoy karo aur dosto ko bhi batao 😄</i>",
+                parse_mode=HTML)
+        except Exception:
+            pass
+        if not ok_edit:
+            await q.message.reply_text(f"✅ Payment #{pid} approve ho gaya ({dur}).")
+        return
+
+    if data.startswith("rpay:"):
+        if not is_admin(uid):
+            await q.answer("Sirf admin.", show_alert=True)
+            return
+        pid = int(data.split(":")[1])
+        pay = get_payment(pid)
+        if not pay:
+            await q.answer("Record nahi mila.", show_alert=True)
+            return
+        if pay.get("status") == "approved":
+            await q.answer("Ye payment approve ho chuka hai — reject nahi ho sakta.", show_alert=True)
+            return
+        set_payment_status(pid, "rejected", reviewer=uid, note="admin reject")
+        await _edit_admin_msg(
+            f"❌ <b>REJECTED — Payment #{pid}</b>\n\n"
+            f"👤 User: <code>{pay.get('user_id')}</code>\n💰 ₹{pay.get('amount')}\n🧾 UTR: <code>{pay.get('utr_ref')}</code>\n\n"
+            "<i>User ko wajah ke saath message bhej diya gaya.</i>",
+            kb=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]))
+        await q.answer("Rejected")
+        try:
+            await context.bot.send_message(
+                int(pay["user_id"]),
+                f"❌ <b>Payment #{pid} verify nahi ho paya</b>\n\n"
+                "Wajah ho sakti hai:\n"
+                "• UTR galat ya pehle use ho chuka\n"
+                "• Screenshot saaf nahi tha / payment ka nahi tha\n"
+                "• Amount match nahi kar raha\n\n"
+                "🔁 Sahi proof ke saath dobara bhej sakte ho: <b>/premium</b>\n"
+                "💬 Ya Support se baat karo: @Supermannn_x",
+                parse_mode=HTML)
         except Exception:
             pass
         return
 
-    if data.startswith("adm_rej_") and uid == ADMIN_ID:
-        target_uid = int(data.split("_")[2])
-        await q.message.edit_caption(caption=f"❌ <b>Rejected!</b> Payment for user <code>{target_uid}</code> rejected.", parse_mode=HTML)
+    if data.startswith("askpay:"):
+        if not is_admin(uid):
+            return
+        pid = int(data.split(":")[1])
+        pay = get_payment(pid)
+        if not pay:
+            await q.answer("Record nahi mila.", show_alert=True)
+            return
+        await q.answer("User ko message bhej diya")
         try:
-            await context.bot.send_message(target_uid, "❌ Aapka payment verification approve nahi hua. Kripya sahi screenshot/UTR bhejein.")
+            await context.bot.send_message(
+                int(pay["user_id"]),
+                f"📩 <b>Admin ko thodi aur jaankari chahiye — Payment #{pid}</b>\n\n"
+                "Kripya ye bhejein:\n"
+                "1️⃣ Payment ka <b>saaf screenshot</b> (jisme amount + UTR dikhe)\n"
+                "2️⃣ UTR / Transaction ID <b>text me</b>\n"
+                "3️⃣ Transaction ka <b>time aur amount</b>\n\n"
+                "👉 Yahan seedha bhej do, admin dekh lega.",
+                parse_mode=HTML)
+        except Exception:
+            await q.message.reply_text("⚠️ User ko message nahi bhej paye (shayad bot block kar diya).")
+        return
+
+    # ---------- Admin panel ke buttons ----------
+    if data == "admin_home":
+        if not is_admin(uid):
+            await q.answer("Sirf admin.", show_alert=True)
+            return
+        await admin_panel_send(q.message, context, uid)
+        return
+
+    if data == "admpay_list":
+        if not is_admin(uid):
+            return
+        pend = pending_payments(10)
+        if not pend:
+            await q.message.reply_text("✅ <b>Koi pending payment nahi hai!</b>", parse_mode=HTML)
+            return
+        await q.message.reply_text(
+            f"💳 <b>Pending Payments ({len(pend)})</b>\nTap karke poora proof + approve/reject dekho 👇",
+            reply_markup=admin_pending_kb(pend), parse_mode=HTML)
+        return
+
+    if data.startswith("admpay_view:"):
+        if not is_admin(uid):
+            return
+        pid = int(data.split(":")[1])
+        pay = get_payment(pid)
+        if not pay:
+            await q.answer("Record nahi mila.", show_alert=True)
+            return
+        card = admin_payment_card(pay, user_row=get_user_row(int(pay["user_id"])),
+                                  history=user_payment_history(int(pay["user_id"])))
+        await q.message.reply_text(card, reply_markup=admin_payment_kb(pid), parse_mode=HTML)
+        await q.answer("Card bhej diya ✅")
+        return
+
+    if data == "mypay_list":
+        rows = user_payments(uid, 5)
+        if not rows:
+            await q.message.reply_text("📭 Abhi tak koi payment nahi bheji. VIP lene ke liye <b>/premium</b> dabao.", parse_mode=HTML)
+            return
+        icons = {"pending": "⏳", "approved": "✅", "rejected": "❌"}
+        lines = [f"{icons.get(r.get('status'), '❔')} <b>#{r['id']}</b> · {r.get('plan_name')} · ₹{r.get('amount')} · "
+                 f"UTR <code>{r.get('utr_ref')}</code> · {str(r.get('status')).upper()}" for r in rows]
+        await q.message.reply_text(
+            "🧾 <b>Meri Payments</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
+            "\n━━━━━━━━━━━━━━━━━━━━━━\n⏳ = admin verify kar raha hai · ✅ = VIP mil gaya · ❌ = reject",
+            parse_mode=HTML)
+        return
+
+    if data == "admhist":
+        if not is_admin(uid):
+            return
+        rows = recent_payments(10)
+        if not rows:
+            await q.message.reply_text("Koi payment record nahi hai.", parse_mode=HTML)
+            return
+        icons = {"pending": "⏳", "approved": "✅", "rejected": "❌"}
+        lines = [f"{icons.get(r.get('status'), '❔')} #{r['id']} · user <code>{r['user_id']}</code> · "
+                 f"₹{r.get('amount')} · {str(r.get('plan_name'))[:18]} · {str(r.get('created_at'))[:16]}" for r in rows]
+        ps = payment_stats()
+        await q.message.reply_text(
+            "🧾 <b>Last 10 Payments</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
+            f"\n━━━━━━━━━━━━━━━━━━━━━━\n💰 Revenue: ₹{ps['revenue']:,} · ✅ {ps['approved']} · ❌ {ps['rejected']} · ⏳ {ps['pending']}",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
+            parse_mode=HTML)
+        return
+
+    if data == "admusers":
+        if not is_admin(uid):
+            return
+        users = recent_users(10)
+        lines = [f"• <code>{u[0]}</code> — {hesc(str(u[1] or '')[:20])}" for u in users]
+        await q.message.reply_text("👥 <b>Recent Users</b>\n\n" + "\n".join(lines), parse_mode=HTML)
+        return
+
+    if data == "admcmds":
+        if not is_admin(uid):
+            return
+        await q.message.reply_text(
+            "📊 <b>Admin Commands</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            "• <code>/payments</code> — pending payment verify\n"
+            "• <code>/grant [user_id] [din]</code> — VIP do (9999 = lifetime)\n"
+            "• <code>/revoke [user_id]</code> — VIP hatao\n"
+            "• <code>/broadcast [message]</code> — sabko message\n"
+            "• <code>/ban [user_id]</code> / <code>/unban [user_id]</code>\n"
+            "• <code>/admin</code> — ye panel",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
+            parse_mode=HTML)
+        return
+
+    if data == "admbcmenu":
+        if not is_admin(uid):
+            return
+        context.user_data["mode"] = "adm_broadcast"
+        await q.message.reply_text("📢 <b>Broadcast</b>\n\nJo message sab users ko bhejna hai, wo likh kar bhejo.\n<i>(/cancel se ruk sakte ho)</i>", parse_mode=HTML)
+        return
+
+    if data == "admbanmenu":
+        if not is_admin(uid):
+            return
+        context.user_data["mode"] = "adm_ban"
+        await q.message.reply_text(
+            "🚫 <b>Ban / Unban</b>\n\nAise bhejo:\n"
+            "<code>ban 123456789</code> → ban karo\n<code>unban 123456789</code> → unban karo",
+            parse_mode=HTML)
+        return
+
+    if data == "admsearch":
+        if not is_admin(uid):
+            return
+        context.user_data["mode"] = "adm_search"
+        await q.message.reply_text(
+            "🔍 <b>User Search</b>\n\nUser ki <b>ID</b> ya <b>@username</b> bhejo — poori detail + VIP dene/hataane ke buttons mil jayenge.",
+            parse_mode=HTML)
+        return
+
+    if data.startswith("ugrant:"):
+        if not is_admin(uid):
+            return
+        _, t_uid, days = data.split(":")
+        t_uid, days = int(t_uid), int(days)
+        grant_premium(t_uid, days)
+        dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} din VIP"
+        await q.answer(f"✅ {dur} diya gaya")
+        await q.message.reply_text(f"✅ <b>Done!</b> User <code>{t_uid}</code> ko {dur} diya gaya.", parse_mode=HTML)
+        try:
+            await context.bot.send_message(t_uid, f"🎉 <b>Admin ne aapko {dur} de diya!</b> 💎\n\nAb saare tools unlimited chalayein 🚀", parse_mode=HTML)
         except Exception:
             pass
+        return
+
+    if data.startswith("urevoke:"):
+        if not is_admin(uid):
+            return
+        t_uid = int(data.split(":")[1])
+        revoke_premium(t_uid)
+        await q.answer("VIP hata diya")
+        await q.message.reply_text(f"🚫 User <code>{t_uid}</code> ki VIP hata di gayi.", parse_mode=HTML)
+        return
+
+    if data.startswith("uban:"):
+        if not is_admin(uid):
+            return
+        _, t_uid, val = data.split(":")
+        set_ban(int(t_uid), int(val))
+        await q.answer("Ho gaya")
+        await q.message.reply_text(("🚫 Ban kar diya" if val == "1" else "🟢 Unban kar diya") + f" — <code>{t_uid}</code>", parse_mode=HTML)
+        return
+
+    # ---- PURANE messages ke buttons (backward compatible — pehle jo bheje the wo bhi chalenge) ----
+    if data.startswith("adm_appr_") and is_admin(uid):
+        parts = data.split("_")
+        target_uid = int(parts[2]); days = int(parts[3])
+        grant_premium(target_uid, days)
+        dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} din VIP"
+        ok_edit = await _edit_admin_msg(f"✅ <b>Approved!</b> User <code>{target_uid}</code> ko {dur} diya gaya.")
+        await q.answer("✅ Done")
+        try:
+            await context.bot.send_message(target_uid, f"🎉 <b>Badhai ho!</b> Aapka payment approve ho gaya — {dur} activate! 💎", parse_mode=HTML)
+        except Exception:
+            pass
+        if not ok_edit:
+            await q.message.reply_text(f"✅ User {target_uid} ko {dur} diya gaya.")
+        return
+
+    if data.startswith("adm_rej_") and is_admin(uid):
+        target_uid = int(data.split("_")[2])
+        ok_edit = await _edit_admin_msg(f"❌ <b>Rejected!</b> User <code>{target_uid}</code> ka payment reject kar diya.")
+        await q.answer("Rejected")
+        try:
+            await context.bot.send_message(target_uid, "❌ Aapka payment verify nahi ho paya. Sahi screenshot/UTR ke saath dobara bhejein (/premium).")
+        except Exception:
+            pass
+        if not ok_edit:
+            await q.message.reply_text(f"❌ User {target_uid} ka payment reject kar diya.")
         return
 
     # ============ AUTO FORWARD — WIZARD / GUIDE / TEST / STATUS ============
@@ -1591,6 +2017,113 @@ async def _vnum_say(q, text, kb):
             pass
 
 
+async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_obj):
+    """
+    Screenshot aane par: (1) strict image check, (2) DB me record, (3) admin ko full card + working buttons.
+    """
+    plan = VIP_PLANS.get(plan_key, VIP_PLANS["plan_30"])
+    utr = context.user_data.get("pay_utr") or ""
+    tries = context.user_data.get("pay_shot_tries", 0)
+    user = update.effective_user
+
+    st = await update.message.reply_text("🔍 Screenshot verify kar raha hoon...")
+    try:
+        tg_file = await photo_obj.get_file()
+        buf = io.BytesIO()
+        await tg_file.download_to_memory(buf)
+        img_bytes = buf.getvalue()
+    except Exception as e:
+        await st.edit_text(f"❌ Screenshot download nahi ho paya. Dobara bhejo.\n<i>{hesc(str(e))[:90]}</i>", parse_mode=HTML)
+        return
+
+    analysis = await asyncio.to_thread(analyze_screenshot, img_bytes, plan["price"])
+
+    # --- strict gate: photo/meme bhejne par reject (3 try tak) ---
+    if not analysis["ok"] and analysis["verdict"] == "bad" and tries < MAX_BAD_TRIES:
+        context.user_data["pay_shot_tries"] = tries + 1
+        await st.edit_text(
+            "❌ <b>Ye payment ka screenshot nahi lag raha!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{shot_verdict_line(analysis)}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📸 <b>Aise screenshot bhejo:</b>\n"
+            "1️⃣ Phone me PhonePe / GPay / Paytm kholo\n"
+            "2️⃣ <b>History / Passbook</b> me jao\n"
+            "3️⃣ Us payment par tap karo (₹" + str(plan['price']) + " wala)\n"
+            "4️⃣ <b>Screenshot</b> lo → yahan bhejo (jisme <b>amount, success aur UTR</b> saaf dikhe)\n\n"
+            f"⚠️ Selfie / photo / meme bhejne par proof reject hota hai ({tries + 1}/{MAX_BAD_TRIES} try)\n"
+            "<i>Aapka UTR save hai — bas sahi screenshot bhejo.</i>",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")]]),
+            parse_mode=HTML,
+        )
+        return
+
+    # --- duplicate checks (ek UTR / ek image sirf ek baar) ---
+    utr_dup = utr_exists(utr)
+    shot_dup = shot_exists(photo_obj.file_unique_id)
+    if shot_dup:
+        await st.edit_text(
+            "🚫 <b>Ye screenshot pehle bhi use ho chuka hai!</b>\n\n"
+            "Ek hi screenshot se dobara VIP nahi mil sakti.\n"
+            "📸 Naya payment karke us naye payment ka <b>screenshot</b> bhejo.\n\n"
+            "💬 Koi dikkat ho to Support: @Supermannn_x",
+            parse_mode=HTML)
+        return
+    flags = {
+        "username": user.username or "",
+        "name": user.first_name or "",
+        "shot": analysis,
+        "utr_dup": utr_dup,
+        "shot_dup": shot_dup,
+        "forced": bool(not analysis["ok"] and tries >= MAX_BAD_TRIES),
+    }
+
+    pid = create_payment(uid, plan_key, plan["name"], plan["price"], plan["days"], utr,
+                         photo_obj.file_id, photo_obj.file_unique_id, flags)
+    if not pid:
+        await st.edit_text("❌ Record save nahi ho paya. Thodi der baad dobara try karo ya Support se baat karo.")
+        return
+
+    card = admin_payment_card(
+        {"id": pid, "user_id": uid, "plan_key": plan_key, "plan_name": plan["name"],
+         "amount": plan["price"], "plan_days": plan["days"], "utr_ref": utr,
+         "shot_file_id": photo_obj.file_id, "flags": json.dumps(flags),
+         "created_at": datetime.now().strftime("%d-%m-%Y %H:%M")},
+        user_row=get_user_row(uid), history=user_payment_history(uid))
+
+    sent_any = False
+    for admin_id in ADMIN_IDS:
+        try:
+            m = await context.bot.send_photo(chat_id=admin_id, photo=photo_obj.file_id, caption=card,
+                                             reply_markup=admin_payment_kb(pid), parse_mode=HTML)
+            set_payment_admin_msg(pid, admin_id, m.message_id)
+            sent_any = True
+        except Exception:
+            try:
+                m = await context.bot.send_message(chat_id=admin_id, text=card,
+                                                  reply_markup=admin_payment_kb(pid), parse_mode=HTML)
+                set_payment_admin_msg(pid, admin_id, m.message_id)
+                sent_any = True
+            except Exception:
+                continue
+
+    if not sent_any:
+        await st.edit_text(f"⚠️ Proof save ho gaya (ID #{pid}) par admin ko bhej nahi paye. Support ko batayein: @Supermannn_x")
+        return
+
+    context.user_data.pop("mode", None)
+    context.user_data.pop("pay_utr", None)
+    context.user_data.pop("pay_shot_tries", None)
+    context.user_data.pop("pay_utr_tries", None)
+    await st.edit_text(
+        user_payment_reply(pid, plan["name"], plan["price"], analysis),
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Meri payments dekho", callback_data="mypay_list")],
+            [InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
+        ]),
+        parse_mode=HTML)
+
+
 # ---------------- TEXT HANDLER ----------------
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -1740,7 +2273,34 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await cmd_account(update, context)
             return
         if action == "admin":
-            await cmd_admin(update, context)
+            if not is_admin(uid):
+                await update.message.reply_text("⛔ Ye sirf admin ke liye hai.", parse_mode=HTML)
+                return
+            await admin_panel_send(update.message, context, uid)
+            return
+        if action == "owner":
+            if not is_admin(uid):
+                await update.message.reply_text("⛔ Ye sirf owner ke liye hai.", parse_mode=HTML)
+                return
+            await update.message.reply_text(
+                f"👑 <b>{to_bold('OWNER MODE')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Aap is bot ke malik ho — sab kuch unlimited ✅\n"
+                "• Koi daily limit nahi\n"
+                "• VIP paisa nahi lagta\n"
+                "• Saare tools khule hue hain\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "🛠️ <b>Owner ke kaam:</b>\n"
+                "• Payment verify karna → <b>/payments</b>\n"
+                "• VIP dena/lena → <b>/grant [user_id] [din]</b>\n"
+                "• Sab users ko message → <b>/broadcast [message]</b>\n"
+                "• Admin panel → <b>/admin</b>",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("💳 Pending Payments", callback_data="admpay_list")],
+                    [InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
+                ]),
+                parse_mode=HTML,
+            )
             return
         if action == "cloner_private_help":
             await update.message.reply_text(
@@ -1765,7 +2325,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action in PROMPTS:
             # Check Daily Limit
             u = get_user(uid, update.effective_user.first_name)
-            if check_limit_exceeded(u):
+            if check_limit_exceeded(u, uid):
                 await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
                 return
             await update.message.reply_text(PROMPTS[action] + "\n\n<i>/cancel kabhi bhi dabayein.</i>", parse_mode=HTML)
@@ -1824,17 +2384,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat = await context.bot.get_chat(raw_val)
             resolved = str(chat.id)
             title = chat.title or chat.username or resolved
-            is_admin = False
+            bot_is_admin = False
             try:
                 mem = await context.bot.get_chat_member(chat_id=chat.id, user_id=context.bot.id)
-                is_admin = mem.status in ("administrator", "creator")
+                bot_is_admin = mem.status in ("administrator", "creator")
             except Exception:
-                is_admin = False
+                bot_is_admin = False
 
             save_cloner_config(uid, source_chat_id=resolved)
             context.user_data.pop("mode", None)
 
-            if is_admin:
+            if bot_is_admin:
                 txt = (
                     f"✅ <b>Step 1 poora! Source set:</b> {hesc(str(title))}\n"
                     f"🆔 <code>{resolved}</code>\n\n"
@@ -1891,24 +2451,223 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Watermark saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
-    # Payment Proof Submission
-    if mode and mode.startswith("pay_proof_"):
-        plan_key = mode.replace("pay_proof_", "")
-        if ADMIN_ID != 0:
-            kb_adm = get_payment_admin_kb(uid, plan_key)
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text=f"🔔 <b>New VIP Payment Proof!</b>\n\n• <b>User ID:</b> <code>{uid}</code>\n• <b>User:</b> @{update.effective_user.username or 'NoUser'}\n• <b>Plan:</b> {plan_key}\n• <b>Proof/UTR:</b> {hesc(raw_text)}",
-                reply_markup=kb_adm,
+    # ---------- ADMIN: user search / ban / broadcast (text modes) ----------
+    if mode == "adm_search":
+        context.user_data.pop("mode", None)
+        target = None
+        key = raw_text.strip().lstrip("@")
+        if key.isdigit():
+            target = int(key)
+        else:
+            found = find_by_username("@" + key)
+            if found:
+                target = found[0]
+        if not target:
+            await update.message.reply_text(
+                "❌ User nahi mila. Numeric ID bhejo (jaise <code>8607774564</code>) "
+                "ya wahi @username jo usne bot me set kiya ho.", parse_mode=HTML)
+            return
+        u = get_user(target)
+        row = get_user_row(target) or {}
+        prem = u.get("premium_until") or ""
+        hist = user_payment_history(target)
+        await update.message.reply_text(
+            f"👤 <b>USER DETAIL</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 <b>ID:</b> <code>{target}</code>\n"
+            f"👋 <b>Naam:</b> {hesc(str(row.get('name') or u.get('name') or '-'))}\n"
+            f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ Nahi')}\n"
+            f"⚡ <b>Aaj ke uses:</b> {u.get('uses_today', 0)}\n"
+            f"🚫 <b>Banned:</b> {'Haan' if u.get('banned') else 'Nahi'}\n"
+            f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("👑 30 din VIP do", callback_data=f"ugrant:{target}:30"),
+                 InlineKeyboardButton("👑 90 din VIP do", callback_data=f"ugrant:{target}:90")],
+                [InlineKeyboardButton("👑 LIFETIME do", callback_data=f"ugrant:{target}:9999"),
+                 InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}")],
+                [InlineKeyboardButton("🚫 Ban karo", callback_data=f"uban:{target}:1"),
+                 InlineKeyboardButton("🟢 Unban", callback_data=f"uban:{target}:0")],
+            ]),
+            parse_mode=HTML)
+        return
+
+    if mode == "adm_broadcast":
+        context.user_data.pop("mode", None)
+        ids = all_user_ids()
+        sent = failed = 0
+        st = await update.message.reply_text(f"📢 {len(ids)} users ko bhej raha hoon...")
+        for i in ids:
+            try:
+                await context.bot.send_message(i, raw_text, parse_mode=HTML)
+                sent += 1
+            except Exception:
+                failed += 1
+            if (sent + failed) % 25 == 0:
+                await asyncio.sleep(1)
+        await st.edit_text(f"✅ <b>Broadcast done!</b>\n• Bheja: {sent}\n• Fail (block kiye honge): {failed}", parse_mode=HTML)
+        return
+
+    if mode == "adm_ban":
+        parts = raw_text.split()
+        if len(parts) < 2 or not parts[1].isdigit():
+            await update.message.reply_text("Format: <code>ban 123456789</code> ya <code>unban 123456789</code>", parse_mode=HTML)
+            return
+        act, target = parts[0].lower(), int(parts[1])
+        if act.startswith("unban"):
+            set_ban(target, 0)
+            await update.message.reply_text(
+                f"🟢 <b>Unban ho gaya</b> — <code>{target}</code>\n\n"
+                "Aur kisi ko ban/unban karna ho to aise hi likho: <code>ban 123456</code>",
+                parse_mode=HTML)
+        else:
+            set_ban(target, 1)
+            await update.message.reply_text(
+                f"🚫 <b>Ban ho gaya</b> — <code>{target}</code>\n\n"
+                "Unban karna ho to: <code>unban 123456</code>",
+                parse_mode=HTML)
+        return
+
+    # ---------- ADMIN: user search / ban / broadcast (text modes) ----------
+    if mode == "adm_search":
+        context.user_data.pop("mode", None)
+        target = None
+        key = raw_text.strip().lstrip("@")
+        if key.isdigit():
+            target = int(key)
+        else:
+            found = find_by_username("@" + key)
+            if found:
+                target = found[0]
+        if not target:
+            await update.message.reply_text(
+                "❌ User nahi mila. Numeric ID bhejo (jaise <code>8607774564</code>) "
+                "ya wahi @username jo usne bot me set kiya ho.", parse_mode=HTML)
+            return
+        u = get_user(target)
+        row = get_user_row(target)
+        prem = u.get("premium_until") or ""
+        hist = user_payment_history(target)
+        await update.message.reply_text(
+            f"👤 <b>USER DETAIL</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🆔 <b>ID:</b> <code>{target}</code>\n"
+            f"👋 <b>Naam:</b> {hesc(str((row[1] if row else '') or u.get('name') or '-'))}\n"
+            f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ Nahi')}\n"
+            f"⚡ <b>Aaj ke uses:</b> {u.get('uses_today', 0)}\n"
+            f"🚫 <b>Banned:</b> {'Haan' if u.get('banned') else 'Nahi'}\n"
+            f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("👑 30 din VIP do", callback_data=f"ugrant:{target}:30"),
+                 InlineKeyboardButton("👑 90 din VIP do", callback_data=f"ugrant:{target}:90")],
+                [InlineKeyboardButton("👑 LIFETIME do", callback_data=f"ugrant:{target}:9999"),
+                 InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}")],
+                [InlineKeyboardButton("🚫 Ban karo", callback_data=f"uban:{target}:1"),
+                 InlineKeyboardButton("🟢 Unban", callback_data=f"uban:{target}:0")],
+            ]),
+            parse_mode=HTML)
+        return
+
+    if mode == "adm_broadcast":
+        context.user_data.pop("mode", None)
+        ids = all_user_ids()
+        sent = failed = 0
+        st = await update.message.reply_text(f"📢 {len(ids)} users ko bhej raha hoon...")
+        for i in ids:
+            try:
+                await context.bot.send_message(i, raw_text, parse_mode=HTML)
+                sent += 1
+            except Exception:
+                failed += 1
+            if (sent + failed) % 25 == 0:
+                await asyncio.sleep(1)
+        await st.edit_text(f"✅ <b>Broadcast done!</b>\n• Bheja: {sent}\n• Fail (block kiye honge): {failed}", parse_mode=HTML)
+        return
+
+    if mode == "adm_ban":
+        context.user_data.pop("mode", None)
+        parts = raw_text.split()
+        if len(parts) < 2 or not parts[1].isdigit():
+            await update.message.reply_text("Format: <code>ban 123456789</code> ya <code>unban 123456789</code>", parse_mode=HTML)
+            return
+        act, target = parts[0].lower(), int(parts[1])
+        if act.startswith("unban"):
+            set_ban(target, 0)
+            await update.message.reply_text(f"🟢 User <code>{target}</code> ka ban hata diya.", parse_mode=HTML)
+        else:
+            set_ban(target, 1)
+            await update.message.reply_text(f"🚫 User <code>{target}</code> ban kar diya.", parse_mode=HTML)
+        return
+
+    # ---------- PAYMENT STEP 1: UTR (strict format check) ----------
+    if mode and mode.startswith("pay_utr_"):
+        plan_key = mode.replace("pay_utr_", "")
+        plan = VIP_PLANS.get(plan_key, VIP_PLANS["plan_30"])
+        res = validate_utr(raw_text)
+
+        if not res["ok"]:
+            tries = context.user_data.get("pay_utr_tries", 0) + 1
+            context.user_data["pay_utr_tries"] = tries
+            await update.message.reply_text(
+                f"❌ <b>Ye UTR valid nahi hai!</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📝 <b>Aapne bheja:</b> <code>{hesc(raw_text[:40])}</code>\n"
+                f"⚠️ <b>Wajah:</b> {res.get('reason')}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                + utr_help_text() +
+                f"\n\n🔁 <b>Ab sahi UTR bhejo</b> ({tries}/5 try)",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
                 parse_mode=HTML,
             )
-        await update.message.reply_text("✅ Payment proof submit ho gaya! Admin verify karke 5 minute me VIP activate kar dega.")
-        context.user_data.pop("mode", None)
+            if tries >= 5:
+                await update.message.reply_text("😅 Lagta hai UTR nahi mil raha. Koi baat nahi — Support se baat kar lo, wo haath se verify kar dega: @Supermannn_x")
+                context.user_data.pop("mode", None)
+            return
+
+        utr = res["utr"]
+        if utr_exists(utr):
+            await update.message.reply_text(
+                "🚫 <b>Ye UTR pehle bhi use ho chuka hai!</b>\n\n"
+                f"🧾 <code>{hesc(utr)}</code>\n\n"
+                "Ek UTR se sirf <b>ek hi baar</b> VIP milti hai. Naya payment kar do ya sahi UTR bhejo.",
+                parse_mode=HTML)
+            return
+
+        context.user_data["pay_utr"] = utr
+        context.user_data["pay_plan"] = plan_key
+        context.user_data["pay_shot_tries"] = 0
+        context.user_data["mode"] = f"pay_shot_{plan_key}"
+        context.user_data["pay_utr_kind"] = res.get("kind", "")
+        await update.message.reply_text(
+            "✅ <b>UTR sahi hai!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🧾 <b>UTR:</b> <code>{hesc(utr)}</code>\n"
+            f"📋 <b>Type:</b> {res.get('kind')}\n"
+            f"💎 <b>Plan:</b> {plan['name']} (₹{plan['price']})\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📸 <b>Step 3:</b> Ab payment ka <b>screenshot</b> bhejo\n\n"
+            "⚠️ <b>Dhyan do:</b>\n"
+            "• Screenshot me payment <b>success</b> dikhna chahiye (amount + UTR)\n"
+            "• Selfie, photo ya koi random image bhejne par system <b>reject</b> kar dega\n"
+            "• Screenshot <b>jaldi</b> bhejo, warna flow reset ho jayega",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan badlo", callback_data="open_vip_menu")]]),
+            parse_mode=HTML,
+        )
+        return
+
+    # ---------- PAYMENT STEP 3: text bhej diya screenshot ki jagah ----------
+    if mode and mode.startswith("pay_shot_"):
+        plan_key = mode.replace("pay_shot_", "")
+        await update.message.reply_text(
+            "📸 <b>Ab screenshot chahiye (text nahi)!</b>\n\n"
+            "Phone me payment app kholo → us payment ka <b>screenshot</b> lo → yahan bhejo.\n"
+            "⚠️ Screenshot me dikhna chahiye: <b>amount, success/paid, aur UTR</b>.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
+            parse_mode=HTML)
         return
 
     # Check Daily Limit for Active Executions
     u = get_user(uid, update.effective_user.first_name)
-    if mode and check_limit_exceeded(u):
+    if mode and check_limit_exceeded(u, uid):
         await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
         return
 
@@ -2831,21 +3590,21 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ <b>Custom Thumbnail Saved!</b> Ab se sabhi forwarded videos/docs par yeh thumbnail lagega.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
-    # Payment Proof Photo
-    if mode and mode.startswith("pay_proof_"):
-        plan_key = mode.replace("pay_proof_", "")
-        photo_id = update.message.photo[-1].file_id
-        if ADMIN_ID != 0:
-            kb_adm = get_payment_admin_kb(uid, plan_key)
-            await context.bot.send_photo(
-                chat_id=ADMIN_ID,
-                photo=photo_id,
-                caption=f"🔔 <b>New VIP Payment Screenshot!</b>\n\n• <b>User ID:</b> <code>{uid}</code>\n• <b>User:</b> @{update.effective_user.username or 'NoUser'}\n• <b>Plan:</b> {plan_key}",
-                reply_markup=kb_adm,
-                parse_mode=HTML,
-            )
-        await update.message.reply_text("✅ Payment screenshot submit ho gaya! Admin verify karke 5 minute me VIP activate kar dega.")
-        context.user_data.pop("mode", None)
+    # ---------- PAYMENT: screenshot aane par strict verify ----------
+    if mode and mode.startswith("pay_shot_"):
+        plan_key = mode.replace("pay_shot_", "")
+        await submit_payment_proof(update, context, uid, plan_key, update.message.photo[-1])
+        return
+
+    # UTR ke intezaar me photo aa gayi?
+    if mode and mode.startswith("pay_utr_"):
+        plan_key = mode.replace("pay_utr_", "")
+        await update.message.reply_text(
+            "📝 <b>Pehle UTR bhejo</b> (text me), screenshot uske baad.\n\n"
+            "Payment app kholo → transaction details → <b>UTR / Ref No</b> (12 digit) copy karke yahan bhejo.\n"
+            "❓ Pata nahi kahan milega? Neeche button dabao.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")]]),
+            parse_mode=HTML)
         return
 
     # Photo Studio: Name & DOP Stamp
@@ -3124,6 +3883,9 @@ def main():
     app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))
     app.add_handler(CommandHandler("admin", cmd_admin))
+    app.add_handler(CommandHandler(["payments", "pending"], cmd_payments))
+    app.add_handler(CommandHandler("mypay", cmd_mypay))
+    app.add_handler(CommandHandler("revoke", cmd_revoke))
     app.add_handler(CommandHandler("grant", cmd_grant))
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("ban", cmd_ban))

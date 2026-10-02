@@ -43,6 +43,28 @@ def db():
             created_at TEXT
         )"""
     )
+    # --- payments table ka v33 upgrade (strict verification ke liye naye columns) ---
+    try:
+        cur.execute("PRAGMA table_info(payments)")
+        have = {r[1] for r in cur.fetchall()}
+        for col, typ in [
+            ("plan_key", "TEXT DEFAULT ''"),
+            ("plan_days", "INTEGER DEFAULT 0"),
+            ("shot_file_id", "TEXT DEFAULT ''"),
+            ("shot_unique_id", "TEXT DEFAULT ''"),
+            ("flags", "TEXT DEFAULT '{}'"),
+            ("reviewer", "INTEGER DEFAULT 0"),
+            ("reviewed_at", "TEXT DEFAULT ''"),
+            ("admin_msg_id", "INTEGER DEFAULT 0"),
+            ("admin_chat_id", "INTEGER DEFAULT 0"),
+            ("note", "TEXT DEFAULT ''"),
+        ]:
+            if col not in have:
+                cur.execute(f"ALTER TABLE payments ADD COLUMN {col} {typ}")
+    except Exception:
+        pass
+    con.commit()
+
     # Advanced Channel Cloner configs table
     cur.execute(
         """CREATE TABLE IF NOT EXISTS cloner_configs(
@@ -303,6 +325,13 @@ def grant_premium(uid: int, days: int) -> str:
     else:
         new_val = (base + timedelta(days=days)).isoformat(timespec="seconds")
     cur.execute("UPDATE users SET premium_until=? WHERE user_id=?", (new_val, uid))
+    if cur.rowcount == 0:
+        # User pehle bot start nahi kiya (row nahi hai) — bana do, warna VIP lagta hai par lagta nahi 😅
+        today = datetime.now().strftime("%Y-%m-%d")
+        cur.execute(
+            "INSERT INTO users (user_id, name, premium_until, joined_at, trial_date) VALUES (?,?,?,?,?)",
+            (uid, "", new_val, datetime.now().isoformat(timespec="seconds"), today),
+        )
     con.commit()
     con.close()
     return new_val
@@ -500,3 +529,194 @@ def get_auto_cloners_for_source(source_chat_id) -> list:
     except Exception:
         return []
     return out
+
+
+# ==========================================================================
+# v33 — VIP PAYMENT VERIFICATION (strict) ke liye database functions
+# ==========================================================================
+import json as _json
+
+
+def create_payment(uid: int, plan_key: str, plan_name: str, amount: int, plan_days: int,
+                   utr: str, shot_file_id: str = "", shot_unique_id: str = "",
+                   flags: dict | None = None) -> int:
+    """Naya payment record banata hai (status=pending). Return: payment id"""
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute(
+            """INSERT INTO payments (user_id, plan_name, amount, utr_ref, status, created_at,
+                                     plan_key, plan_days, shot_file_id, shot_unique_id, flags)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (uid, plan_name, int(amount), utr, "pending", datetime.now().isoformat(timespec="seconds"),
+             plan_key, int(plan_days), shot_file_id, shot_unique_id, _json.dumps(flags or {})),
+        )
+        pid = cur.lastrowid
+        con.commit()
+        con.close()
+        return pid
+    except Exception:
+        return 0
+
+
+def get_payment(pid: int) -> dict:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM payments WHERE id=?", (pid,))
+        row = cur.fetchone()
+        cols = [d[0] for d in cur.description]
+        con.close()
+        return dict(zip(cols, row)) if row else {}
+    except Exception:
+        return {}
+
+
+def set_payment_status(pid: int, status: str, reviewer: int = 0, note: str = "") -> bool:
+    try:
+        con = db()
+        con.execute("UPDATE payments SET status=?, reviewer=?, reviewed_at=?, note=? WHERE id=?",
+                    (status, reviewer, datetime.now().isoformat(timespec="seconds"), note, pid))
+        con.commit()
+        con.close()
+        return True
+    except Exception:
+        return False
+
+
+def set_payment_admin_msg(pid: int, chat_id: int, msg_id: int):
+    try:
+        con = db()
+        con.execute("UPDATE payments SET admin_chat_id=?, admin_msg_id=? WHERE id=?", (chat_id, msg_id, pid))
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+
+
+def utr_exists(utr: str, exclude_pid: int = 0) -> bool:
+    """Same UTR kisi aur payment me use ho chuka hai? (duplicate check)"""
+    if not utr:
+        return False
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT id FROM payments WHERE utr_ref=? AND id!=? AND status!='rejected' LIMIT 1",
+                    (utr, exclude_pid))
+        row = cur.fetchone()
+        con.close()
+        return bool(row)
+    except Exception:
+        return False
+
+
+def shot_exists(unique_id: str, exclude_pid: int = 0) -> bool:
+    """Same screenshot dobara use hua? (replay check)"""
+    if not unique_id:
+        return False
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT id FROM payments WHERE shot_unique_id=? AND id!=? AND status!='rejected' LIMIT 1",
+                    (unique_id, exclude_pid))
+        row = cur.fetchone()
+        con.close()
+        return bool(row)
+    except Exception:
+        return False
+
+
+def pending_payments_count() -> int:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT COUNT(*) FROM payments WHERE status='pending'")
+        n = cur.fetchone()[0]
+        con.close()
+        return int(n or 0)
+    except Exception:
+        return 0
+
+
+def pending_payments(limit: int = 10) -> list:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM payments WHERE status='pending' ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        con.close()
+        return [dict(zip(cols, r)) for r in rows]
+    except Exception:
+        return []
+
+
+def recent_payments(limit: int = 10, status: str = "") -> list:
+    try:
+        con = db()
+        cur = con.cursor()
+        if status:
+            cur.execute("SELECT * FROM payments WHERE status=? ORDER BY id DESC LIMIT ?", (status, limit))
+        else:
+            cur.execute("SELECT * FROM payments ORDER BY id DESC LIMIT ?", (limit,))
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        con.close()
+        return [dict(zip(cols, r)) for r in rows]
+    except Exception:
+        return []
+
+
+def user_payments(uid: int, limit: int = 5) -> list:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM payments WHERE user_id=? ORDER BY id DESC LIMIT ?", (uid, limit))
+        rows = cur.fetchall()
+        cols = [d[0] for d in cur.description]
+        con.close()
+        return [dict(zip(cols, r)) for r in rows]
+    except Exception:
+        return []
+
+
+def user_payment_history(uid: int) -> dict:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT status, COUNT(*) FROM payments WHERE user_id=? GROUP BY status", (uid,))
+        rows = cur.fetchall()
+        con.close()
+        d = {k: int(v) for k, v in rows}
+        return {"approved": d.get("approved", 0), "rejected": d.get("rejected", 0), "pending": d.get("pending", 0)}
+    except Exception:
+        return {"approved": 0, "rejected": 0, "pending": 0}
+
+
+def payment_stats() -> dict:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT status, COUNT(*), COALESCE(SUM(amount),0) FROM payments GROUP BY status")
+        rows = cur.fetchall()
+        con.close()
+        st = {k: {"count": int(c), "amount": int(a or 0)} for k, c, a in rows}
+        return {
+            "pending": st.get("pending", {}).get("count", 0),
+            "approved": st.get("approved", {}).get("count", 0),
+            "rejected": st.get("rejected", {}).get("count", 0),
+            "revenue": st.get("approved", {}).get("amount", 0),
+        }
+    except Exception:
+        return {"pending": 0, "approved": 0, "rejected": 0, "revenue": 0}
+
+
+def revoke_premium(uid: int) -> bool:
+    try:
+        con = db()
+        con.execute("UPDATE users SET premium_until='' WHERE user_id=?", (uid,))
+        con.commit()
+        con.close()
+        return True
+    except Exception:
+        return False

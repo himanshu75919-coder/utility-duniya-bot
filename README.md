@@ -1,6 +1,33 @@
-# ⚡ Utility Duniya Super-Bot (v32 — PHASE 3 PROFESSIONAL EDITION)
+# ⚡ Utility Duniya Super-Bot (v33 — ADMIN PANEL + PAYMENT GUARD EDITION)
 
 An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v33 — Admin Panel + Strict Payment Verification
+
+### 🛠️ 1. Naya Admin Panel (`/admin`)
+- Live dashboard: users, active today, uses, VIP count, **pending payments**, revenue, approved/rejected totals.
+- Buttons: Pending Payments · Payment History · Recent Users · **User Search (VIP do/hatao/ban/unban)** · Broadcast · Ban/Unban · Command list.
+- `/payments` = sirf pending list (tap → poora verification card + approve/reject).
+- `/grant`, `/revoke`, `/broadcast`, `/ban`, `/unban` — sab pehle jaise, plus **double-admin support** (`ADMINS=id1,id2`).
+
+### 👑 2. Owner ko ab koi premium/limit nahi
+- `ADMIN_ID` wali ID = **OWNER** → na daily limit, na "Buy VIP" message.
+- `/premium` par owner ko dikhta hai: *"Aap owner ho — sab unlimited"* + pending payments shortcut.
+- Keyboard me naya **👑 OWNER MODE** button. (Purana bug: owner bhi free-limit me fas jata tha.)
+
+### 🧾 3. Payment proof ab STRICTLY verify hota hai (`modules/payguard.py`)
+- **Layer 1 — UTR format:** 12-digit UPI UTR ya 16-22 char bank ref. Mobile number / random text / 15-digit = ❌ wajah ke saath reject. (`/premium` → "❓ UTR kahan milega?" helper bhi)
+- **Layer 2 — UTR duplicate:** ek UTR se sirf ek baar VIP (DB check).
+- **Layer 3 — Screenshot check (bina internet, fast):** flat-block + UI-line + text-sharpness metrics se score 0-100 → 🟢/🟡/🔴. Photo/selfie/meme = ❌ reject (3 try tak, phir flag ke saath admin ko).
+- **Layer 4 — Screenshot duplicate:** same image (Telegram `file_unique_id`) dobara = ❌ reject.
+- Extra: per-user pending limit (3), sare admins ko card, `pytesseract` ho to OCR keyword check bhi.
+
+### ✅ 4. Premium Activate button ka BUG FIX
+- **Root cause:** text-message wale proof par `edit_caption` chalta tha → Telegram error → handler chup-chaap marta tha → VIP lagta nahi tha.
+- Ab `edit_caption → edit_text → reply` fallback chain hai, `q.answer()` bhi hota hai, aur approve **idempotent** hai (dobara click = "pehle hi approve").
+- Approve/reject/"dobara maango" — teeno par user ko automatic message jata hai.
 
 ---
 
@@ -47,6 +74,7 @@ An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, 
 | 📮 Pincode | Pincode se post offices **ya area ke naam se pincode** (bade buttons, copy-friendly) |
 | 🚗 RTO | 36 state codes + ~45 RTO districts + **5 official links** (VAHAN, e-Challan, IIB insurance, Sarathi DL, mParivahan) |
 | 🏦 IFSC | MICR + contact + UPI/NEFT/RTGS/IMPS flags + Maps |
+| 🛠️ **Admin Panel (NAYA)** | Dashboard + pending payments + user search + VIP/ban + broadcast |
 | 🌐 **IP / Domain (NAYA)** | ip-api se ISP, org, geo, timezone + **VPN/Proxy & Datacenter flags** |
 | 📱 **Public Records (optional)** | Naam/pita/pata/linked-number — env se on/off, warning + report buttons ke saath |
 | 🔎 Web Search | **3-engine parallel** (DuckDuckGo Lite + DDG HTML + Bing) → merge + dedupe (pehle sirf DDG) |
