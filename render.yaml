@@ -39,7 +39,10 @@ services:
       - key: TUTORIAL_URL
         sync: false            # apna tutorial link (khali = bot khud banayega)
       - key: WEBHOOK_URL
-        sync: false            # POLLING use kar rahe hain → KHALI CHHODO
+        sync: false            # KHALI = polling. Webhook (Conflict-free) chahiye to:
+                               #   https://utility-duniya-bot.onrender.com
+      - key: WEBHOOK_SECRET
+        sync: false            # webhook path ka secret (khali = token ka hissa)
 
       # ---------- OSINT HUB (aapka apna API — isi se data aata hai) ----------
       - key: OSINT_API_BASE

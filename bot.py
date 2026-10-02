@@ -5942,9 +5942,11 @@ def main():
         print("❌ ERROR: BOT_TOKEN is missing in environment variables or .env file!")
         return
 
-    threading.Thread(target=_keepalive, daemon=True).start()
     # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
     threading.Thread(target=publish_tutorial_now, daemon=True).start()
+    # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
+    if not WEBHOOK_URL:
+        threading.Thread(target=_keepalive, daemon=True).start()
 
     app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
            .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
@@ -6008,12 +6010,35 @@ def main():
     app.add_error_handler(on_error)
 
     print("🚀 Starting ToolVault / Utility Duniya Super Bot (v30 Ultra)...")
-    # NOTE: ek hi bot instance chalna chahiye. Agar do instance (do Render service /
-    # do deploy ek saath) getUpdates karenge to Telegram "Conflict: terminated by
-    # other getUpdates request" dega aur bot chup ho jayega.
+    # ---------- v47: WEBHOOK MODE (Render par sabse safe) ----------
+    # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
+    # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
+    # Webhook me Telegram khud update bhejta hai, getUpdates hota hi nahi -> Conflict kabhi nahi.
+    if WEBHOOK_URL:
+        port = int(os.environ.get("PORT", "10000"))
+        secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
+        path = f"/webhook/{secret}"
+        full_url = WEBHOOK_URL.rstrip("/") + path
+        log.warning("WEBHOOK MODE | path=%s | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
+                    path, socket.gethostname(), os.getpid())
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=path,
+            webhook_url=full_url,
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
+        )
+        return
+
+    # NOTE: polling me ek hi bot instance chalna chahiye. Agar do instance (do Render
+    # service / do deploy ek saath) getUpdates karenge to Telegram "Conflict:
+    # terminated by other getUpdates request" dega aur bot chup ho jayega.
+    # Permanent chhutkara chahiye to Environment me WEBHOOK_URL daal do.
     log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
                 socket.gethostname(), os.getpid())
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
