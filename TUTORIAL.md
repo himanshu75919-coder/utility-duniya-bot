@@ -43,7 +43,7 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 ## 5. Information tools
 
-> • 🚗 RTO VEHICLE INFO — number plate (BR01AB1234) → state, RTO office, district + VAHAN/e-Challan/insurance/DL official links.
+> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. VIP feature.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
@@ -201,12 +201,15 @@ Everything is made on our server. **No watermark.**
 🗣️ **Voice change** • ✂️ **Video trim** • 🗜️ **Video compress** • 🎼 **Video → MP3**
 👇 **Select an option below**:
 
-## 🚗 RTO VEHICLE INFO
+## 🚗 VEHICLE INFO + CHALLAN REPORT
 
-Send the number plate. You will know which **state and RTO district** the vehicle is from.
-✅ You get: state, RTO office, district + **5 official links** (VAHAN, e-Challan, insurance, DL, mParivahan).
-_Real RC details need OTP on the Parivahan site. We take you straight there._
-🔢 **Now send the number plate** (example `BR01AB1234`):
+Send the number plate. You get the **full report**:
+• 🚘 Vehicle: maker, model, fuel, colour, engine cc, chassis/engine no.
+• 📋 RC: RTO office, registration date + validity, manufacture year, tax
+• 🛡️ Insurance (company + valid till) • 🌫️ PUC • 🏦 Finance/hypothecation
+• 🚨 **Challans**: pending / paid / in-court, amount, date, offence
+_Owner mobile and chassis/engine are shown masked (privacy)._
+🔢 **Now send the number plate** (example `BR30AR0802`):
 
 ## 📱 NUMBER INFORMATION
 
