@@ -171,6 +171,12 @@ from modules.toolkit_extras import (
     shorten_url,
     village_compound_interest,
 )
+from modules.vehicle_challan import (
+    fetch_vehicle_report,
+    is_configured as vehicle_api_ready,
+    render_report as render_vehicle_report,
+    valid_plate as vehicle_plate_ok,
+)
 from modules.osint_tools import (
     NUM_LEAK_ENABLED,
     PUBLIC_RECORD_WARNING,
@@ -279,6 +285,8 @@ PREMIUM_TOOLS = {
     "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
     "kagaz",               # 📜 SARKARI KAGAZ SUITE
     "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
+    # ---- v40 VEHICLE INFO + CHALLAN (live API) ----
+    "vehicle",             # 🚗 VEHICLE & CHALLAN REPORT
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -289,6 +297,7 @@ PREMIUM_TOOL_NAMES = {
     "bankpdf": "🏦 Bank Statement → Excel",
     "kagaz": "📜 Sarkari Kagaz Suite",
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
+    "vehicle": "🚗 Vehicle Info + Challan Report",
 }
 
 
@@ -339,6 +348,7 @@ def get_credits_over_text(action: str = "") -> str:
         "• 🔄 Channel Cloner + Auto-Forward — <b>unlimited</b>\n"
         "• 🔒 Private Channel Setup — <b>unlimited</b>\n"
         "• 🏦 Bank PDF → Excel • 📜 Document Suite • ⚡ Media Studio — <b>unlimited</b>\n"
+        "• 🚗 Vehicle Info + Challan Report — <b>unlimited</b>\n"
         "• ♾️ Whole bot unlimited (no limits at all)\n\n"
         "🎁 <i>Want VIP free? Share with {n} friends (/refer).</i>"
     ).replace("{n}", str(REFER_NEED))
@@ -553,6 +563,7 @@ KB_BTNS = [
     [f"📈 {to_bold('INTEREST CALC')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🖼️ {to_bold('SITE SCREENSHOT')}", f"🏦 {to_bold('BANK STATEMENT → EXCEL')}"],
     [f"📜 {to_bold('SARKARI KAGAZ SUITE')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
+    [f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"💎 {to_bold('VIP PREMIUM')}", f"🎁 {to_bold('REFER & EARN')}"],
     [f"👤 {to_bold('MY ACCOUNT')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -598,6 +609,8 @@ BTN_MODE_MAP = {
     "SARKARI SEVA PORTALS": "sarkari",
     "STUDENT EXAM HUB": "exam",
     "RTO VEHICLE INFO": "rto",
+    "VEHICLE INFO + CHALLAN": "rto",
+    "VEHICLE INFO": "rto",
     "NUMBER INFO": "numinfo",
     "IFSC INFO": "ifsc",
     "PINCODE INFO": "pin",
@@ -707,13 +720,16 @@ PROMPTS = {
         "👇 <b>Select an option below</b>:"
     ),
     "rto": (
-        f"🚗 <b>{to_bold('RTO VEHICLE INFO')}</b>\n"
+        f"🚗 <b>{to_bold('VEHICLE INFO + CHALLAN REPORT')}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "Send the number plate. You will know which <b>state and RTO district</b> the vehicle is from.\n"
-        "✅ You get: state, RTO office, district + <b>5 official links</b> (VAHAN, e-Challan, insurance, DL, mParivahan).\n"
-        "<i>Real RC details need OTP on the Parivahan site. We take you straight there.</i>\n"
+        "Send the number plate. You get the <b>full report</b>:\n"
+        "• 🚘 Vehicle: maker, model, fuel, colour, engine cc, chassis/engine no.\n"
+        "• 📋 RC: RTO office, registration date + validity, manufacture year, tax\n"
+        "• 🛡️ Insurance (company + valid till) • 🌫️ PUC • 🏦 Finance/hypothecation\n"
+        "• 🚨 <b>Challans</b>: pending / paid / in-court, amount, date, offence\n"
+        "<i>Owner mobile and chassis/engine are shown masked (privacy).</i>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🔢 <b>Now send the number plate</b> (example <code>BR01AB1234</code>):"
+        "🔢 <b>Now send the number plate</b> (example <code>BR30AR0802</code>):"
     ),
     "numinfo": (
         f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>\n"
@@ -1384,6 +1400,32 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
+async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/vehstatus — admin: check the vehicle API is working (live test on a sample plate)."""
+    if not is_admin(update.effective_user.id):
+        return
+    if not vehicle_api_ready():
+        await update.message.reply_text(
+            "⚠️ <b>Vehicle API is not set.</b>\n\nAdd these on Render → Environment:\n"
+            "<code>VEHICLE_API_URL</code> = your API endpoint\n"
+            "<code>VEHICLE_API_KEY</code> = your key\n"
+            "<code>VEHICLE_API_PARAM</code> = plate field name (default <code>vehicle_number</code>)\n\n"
+            "Then redeploy. The 🚗 VEHICLE INFO + CHALLAN tool will show the live report.",
+            parse_mode=HTML)
+        return
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    plate = args[0] if args else "BR30AR0802"
+    st = await update.message.reply_text(f"🔎 Testing the API with <code>{plate}</code>…", parse_mode=HTML)
+    res = fetch_vehicle_report(plate)
+    if res.get("ok"):
+        await st.edit_text(f"✅ <b>API is working</b> — RC fields: {len(res.get('rc') or {})}, "
+                           f"challans: {len(res.get('challans') or [])}\n\n"
+                           + render_vehicle_report(res)[:1500], parse_mode=HTML)
+    else:
+        await st.edit_text(f"❌ <b>API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
+                           "Check VEHICLE_API_URL / KEY / PARAM.", parse_mode=HTML)
+
+
 async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/tutrefresh — rebuild the tutorial page (admin only)."""
     if not is_admin(update.effective_user.id):
@@ -1975,6 +2017,30 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📖 <b>Refreshing the tutorial page</b> (10-20 seconds).\n"
             "Current link:</i>",
             parse_mode=HTML, disable_web_page_preview=True)
+        return
+
+    if data.startswith("vehagain:"):
+        plate = data.split(":", 1)[1]
+        _u = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u, uid):
+            await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
+            return
+        await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
+        live = fetch_vehicle_report(plate)
+        if live.get("ok"):
+            await q.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
+            rows_live = [
+                [InlineKeyboardButton("🚨 Check / pay on e-Challan (official)",
+                                      url="https://echallan.parivahan.gov.in/"),
+                 InlineKeyboardButton("📄 VAHAN RC status",
+                                      url="https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml")],
+                [InlineKeyboardButton("🔄 Check again", callback_data=f"vehagain:{live['plate']}")],
+            ]
+            await q.message.reply_text(render_vehicle_report(live), reply_markup=InlineKeyboardMarkup(rows_live),
+                                       parse_mode=HTML)
+        else:
+            await q.answer(str(live.get("error"))[:180], show_alert=True)
+        add_use(uid)
         return
 
     if data.startswith("admpay_view:"):
@@ -3508,23 +3574,67 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "rto":
-        res = lookup_vehicle_rto(raw_text)
-        if res.get("ok"):
-            rows = [[InlineKeyboardButton(txt, url=url)] for txt, url in res["links"]]
-            card = (
-                f"🚗 <b>{to_bold('RTO VEHICLE DETAILS')}</b>\n"
+        base = lookup_vehicle_rto(raw_text)          # purana free lookup (district + links)
+        if not base.get("ok"):
+            await update.message.reply_text(fail_msg("VEHICLE LOOKUP FAILED", base.get("error", "Invalid plate")),
+                                            parse_mode=HTML)
+            add_use(uid)
+            return
+
+        def _free_card(extra: str = ""):
+            rows_ = [[InlineKeyboardButton(txt, url=url)] for txt, url in base["links"]]
+            return (
+                f"🚗 <b>{to_bold('VEHICLE / RTO INFO')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🔖 <b>Number Plate:</b> <code>{res['pretty']}</code>\n"
-                f"🗺️ <b>State:</b> {res['state_name']} ({res['state_code']})\n"
-                f"🏢 <b>RTO Code:</b> {res['rto_code']} — {res['district']}\n"
-                + (f"🚙 <b>Vehicle Class (from series):</b> {res['vehicle_class']}\n" if res.get("vehicle_class") else "")
+                f"🔖 <b>Number Plate:</b> <code>{base['pretty']}</code>\n"
+                f"🗺️ <b>State:</b> {base['state_name']} ({base['state_code']})\n"
+                f"🏢 <b>RTO Office:</b> {base['rto_code']} — {base['district']}\n"
+                + (f"🚙 <b>Vehicle Class (from series):</b> {base['vehicle_class']}\n" if base.get("vehicle_class") else "")
                 + "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"ℹ️ <i>{res['note']}</i>\n\n"
+                + (extra + "\n" if extra else "")
+                + f"ℹ️ <i>{base['note']}</i>\n\n"
                 "👇 Check officially here:"
-            )
-            await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
-        else:
-            await update.message.reply_text(fail_msg("RTO LOOKUP FAILED", res.get("error", "Invalid Plate")), parse_mode=HTML)
+            ), InlineKeyboardMarkup(rows_)
+
+        # ---- live RC + challan report (agar API set hai) ----
+        if vehicle_api_ready() and vehicle_plate_ok(raw_text):
+            _u = get_user(uid, update.effective_user.first_name)
+            if not can_use_premium_tool(_u, uid):
+                await update.message.reply_text(get_credits_over_text("vehicle"),
+                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                card_txt, kb_free = _free_card("✅ <b>Free part:</b> RTO office + official check links are open below.")
+                await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
+                context.user_data.pop("mode", None)
+                add_use(uid)
+                return
+            wait = await update.message.reply_text("🔎 <b>Checking live RC + challan record…</b>\n<i>Please wait 5-20 seconds.</i>",
+                                                   parse_mode=HTML)
+            live = fetch_vehicle_report(raw_text)
+            try:
+                await wait.delete()
+            except Exception:
+                pass
+            if live.get("ok"):
+                await update.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
+                rows_live = [
+                    [InlineKeyboardButton("🚨 Check / pay on e-Challan (official)",
+                                          url="https://echallan.parivahan.gov.in/"),
+                     InlineKeyboardButton("📄 VAHAN RC status",
+                                          url="https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml")],
+                    [InlineKeyboardButton("🔄 Check this number again", callback_data=f"vehagain:{live['plate']}")],
+                ]
+                await update.message.reply_text(render_vehicle_report(live),
+                                                reply_markup=InlineKeyboardMarkup(rows_live), parse_mode=HTML)
+                add_use(uid)
+                return
+            # API fail → free card + reason
+            card_txt, kb_free = _free_card(f"⚠️ <b>Live report not available:</b> {hesc(str(live.get('error'))[:120])}")
+            await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
+            add_use(uid)
+            return
+
+        card_txt, kb_free = _free_card("🚨 <b>Challan + full RC report:</b> VIP users get the live report (challan pending/paid, insurance, PUC, finance). → /premium")
+        await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4799,6 +4909,7 @@ def main():
     app.add_handler(CommandHandler(["tutorial", "madad", "guide"], cmd_tutorial))
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
+    app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))

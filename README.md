@@ -1,9 +1,12 @@
-# ⚡ Utility Duniya Super-Bot — **v39**
+# ⚡ Utility Duniya Super-Bot — **v40**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v39):** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
+> **Naya (v40):** 🚗 **VEHICLE INFO + CHALLAN** — number plate bhejo → poora RC record (maker, model, fuel, insurance, PUC, finance)
+> + saare challan (pending / paid / court, amount, date, offence). Live API se. Setup: **`v40-VEHICLE-CHALLAN.md`**.
+>
+> **v39:** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
 > Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
 > Poora detail: **`v39-KYA-BADLA.md`**. Naye earning tools ki list: **`EARNING-TOOLS-V39.md`**.
 
@@ -33,8 +36,8 @@ UPI_NAME=Utility Duniya
 | Baaki **saare tools** | **FREE** (koi credit nahi) |
 | VIP (paid) / Owner | **Unlimited** — premium tools bhi free, koi credit nahi |
 
-**Premium tools (7):** 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup ·
-🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio.
+**Premium tools (8):** 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup ·
+🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio · 🚗 Vehicle Info + Challan.
 
 VIP buy: `/premium` → plan chuno → QR se paisa → **Step 2**: UTR bhejo (12 digit) → **Step 3**: screenshot bhejo →
 admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` → plan select → `/activate <user_id>`.
@@ -57,7 +60,7 @@ admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` �
 🗣️ Voice change (kid / heavy / robot / ghost / gadget / echo) · ✂️ Trim · 🗜️ Compress · 🎼 Video→MP3
 
 **Info**
-📱 Number Info (operator/circle/type + 6 links) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
+🚗 Vehicle Info + Challan (full RC + challan report) · 📱 Number Info (operator/circle/type + 6 links) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
 🆔 ID & Username Finder (me / forward / @username → 5 platforms + 9 links) · 🌐 IP/Domain · 🚗 RTO vehicle info ·
 📦 App Finder (8 trust stores)
 
@@ -89,7 +92,8 @@ modules/
   desi_tools.py     — bank statement parser, kagaz PDFs, registry cost, land units, media studio (ffmpeg)
   general_tools.py  — QR, vCard, WiFi QR, image→PDF, screenshot, app store links
   media_downloader.py — yt-dlp/parth engine (20+ sites)
-  osint_tools.py    — RTO, phone info, IFSC, pincode, IP, username finder
+  osint_tools.py    — RTO (plate parse), phone info, IFSC, pincode, IP, username finder
+  vehicle_challan.py— live vehicle RC + challan report (API-based, flexible parser)
   payguard.py       — payment proof check (UTR format + duplicate + screenshot analysis)
   sarkari_hub.py    — government portals + student exam hub
   toolkit_extras.py — URL shortener, link bypass, link safety scanner, interest engine
@@ -97,6 +101,7 @@ modules/
   vip_payment.py    — VIP plans, UPI QR, payment flow
 requirements.txt    — saare packages
 v39-KYA-BADLA.md    — v39 me kya badla (2 minute read)
+v40-VEHICLE-CHALLAN.md — vehicle+challan setup (API env vars) + privacy notes
 EARNING-TOOLS-V39.md— 12 naye earning-tool ideas (no AI)
 TUTORIAL.md         — text tutorial (fallback link)
 _audit_tools_v39.py — tool-by-tool audit script (68 engines — chala kar dekh lo)
@@ -111,6 +116,7 @@ python3 _audit_tools_v39.py     # 68 engines: PDF, ffmpeg, QR, link safety, land
 ```
 
 Aur bot me: `/start` → menu → koi bhi tool kholo → prompt saaf English me aayega + aakhir me "Now send ..." line.
+Admin commands: **`/vehstatus`** (vehicle API live test) · `/activate <id> [days]` · `/credits <id> [n]` · `/tutrefresh`.
 
 ---
 

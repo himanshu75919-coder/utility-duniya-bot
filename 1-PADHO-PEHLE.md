@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v39 (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v40 (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -10,12 +10,23 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
 ---
 
+## 0️⃣ v40 (naya) — VEHICLE INFO + CHALLAN
+
+Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount, date, offence) — jaise aapne example dikhaya.
+- **API lagani hai:** Render → Environment me `VEHICLE_API_URL` + `VEHICLE_API_KEY` (+ `VEHICLE_API_PARAM` agar naam alag ho) →
+  phir `/vehstatus` se test karo. Poora guide: **`v40-VEHICLE-CHALLAN.md`**.
+- **1 credit** per report · VIP = unlimited · API band ho to purana free RTO card chalta rehta hai.
+- Owner mobile / chassis / engine **masked** (privacy) — chaho to env se poora on kar sakte ho.
+
+---
+
 ## 1️⃣ v39 me kya badla
 
 | Kaam | Detail |
 |---|---|
 | **8 tools poore hata diye** | 🎙️ Actors Voice Studio · 🧮 EMI Calc · 🎂 Age Calculator · 🔐 Password Generator · 🔎 Web Search · 💰 UPI QR · 🕵️ Photo Info + Fake Detect · 🪔 Rahu Kaal/Panchang — **menu, button, code, tutorial: sab se gayab** |
 | **Text simple English** | Pehle Hindi me tha ("Ab number bhejein", "CREDITS KHATAM") — ab **simple English** ("Now send the number:", "ALL CREDITS USED"). Lambe instructions bhi chhote kar diye |
+| **v40 naya tool** | 🚗 Vehicle Info + Challan (RC + challan report, live API) — premium tool #8 |
 | **Bug fix** | tutorial me "voice" video ka button (tool hi nahi tha) · admin plan select par double line · purane imports |
 | **Test** | sab suites green: 51/51 flows, 54/54 admin, 46/46 video, 81/81 credits, 80/80 naye tools, 93/93 live checks, 68 engines audit |
 
