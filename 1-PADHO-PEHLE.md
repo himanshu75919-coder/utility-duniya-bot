@@ -1,11 +1,62 @@
-# 📖 1-PADHO-PEHLE.md — v37 (CREDITS SYSTEM) GUIDE
+# 📖 1-PADHO-PEHLE.md — v38 (4 CHHUPE TOOLS) + v37 CREDITS GUIDE
 
 **Bhai, ye file pehle padh lo — 5 minute me sab samajh aa jayega.**
-Ye version = **v37 — Credits System** (naye user ko 25 free credits, premium tools ke liye).
+Ye version = **v38 — 4 chhupe 'MARU-TOAD' tools** (+ v37 ka credits system).
 
 ---
 
-## 🎟️ v37 — CREDITS SYSTEM (sabse naya, sabse zaroori)
+## 🗝️ v38 — 4 CHHUPE TOOLS (jo koi bot nahi deta) — NO AI, NO API
+
+Bhai, ye woh tools hain jinke liye log **dukaan, cyber cafe, CA, notary ke paas jaate hain**.
+Sab tumhare hi server par chalte hain — koi AI nahi, koi captcha nahi, kuch paisa kharch nahi.
+
+### 🏦 1. BANK STATEMENT PDF → EXCEL
+- **Kaam:** bank ka statement **PDF** bhejo → **Excel/CSV** mil jayega (date, detail, nikala, aaya, balance) + **total nikala/aaya** + closing balance.
+- **Kyun tagra:** 12 mahine ki entries log **hath se Excel me type** karte hain (3 ghante) ya CA ko ₹500 dete hain. Tumhara bot 30 second me kar dega.
+- **Locked PDF?** Password maangta hai (bank kabhi locked bhejta hai) — sahi password dene par khul jata hai, **galat par credit nahi katta**.
+- **Sab bank:** SBI, HDFC, PNB, ICICI, BOB, Kotak, Canara, Union, IPPB, Jio/Airtel/Paytm bank...
+
+### 📜 2. SARKARI KAGAZ SUITE (BIHAR/UP)
+Menu se chuno — bot **ek-ek cheez poochta hai** (naam, khesra, khata...) aur **ready PDF** de deta hai:
+- 📄 **Kirayanama** (rent agreement) — 11 mahine wala standard
+- ⚖️ **Affidavit** — kisi bhi kaam ke liye
+- 🚫 **Legal Notice 138** — cheque bounce (15 din ka notice, poora format)
+- 🤝 **Bayana / Pakki Rasid** — zameen ka sauda (khata, khesra, mouza, thana, anchal sab)
+- 📝 **Rin Shodh (Promissory note)** — udhaar ka kagaz (byaaj, wapas kab tak)
+- 🧾 **Name/Address/Income/Gap affidavit** (naam sudhar ke liye)
+- 🧮 **Registry Total Kharcha** — area (katha/bigha/sqft) + MVR daalo → **stamp duty + registration + panchayat** ka poora hisaab (Bihar 6.5%+3%+2% · mahila/joint par 1% kam)
+- 📐 **Bigha/Kattha/Dhur/Decimal/Acre/SqFt converter** — 2 katha = 2722.5 sqft = 0.1 bigha = 40 dhur
+
+### 🕵️ 3. PHOTO INFO + FAKE DETECT
+Photo bhejo → milta hai: **kaunsa mobile/camera**, **kab kheechi**, **kahan kheechi (GPS + Google Maps link)**, konsa app, aur **edit ki hui hai ya asli** (ELA + noise analysis) — shak wale hisse **laal dabbe** me.
+- Kaam: zameen/registry ke kagaz, insurance claim, "ye photo asli hai kya?", job/land documents.
+
+### ⚡ 4. MEDIA STUDIO
+- 🎵 **YouTube → MP3** (gaana ka link bhejo)
+- 🎬 **Status Video** — photo + gaana + apna text → **9:16** video (WhatsApp/Insta status me seedha)
+- 🎧 **Ringtone cutter** (30 second) · 🎤 **Karaoke** (vocal hatao) · 🔊 **8D** · 💥 **Bass boost**
+- 🗣️ **Voice change** — bachcha / motu / robot / bhoot / gadget / echo
+- ✂️ **Video trim** · 🗜️ **Video compress** (WhatsApp size, max 2 minute) · 🎼 **Video → MP3**
+
+### 🪔 BONUS FREE TOOL: RAHU KAAL / PANCHANG
+Aaj/kal ka **Rahu Kaal**, sunrise/sunset, din ke 8 hisse — **20+ shehar** (Patna default; Gaya, Muzaffarpur, Darbhanga... likh do). **Bilkul free** — 0 credits par bhi chalta hai. Log roz dekhenge → bot zinda rahega.
+
+### 🎟️ Credits in naye tools par
+| Tool | Credit |
+|---|---|
+| 🏦 Bank PDF→Excel · 📜 Kagaz Suite · 🕵️ Photo Info · ⚡ Media Studio | **1 use = 1 credit** |
+| 🪔 Rahu Kaal / Panchang | **FREE (0)** |
+| Baaki purane saare free tools | **FREE (0)** |
+
+⚠️ **2 dhyan ki baat:**
+1. Ye kagaz **computer se bane draft** hain — notary/sub-registrar se final karwana zaroori hai (bot khud ye likhta hai).
+2. Video compress/status video me time lagta hai (server mehnga nahi hai) — isliye **2 minute se lambi video** par bot "pehle TRIM karo" keh deta hai.
+
+**Test:** 105 naye test (v38) + purane sab test (v37 credits 84, live check 117, video 49, flow 72, admin 54) — **sab PASS**.
+
+---
+
+## 🎟️ v37 — CREDITS SYSTEM
 
 **Simple bhasha me:** naya user jab pehli baar bot kholega, use **25 credits** milenge — jaise 25 sikkon wala gift.
 Ye 25 **ek hi baar** milte hain (roz nahi badhte). Jab tak sikka bacha hai, premium tools chalta rahega.

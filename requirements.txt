@@ -13,3 +13,6 @@ beautifulsoup4
 parth-dl
 imageio-ffmpeg
 numpy
+pdfplumber
+reportlab
+pypdf
