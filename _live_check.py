@@ -331,17 +331,41 @@ check("VEHICLE: live hub (RC + challan + v4 summary)",
       timeout=90)
 check("VEHICLE: card HTML-safe (& escape)",
       lambda: "&amp;" in _vc.render_report(_vc.fetch_vehicle_report("HR26EV0001")))
-check("Bot: IMEI menu button + premium list (9 tools)",
+check("Bot: IMEI menu button + premium list (10 tools, 32 buttons)",
       lambda: "imei" in _bot.PREMIUM_TOOLS and "clips" in _bot.PREMIUM_TOOLS
       and len(_bot.PREMIUM_TOOLS) == 10
       and any("IMEI" in _bot.unbold(b).upper() for row in _bot.KB_BTNS for b in row)
-      and sum(len(r) for r in _bot.KB_BTNS) == 33)
+      and sum(len(r) for r in _bot.KB_BTNS) == 32)
 check("Bot: IMEI prompt + video button",
       lambda: "Now send the 15 digit IMEI" in _bot.tool_prompt("imei") and bool(_bot.tool_tutorial_kb("imei")))
 check("ClipMaker: limits + url detect",
       lambda: (lambda cm: cm.MAX_MINUTES == 15.0 and cm.MIN_VIDEO == 20.0
                and cm.is_direct_video_url("https://x.com/a.mp4") and cm.is_youtube_url("https://youtu.be/x")
                and "15 min" in cm.help_card())(__import__("modules.clip_maker", fromlist=["x"])))
+check("v44: STUDENT EXAM HUB hata (menu + code)",
+      lambda: "STUDENT EXAM" not in _bot.unbold(str(_bot.KB_BTNS)).upper()
+      and "student_exam" not in open("bot.py", encoding="utf-8").read()
+      and "STUDENT_EXAM_TEXT" not in open("modules/sarkari_hub.py", encoding="utf-8").read())
+def _pp_on_text():
+    src = open("bot.py", encoding="utf-8").read()
+    part = src[src.index("async def on_text"):src.index("async def handle_new_tool_file")]
+    return ('if mode == "pp_stamp_text"' in part
+            and "make_stamped_passport" in part
+            and "Now send the video" in part)   # clips branch ke saath hi rehta hai
+
+
+check("v44: passport photo ka naam+DOP step on_text me hai (crash fix)", _pp_on_text)
+check("v44: PTB write timeout bada (bade video send fix)",
+      lambda: "write_timeout(240.0)" in open("bot.py", encoding="utf-8").read())
+check("v44: clean_err helper + saaf error",
+      lambda: "http" not in _bot.clean_err("ERROR: [youtube] fail https://github.com/a/b"))
+check("v44: AI brain module + mock + provider detect",
+      lambda: (lambda a: hasattr(a, "plan_moments") and hasattr(a, "status_card")
+               and a.ai_available() in (True, False)
+               and "AI BRAIN" in a.status_card())(__import__("modules.ai_brain", fromlist=["x"])))
+check("v44: clip maker AI moments support",
+      lambda: "ai_moments" in open("modules/clip_maker.py", encoding="utf-8").read()
+      and hasattr(__import__("modules.clip_maker", fromlist=["x"]), "candidates_for_ai"))
 check("ClipMaker: asli video par clips (ffmpeg pipeline)",
       _clips_live_probe, timeout=180)
 check("Bot: /clipstatus handler registered",

@@ -54,45 +54,6 @@ def get_sarkari_citizen_kb():
     return InlineKeyboardMarkup(buttons)
 
 
-# 🎓 STUDENT EXAM HUB
-STUDENT_EXAM_TEXT = (
-    "🎓 <b>STUDENT EXAM & SARKARI RESULT HUB</b> 🎓\n"
-    "<blockquote>Official notifications, live admit cards and answer keys for every government exam.</blockquote>\n\n"
-    "📌 <b>Major Portals:</b>\n"
-    "• 🏛️ <b>SSC:</b> CGL, CHSL, MTS, GD, CPO, Steno\n"
-    "• 🚂 <b>Railway RRB:</b> NTPC, Group D, ALP, Tech\n"
-    "• 🎖️ <b>Defence:</b> Army Agniveer, NDA, CDS, Airforce\n"
-    "• 👮 <b>State Police & SSC:</b> Bihar, UP, MP, Rajasthan\n"
-    "• 🏦 <b>Banking:</b> IBPS PO/Clerk, SBI, RBI\n"
-    "• 👨‍🏫 <b>Teaching:</b> CTET, State TET, KVS, NVS\n\n"
-    "👉 Direct official board portals 👇"
-)
-
-def get_student_exam_kb():
-    buttons = [
-        [
-            InlineKeyboardButton("🏛️ SSC Official Portal", url="https://ssc.gov.in/"),
-            InlineKeyboardButton("🚂 Railway RRB Portal", url="https://www.rrbapply.gov.in/"),
-        ],
-        [
-            InlineKeyboardButton("🎖️ Army Agniveer Join", url="https://joinindianarmy.nic.in/"),
-            InlineKeyboardButton("⚔️ UPSC Official Portal", url="https://upsc.gov.in/"),
-        ],
-        [
-            InlineKeyboardButton("🏦 IBPS Banking Portal", url="https://ibps.in/"),
-            InlineKeyboardButton("👨‍🏫 CTET Exam Portal", url="https://ctet.nic.in/"),
-        ],
-        [
-            InlineKeyboardButton("📊 Sarkari Result Official", url="https://www.sarkariresult.com/"),
-            InlineKeyboardButton("📋 Official Answer Keys", url="https://www.sarkariresult.com/answerkey/"),
-        ],
-        [
-            InlineKeyboardButton("🔙 Back to Menu", callback_data="back_home"),
-        ]
-    ]
-    return InlineKeyboardMarkup(buttons)
-
-
 STATE_PORTALS_TEXT = (
     "📜 <b>STATE-WISE CASTE, INCOME & RESIDENCE CERTIFICATE PORTALS</b>\n\n"
     "• <b>Bihar:</b> RTPS Service Plus (rtps.bihar.gov.in)\n"

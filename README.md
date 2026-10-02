@@ -1,11 +1,15 @@
-# ⚡ Utility Duniya Super-Bot — **v43**
+# ⚡ Utility Duniya Super-Bot — **v44**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v43):** 🎬 **CLIP MAKER** — video (file / direct .mp4 link / YouTube) → **4-7 short clips** (25-60 sec),
-> Best Moments ya Equal Parts, 16:9 ya 9:16. Guide: **`v43-CLIP-MAKER.md`**.
-> **v42:** ✂️ chhote prompts · **v41:** 📲 IMEI tool + 🚗 vehicle asli API hub se.
+> **Naya (v44):** 🧠 **AI Brain Clip Maker me** — Gemini/Groq key lagate hi AI khud video dekh kar
+> best moments (hasi, cheer, action, shor) chunta hai + har clip ko AI ka title milta hai.
+> Saath me: 🎓 STUDENT EXAM HUB **hata diya**, 3 crash fix (passport photo, bade video ka timeout,
+> YouTube ka gandha error), menu dobara sajaya, aur **26 tools ka deep audit**. Guide: **`v44-AI-CLIPS.md`** ·
+> Audit report: **`v44-TOOLS-AUDIT.md`**.
+> **v43:** 🎬 CLIP MAKER (`v43-CLIP-MAKER.md`).
+> **v42:** ✂️ chhote prompts · **v41:** 📲 IMEI + 🚗 vehicle asli API hub se.
 >
 > **v39:** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
 > Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
@@ -102,6 +106,8 @@ modules/
   vip_payment.py    — VIP plans, UPI QR, payment flow
 requirements.txt    — saare packages
 v39-KYA-BADLA.md    — v39 me kya badla (2 minute read)
+v44-AI-CLIPS.md — 🧠 AI brain (Gemini/Groq) + crash fixes + STUNDET EXAM HUB removal
+v44-TOOLS-AUDIT.md — 26 tools ka deep audit (217 checks, sab pass)
 v43-CLIP-MAKER.md — clip maker (video → 4-7 clips) setup, limits, best-moment logic
 v42-CHHOTE-PROMPTS.md — chhote prompts (pehle vs ab, har tool ka example)
 v41-API-HUB.md — IMEI tool + vehicle hub (3 endpoint) setup, env vars, credit rules

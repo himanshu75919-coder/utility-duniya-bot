@@ -115,10 +115,8 @@ except ImportError:  # agar purani database.py use ho rahi ho to bot crash na ho
 from modules.sarkari_hub import (
     SARKARI_CITIZEN_TEXT,
     STATE_PORTALS_TEXT,
-    STUDENT_EXAM_TEXT,
     get_sarkari_citizen_kb,
     get_state_portals_kb,
-    get_student_exam_kb,
 )
 from modules.cyber_studio import (
     compress_document_pdf,
@@ -178,9 +176,11 @@ from modules.vehicle_challan import (
     valid_plate as vehicle_plate_ok,
 )
 from modules import clip_maker as clipm
+from modules import ai_brain as aib
 from modules.clip_maker import (
     CLIP_COUNT as CLIP_MAKER_COUNT,
     MAX_MINUTES as CLIP_MAKER_MAX_MIN,
+    TARGET_LEN as CLIP_MAKER_LEN,
     best_of_best as clips_best_of_best,
     caption_for as clips_caption,
     cleanup as clips_cleanup,
@@ -390,6 +390,20 @@ def get_credits_over_text(action: str = "") -> str:
     ).replace("{n}", str(REFER_NEED))
 
 
+def clean_err(text: str, limit: int = 200) -> str:
+    """Error text ko user-friendly banao — URL/GitHub link/traceback/[youtube] kachra hata do."""
+    t = str(text or "")
+    t = re.sub(r"https?://\S+", "", t)
+    t = re.sub(r"\[\w+\]\s*", "", t)                 # [youtube] [instagram] etc.
+    t = re.sub(r"Traceback \(most recent call last\)[\s\S]*", "", t)
+    t = re.sub(r"File \"[^\"]+\", line \d+[\s\S]*", "", t)
+    t = re.sub(r"(ERROR:|warning:)\s*", "", t, flags=re.I)
+    t = re.sub(r"\s{2,}", " ", t).strip(" .;,-")
+    if len(t) > limit:
+        t = t[:limit].rsplit(" ", 1)[0] + "…"
+    return t or "Something went wrong on the server."
+
+
 def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 Get VIP (Unlimited)", callback_data="open_vip_menu")],
@@ -590,16 +604,15 @@ KB_BTNS = [
     [f"🔄 {to_bold('CHANNEL CLONER')}", f"📥 {to_bold('VIDEO DOWNLOADER')}"],
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
-    [f"🎓 {to_bold('STUDENT EXAM HUB')}", f"📱 {to_bold('NUMBER INFO')}"],
-    [f"🏦 {to_bold('IFSC INFO')}", f"📮 {to_bold('PINCODE INFO')}"],
-    [f"🆔 {to_bold('ID & USERNAME FINDER')}", f"🌐 {to_bold('IP / DOMAIN INFO')}"],
-    [f"🔒 {to_bold('PRIVATE CHANNEL SETUP')}", f"📷 {to_bold('QR CODE')}"],
-    [f"🖼️ {to_bold('IMAGE→PDF')}", f"🔗 {to_bold('URL SHORT')}"],
-    [f"🔓 {to_bold('LINK BYPASS')}", f"🔍 {to_bold('LINK CHECK')}"],
-    [f"📈 {to_bold('INTEREST CALC')}", f"📦 {to_bold('APP FINDER')}"],
-    [f"🖼️ {to_bold('SITE SCREENSHOT')}", f"🏦 {to_bold('BANK STATEMENT → EXCEL')}"],
-    [f"📜 {to_bold('SARKARI KAGAZ SUITE')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
-    [f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
+    [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
+    [f"📮 {to_bold('PINCODE INFO')}", f"🆔 {to_bold('ID & USERNAME FINDER')}"],
+    [f"🌐 {to_bold('IP / DOMAIN INFO')}", f"🔒 {to_bold('PRIVATE CHANNEL SETUP')}"],
+    [f"📷 {to_bold('QR CODE')}", f"🖼️ {to_bold('IMAGE→PDF')}"],
+    [f"🔗 {to_bold('URL SHORT')}", f"🔓 {to_bold('LINK BYPASS')}"],
+    [f"🔍 {to_bold('LINK CHECK')}", f"📈 {to_bold('INTEREST CALC')}"],
+    [f"📦 {to_bold('APP FINDER')}", f"🖼️ {to_bold('SITE SCREENSHOT')}"],
+    [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
+    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"🎬 {to_bold('CLIP MAKER')}"],
     [f"💎 {to_bold('VIP PREMIUM')}", f"🎁 {to_bold('REFER & EARN')}"],
     [f"👤 {to_bold('MY ACCOUNT')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
@@ -644,7 +657,6 @@ BTN_MODE_MAP = {
     "SITE SCREENSHOT (HD)": "shot",
     "SITE SCREENSHOT (FULL PAGE)": "shot_full",
     "SARKARI SEVA PORTALS": "sarkari",
-    "STUDENT EXAM HUB": "exam",
     "RTO VEHICLE INFO": "rto",
     "VEHICLE INFO + CHALLAN": "rto",
     "VEHICLE INFO": "rto",
@@ -1417,35 +1429,71 @@ def _veh_has_rc_data(live: dict) -> bool:
 
 
 # ---------------- v43: CLIP MAKER ----------------
-def clip_choice_kb(mode=None, vertical=None):
+def clip_choice_kb(mode=None, vertical=None, use_ai=None):
     def _tick(txt, on):
         return txt + ("  ✅" if on else "")
-    return InlineKeyboardMarkup([
+    if use_ai is None:
+        use_ai = aib.ai_available()
+    rows = [
         [InlineKeyboardButton(_tick("🎯 Best Moments", mode == "smart"), callback_data="clmode:smart"),
          InlineKeyboardButton(_tick("⏱️ Equal Parts", mode == "equal"), callback_data="clmode:equal")],
         [InlineKeyboardButton(_tick("🖥️ Normal 16:9", vertical is False), callback_data="clorient:169"),
          InlineKeyboardButton(_tick("📱 9:16 (Shorts)", vertical is True), callback_data="clorient:916")],
+        [InlineKeyboardButton(_tick("🧠 Smart AI", use_ai), callback_data="clai:toggle")],
         [InlineKeyboardButton("🚀 Make clips", callback_data="clipgo")],
-    ])
+    ]
+    return InlineKeyboardMarkup(rows)
 
 
-def clip_choice_text(mode=None, vertical=None) -> str:
-    m = "🎯 Best Moments (loud + action parts)" if mode != "equal" else "⏱️ Equal Parts (barabar hisse)"
-    o = "📱 9:16 (status/Shorts)" if vertical else "🖥️ 16:9 (normal)"
+def clip_choice_text(mode=None, vertical=None, use_ai=None) -> str:
+    m = "🎯 Best Moments" if mode != "equal" else "⏱️ Equal Parts"
+    o = "📱 9:16 (Shorts)" if vertical else "🖥️ 16:9 (normal)"
+    if use_ai is None:
+        use_ai = aib.ai_available()
+    ai_line = (f"🧠 Smart AI: <b>ON</b> · {hesc(aib.ai_label())}\n"
+               "<i>AI video dekhta hai — funny/loud/action wale asli best moments.</i>\n"
+               if use_ai else
+               "🧠 Smart AI: <b>OFF</b> · classic loud+scene analysis\n")
     return (
         "🎬 <b>CLIP MAKER</b>\n"
-        f"Mode: <b>{m}</b> · Format: <b>{o}</b>\n"
-        f"Clips: <b>{CLIP_MAKER_COUNT}</b> (har ek 25-60 sec)\n"
-        "👇 Mode aur format chuno, phir <b>🚀 Make clips</b> dabao:"
+        f"Mode: <b>{m}</b> · Format: <b>{o}</b> · Clips: <b>{CLIP_MAKER_COUNT}</b>\n"
+        f"{ai_line}"
+        "👇 Setting badlo ya seedha <b>🚀 Make clips</b> dabao:"
     )
 
 
 async def send_clips_now(context, chat_id: int, uid: int, status, src_path: str,
-                         mode: str, vertical: bool) -> bool:
+                         mode: str, vertical: bool, use_ai: bool = False) -> bool:
     """Clips banao + bhejo. Success par True. Credit sirf success par katta hai."""
     t0 = time.time()
+    ai_moments, ai_engine, ai_note = None, "", ""
+    # 🧠 AI step (v44): AI ke paas kaam do — fail ho to classic engine chalta rahega
+    if use_ai and aib.ai_available() and mode == "smart":
+        try:
+            await status.edit_text(
+                "🧠 <b>AI video dekh raha hai…</b>\n"
+                "<i>Funny / loud / action wale asli best moments dhoond raha hoon. "
+                "1-3 min lag sakte hain.</i>", parse_mode=HTML)
+        except Exception:
+            pass
+        try:
+            info_ai = await asyncio.to_thread(clipm.probe_info, src_path)
+            dur_ai = float(info_ai.get("duration") or 0)
+
+            ai_res = await asyncio.to_thread(aib.plan_moments, src_path, dur_ai,
+                                             CLIP_MAKER_COUNT, 15.0, float(CLIP_MAKER_LEN), None, None)
+            if ai_res.get("ok") and ai_res.get("moments"):
+                ai_moments = ai_res["moments"]
+                ai_engine = str(ai_res.get("engine") or "AI")
+                tr = int(ai_res.get("transcript") or 0)
+                ai_note = f"🧠 AI: {hesc(ai_engine)}" + (f" · transcript {tr} lines" if tr else "")
+            else:
+                ai_note = f"⚠️ AI skip: {hesc(str(ai_res.get('error'))[:90])}"
+        except Exception as e:
+            ai_note = f"⚠️ AI skip: {hesc(str(e)[:80])}"
     try:
-        res = await asyncio.to_thread(clipm.analyze, src_path, mode, vertical, CLIP_MAKER_COUNT)
+        res = await asyncio.to_thread(clipm.analyze, src_path, mode, vertical, CLIP_MAKER_COUNT,
+                                      ai_moments, ai_engine)
     except Exception as e:
         res = {"ok": False, "error": f"Clip engine error: {str(e)[:120]}"}
     if not res.get("ok"):
@@ -1467,7 +1515,8 @@ async def send_clips_now(context, chat_id: int, uid: int, status, src_path: str,
     try:
         await status.edit_text(
             f"✂️ <b>{len(clips)} clips ready</b> — sending now…\n"
-            f"<i>{res.get('scenes', 0)} scene cuts · {res.get('loud_peaks', 0)} loud moments mile</i>",
+            + (f"<i>{ai_note}</i>\n" if ai_note else "")
+            + f"<i>{res.get('scenes', 0)} scene cuts · {res.get('loud_peaks', 0)} loud moments mile</i>",
             parse_mode=HTML)
     except Exception:
         pass
@@ -1521,13 +1570,14 @@ async def send_clips_now(context, chat_id: int, uid: int, status, src_path: str,
     return True
 
 
-async def start_clip_job(context, chat_id: int, uid: int, src_path: str, mode: str, vertical: bool):
+async def start_clip_job(context, chat_id: int, uid: int, src_path: str, mode: str, vertical: bool,
+                         use_ai: bool = False):
     status = await context.bot.send_message(
         chat_id=chat_id,
         text=("🔍 <b>Analysing the video…</b>\n<i>Loud moments + scene cuts dekh raha hoon. "
               "10-15 min video par 1-3 minute lag sakte hain.</i>"),
         parse_mode=HTML)
-    await send_clips_now(context, chat_id, uid, status, src_path, mode, vertical)
+    await send_clips_now(context, chat_id, uid, status, src_path, mode, vertical, use_ai)
 
 
 async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1589,6 +1639,23 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
                            "Check IMEI_API_BASE / IMEI_API_KEY.", parse_mode=HTML)
 
 
+async def cmd_aistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/aistatus — admin: AI Brain ka status + live test."""
+    if not is_admin(update.effective_user.id):
+        return
+    st = await update.message.reply_text("🧠 <b>AI Brain check kar raha hoon…</b>", parse_mode=HTML)
+    card = aib.status_card()
+    if not aib.ai_available():
+        await st.edit_text(card, parse_mode=HTML)
+        return
+    res = await asyncio.to_thread(aib.live_test)
+    if res.get("ok"):
+        await st.edit_text(card + f"\n• Live test: ✅ <b>working</b> ({hesc(str(res.get('say')))} · "
+                                  f"{hesc(str(res.get('engine')))})", parse_mode=HTML)
+    else:
+        await st.edit_text(card + f"\n• Live test: ❌ {hesc(str(res.get('error'))[:150])}", parse_mode=HTML)
+
+
 async def cmd_clipstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/clipstatus — admin: clip engine ready hai ya nahi (ffmpeg + limits)."""
     if not is_admin(update.effective_user.id):
@@ -1603,7 +1670,9 @@ async def cmd_clipstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "clip 25-60 sec\n"
         f"• YouTube (yt-dlp): {'✅ available' if clips_ytdlp_available() else '❌ not installed (file ya direct .mp4 link chalega)'}\n"
         f"• Direct .mp4 link download: ✅\n"
+        f"• 🧠 AI Brain: {'✅ ' + hesc(aib.ai_label()) if aib.ai_available() else '❌ off (GEMINI_API_KEY / GROQ_API_KEY set karo)'}\n"
         f"• Output: 16:9 (480p) ya 9:16 (540x960)\n"
+        "• 🧠 AI: sirf <b>🎯 Best Moments</b> mode me lagta hai (Equal Parts me nahi)\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "<i>Test: menu se 🎬 CLIP MAKER kholo aur ek chhota video bhejo.</i>",
         parse_mode=HTML)
@@ -1944,10 +2013,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text(STATE_PORTALS_TEXT, reply_markup=get_state_portals_kb(), parse_mode=HTML)
         return
 
-    if data == "student_exam":
-        await q.message.edit_text(STUDENT_EXAM_TEXT, reply_markup=get_student_exam_kb(), parse_mode=HTML)
-        return
-
     # VIP Buy Handlers
     if data.startswith("buy_plan_"):
         plan_key = data.replace("buy_", "")
@@ -2230,6 +2295,24 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    if data.startswith("clai:"):
+        _cur = context.user_data.get("clip_ai")
+        if _cur is None:
+            _cur = aib.ai_available()
+        context.user_data["clip_ai"] = not bool(_cur)
+        if context.user_data["clip_ai"] and not aib.ai_available():
+            context.user_data["clip_ai"] = False
+            await q.answer("AI key server par set nahi hai — classic mode hi chalega.", show_alert=True)
+        try:
+            await q.message.edit_text(
+                clip_choice_text(context.user_data.get("clip_mode"), context.user_data.get("clip_vert"),
+                                 context.user_data.get("clip_ai")),
+                reply_markup=clip_choice_kb(context.user_data.get("clip_mode"), context.user_data.get("clip_vert"),
+                                            context.user_data.get("clip_ai")), parse_mode=HTML)
+        except Exception:
+            await q.answer("Setting badal gayi ✅")
+        return
+
     if data.startswith("clmode:") or data.startswith("clorient:") or data == "clipgo":
         _src = context.user_data.get("clip_src") or ""
         if not _src or not os.path.exists(_src):
@@ -2263,15 +2346,20 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         mode_c = context.user_data.get("clip_mode") or "smart"
         vert_c = bool(context.user_data.get("clip_vert"))
+        ai_c = context.user_data.get("clip_ai")
+        if ai_c is None:
+            ai_c = aib.ai_available()
+        ai_c = bool(ai_c) and aib.ai_available()
         context.user_data["mode"] = None
         context.user_data["clip_src"] = None
         await q.answer("Making clips… 🎬")
         await q.message.edit_text(
             "🎬 <b>Clips ban rahe hain…</b>\n"
             f"Mode: <b>{'🎯 Best Moments' if mode_c == 'smart' else '⏱️ Equal Parts'}</b> · "
-            f"<b>{'9:16' if vert_c else '16:9'}</b>\n"
-            "<i>Analysing (loud + scene) phir cutting. Please wait.</i>", parse_mode=HTML)
-        asyncio.create_task(start_clip_job(context, q.message.chat.id, uid, _src, mode_c, vert_c))
+            f"<b>{'9:16' if vert_c else '16:9'}</b> · "
+            f"AI <b>{'ON 🧠' if ai_c else 'OFF'}</b>\n"
+            "<i>Analysing phir cutting. Please wait.</i>", parse_mode=HTML)
+        asyncio.create_task(start_clip_job(context, q.message.chat.id, uid, _src, mode_c, vert_c, ai_c))
         return
 
     if data.startswith("imeiagain:"):
@@ -3142,11 +3230,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
             return
 
-        # 5. Student Exam Hub
-        if action == "exam":
-            await update.message.reply_text(STUDENT_EXAM_TEXT, reply_markup=get_student_exam_kb(), parse_mode=HTML)
-            return
-
         # 6b. QR Code (4 types)
         if action == "qr":
             kb = InlineKeyboardMarkup([
@@ -3800,9 +3883,44 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
-            await st.edit_text(fail_msg("SEND ERROR", "Got the media but could not send it. Please try again."), parse_mode=HTML)
+            await st.edit_text(
+                fail_msg("SEND FAILED", "Got the media but Telegram did not accept it. Try once more.")
+                + "\n\n💡 <b>Tip:</b> big videos par ye kuch baar hota hai. Dobara try karo ya "
+                  "<b>✂️ MEDIA STUDIO → Video compress</b> se chhota karke bhejo.",
+                parse_mode=HTML)
         except Exception as e:
-            await st.edit_text(fail_msg("SEND ERROR", str(e)), parse_mode=HTML)
+            # v44: bade video par Telegram timeout → compressed version se dobara koshish
+            _raw = res.get("bytes") or b""
+            _fixed = False
+            if _raw and len(_raw) > 6 * 1048576 and res.get("type") == "video":
+                try:
+                    await st.edit_text("📦 <b>Telegram took too long.</b> Size chhota karke dobara bhej raha hoon…",
+                                       parse_mode=HTML)
+                    _c = await asyncio.to_thread(desi.video_compress, _raw, 16.0, ".mp4")
+                    if _c.get("ok"):
+                        _buf = io.BytesIO(_c["bytes"])
+                        _buf.name = f"{platform_name(raw_text).replace(' ', '_')}_compressed.mp4"
+                        await update.message.reply_video(
+                            video=_buf, parse_mode=HTML, supports_streaming=True,
+                            caption=(f"📥 <b>{to_bold(platform_name(raw_text).upper() + ' VIDEO')}</b>\n"
+                                     f"• 📊 <b>Size:</b> {_c.get('size_mb')} MB (compressed)\n"
+                                     "• 🔊 <b>Audio:</b> Original ✅\n"
+                                     "<i>Full-size file bhejne me network slow tha — ye compressed version hai.</i>"))
+                        _fixed = True
+                except Exception as _e2:
+                    log.warning("insta compress retry fail: %s", _e2)
+            if _fixed:
+                await st.delete()
+                add_use(uid)
+                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+                return
+            await st.edit_text(
+                fail_msg("SEND FAILED", clean_err(e))
+                + "\n\n💡 <b>What to do:</b>\n"
+                  "• Tap the tool again and send the same link (2nd try usually works)\n"
+                  "• Big video? Use <b>✂️ MEDIA STUDIO → Video compress</b>\n"
+                  "• Ya <b>📥 VIDEO DOWNLOADER</b> dobara kholo aur link bhejo",
+                parse_mode=HTML)
         return
 
     if mode == "ip":
@@ -3978,6 +4096,52 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    if mode == "pp_stamp_text":
+        raw = context.user_data.get("raw_photo")
+        if not raw:
+            context.user_data.pop("mode", None)
+            await update.message.reply_text("⚠️ Please open 📸 PASSPORT PHOTO from the menu and send a photo first.",
+                                            parse_mode=HTML)
+            return
+        txt = re.sub(r"\s+", " ", (raw_text or "")).strip()
+        m_d = re.search(r"(\d{1,2})[\-/. ](\d{1,2})[\-/. ](\d{4})", txt)
+        if m_d:
+            name = txt[:m_d.start()].strip(" -.,")
+            dop = f"{int(m_d.group(1)):02d}-{int(m_d.group(2)):02d}-{m_d.group(3)}"
+        else:
+            name, dop = txt, date.today().strftime("%d-%m-%Y")
+        name = re.sub(r"[^A-Za-z .'\-]", "", name).strip()
+        if len(name) < 2:
+            await update.message.reply_text(
+                "✍️ <b>Name samajh nahi aaya.</b>\nSend it like this: <code>RAHUL SHARMA 30-09-2026</code>",
+                parse_mode=HTML)
+            return
+        if not m_d:
+            await update.message.reply_text(
+                f"⚠️ <b>Date nahi mili</b> — maine aaj ki date lagayi: <b>{dop}</b>\n"
+                f"<i>Agar doosri date chahiye to dobara bhejo:</i> <code>{name.upper()} 01-01-2026</code>",
+                parse_mode=HTML)
+        wait = await update.message.reply_text("🎨 Making the photo… (5-10 seconds)")
+        try:
+            stamped, sz = await asyncio.to_thread(make_stamped_passport, raw, name.upper(), dop)
+        except Exception as e:
+            await wait.edit_text(fail_msg("PHOTO FAILED", clean_err(e)), parse_mode=HTML)
+            return
+        try:
+            await wait.delete()
+        except Exception:
+            pass
+        await update.message.reply_photo(
+            photo=stamped,
+            caption=(f"📸 <b>{to_bold('OFFICIAL GOVT EXAM PHOTO READY')}</b>\n"
+                     f"• <b>Name:</b> {hesc(name.upper())}\n• <b>DOP:</b> {hesc(dop)}\n"
+                     f"• <b>Size:</b> {sz} KB (20-50KB ✅)"),
+            parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        context.user_data.pop("raw_photo", None)
+        add_use(uid)
+        return
+
     if mode in ("clips", "clips_wait", "clips_mode"):
         url = (raw_text or "").strip()
         _u_cl = get_user(uid, update.effective_user.first_name)
@@ -4028,8 +4192,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["mode"] = "clips_mode"
             await st.edit_text(
                 "✅ <b>Video downloaded</b> — %s · %sMB\n\n" % (
-                    clips_fmt_t(dur) if dur else "?", r.get("size_mb")) + clip_choice_text(None, None),
-                reply_markup=clip_choice_kb(None, None), parse_mode=HTML)
+                    clips_fmt_t(dur) if dur else "?", r.get("size_mb"))
+                + clip_choice_text(None, None, context.user_data.get("clip_ai")),
+                reply_markup=clip_choice_kb(None, None, context.user_data.get("clip_ai")), parse_mode=HTML)
             add_use(uid)
             return
         await update.message.reply_text(
@@ -4756,6 +4921,22 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     # Default fallback
+    # v44: agar koi tool ka mode chalu hai to menu par na phenko — wahi tool dobara maango
+    _mode_now = context.user_data.get("mode")
+    if _mode_now and _mode_now in PROMPTS:
+        await update.message.reply_text(
+            "🤔 <b>Samajh nahi aaya</b> — lagta hai ye input is tool ke liye nahi tha.\n\n"
+            + tool_prompt(_mode_now), reply_markup=tool_tutorial_kb(_mode_now), parse_mode=HTML)
+        return
+    if _mode_now:
+        _name = {"pp_stamp_text": "📸 PASSPORT PHOTO", "pp_stamp": "📸 PASSPORT PHOTO",
+                 "bankpdf_pass": "🏦 BANK PDF", "clips_mode": "🎬 CLIP MAKER"}.get(_mode_now)
+        if _name:
+            await update.message.reply_text(
+                f"🤔 <b>Samajh nahi aaya.</b> {_name} tool chalu hai — "
+                "upar likhe steps ke hisaab se dobara bhejo, ya /cancel karke naya tool kholo.",
+                parse_mode=HTML)
+            return
     await update.message.reply_text("👇 Pick a tool from the grid menu below:", reply_markup=kb_for(uid))
 
 
@@ -4871,8 +5052,8 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
             "✅ <b>Video received</b> — %s · %sMB%s\n\n" % (
                 clips_fmt_t(dur) if dur else "?", round(len(data) / 1048576, 1),
                 "" if info.get("has_audio") else " · ⚠️ no sound (scene-wise clips)") +
-            clip_choice_text(None, None),
-            reply_markup=clip_choice_kb(None, None), parse_mode=HTML)
+            clip_choice_text(None, None, context.user_data.get("clip_ai")),
+            reply_markup=clip_choice_kb(None, None, context.user_data.get("clip_ai")), parse_mode=HTML)
         return True
 
     # ---------- ⚡ MEDIA STUDIO ----------
@@ -5040,21 +5221,14 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "pp_stamp_text":
-        raw = context.user_data.get("raw_photo")
-        if not raw:
-            await update.message.reply_text("⚠️ Send the photo first!")
-            return
-        parts = update.message.text.strip().rsplit(" ", 1)
-        name = parts[0] if parts else "CANDIDATE NAME"
-        dop = parts[1] if len(parts) > 1 else date.today().strftime("%d-%m-%Y")
-        stamped, sz = make_stamped_passport(raw, name, dop)
-        await update.message.reply_photo(
-            photo=stamped,
-            caption=f"📸 <b>{to_bold('OFFICIAL GOVT EXAM PHOTO READY')}</b>\n\n• <b>Name:</b> {name.upper()}\n• <b>DOP:</b> {dop}\n• <b>Size:</b> {sz} KB (20-50KB compliant ✅)",
-            parse_mode=HTML,
-        )
-        context.user_data.pop("mode", None)
-        add_use(uid)
+        # v44: photo dobara bheji gayi → nayi photo lagao, naam-dop phir maango (crash nahi)
+        photo_file = await update.message.photo[-1].get_file()
+        buf = io.BytesIO()
+        await photo_file.download_to_memory(buf)
+        context.user_data["raw_photo"] = buf.getvalue()
+        await update.message.reply_text(
+            "🖼️ New photo set ✅\n✍️ Now send your <b>NAME and DATE OF PHOTO (DOP)</b>:\n"
+            "(example: <code>RAHUL SHARMA 30-09-2026</code>)", parse_mode=HTML)
         return
 
     # Signature Cleaner
@@ -5340,7 +5514,9 @@ def main():
     # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
     threading.Thread(target=publish_tutorial_now, daemon=True).start()
 
-    app = Application.builder().token(BOT_TOKEN).post_init(_post_init).build()
+    app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
+           .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
+           .media_write_timeout(300.0).pool_timeout(60.0).build())
 
     # Commands
     app.add_handler(CommandHandler("start", cmd_start))
@@ -5353,6 +5529,7 @@ def main():
     app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["clipstatus", "clipapi"], cmd_clipstatus))
+    app.add_handler(CommandHandler(["aistatus", "aiapi"], cmd_aistatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
@@ -5371,7 +5548,6 @@ def main():
     app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_tutorial_kb("terabox"), parse_mode=HTML)))
     app.add_handler(CommandHandler("cloner", lambda u, c: u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)))
     app.add_handler(CommandHandler("sarkari", lambda u, c: u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)))
-    app.add_handler(CommandHandler("exam", lambda u, c: u.message.reply_text(STUDENT_EXAM_TEXT, reply_markup=get_student_exam_kb(), parse_mode=HTML)))
 
     # Callbacks
     app.add_handler(CallbackQueryHandler(on_pdf_cb, pattern="^(make_pdf_now|make_pdf_a4)$"))
