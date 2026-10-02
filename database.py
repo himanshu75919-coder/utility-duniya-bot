@@ -96,8 +96,91 @@ def db():
         except Exception:
             pass
 
+    # Chhote settings (tutorial link, telegra.ph token, admin ka chuna plan...)
+    cur.execute(
+        """CREATE TABLE IF NOT EXISTS bot_meta(
+            key TEXT PRIMARY KEY,
+            value TEXT DEFAULT ''
+        )"""
+    )
+    # Admin ne seedha (bina payment) kisko VIP di — uska record
+    cur.execute(
+        """CREATE TABLE IF NOT EXISTS vip_grants(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            days INTEGER,
+            by_admin INTEGER,
+            plan_key TEXT DEFAULT '',
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT ''
+        )"""
+    )
     con.commit()
     return con
+
+
+def meta_get(key: str, default: str = "") -> str:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT value FROM bot_meta WHERE key=?", (key,))
+        row = cur.fetchone()
+        con.close()
+        return (row[0] if row and row[0] else default)
+    except Exception:
+        return default
+
+
+def meta_set(key: str, value: str) -> bool:
+    try:
+        con = db()
+        con.execute("INSERT INTO bot_meta(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                    (key, str(value)))
+        con.commit()
+        con.close()
+        return True
+    except Exception:
+        return False
+
+
+def add_vip_grant(uid: int, days: int, by_admin: int, plan_key: str = "", note: str = "") -> int:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute(
+            "INSERT INTO vip_grants(user_id,days,by_admin,plan_key,note,created_at) VALUES(?,?,?,?,?,?)",
+            (uid, int(days), int(by_admin), plan_key, note, datetime.now().isoformat(timespec="seconds")))
+        pid = cur.lastrowid
+        con.commit()
+        con.close()
+        return int(pid or 0)
+    except Exception:
+        return 0
+
+
+def list_vip_grants(limit: int = 10) -> list:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT * FROM vip_grants ORDER BY id DESC LIMIT ?", (int(limit),))
+        cols = [c[0] for c in cur.description]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+
+def vip_grants_today() -> int:
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT COUNT(*) FROM vip_grants WHERE created_at LIKE ?", (date.today().isoformat() + "%",))
+        n = cur.fetchone()[0]
+        con.close()
+        return int(n or 0)
+    except Exception:
+        return 0
 
 
 def get_user(uid: int, name: str = "") -> dict:

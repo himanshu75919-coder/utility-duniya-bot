@@ -1,7 +1,39 @@
-# 📖 1-PADHO-PEHLE.md — v33 (ADMIN + PAYMENT) GUIDE
+# 📖 1-PADHO-PEHLE.md — v34 (ACTIVATE + TUTORIAL LINK) GUIDE
 
 **Bhai, ye file pehle padh lo — 5 minute me sab samajh aa jayega.**
 Ye version = **v33 — Admin Panel + Payment Verification upgrade** (jo teen dikkatein tumne batayi thi, wo teeno theek).
+
+---
+
+## 🆕 v34 ME 2 NAYI CHEEZEIN (jo tumne kahi)
+
+### 🎁 1. Dost / direct paisa wale ko seedha VIP — `/activate`
+Ab kisi ko bina payment proof ke VIP dena bahut aasan hai:
+
+**Tareeka (2 step):**
+1. `/admin` bhejo → **🎁 VIP Activate (dost / direct paisa)** button dabao → **plan chuno**
+   (30 din ₹49 · 60 din ₹89 · 90 din ₹129 · 120 din ₹169 · Lifetime ₹199)
+2. Ab aise likho: **`/activate 123456789`** → us user ko wahi plan lag jayega
+
+**Extra:**
+- `/activate 123456789 90` → 90 din (alag din dena ho to)
+- `/activate @username` → username se bhi chalega
+- User ko **turant message** jata hai: *"Mubarak ho, VIP mil gayi + valid till date"*
+- Poora record **📜 Manual VIP Log** me rehta hai (kisko, kab, kitne din, kis admin ne diya)
+- `/admin` ke dashboard me "🎁 Aaj manual VIP diye" count bhi dikhta hai
+- ⚠️ Ye sirf admin ke liye hai — normal user `/activate` nahi chala sakta
+
+### 📖 2. Tutorial ab bot ke andar nahi — ek page par (link)
+Tumne kaha tha ki tools me tutorial na dikhe. Ab:
+- Har tool ka "💡 Kaise use karein" wala **lamba text hata diya** — ab sirf kaam aur neeche **ek link**
+- Pooora tutorial (saare tools ka tareeka, step-by-step, har tool ki detail) **ek page par** embed hai
+- Page **bot khud banata hai** (telegra.ph par, free) — deploy hote hi apne aap ban jayega
+- `/tutorial` ya **❓ MADAD / TUTORIAL** button dabao → neeche link button aayega, tap karo, page khul jayega
+- Voice Studio aur Cloner ke guide buttons bhi isi page par le jaate hain
+- Chahte ho to apna link lagao: Render → Environment → `TUTORIAL_URL` = apna link (jaise tumhare channel ki post)
+- Admin panel me **📖 Tutorial Page** button — kabhi bhi page refresh kar sakte ho (`/tutrefresh`)
+
+> Ab tumhare users ko tutorial chahiye to wo sirf link se dekhenge — bot chat me tutorial ki bheed nahi.
 
 ---
 
@@ -104,6 +136,8 @@ Uske neeche **Approve / Reject / User se dobara maango** ke buttons.
 | `/revoke [user_id]` | VIP hatao |
 | `/broadcast [message]` | Sab users ko message |
 | `/ban` / `/unban [user_id]` | Ban / unban |
+| `/activate [user_id] [din]` | 🎁 Dost/direct paisa wale ko bina proof VIP (plan /admin me chuno) |
+| `/tutrefresh` | Tutorial page dobara banao |
 | `/mypay` | (user khud apni payments dekh sakta hai) |
 
 **Kaun-kaun si files update karni hain (v33):**
@@ -113,6 +147,8 @@ modules/payguard.py        (NAYI FILE — UTR + screenshot verification, ye bhoo
 modules/osint_tools.py     (BADLA — public records feature)
 database.py                (BADLA — payment tables/functions)
 modules/voice_studio.py    (BADLA — 24 asli voices)
+modules/tutorial_hub.py    (NAYI FILE — tutorial page + prompt saaf karna, ye bhoolna mat!)
+TUTORIAL.md                (NAYI FILE — tutorial ka fallback link)
 modules/general_tools.py   (BADLA — naye QR/password/search)
 modules/cyber_studio.py    (BADLA — B&W compress, signature cleaner hata)
 modules/channel_cloner.py  (BADLA — 3-step wizard + guide)

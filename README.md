@@ -1,6 +1,29 @@
-# ⚡ Utility Duniya Super-Bot (v33 — ADMIN PANEL + PAYMENT GUARD EDITION)
+# ⚡ Utility Duniya Super-Bot (v34 — QUICK ACTIVATE + TUTORIAL PAGE EDITION)
 
 An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v34 — Quick VIP Activate (`/activate`) + Tutorial ab link par
+
+### 🎁 1. Seedha VIP (bina payment) — `/activate`
+Dost ya koi user seedha aapke number/UPI par paisa bhej de, ya aap kisi ko free me VIP dena chaho:
+1. `/admin` → **🎁 VIP Activate** button → plan chuno (30/60/90/120 din ya Lifetime)
+2. Phir likho: `/activate <user_id>` → us user ko wahi plan
+   - `/activate 123456789 90` → alag din chahiye to
+   - `/activate @username` → username se bhi chalta hai
+- User ko turant "Mubarak ho, VIP mil gayi + valid till" message jata hai
+- Poora record **📜 Manual VIP Log** me (kaun, kab, kitne din, kis admin ne)
+- `meta` table + `vip_grants` table naye; stats me "Aaj manual VIP diye" count
+
+### 📖 2. Tutorial ab bot me nahi — ek page par (link)
+- Tool ke andar wale "💡 Kaise use karein" línes hata di gayi → ab har tool me sirf kaam + neeche **tutorial link**
+- Poora tutorial (saare tools ka tareeka + har tool ki detail) ek page par embed:
+  - Bot **khud** telegra.ph par page banata/update karta hai (startup par, background me)
+  - `TUTORIAL_URL` env se apna link bhi laga sakte ho (jaise channel post)
+  - Fallback: repo ka `TUTORIAL.md`
+- `/tutorial`, `/help`, keyboard ka ❓ MADAD/TUTORIAL, Voice Studio aur Cloner ke guide buttons — sab isi link par le jaate hain
+- Admin panel me **📖 Tutorial Page** button (turant refresh) + `/tutrefresh` command
 
 ---
 
@@ -74,6 +97,8 @@ An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, 
 | 📮 Pincode | Pincode se post offices **ya area ke naam se pincode** (bade buttons, copy-friendly) |
 | 🚗 RTO | 36 state codes + ~45 RTO districts + **5 official links** (VAHAN, e-Challan, IIB insurance, Sarathi DL, mParivahan) |
 | 🏦 IFSC | MICR + contact + UPI/NEFT/RTGS/IMPS flags + Maps |
+| 📖 **Tutorial Page (NAYA)** | Saare tools ka tareeka ek page par, bot me sirf link |
+| 🎁 **Quick Activate (NAYA)** | `/activate` — dost/direct paisa wale ko bina proof VIP |
 | 🛠️ **Admin Panel (NAYA)** | Dashboard + pending payments + user search + VIP/ban + broadcast |
 | 🌐 **IP / Domain (NAYA)** | ip-api se ISP, org, geo, timezone + **VPN/Proxy & Datacenter flags** |
 | 📱 **Public Records (optional)** | Naam/pita/pata/linked-number — env se on/off, warning + report buttons ke saath |
