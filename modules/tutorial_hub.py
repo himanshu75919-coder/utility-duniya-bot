@@ -393,10 +393,12 @@ def build_page_content(prompts_map: dict = None, short_list: str = "") -> list:
 # ======================================================================
 # 4. PAGE PUBLISH / UPDATE
 # ======================================================================
-def _api(path: str, **data):
+def _api(method: str, **data):
+    """method = telegra.ph API ka naam (createPage/editPage...).
+    NOTE: param ka naam 'method' hai — 'path' nahi, warna editPage ke path= se clash ho jata hai."""
     if requests is None:
         return {}
-    r = requests.post("https://api.telegra.ph/" + path, data=data, timeout=25)
+    r = requests.post("https://api.telegra.ph/" + method, data=data, timeout=25)
     try:
         return r.json()
     except Exception:

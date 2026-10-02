@@ -1,6 +1,19 @@
-# ⚡ Utility Duniya Super-Bot (v35 — HAR TOOL KA APNA TUTORIAL VIDEO)
+# ⚡ Utility Duniya Super-Bot (v36 — SIRF VIDEO TUTORIAL, KOI TEXT NAHI)
 
 An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v36 — Bot me sirf 🎬 VIDEO tutorial (text tutorial poora hata diya)
+
+- Har tool ke andar **sirf 2 cheezein**: (1) tool ka kaam + **aakhir me ask** ("Ab apna link bhejo:"),
+  (2) neeche **🎬 Tutorial Video (30 sec) — HIMANSHU** button.
+- **Text tutorial aur uska link bot se poora hata diya:** na "Kaise use karein" lines, na telegra.ph/GitHub link,
+  na menu footer — kuch bhi nahi. (Text page sirf admin ke panel me hai — `/tutrefresh` + "📖 Text Tutorial Page (admin)".)
+- MADAD / TUTORIAL button ab **video buttons** ka chhota menu dikhata hai (Video DL, Terabox, Cloner, Voice, VIP, How-to).
+- Voice Studio, Cloner aur VIP menu me bhi sirf 🎬 video button.
+- Jahan prompt ka aakhir khaali tha, wahan clear ask line jodi (pin, emi, idfind, qr_upi, qr_wifi, qr_vcard, shot_full, pwd_pin, pwd_phrase).
+- Bug fix: `tutorial_hub._api()` ka param `path` → `method` (isliye page update fail hota tha; ab theek).
 
 ---
 

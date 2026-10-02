@@ -1,11 +1,39 @@
-# 📖 1-PADHO-PEHLE.md — v35 (HAR TOOL KA TUTORIAL VIDEO) GUIDE
+# 📖 1-PADHO-PEHLE.md — v36 (SIRF VIDEO TUTORIAL) GUIDE
 
 **Bhai, ye file pehle padh lo — 5 minute me sab samajh aa jayega.**
 Ye version = **v33 — Admin Panel + Payment Verification upgrade** (jo teen dikkatein tumne batayi thi, wo teeno theek).
 
 ---
 
-## 🎬 v35 — HAR TOOL KA APNA TUTORIAL VIDEO (naya!)
+## ✂️ v36 — TEXT TUTORIAL POORA HATA DIYA (sirf video bacha)
+
+Tumne kaha: tools me sirf link maango aur uske neeche video tutorial link ho — text tutorial bilkul na dikhe.
+Ab exactly waisa hai:
+
+**Ab har tool sirf itna dikhata hai:**
+```
+━━━━━━━━━━━━━━━━━━
+🔗 Ab apna link bhejo (jaise terabox.com/s/xxxxx):
+━━━━━━━━━━━━━━━━━━
+[🎬 Tutorial Video (30 sec) — HIMANSHU]     ← sirf yeh ek button
+```
+
+**Kya-kya hata diya:**
+- ❌ "💡 Kaise use karein..." wali lines (pehle hi hat gayi thi)
+- ❌ "📖 Tutorial: yahan padho" wala link (ab nahi)
+- ❌ Menu ke neeche tutorial ka link (ab nahi)
+- ❌ "📖 Text Tutorial (poora)" button (ab nahi)
+- ❌ MADAD/TUTORIAL me text page ka link (ab video buttons ka menu aata hai)
+
+**Ab kya hai:**
+- ✅ Har tool aakhir me apni cheez maangta hai — "Ab apna link bhejo", "Ab number bhejo", "Ab UPI ID bhejo"...
+- ✅ Usi ke neeche **🎬 Tutorial Video (30 sec) — HIMANSHU** button — dabao, us tool ka video chalu
+- ✅ ❓ MADAD / TUTORIAL dabane par video buttons ka chhota menu (Video DL, Terabox, Cloner, Voice, VIP, How-to)
+- ✅ Text tutorial page sirf **tumhare admin panel** me hai ("📖 Text Tutorial Page (admin)") — users ko kabhi nahi dikhta
+
+---
+
+## 🎬 v35 — HAR TOOL KA APNA TUTORIAL VIDEO
 
 Tumne kaha tha: "har tool ke neeche us tool ka tutorial video ho, jisme mera naam HIMANSHU ho".
 Bilkul waisa hi bana hai:
