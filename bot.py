@@ -4613,7 +4613,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             L.append("━━━━━━━━━━━━━━━━━━━━━━")
             L.append(f"👨\u200d👩\u200d👧\u200d👦 <b>MEMBERS — {af.get('member_count') or len(members)}</b>")
             for i, m in enumerate(members[:8], 1):
-                L.append(f"\n<b>{i}.</b> 👤 <b>{hesc(m.get('name') or '—')}</b>")
+                _nm = (m.get('name') or '').strip()
+                if _nm.lower() in ('unknown', 'name not in source', 'na', 'n/a'):
+                    _nm = (m.get('father_name') or '').strip()
+                    _nm = f"{_nm} ka parivar" if _nm else ''
+                L.append(f"\n<b>{i}.</b> 👤 <b>{hesc(_nm or '—')}</b>")
                 bits = []
                 if m.get("aadhaar_masked"):
                     bits.append(f"🎫 <code>{hesc(m['aadhaar_masked'])}</code>")
