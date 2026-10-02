@@ -1,7 +1,46 @@
-# 📖 1-PADHO-PEHLE.md — v34 (ACTIVATE + TUTORIAL LINK) GUIDE
+# 📖 1-PADHO-PEHLE.md — v35 (HAR TOOL KA TUTORIAL VIDEO) GUIDE
 
 **Bhai, ye file pehle padh lo — 5 minute me sab samajh aa jayega.**
 Ye version = **v33 — Admin Panel + Payment Verification upgrade** (jo teen dikkatein tumne batayi thi, wo teeno theek).
+
+---
+
+## 🎬 v35 — HAR TOOL KA APNA TUTORIAL VIDEO (naya!)
+
+Tumne kaha tha: "har tool ke neeche us tool ka tutorial video ho, jisme mera naam HIMANSHU ho".
+Bilkul waisa hi bana hai:
+
+**Har tool me ab ye dikhega:**
+```
+⚡ TERABOX DOWNLOADER
+━━━━━━━━━━━━━━━━━
+✅ Chalte hain: Terabox, Mediafire, GDrive
+🔗 Ab apna link bhejo:
+━━━━━━━━━━━━━━━━━
+[🎬 Tutorial Video (30 sec) — HIMANSHU]   ← dabao, video chalu
+[📖 Text Tutorial (poora)]
+```
+
+**Video me kya-kya hai (26-32 second, Hinglish voice):**
+- Bot ka logo + naam + tool ka naam (bade bold letters me)
+- Telegram jaisa chat demo — step 1, 2, 3 me messages aate hain (jaisa asli bot me hota hai)
+- Neeche Hindi subtitle (jo boli ja rahi hai wahi likha aata hai)
+- Har video me **HIMANSHU** — 16 saal ka ladka, black hoodie par bade bold **HIMANSHU** letters,
+  purple neon light (tumhare bot ke Venom logo jaisa theme)
+- Hindi voiceover + halka background music
+
+**Sabse badi baat:** 33 videos bani hain — har tool ki apni, ek jaisi nahi.
+
+**Kisi tool ka video jaldi dekhna ho to** — `videos/` folder me saari mp4 files hain
+(jaise `video_dl.mp4`, `emi.mp4`, `cloner.mp4`...).
+
+**Video badalna ho?** `tutorial_videos/build_tutorial_videos.py` me tool ka `narration` (jo bola jata hai),
+`steps` (chat demo) ya `pose` (character ki photo) badal kar dobara chala do:
+`python3 build_tutorial_videos.py emi` (ek tool) ya `--all --jobs 2` (sab).
+
+**Bot me video kaise aata hai:** GitHub par `tutorial_videos/*.mp4` pade hain → bot unhe CDN se uthakar
+user ko bhej deta hai (streaming on). CDN fail ho to GitHub raw, phir document, phir seedha link — 4 layer
+fallback, isliye video kabhi na aane wali dikkat nahi aayegi.
 
 ---
 

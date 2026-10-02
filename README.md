@@ -1,6 +1,23 @@
-# ⚡ Utility Duniya Super-Bot (v34 — QUICK ACTIVATE + TUTORIAL PAGE EDITION)
+# ⚡ Utility Duniya Super-Bot (v35 — HAR TOOL KA APNA TUTORIAL VIDEO)
 
 An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v35 — Har tool ka apna Tutorial VIDEO (HIMANSHU ke saath)
+
+- **33 tutorial videos** (har tool ka apna, 26-32 second, Hindi voiceover, vertical 1080x1920):
+  video downloader, terabox, cloner, voice studio, passport photo, 8-in-1 sheet, doc compress, image→PDF,
+  screenshot, RTO, number info, IFSC, pincode, ID finder, IP, QR, UPI QR, password, URL short, link bypass,
+  link check, EMI, vyaj, age, web search, app finder, sarkari, exam hub, VIP premium, refer, account, virtual numbers, how-to.
+- **Video me kya hai:** Telegram-dark + purple theme, bot ka logo, tool ka naam, Telegram jaisa chat demo
+  (step by step message aate hain), Hindi subtitle, aur neeche **HIMANSHU** character (hoodie par bold HIMANSHU,
+  black hoodie + purple neon) + Hindi voiceover + halka music bed.
+- **Bot me:** har tool ke neeche **🎬 Tutorial Video (30 sec)** button → `send_video` (streaming on).
+  Video **jsDelivr CDN** se aata hai, fail hone par GitHub raw, phir document, phir seedha link — 4 layer fallback.
+- **Settings:** `TUTORIAL_VIDEO_BASE` (apna CDN/URL), `TUTORIAL_VIDEO_BASE_FALLBACK`, `TUTORIAL_REPO`.
+- **Naya video banane ke liye:** `tutorial_videos/build_tutorial_videos.py` (PIL + ffmpeg + edge-tts),
+  ek tool: `python3 build_tutorial_videos.py emi`, sab: `--all --jobs 2`.
 
 ---
 
