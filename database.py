@@ -9,6 +9,9 @@ import sqlite3
 from datetime import date, datetime, timedelta
 
 DB_PATH = os.getenv("DB_PATH", "botdata.db")
+# Naye user ko ye credits milte hain (ek baar ke — daily reset NAHI hota).
+# Ye sirf premium tools (Video Downloader, Number Info, Channel Cloner, Private Channel Setup) me lagte hain.
+CREDITS_START = int(os.getenv("FREE_CREDITS", "25") or 25)
 
 
 def db():
@@ -95,6 +98,14 @@ def db():
             cur.execute(f"ALTER TABLE cloner_configs ADD COLUMN {col} {typ}")
         except Exception:
             pass
+
+    # CREDITS: 25 free credits (ek baar ke, daily nahi) — sirf premium tools ke liye
+    try:
+        have = [c[1] for c in cur.execute("PRAGMA table_info(users)").fetchall()]
+        if "credits" not in have:
+            cur.execute(f"ALTER TABLE users ADD COLUMN credits INTEGER DEFAULT {CREDITS_START}")
+    except Exception:
+        pass
 
     # Chhote settings (tutorial link, telegra.ph token, admin ka chuna plan...)
     cur.execute(
@@ -192,8 +203,8 @@ def get_user(uid: int, name: str = "") -> dict:
     if not row:
         now_str = datetime.now().isoformat(timespec="seconds")
         cur.execute(
-            "INSERT INTO users(user_id, name, uses_today, last_date, joined_at, trial_date, trial_count, banned) VALUES(?,?,0,?,?,?,0,0)",
-            (uid, (name or "")[:60], today, now_str, today),
+            "INSERT INTO users(user_id, name, uses_today, last_date, joined_at, trial_date, trial_count, banned, credits) VALUES(?,?,0,?,?,?,0,0,?)",
+            (uid, (name or "")[:60], today, now_str, today, CREDITS_START),
         )
         con.commit()
         con.close()
@@ -210,6 +221,7 @@ def get_user(uid: int, name: str = "") -> dict:
             "trial_date": today,
             "trial_count": 0,
             "banned": 0,
+            "credits": CREDITS_START,
         }
 
     cols = [d[0] for d in cur.description]
@@ -792,6 +804,79 @@ def payment_stats() -> dict:
         }
     except Exception:
         return {"pending": 0, "approved": 0, "rejected": 0, "revenue": 0}
+
+
+# ======================================================================
+#  CREDITS (25 free — ek baar ke). Sirf premium tools me lagte hain.
+# ======================================================================
+def get_credits(uid: int) -> int:
+    """User ke bache hue credits. Row na ho to CREDITS_START."""
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT credits FROM users WHERE user_id=?", (uid,))
+        row = cur.fetchone()
+        con.close()
+        if row is None or row[0] is None:
+            return CREDITS_START
+        return int(row[0])
+    except Exception:
+        return CREDITS_START
+
+
+def set_credits(uid: int, n: int) -> int:
+    try:
+        con = db()
+        con.execute("UPDATE users SET credits=? WHERE user_id=?", (max(0, int(n)), uid))
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+    return get_credits(uid)
+
+
+def spend_credits(uid: int, n: int = 1) -> int:
+    """Credits kam karta hai (0 se neeche nahi). Bacha hua returns."""
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT credits FROM users WHERE user_id=?", (uid,))
+        row = cur.fetchone()
+        cur_val = CREDITS_START if (row is None or row[0] is None) else int(row[0])
+        new_val = max(0, cur_val - max(0, int(n)))
+        if row is None:
+            today = date.today().isoformat()
+            now_str = datetime.now().isoformat(timespec="seconds")
+            cur.execute(
+                "INSERT INTO users(user_id, name, uses_today, last_date, joined_at, trial_date, trial_count, banned, credits) VALUES(?,?,0,?,?,?,0,0,?)",
+                (uid, "", today, now_str, today, new_val))
+        else:
+            cur.execute("UPDATE users SET credits=? WHERE user_id=?", (new_val, uid))
+        con.commit()
+        con.close()
+        return new_val
+    except Exception:
+        return get_credits(uid)
+
+
+def add_credits(uid: int, n: int = 25) -> int:
+    """Admin gift: credits badhao."""
+    return set_credits(uid, get_credits(uid) + max(0, int(n)))
+
+
+def credits_stats() -> dict:
+    """Kitne users ke paas kitne credits bache — admin panel ke liye."""
+    try:
+        con = db()
+        cur = con.cursor()
+        cur.execute("SELECT COUNT(*) FROM users WHERE COALESCE(credits, ?) > 0", (CREDITS_START,))
+        with_credits = int(cur.fetchone()[0] or 0)
+        cur.execute("SELECT COUNT(*) FROM users WHERE COALESCE(credits, ?) <= 0", (CREDITS_START,))
+        out_of = int(cur.fetchone()[0] or 0)
+        con.close()
+        return {"with_credits": with_credits, "out_of_credits": out_of}
+    except Exception:
+        return {"with_credits": 0, "out_of_credits": 0}
 
 
 def revoke_premium(uid: int) -> bool:
