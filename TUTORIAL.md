@@ -45,6 +45,7 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 > • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
 > • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
+> • 🎬 CLIP MAKER — send a video (file, direct .mp4 link, or YouTube) → 4-7 short clips (25-60 sec). Best Moments (loud + action parts) or Equal Parts, 16:9 or 9:16. Limit 15 min. VIP feature.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
@@ -206,6 +207,13 @@ Full RC record + all challans (pending/paid, amount, offence).
 Brand, model, device photo + full spec sheet + `.json` copy file.
 📍 IMEI: dial `*#06#` · 📌 Example: `353010111111110`
 🔢 **Now send the 15 digit IMEI:**
+
+## 🎬 CLIP MAKER
+
+Video → 4-7 short clips (25-60 sec). Best moments = loud + action parts.
+📌 Limit: 15 min · 20MB file · ya direct `.mp4` link
+⚠️ Use your own video or one you are allowed to reuse.
+📸 **Now send the video file (or link):**
 
 ## 📱 NUMBER INFO
 

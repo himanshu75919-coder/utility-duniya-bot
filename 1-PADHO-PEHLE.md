@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v42 (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v43 (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -10,7 +10,14 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
 ---
 
-## 0️⃣ v42 (naya) — CHHOTE PROMPTS (kam instructions)
+## 0️⃣ v43 (naya) — 🎬 CLIP MAKER
+
+Video bhejo → **4-7 short clips (25-60 sec)**. Mode: 🎯 Best Moments (awaaz tez + action hisse) ya
+⏱️ Equal Parts. Format: 🖥️ 16:9 ya 📱 9:16 (Shorts/status). Limit **15 min**, file 20MB, ya direct
+`.mp4` link (YouTube optional — kabhi block hota hai). 1 credit, VIP unlimited.
+Poora guide: **`v43-CLIP-MAKER.md`**.
+
+## 0️⃣ (purana) v42 — CHHOTE PROMPTS (kam instructions)
 
 Har tool khulne par ab sirf ye dikhta hai: **TITLE → 1 line → 📌 Example → "Now send …"**.
 Lambi bullet list hata di (tutorial video har tool ke neeche hai). Terabox par **ad-free** likha hai +
@@ -46,6 +53,7 @@ Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount
 | **v40 tool** | 🚗 Vehicle Info + Challan (RC + challan report, live API) — premium tool #8 |
 | **v41 naya tool** | 📲 IMEI / Phone Details (device + full spec sheet + .json) — premium tool #9 · vehicle ab asli hub API par |
 | **v42** | ✂️ Chhote prompts — har tool me TITLE + 1 line + 📌 Example + "Now send…" |
+| **v43 naya tool** | 🎬 Clip Maker (video → 4-7 clips) — premium tool #10 |
 | **Bug fix** | tutorial me "voice" video ka button (tool hi nahi tha) · admin plan select par double line · purane imports |
 | **Test** | sab suites green: 51/51 flows, 54/54 admin, 46/46 video, 81/81 credits, 80/80 naye tools, 93/93 live checks, 68 engines audit |
 

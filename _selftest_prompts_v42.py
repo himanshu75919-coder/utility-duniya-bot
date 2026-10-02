@@ -23,7 +23,7 @@ import database as dbm  # noqa: E402
 PASS, FAIL = [], []
 OWNER = 8607774564
 USER = 777000222
-MENU_TOOLS = ("kagaz", "mediastudio")     # ye menu kholte hain (input nahi maangte)
+MENU_TOOLS = ("kagaz", "mediastudio", "clips")   # menu/video-tool: Example ki jagah Limit line
 
 
 def ok(name, cond, detail=""):
@@ -61,7 +61,7 @@ def test_prompt_style():
             has_bullet.append(k)
         if "━━━" in p:
             has_sep.append(k)
-    ok("saare 25 prompts 5 line ke andar + 320 char ke andar", not too_long, too_long)
+    ok(f"saare {len(bot.PROMPTS)} prompts 5 line + 320 char ke andar", not too_long, too_long)
     ok("har input-tool me 📌 Example hai", not no_example, no_example)
     ok("har prompt aakhir me mangta hai (Now send...)", not no_ask, no_ask)
     ok("prompt me koi lambi bullet list nahi", not has_bullet, has_bullet)
