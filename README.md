@@ -1,6 +1,29 @@
-# ⚡ Utility Duniya Super-Bot (v36 — SIRF VIDEO TUTORIAL, KOI TEXT NAHI)
+# ⚡ Utility Duniya Super-Bot (v37 — CREDITS SYSTEM + SIRF VIDEO TUTORIAL)
 
 An All-in-One Super Automation & Utility Engine for Telegram — **25+ tools**, **Full-Auto Channel Cloner (3-step wizard + private-channel support)**, **Universal Video Downloader (20+ platforms)**, **Real Link Safety Scanner**, **Cyber Cafe Studio**, **Terabox Multi-Engine Resolver**, **Voice Studio (24 real + 30 lab voices)**, **OSINT Info Suite (RTO / Phone / IFSC / Pincode / IP / Username)** and **Automated VIP / UPI Engine**.
+
+---
+
+## 🆕 v37 — CREDITS SYSTEM (naye user ko 25 free credits, ek baar ke)
+
+- **Naye user ko 25 credits** milte hain jab wo pehli baar bot me aata hai — **ek baar ke, daily reset NAHI**.
+  Khatam = khatam (kal khud se nahi badhenge). Admin kabhi bhi credits de sakta hai.
+- **PREMIUM tools (sirf 4, 1 use = 1 credit):**
+  📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner (FULL AUTO ON / Fast-Forward ON) · 🔒 Private Channel Setup
+- **BAAKI SAARE TOOLS 100% FREE** — 25+ tools (passport photo, 8-in-1 sheet, doc PDF, Image→PDF, Voice Studio,
+  IFSC, pincode, ID finder, IP, QR/UPI, password, URL short, link bypass/check, EMI, vyaj, age, search, app finder,
+  screenshot, sarkani/exam hub, virtual numbers, Terabox...) me **koi credit nahi, koi daily limit nahi** —
+  credits 0 hone par bhi ye sab pura chalte hain.
+- **Credit kab katta hai:** kaam **poora hone par** hi (video/photo mil gayi, number info aa gayi, FULL AUTO ON ho gaya).
+  Fail hone par (link nahi chala, network error) **credit nahi katta**.
+- **Credits khatam hone par:** premium tool band + "👑 VIP Lo (Unlimited)" button + free tools ka bharosa dilane wala
+  message. Cloner dashboard par warning + `0 / 25` line dikhti hai.
+- **VIP / Owner / Admin = ♾️ Unlimited** — koi credit nahi lagta (dono taraf kabhi block nahi).
+- **Naya command:** `/credits <user_id> [n]` — admin kisi ko credits de (default 25, `0` likho to khatam).
+  Bina ID likhne par rules + kitne users ke paas credits hain, yeh dikhata hai.
+- **Jahan-jahan credits dikhte hain:** `/account` (credits line + FREE/PREMIUM list), admin panel (kitne users ke paas
+  credits hain / kitne khatam), admin user-search (`🎟️ Credits bache: x / 25`), `/premium` ke upar ek note.
+- **Naya env (optional):** `FREE_CREDITS` (default 25) — naye user ko kitne credits milen.
 
 ---
 

@@ -59,6 +59,12 @@ from telegram.ext import (
 
 # Internal modules
 from database import (
+    CREDITS_START,
+    add_credits,
+    credits_stats,
+    get_credits,
+    set_credits,
+    spend_credits,
     create_payment,
     get_payment,
     payment_stats,
@@ -230,6 +236,7 @@ FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
+# purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
 SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
@@ -261,33 +268,114 @@ def to_bold(text: str) -> str:
     return "".join(res)
 
 
-def check_limit_exceeded(u: dict, uid: int = 0) -> bool:
-    """Owner/admin ke liye koi limit nahi. VIP ke liye nahi. Free users ke liye FREE_LIMIT."""
+# ============================================================
+#  CREDITS SYSTEM (v37)
+#  • Naye user ko 25 credits — EK BAAR KE (daily reset NAHI)
+#  • Premium tools (sirf 4): VIDEO DOWNLOADER, NUMBER INFO,
+#    CHANNEL CLONER, PRIVATE CHANNEL SETUP — 1 use = 1 credit
+#  • Baaki SAARE tools bilkul FREE (koi credit nahi, koi limit nahi)
+#  • VIP / Owner / Admin = unlimited (credits nahi lagte)
+# ============================================================
+PREMIUM_TOOLS = {
+    "insta_dl",            # 📥 VIDEO DOWNLOADER
+    "numinfo",             # 📱 NUMBER INFO
+    "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
+    "cloner_private_help",  # 🔒 PRIVATE CHANNEL SETUP
+}
+
+PREMIUM_TOOL_NAMES = {
+    "insta_dl": "📥 Video Downloader",
+    "numinfo": "📱 Number Info",
+    "cloner": "🔄 Channel Cloner",
+    "cloner_private_help": "🔒 Private Channel Setup",
+}
+
+
+def is_premium_tool(action: str) -> bool:
+    return action in PREMIUM_TOOLS
+
+
+def credits_left(u: dict, uid: int = 0) -> int:
+    """Bache hue credits (VIP/admin/owner ke liye 999999 = unlimited)."""
     if uid and is_admin(uid):
-        return False
+        return 999999
     if is_premium(u):
-        return False
-    return u.get("uses_today", 0) >= FREE_LIMIT
+        return 999999
+    try:
+        return get_credits(uid or u.get("user_id", 0))
+    except Exception:
+        return 0
+
+
+def credits_line(u: dict, uid: int = 0) -> str:
+    """Chhoti line: credits kitne bache hain."""
+    left = credits_left(u, uid)
+    if left >= 999999:
+        return "⚡ <b>Credits:</b> ♾️ Unlimited (VIP)"
+    if left <= 0:
+        return "⚡ <b>Credits:</b> 0 / %d — <b>khatam!</b> Premium tools ke liye /premium karo" % CREDITS_START
+    return f"⚡ <b>Credits:</b> {left} / {CREDITS_START} (premium tools ke liye)"
+
+
+def can_use_premium_tool(u: dict, uid: int = 0) -> bool:
+    """Premium tool chalane layak hai? (VIP/admin hamesha, baaki credits hone par)"""
+    return credits_left(u, uid) > 0
+
+
+def get_credits_over_text(action: str = "") -> str:
+    tool_name = PREMIUM_TOOL_NAMES.get(action, "Ye tool")
+    return (
+        f"⚡ <b>{to_bold('CREDITS KHATAM HO GAYE')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{tool_name} ek <b>premium tool</b> hai — isme se 1 credit lagta hai.\n"
+        f"Aapke <b>{CREDITS_START} free credits poore ho gaye hain.</b>\n\n"
+        "✅ <b>Baaki saare tools ab bhi bilkul FREE hain</b> — koi credit nahi, koi limit nahi:\n"
+        "   📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🖼️ Image→PDF • 🎙️ Voice Studio\n"
+        "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 🧮 EMI • 📈 Vyaaj • 🔎 Search... (sab free)\n\n"
+        f"👑 <b>Premium tools ke liye VIP lo</b> ({CREDITS_START} credits khatam hone par):\n"
+        "• 📥 Video Downloader — <b>unlimited</b>\n"
+        "• 📱 Number Info — <b>unlimited</b>\n"
+        "• 🔄 Channel Cloner + Auto-Forward — <b>unlimited</b>\n"
+        "• 🔒 Private Channel Setup — <b>unlimited</b>\n"
+        "• ♾️ Saath me poora bot unlimited (koi limit nahi)\n\n"
+        "🎁 <i>Free me VIP chahiye? {n} dosto ko share karo (/refer).</i>"
+    ).replace("{n}", str(REFER_NEED))
 
 
 def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Buy VIP Premium", callback_data="open_vip_menu"), InlineKeyboardButton("🎁 Refer & Earn", callback_data="open_refer_menu")],
-        [InlineKeyboardButton("💬 Contact Support (@Supermannn_x)", url="https://t.me/Supermannn_x")],
+        [InlineKeyboardButton("💎 VIP Lo (Unlimited)", callback_data="open_vip_menu")],
+        [InlineKeyboardButton(f"🎬 VIP kaise le? (30 sec video)", callback_data="toolvid:premium")],
+        [InlineKeyboardButton(f"🎁 Refer & Earn (Free VIP)", callback_data="open_refer_menu"),
+         InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
     ])
 
 
-def get_limit_exceeded_text() -> str:
-    return (
-        f"⚠️ <b>{to_bold('DAILY FREE LIMIT REACHED')} ({FREE_LIMIT}/{FREE_LIMIT} Credits)</b>\n\n"
-        f"Aapka aaj ka <b>{FREE_LIMIT} free daily credits limit poora ho chuka hai!</b>\n\n"
-        f"👑 <b>VIP Premium Member banein aur Unlimited Access payein:</b>\n"
-        f"• ♾️ Unlimited Daily Usage (No Limits)\n"
-        f"• 🚀 Ultra High-Speed Priority Server\n"
-        f"• 🛠️ All 32+ Tools Fully Unlocked\n\n"
-        f"🎁 <i>Dosto ko bot share karke 30 din ka Free VIP bhi le sakte hain (/refer)!</i>\n"
-        f"💬 <i>Direct VIP lene ya kisi problem ke liye contact karein: {SUPPORT_USERNAME}</i>"
-    )
+def check_limit_exceeded(u: dict, uid: int = 0) -> bool:
+    """Purana naam — ab matlab: 'premium tool ke liye credits nahi bache'.
+    Free tools par ab koi limit nahi hai."""
+    return not can_use_premium_tool(u, uid)
+
+
+def get_limit_exceeded_text(action: str = "") -> str:
+    return get_credits_over_text(action)
+
+
+def spend_credit_msg(uid: int, action: str = "") -> str:
+    """1 credit kharch hone ke baad chhota note."""
+    left = spend_credits(uid, 1)
+    name = PREMIUM_TOOL_NAMES.get(action, "Premium tool")
+    if left <= 0:
+        return (
+            f"⚡ <b>1 credit use hua</b> — <b>ab 0 credits bache hain!</b>\n\n"
+            f"😅 Ye tumhara aakhri free {name} use tha.\n"
+            "Ab aage se ye premium tools band — VIP lene par unlimited chalenge. "
+            "Baaki saare free tools bina credit chalte rahenge. → /premium"
+        )
+    if left <= 5:
+        return (f"⚡ <b>1 credit use hua</b> — bache: <b>{left}/{CREDITS_START}</b>\n"
+                f"<i>Sasta hint: {left} premium use bache hain, uske baad VIP lena padega (/premium)</i>")
+    return f"⚡ <b>1 credit use hua</b> — bache: <b>{left}/{CREDITS_START}</b>"
 
 
 SUPPORT_USERNAME = "@Supermannn_x"
@@ -1022,18 +1110,27 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    u = get_user(update.effective_user.id, update.effective_user.first_name)
-    vip_status = "👑 ACTIVE VIP" if is_premium(u) else f"Free Tier (Daily {FREE_LIMIT} uses)"
+    uid_ = update.effective_user.id
+    u = get_user(uid_, update.effective_user.first_name)
+    vip_status = "👑 ACTIVE VIP" if is_premium(u) else ("👑 OWNER/ADMIN" if is_admin(uid_) else "🆓 Free User")
     expiry = premium_expiry(u)
+    left = credits_left(u, uid_)
+    cred_line = "♾️ Unlimited (VIP)" if left >= 999999 else f"{left} / {CREDITS_START}"
+    if left < 999999 and left <= 0:
+        cred_line += " — <b>khatam!</b> (premium tools ke liye VIP)"
     text = (
-        f"👤 <b>{to_bold('MY ACCOUNT DETAILS')}</b>\n\n"
+        f"👤 <b>{to_bold('MY ACCOUNT DETAILS')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"• <b>Name:</b> {hesc(u.get('name', 'User'))}\n"
         f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
-        f"• <b>VIP Status:</b> {vip_status}\n"
+        f"• <b>Status:</b> {vip_status}\n"
         f"• <b>VIP Expiry:</b> {expiry}\n"
-        f"• <b>Today Uses:</b> {u.get('uses_today', 0)} / {FREE_LIMIT}\n"
-        f"• <b>Referrals:</b> {u.get('referrals', 0)}\n\n"
-        f"🎁 <i>Refer {REFER_NEED} friends to get 30 Days Free VIP!</i>"
+        f"• ⚡ <b>Credits (premium tools):</b> {cred_line}\n"
+        f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🆓 <b>FREE tools</b> — hamesha bina credit (passport photo, PDF, voice, IFSC, QR, EMI... sab)\n"
+        f"💎 <b>PREMIUM tools</b> — 1 credit/use: 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup\n\n"
+        f"🎁 <i>Free VIP: {REFER_NEED} dosto ko share karo (/refer) — ya /premium se lo.</i>"
     )
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 Buy / Upgrade VIP", callback_data="open_vip_menu")],
@@ -1187,6 +1284,42 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pass
 
 
+async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/credits <user_id> [n] — admin: user ko credits do (default 25)."""
+    if not is_admin(update.effective_user.id):
+        return
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    if not args or not args[0].lstrip("-").isdigit():
+        st_ = credits_stats()
+        await update.message.reply_text(
+            "🎟️ <b>CREDITS (premium tools ke liye)</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"• Naye user ko milte hain: <b>{CREDITS_START}</b> (ek baar ke, daily nahi)\n"
+            "• Premium tools: 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup\n"
+            "• Baaki saare tools <b>free</b> (koi credit nahi)\n\n"
+            "<b>Aise use karo:</b>\n"
+            "<code>/credits 123456789</code> → us user ko 25 credits\n"
+            "<code>/credits 123456789 50</code> → 50 credits\n"
+            "<code>/credits 123456789 0</code> → credits khatam\n\n"
+            f"📊 Abhi: <b>{st_['with_credits']}</b> users ke paas credits hain · <b>{st_['out_of_credits']}</b> ke khatam.",
+            parse_mode=HTML)
+        return
+    target = int(args[0])
+    n = int(args[1]) if len(args) > 1 and args[1].lstrip("-").isdigit() else CREDITS_START
+    new_val = add_credits(target, n)
+    await update.message.reply_text(
+        f"✅ <b>Credits diye!</b>\n\n🆔 User: <code>{target}</code>\n🎟️ Diye: <b>+{n}</b>\n"
+        f"💰 Ab bache: <b>{new_val}</b>\n\n✉️ User ko message chala gaya.", parse_mode=HTML)
+    try:
+        await context.bot.send_message(
+            target,
+            f"🎁 <b>Mubarak ho!</b> Aapko <b>{n} credits</b> mile hain (total: {new_val}).\n"
+            "📥 Video Downloader · 📱 Number Info · 🔄 Cloner · 🔒 Private Setup ab chal jayenge. 🚀",
+            parse_mode=HTML)
+    except Exception:
+        pass
+
+
 async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/tutrefresh — tutorial page dobara banao (sirf admin)."""
     if not is_admin(update.effective_user.id):
@@ -1243,6 +1376,8 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• 🔄 Channel Cloner & Auto-Forwarder with Custom Branding\n"
         "• 🎙️ Full AI Actors Voice Studio\n"
         "• 📸 Cyber Cafe Photo & Doc Studio HD\n\n"
+        f"\n🎟️ <i>Note: naye user ko {CREDITS_START} free credits milte hain — premium tools (Video Downloader, "
+        "Number Info, Cloner, Private Setup) ke liye. Baaki saare tools hamesha free hain.</i>\n\n"
         "👉 Plan select karein aur instant QR code se pay karein:"
     )
     await update.message.reply_text(
@@ -1274,6 +1409,7 @@ async def admin_panel_send(message, context, uid: int):
         f"✅ <b>Approved Total:</b> {ps['approved']}   |   ❌ <b>Rejected:</b> {ps['rejected']}\n"
         f"💰 <b>Total Revenue:</b> ₹{ps['revenue']:,}\n"
         f"🎁 <b>Aaj manual VIP diye:</b> {vip_grants_today()}\n"
+        f"🎟️ <b>Credits wale users:</b> {credits_stats()['with_credits']} · <b>khatam:</b> {credits_stats()['out_of_credits']}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "👇 Neeche se kuch bhi karo:"
     )
@@ -1839,6 +1975,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📊 <b>Admin Commands</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
             "• <code>/payments</code> — pending payment verify\n"
             "• <code>/activate [user_id] [din]</code> — 🎁 seedha VIP (dost / direct paisa, bina proof)\n"
+            "• <code>/credits [user_id] [n]</code> — 🎟️ credits do (default 25)\n"
             "• <code>/grant [user_id] [din]</code> — VIP do (9999 = lifetime)\n"
             "• <code>/revoke [user_id]</code> — VIP hatao\n"
             "• <code>/broadcast [message]</code> — sabko message\n"
@@ -1952,6 +2089,14 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML,
         )
         return
+
+    if data in ("cloner_setup", "cloner_status"):
+        _u = get_user(uid)
+        if not can_use_premium_tool(_u, uid) and data == "cloner_setup":
+            await q.answer("Credits khatam — VIP lo!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("cloner"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
 
     if data == "cloner_setup":
         cfg = get_cloner_config(uid)
@@ -2260,7 +2405,16 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text("❌ Source aur Target same nahi ho sakte (warna post infinite loop me chalti rahegi).", parse_mode=HTML)
             return
 
+        _u_c = get_user(uid)
+        if not can_use_premium_tool(_u_c, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("cloner"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
         save_cloner_config(uid, auto_status="on")
+        if credits_left(_u_c, uid) < 999999:
+            await q.message.reply_text(spend_credit_msg(uid, "cloner").replace("1 credit use hua", "FULL AUTO ON — 1 credit use hua"),
+                                       parse_mode=HTML)
         await q.message.reply_text(
             "🤖 <b>FULL AUTO CLONE ON! 🟢</b>\n\n"
             f"📡 Source: <code>{cfg.get('source_chat_id')}</code>\n"
@@ -2315,6 +2469,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "cloner_start_mode":
+        _u_m = get_user(uid)
+        if not can_use_premium_tool(_u_m, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("cloner"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        if credits_left(_u_m, uid) < 999999:
+            await q.message.reply_text(spend_credit_msg(uid, "cloner").replace("1 credit use hua", "Fast Forward ON — 1 credit use hua"),
+                                       parse_mode=HTML)
         context.user_data["mode"] = "cloning_active"
         await q.message.reply_text("🚀 <b>Fast Auto-Forward Active!</b>\n\nAb aap kisi bhi channel se 10-15 posts/videos forward karein ya direct media bhejein — bot 1-2 second me saari posts aapke target channel me post kar dega!\n\n/cancel dabakar kisi bhi waqt rok sakte hain.", parse_mode=HTML)
         return
@@ -2559,15 +2722,24 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(VOICE_HOME_TEXT, reply_markup=voice_home_kb(), parse_mode=HTML)
             return
 
-        # 3. Channel Cloner Dashboard
+        # 3. Channel Cloner Dashboard (premium — 1 credit per FULL AUTO / Fast-Forward)
         if action == "cloner":
             _cfg = get_cloner_config(uid)
+            _u_cl = get_user(uid, user.first_name)
             _auto = "🟢 ON" if _cfg.get("auto_status") == "on" else "🔴 OFF"
+            _cl_note = ""
+            if not can_use_premium_tool(_u_cl, uid):
+                _cl_note = ("\n⚠️ <b>Credits khatam ho gaye hain</b> — FULL AUTO ON / Fast-Forward ab band hain.\n"
+                            "👑 VIP lene par dono unlimited chalenge (/premium).\n")
             await update.message.reply_text(
-                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n\n"
+                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Not Set'}</code>\n"
                 f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Not Set'}</code>\n"
-                f"🤖 FULL AUTO: <b>{_auto}</b>\n\n"
+                f"🤖 FULL AUTO: <b>{_auto}</b>\n"
+                f"{credits_line(_u_cl, uid)}\n"
+                "<i>(FULL AUTO ON aur Fast-Forward ON ka 1-1 credit lagta hai)</i>\n"
+                f"{_cl_note}\n"
                 "Customize settings for your files 👇",
                 reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
@@ -2711,6 +2883,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         if action == "cloner_private_help":
+            _u = get_user(uid, update.effective_user.first_name)
+            if not can_use_premium_tool(_u, uid):
+                await update.message.reply_text(get_credits_over_text("cloner_private_help"),
+                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                return
             await update.message.reply_text(
                 "🔒 <b>PRIVATE CHANNEL SE POST UTHANI HAI?</b>\n\n"
                 "Na koi login, na password — sirf 3 kaam:\n\n"
@@ -2731,12 +2908,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Standard prompt modes
         context.user_data["mode"] = action
         if action in PROMPTS:
-            # Check Daily Limit
             u = get_user(uid, update.effective_user.first_name)
-            if check_limit_exceeded(u, uid):
-                await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            # SIRF premium tools par credits ka check (baaki saare tools FREE)
+            if is_premium_tool(action) and not can_use_premium_tool(u, uid):
+                await update.message.reply_text(get_credits_over_text(action),
+                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
                 return
-            await update.message.reply_text(tool_prompt(action) + "\n\n<i>/cancel kabhi bhi dabayein.</i>", reply_markup=tool_tutorial_kb(action), parse_mode=HTML)
+            extra = ""
+            if is_premium_tool(action):
+                extra = "\n\n" + credits_line(u, uid) + "\n<i>(is tool ka 1 use = 1 credit)</i>"
+            await update.message.reply_text(tool_prompt(action) + extra + "\n\n<i>/cancel kabhi bhi dabayein.</i>",
+                                            reply_markup=tool_tutorial_kb(action), parse_mode=HTML)
             return
 
     # Check Active Working Modes
@@ -2885,6 +3067,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👋 <b>Naam:</b> {hesc(str(row.get('name') or u.get('name') or '-'))}\n"
             f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ Nahi')}\n"
             f"⚡ <b>Aaj ke uses:</b> {u.get('uses_today', 0)}\n"
+            f"🎟️ <b>Credits bache:</b> {get_credits(target)} / {CREDITS_START}\n"
             f"🚫 <b>Banned:</b> {'Haan' if u.get('banned') else 'Nahi'}\n"
             f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
             "━━━━━━━━━━━━━━━━━━━━━━",
@@ -2961,6 +3144,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👋 <b>Naam:</b> {hesc(str((row[1] if row else '') or u.get('name') or '-'))}\n"
             f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ Nahi')}\n"
             f"⚡ <b>Aaj ke uses:</b> {u.get('uses_today', 0)}\n"
+            f"🎟️ <b>Credits bache:</b> {get_credits(target)} / {CREDITS_START}\n"
             f"🚫 <b>Banned:</b> {'Haan' if u.get('banned') else 'Nahi'}\n"
             f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
             "━━━━━━━━━━━━━━━━━━━━━━",
@@ -3073,10 +3257,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML)
         return
 
-    # Check Daily Limit for Active Executions
+    # Premium tool ka mode active hai to credit check (free tools par koi rok nahi)
     u = get_user(uid, update.effective_user.first_name)
-    if mode and check_limit_exceeded(u, uid):
-        await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+    if mode and is_premium_tool(mode) and not can_use_premium_tool(u, uid):
+        context.user_data.pop("mode", None)
+        await update.message.reply_text(get_credits_over_text(mode),
+                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
         return
 
     # Tool Execution Modes
@@ -3134,6 +3320,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         plat = platform_name(raw_text)
+        _u = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u, uid):
+            await update.message.reply_text(get_credits_over_text("insta_dl"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
         st = await update.message.reply_text(f"📥 {plat} se media fetch kar raha hoon (best quality + full audio)...")
         res = await download_video_async(raw_text)
 
@@ -3171,6 +3363,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_media_group(media=media_group)
                 await st.delete()
                 add_use(uid)
+                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             # 2) Single Video
@@ -3194,6 +3387,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 await st.delete()
                 add_use(uid)
+                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             # 3) Single Photo
@@ -3209,6 +3403,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 await st.delete()
                 add_use(uid)
+                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             # 4) Bada file (48MB+): direct link dete hain — kaam rukta nahi
@@ -3230,6 +3425,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode=HTML,
                 )
                 add_use(uid)
+                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             await st.edit_text(fail_msg("SEND ERROR", "Media mil gayi par bhejne me dikkat aayi. Dobara try karein."), parse_mode=HTML)
@@ -3343,8 +3539,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "numinfo":
+        _u = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u, uid):
+            await update.message.reply_text(get_credits_over_text("numinfo"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
         res = lookup_phone_info(raw_text)
         if res.get("ok"):
+            await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
             rows = []
             pair = []
             for label, url in res["links"]:
@@ -4291,6 +4494,7 @@ def main():
     app.add_handler(CommandHandler(["tutorial", "madad", "guide"], cmd_tutorial))
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
+    app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))

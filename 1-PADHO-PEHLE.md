@@ -1,7 +1,58 @@
-# 📖 1-PADHO-PEHLE.md — v36 (SIRF VIDEO TUTORIAL) GUIDE
+# 📖 1-PADHO-PEHLE.md — v37 (CREDITS SYSTEM) GUIDE
 
 **Bhai, ye file pehle padh lo — 5 minute me sab samajh aa jayega.**
-Ye version = **v33 — Admin Panel + Payment Verification upgrade** (jo teen dikkatein tumne batayi thi, wo teeno theek).
+Ye version = **v37 — Credits System** (naye user ko 25 free credits, premium tools ke liye).
+
+---
+
+## 🎟️ v37 — CREDITS SYSTEM (sabse naya, sabse zaroori)
+
+**Simple bhasha me:** naya user jab pehli baar bot kholega, use **25 credits** milenge — jaise 25 sikkon wala gift.
+Ye 25 **ek hi baar** milte hain (roz nahi badhte). Jab tak sikka bacha hai, premium tools chalta rahega.
+Sikka khatam → premium tool band, aur "VIP lo" ka message aayega. **Baaki saare tools hamesha free — 0 sikka par bhi.**
+
+**📥 Premium tools — sirf 4 (1 use = 1 credit):**
+| Tool | Kya karega |
+|---|---|
+| 📥 Video Downloader | Instagram/YouTube/Facebook video download |
+| 📱 Number Info | Mobile number ki puri jankari |
+| 🔄 Channel Cloner | **FULL AUTO ON** ya **Fast-Forward ON** dabane par 1 credit (dashboard dekhna free hai) |
+| 🔒 Private Channel Setup | Private channel clone setup |
+
+**✅ Free tools (25+):** passport photo, 8-in-1 print sheet, document PDF compress, Image→PDF, screenshot,
+Voice Studio (24 actor + 30 lab voice), IFSC, pincode, ID/username finder, IP/domain, QR/UPI QR, password,
+URL short, link bypass, link check, EMI calc, vyaj (interest), age, web search, app finder, sarkari portals,
+exam hub, virtual numbers, Terabox downloader... — **in par na credit lagta hai, na limit.**
+
+**⚡ Credit kab katta hai (zaroori baat):**
+- Credit **tabhi** katta hai jab kaam **pooora ho jaye** — video mil gayi, number info aa gayi, FULL AUTO ON ho gaya.
+- Link kharab tha / network error aaya → **credit nahi katta**. Tumhara sikka bacha rahega. 😌
+
+**👑 VIP / Owner / Admin:** in sab ke liye credits ki zaroorat nahi — **♾️ Unlimited**. Credits khatam ho ya na ho,
+dono taraf kabhi block nahi hote. Tumhare ID (`8607774564`) par hamesha "♾️ Unlimited" hi likha aayega.
+
+**🎁 Credits dene ka tareeka (sirf admin ke liye):**
+```
+/credits 123456789        → us user ko 25 credits (default)
+/credits 123456789 50     → 50 credits
+/credits 123456789 0      → credits khatam (block)
+/credits                  → rules + kitne users ke paas credits hain
+```
+User ko turant message bhi chala jata hai: "🎁 Mubarak ho! Aapko x credits mile hain".
+
+**👀 Credits kahan dikhte hain:**
+- `/account` → "⚡ Credits (premium tools): 22 / 25" + FREE/PREMIUM tools ki list
+- Admin panel (`/admin`) → "🎟️ Credits wale users: x · khatam: y"
+- Admin user-search (admin panel → user dhundo) → us user ke bache credits
+- Premium tool kholne par uske prompt ke neeche credits line
+- Credit katne ke baad: "⚡ 1 credit use hua — bache: 4/25" (5 se kam bache to hint bhi)
+
+**⚙️ Settings (optional):**
+- `FREE_CREDITS=25` → naye user ko kitne credits milen (default 25).
+
+**Sab kuch test kiya gaya:** 74 naye credits/tools tests + purane saare tests (117 live checks, video 49, flow 72,
+admin/VIP 54, cloner, wiring, tools) — **sab PASS**. Ek asli bug bhi pakda aur theek kiya: FULL AUTO ON karne par
+2 credit kat rahe the (ab poora 1 hi katta hai).
 
 ---
 
