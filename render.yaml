@@ -1,26 +1,64 @@
+# ===================================================================
+#  Utility Duniya Super Bot — Render Blueprint (v46)
+#
+#  Bot ki service delete ho chuki thi, isliye ye file nayi service
+#  khud hi poori tarah configure kar degi.
+#
+#  KAUNSI SERVICE CHALNI CHAHIYE: sirf YE EK (tg-utility-bot).
+#  Agar do bot service ek saath chalengi to Telegram "Conflict:
+#  terminated by other getUpdates request" dega aur bot chup ho jayega.
+# ===================================================================
 services:
   - type: web
     name: tg-utility-bot
     runtime: python
+    region: singapore          # India ke sabse paas — sabse fast
     plan: free
+    branch: main
+    autoDeploy: true           # GitHub par push hote hi deploy ho jaye
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
+    healthCheckPath: /         # bot.py ka keepalive server isi par 200 deta hai
+
     envVars:
+      # ---------- ZAROORI (Render khud poochhega — yahan mat likho) ----------
       - key: BOT_TOKEN
-        sync: false
+        sync: false            # BotFather ka token (SECRET — sirf Render me daalo)
       - key: ADMIN_ID
-        sync: false
+        sync: false            # apni Telegram numeric ID (@userinfobot se milegi)
+
+      # ---------- OPTIONAL (baad me bhi bhar sakte ho) ----------
+      - key: ADMINS
+        sync: false            # extra admins, comma se alag: 123456,789012
       - key: FORCE_CHANNEL
-        sync: false
+        sync: false            # jaise @YourChannel (force-join chahiye to)
       - key: FORCE_CHANNEL_LINK
-        sync: false
+        sync: false            # https://t.me/YourChannel
       - key: UPI_ID
-        sync: false
+        sync: false            # payment ke liye: yourname@upi
+      - key: TUTORIAL_URL
+        sync: false            # apna tutorial link (khali = bot khud banayega)
+      - key: WEBHOOK_URL
+        sync: false            # POLLING use kar rahe hain → KHALI CHHODO
+
+      # ---------- OSINT HUB (aapka apna API — isi se data aata hai) ----------
+      - key: OSINT_API_BASE
+        value: https://osint-api-hub.onrender.com
+      - key: OSINT_API_KEY
+        value: Demo
+      - key: OSINT_TIMEOUT
+        value: "70"            # hub slow hai; bot beech me progress dikhata hai
+
+      # ---------- SETTINGS ----------
+      - key: FREE_CREDITS
+        value: "25"            # naye user ko itne premium credits
+      - key: REFER_NEED
+        value: "5"             # itne refer par free VIP
+      - key: FREE_LIMIT
+        value: "20"            # purana daily-limit var (ab use nahi hota)
+      - key: NUM_SHOW_FULL_IDS
+        value: "0"             # 1 = Aadhaar/doc ID bhi full dikhaye (0 = masked, safe)
       - key: UPI_NAME
         value: UtilityBot
-      - key: WEBHOOK_URL
-        sync: false
-      - key: FREE_LIMIT
-        value: 15
-      - key: REFER_NEED
-        value: 5
+      - key: BRAND_TAG
+        value: "@Supermannn_x"
