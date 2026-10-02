@@ -12,7 +12,7 @@ Ek hi jagah se 3 bade tools chalte hain:
 ENV (Render → Environment):
   OSINT_API_BASE   = https://osint-api-hub.onrender.com/api   (default)
   OSINT_API_KEY    = Demo                                     (default — apni key daal do)
-  OSINT_TIMEOUT    = 45                                       (seconds)
+  OSINT_TIMEOUT    = 70  (seconds; hub slow hone par bhi kaam kare)
   OSINT_CACHE_TTL  = 300                                      (seconds)
 
 Design rules (professional):
@@ -33,7 +33,9 @@ from html import escape
 import requests
 
 DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"
-TIMEOUT = int(os.environ.get("OSINT_TIMEOUT", "45"))
+# Hub kabhi-kabhi 30-60s leta hai (upstream sources slow hote hain).
+# Bot ab user ko beech-beech me progress dikhata hai, isliye timeout bada rakhte hain.
+TIMEOUT = int(os.environ.get("OSINT_TIMEOUT", "70"))
 CACHE_TTL = int(os.environ.get("OSINT_CACHE_TTL", "300"))
 _FAIL_TTL = 45          # fail wali query ko itni der dobara try nahi karenge
 

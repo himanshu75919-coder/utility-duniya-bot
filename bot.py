@@ -20,6 +20,7 @@ import io
 import json
 import logging
 import os
+import socket
 import random
 import re
 import sqlite3
@@ -271,6 +272,57 @@ UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
 WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
+async def hub_with_progress(wait_msg, hub_fn, arg, what="", timeout=24):
+    """Hub API ko background me chalao aur user ko LIVE progress dikhao.
+
+    Pehle bot 60 second tak chup rehta tha - user ko lagta tha bot mar gaya.
+    Ab har 6 sec me "data aa raha hai... Xs" dikhta hai, aur 24 sec ke baad
+    bhi result na aaye to call background me chalti rehti hai aur result
+    baad me bhej diya jata hai (deliver_hub_later).
+
+    Returns: (result_dict | None, task)
+             None  ->  abhi tak nahi aaya, task abhi bhi chal raha hai
+    """
+    loop = asyncio.get_running_loop()
+    task = loop.create_task(asyncio.to_thread(hub_fn, arg))
+    waited = 0
+    while waited < timeout:
+        try:
+            res = await asyncio.wait_for(asyncio.shield(task), timeout=6)
+            return (res if isinstance(res, dict) else {}), task
+        except asyncio.TimeoutError:
+            waited += 6
+            try:
+                await wait_msg.edit_text(
+                    f"\U0001f50e <b>{hesc(what or 'Searching...')}</b>\n"
+                    f"<i>Source se data aa raha hai... <b>{waited}s</b> ho gaye.</i>\n"
+                    "Bas thoda aur wait karein \u23f3", parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                pass
+        except Exception as e:                                   # noqa: BLE001
+            return {"ok": False, "has_data": False,
+                    "error": clean_err(str(e), 120)}, task
+    return None, task
+
+
+async def deliver_hub_later(task, context, chat_id, build_fn):
+    """Hub call der se poora ho to result baad me yahin bhej do (60s tak bhi)."""
+    try:
+        res = await task
+    except Exception as e:                                       # noqa: BLE001
+        res = {"ok": False, "has_data": False, "error": clean_err(str(e), 120)}
+    if not isinstance(res, dict):
+        res = {}
+    try:
+        text = build_fn(res)
+    except Exception:                                            # noqa: BLE001
+        text = "\u274c <b>Result taiyar karte waqt error aa gaya.</b> Dobara try karein."
+    try:
+        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode=HTML)
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
 SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
@@ -2345,11 +2397,33 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not can_use_premium_tool(_u, uid):
             await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
             return
-        await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
-        try:
-            live = await asyncio.to_thread(hub_vehicle, plate) or {}
-        except Exception as e:                                  # noqa: BLE001
-            live = {"ok": False, "error": clean_err(str(e), 120), "fallback": True}
+        def _veh_again_text(lv):
+            if not lv.get("ok"):
+                return ("\u26a0\ufe0f <b>Live RC / challan report nahi mil paaya.</b>\n"
+                        + hesc(str(lv.get("error") or "source slow")[:120])
+                        + "\n\n\U0001f49a <b>Koi credit nahi kata.</b>")
+            if not (lv.get("has_data") or _veh_has_rc_data(lv)):
+                return ("\U0001f50e <b>Is number ka koi RC / challan record nahi mila.</b>\n"
+                        "\U0001f49a <b>Koi credit nahi kata.</b>")
+            note = ("\u267b\ufe0f <b>Cached result</b> \u2014 koi credit nahi kata."
+                    if lv.get("cached") else spend_credit_msg(uid, "vehicle"))
+            return note + "\n\n" + render_vehicle_report(lv)
+
+        wait_v = await q.message.reply_text(
+            "\U0001f50e <b>Checking live RC + challan record again\u2026</b>", parse_mode=HTML)
+        live, _task = await hub_with_progress(wait_v, hub_vehicle, plate,
+                                              "Live RC + challan check chal raha hai\u2026",
+                                              timeout=18)
+        if live is None:
+            asyncio.create_task(deliver_hub_later(_task, context, wait_v.chat_id, _veh_again_text))
+            try:
+                await wait_v.edit_text(
+                    "\u23f3 <b>Source slow hai…</b>\n"
+                    "<i>Result taiyar hote hi yahin bhej denge (30-60 sec).</i>", parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                pass
+            add_use(uid)
+            return
         if live.get("ok") and not (live.get("has_data") or _veh_has_rc_data(live)):
             await q.answer("No RC / challan record found for this number — no credit was cut.", show_alert=True)
             add_use(uid)
@@ -4089,13 +4163,38 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             wait = await update.message.reply_text("🔎 <b>Checking live RC + challan record…</b>\n<i>Please wait 5-20 seconds.</i>",
                                                    parse_mode=HTML)
-            try:
-                live = await asyncio.to_thread(hub_vehicle, raw_text) or {}
-            except Exception as e:                               # noqa: BLE001
-                live = {"ok": False, "error": clean_err(str(e), 120), "fallback": True}
+            def _veh_late_text(lv):
+                """Live report der se aaye to ye text bhejenge."""
+                if not lv.get("ok"):
+                    return ("\u26a0\ufe0f <b>Live RC / challan report nahi mil paaya.</b>\n"
+                            + hesc(str(lv.get("error") or "source slow")[:120])
+                            + "\n\n\U0001f49a <b>Koi credit nahi kata.</b>")
+                if not (lv.get("has_data") or _veh_has_rc_data(lv)):
+                    return ("\U0001f50e <b>Is number ka koi RC / challan record nahi mila.</b>\n"
+                            "\U0001f49a <b>Koi credit nahi kata.</b>")
+                note = ("\u267b\ufe0f <b>Cached result</b> \u2014 koi credit nahi kata."
+                        if lv.get("cached") else spend_credit_msg(uid, "vehicle"))
+                return note + "\n\n" + render_vehicle_report(lv)
+
+            live, _task = await hub_with_progress(wait, hub_vehicle, raw_text,
+                                                  "Live RC + challan check chal raha hai\u2026",
+                                                  timeout=18)
+            if live is None:
+                # free card TURANT, live report baad me
+                card_txt, kb_free = _free_card(
+                    "\u23f3 <b>Live RC + challan report aa raha hai\u2026</b>\n"
+                    "<i>Milte hi yahin bhej denge (30-60 sec). Abhi tak koi credit nahi kata.</i>")
+                await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
+                asyncio.create_task(deliver_hub_later(_task, context, chat_id, _veh_late_text))
+                try:
+                    await wait.delete()
+                except Exception:                                # noqa: BLE001
+                    pass
+                add_use(uid)
+                return
             try:
                 await wait.delete()
-            except Exception:
+            except Exception:                                    # noqa: BLE001
                 pass
             if live.get("ok") and not (live.get("has_data") or _veh_has_rc_data(live)):
                 card_txt, kb_free = _free_card(
@@ -4338,24 +4437,95 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if pair:
             rows.append(pair)
 
-        # 2) hub se asli records (agar ON hai)
+        def _records_lines(hr, res_local):
+            """Public-records hissa banayein. Returns (lines, record_mila: bool)."""
+            ppl = [p for p in (hr.get("people") or [])][:3]
+            out = []
+            if hr.get("has_data") and ppl:
+                out.append(f"🧾 <b>{to_bold('PUBLIC RECORDS')}</b> — "
+                            f"<b>{len(ppl)}</b> match (total {hr.get('record_count') or len(ppl)})")
+                for i, pr in enumerate(ppl, 1):
+                    if len(ppl) > 1:
+                        out.append(f"\n<b>{i}.</b>")
+                    if pr.get("name"):
+                        out.append(f"   👤 <b>Name:</b> {hesc(pr['name'])}")
+                    if pr.get("father_name"):
+                        out.append(f"   👨 <b>Father:</b> {hesc(pr['father_name'])}")
+                    phones = [x for x in (pr.get("phones") or []) if x]
+                    if phones:
+                        out.append("   📞 <b>Numbers:</b> "
+                                    + ", ".join(f"<code>{hesc(x)}</code>" for x in phones[:4]))
+                    ids = [_mask_govt_id(x) for x in (pr.get("govt_ids") or []) if x]
+                    if ids:
+                        out.append("   🪪 <b>ID:</b> " + ", ".join(f"<code>{hesc(x)}</code>" for x in ids[:3]))
+                    for ad in (pr.get("addresses") or [])[:2]:
+                        if ad:
+                            out.append(f"   🏠 <b>Address:</b> {hesc(ad)}")
+                    for em in (pr.get("emails") or [])[:2]:
+                        if em:
+                            out.append(f"   📧 <b>Email:</b> {hesc(em)}")
+                    if pr.get("region"):
+                        out.append(f"   📡 <b>Region:</b> {hesc(pr['region'])}")
+                out.append("━━━━━━━━━━━━━━━━━━━━━━")
+                out.append("ℹ️ <i>Kabhi-kabhi record kisi aur ka hota hai (number recycle/port "
+                            "hone par). Naam ya address match kar ke hi trust karein.</i>")
+                out.append("")
+                out.append(PUBLIC_RECORD_WARNING)
+                return out, True
+            why = clean_err(str(hr.get("error") or ""), 120)
+            out.append("\U0001f9fe <b>PUBLIC RECORDS</b>")
+            out.append("\u274c <i>Is number ka koi record nahi mila.</i>"
+                        + (f"\n<i>Reason: {hesc(why)}</i>" if why else ""))
+            out.append("")
+            out.append("\U0001f49a <b>Koi credit nahi kata</b> — jab tak record nahi milta, tool free hai.")
+            out.append("\u2501" * 20)
+            out.append(f"\u2139\ufe0f <i>{res_local['note']}</i>")
+            out.append("")
+            out.append("\U0001f447 Links for further checks:")
+            return out, False
+
+        def _late_records_text(hr):
+            lines, ok = _records_lines(hr, res)
+            if ok:
+                return (spend_credit_msg(uid, "numinfo") + "\n\n"
+                        + "\n".join(lines))
+            return "\n".join(lines)
+
+        # 2) hub se asli records (agar ON hai) — LIVE progress ke saath
         hub_res = {"ok": False, "has_data": False, "people": []}
+        _task = None
         if NUM_LEAK_ENABLED():
             wait = await update.message.reply_text(
-                "🔎 <b>Number mil gaya — ab records dhoondh rahe hain…</b>\n"
+                "\U0001f50e <b>Number mil gaya — ab records dhoondh rahe hain…</b>\n"
                 "<i>Please wait 5-20 seconds.</i>", parse_mode=HTML)
-            try:
-                hub_res = await asyncio.to_thread(hub_numinfo, res["e164"]) or {}
-            except Exception as e:                                   # noqa: BLE001
-                hub_res = {"ok": False, "has_data": False, "people": [],
-                           "error": clean_err(str(e), 120)}
+            hub_res, _task = await hub_with_progress(
+                wait, hub_numinfo, res["e164"],
+                "Number records dhoondh rahe hain…", timeout=18)
+            if hub_res is None:
+                # basic card TURANT bhej do, records baad me milenge
+                card_pending = [
+                    "\U0001f9fe <b>PUBLIC RECORDS</b>",
+                    "\u23f3 <i>Records dhoondh rahe hain — milte hi yahin bhej denge (30-60 sec).</i>",
+                    "",
+                    "\U0001f49a <i>Abhi tak koi credit nahi kata.</i>",
+                    "\u2501" * 20,
+                    f"\u2139\ufe0f <i>{res['note']}</i>",
+                ]
+                await update.message.reply_text("\n".join(card + card_pending),
+                                                reply_markup=InlineKeyboardMarkup(rows) if rows else None,
+                                                parse_mode=HTML)
+                asyncio.create_task(deliver_hub_later(_task, context, chat_id,
+                                                      _late_records_text))
+                try:
+                    await wait.delete()
+                except Exception:                                    # noqa: BLE001
+                    pass
+                add_use(uid)
+                return
             try:
                 await wait.delete()
             except Exception:                                        # noqa: BLE001
                 pass
-
-        people = [p for p in (hub_res.get("people") or [])][:3]
-        delivered = bool(hub_res.get("has_data") and people)
 
         card = [
             f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>",
@@ -4371,51 +4541,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "━━━━━━━━━━━━━━━━━━━━━━",
         ]
 
+        hub_lines, delivered = _records_lines(hub_res, res)
         if delivered:
             # credit sirf tab jab asli record mila ho
             await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
-            card.append(f"🧾 <b>{to_bold('PUBLIC RECORDS')}</b> — "
-                        f"<b>{len(people)}</b> match (total {hub_res.get('record_count') or len(people)})")
-            for i, pr in enumerate(people, 1):
-                if len(people) > 1:
-                    card.append(f"\n<b>{i}.</b>")
-                if pr.get("name"):
-                    card.append(f"   👤 <b>Name:</b> {hesc(pr['name'])}")
-                if pr.get("father_name"):
-                    card.append(f"   👨 <b>Father:</b> {hesc(pr['father_name'])}")
-                phones = [x for x in (pr.get("phones") or []) if x]
-                if phones:
-                    card.append("   📞 <b>Numbers:</b> "
-                                + ", ".join(f"<code>{hesc(x)}</code>" for x in phones[:4]))
-                ids = [_mask_govt_id(x) for x in (pr.get("govt_ids") or []) if x]
-                if ids:
-                    card.append("   🪪 <b>ID:</b> " + ", ".join(f"<code>{hesc(x)}</code>" for x in ids[:3]))
-                for ad in (pr.get("addresses") or [])[:2]:
-                    if ad:
-                        card.append(f"   🏠 <b>Address:</b> {hesc(ad)}")
-                for em in (pr.get("emails") or [])[:2]:
-                    if em:
-                        card.append(f"   📧 <b>Email:</b> {hesc(em)}")
-                if pr.get("region"):
-                    card.append(f"   📡 <b>Region:</b> {hesc(pr['region'])}")
-            card.append("━━━━━━━━━━━━━━━━━━━━━━")
-            card.append("ℹ️ <i>Kabhi-kabhi record kisi aur ka hota hai (number recycle/port "
-                        "hone par). Naam ya address match kar ke hi trust karein.</i>")
-            card.append("")
-            card.append(PUBLIC_RECORD_WARNING)
-            rows = [[InlineKeyboardButton("🚨 Fraud/Spam? Complaint on 1930", url="https://cybercrime.gov.in/"),
-                     InlineKeyboardButton("🚫 Report on Chakshu (TRAI)", url="https://sancharsaathi.gov.in/")]] + rows
-        else:
-            why = clean_err(str(hub_res.get("error") or ""), 120)
-            card.append("🧾 <b>PUBLIC RECORDS</b>")
-            card.append("❌ <i>Is number ka koi record nahi mila.</i>"
-                        + (f"\n<i>Reason: {hesc(why)}</i>" if why else ""))
-            card.append("")
-            card.append("💚 <b>Koi credit nahi kata</b> — jab tak record nahi milta, tool free hai.")
-            card.append("━━━━━━━━━━━━━━━━━━━━━━")
-            card.append(f"ℹ️ <i>{res['note']}</i>")
-            card.append("")
-            card.append("👇 Links for further checks:")
+            rows = [[InlineKeyboardButton("🚨 Fraud/Spam? Complaint on 1930",
+                                          url="https://cybercrime.gov.in/"),
+                     InlineKeyboardButton("🚫 Report on Chakshu (TRAI)",
+                                          url="https://sancharsaathi.gov.in/")]] + rows
+        card.extend(hub_lines)
 
         await update.message.reply_text("\n".join(card),
                                         reply_markup=InlineKeyboardMarkup(rows) if rows else None,
@@ -4443,87 +4577,97 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
 
+        def _aadhaar_text(af):
+            """Hub result se poora Aadhaar family card banao (dono raaste ke liye)."""
+            if not af.get("ok") or not af.get("has_data"):
+                why = clean_err(str(af.get("error") or ""), 140)
+                return ("❌ <b>KOI RECORD NAHI MILA</b>\n"
+                        "━" * 20 + "\n"
+                        f"🆔 <b>Aadhaar:</b> <code>{hesc(_mask_govt_id(a_digits))}</code>\n"
+                        + (f"💡 <i>{hesc(why)}</i>\n" if why else "")
+                        + "\n💚 <b>Koi credit nahi kata</b> — jab tak record nahi milta, tool free hai.\n"
+                        "🔢 <b>Dusra Aadhaar number bhej kar dekhein:</b>")
+
+            L = [f"🆔 <b>{to_bold('AADHAAR FAMILY CARD')}</b>",
+                 "━━━━━━━━━━━━━━━━━━━━━━",
+                 f"🎫 <b>Aadhaar:</b> <code>{hesc(af.get('aadhaar_masked') or _mask_govt_id(a_digits))}</code>"
+                 + ("  ✅ <i>valid</i>" if af.get("valid") else "  ⚠️ <i>checksum</i>"),
+                 ]
+            if af.get("ration_card") and str(af.get("ration_card")).upper() not in ("NA", "N/A"):
+                L.append(f"🪪 <b>Ration Card:</b> <code>{hesc(af['ration_card'])}</code>")
+            if af.get("fps_id") and str(af.get("fps_id")).upper() not in ("NA", "N/A"):
+                L.append(f"🏪 <b>FPS ID:</b> <code>{hesc(af['fps_id'])}</code>")
+
+            loc = af.get("location") or {}
+            if any(loc.get(k) for k in ("district", "state", "pincode")):
+                L.append("━━━━━━━━━━━━━━━━━━━━━━")
+                L.append("📍 <b>LOCATION</b>")
+                if loc.get("district"):
+                    L.append(f"   🏙️ <b>District:</b> {hesc(loc['district'])}")
+                if loc.get("state"):
+                    L.append(f"   🗺️ <b>State:</b> {hesc(loc['state'])}")
+                if loc.get("pincode"):
+                    L.append(f"   📮 <b>PIN:</b> <code>{hesc(loc['pincode'])}</code>")
+
+            members = af.get("members") or []
+            L.append("━━━━━━━━━━━━━━━━━━━━━━")
+            L.append(f"👨\u200d👩\u200d👧\u200d👦 <b>MEMBERS — {af.get('member_count') or len(members)}</b>")
+            for i, m in enumerate(members[:8], 1):
+                L.append(f"\n<b>{i}.</b> 👤 <b>{hesc(m.get('name') or '—')}</b>")
+                bits = []
+                if m.get("aadhaar_masked"):
+                    bits.append(f"🎫 <code>{hesc(m['aadhaar_masked'])}</code>")
+                if m.get("relation"):
+                    bits.append(hesc(m["relation"]))
+                if bits:
+                    L.append("   " + " · ".join(bits))
+                if m.get("father_name"):
+                    L.append(f"   👨 <b>Father:</b> {hesc(m['father_name'])}")
+                if m.get("phones"):
+                    L.append("   📞 " + ", ".join(f"<code>{hesc(x)}</code>" for x in m["phones"][:3]))
+                if m.get("address"):
+                    L.append(f"   🏠 {hesc(str(m['address'])[:190])}")
+            if len(members) > 8:
+                L.append(f"\n   <i>…aur {len(members) - 8} members</i>")
+
+            L.append("")
+            L.append("━━━━━━━━━━━━━━━━━━━━━━")
+            L.append("🔒 <i>Aadhaar numbers hamesha masked hote hain (sirf last 4 digit).</i>")
+            L.append("ℹ️ <i>Data public/leaked sources se aata hai — kaanooni kaam ke liye hi use karein.</i>")
+            L.append("")
+            L.append("🔢 <b>Dusra Aadhaar number bhejein (mode chalu hai):</b>")
+            L.append(f"⚡ {BRAND_LINE}")
+
+            return spend_credit_msg(uid, "aadhaar") + "\n\n" + "\n".join(L)
+
         wait = await update.message.reply_text(
-            "🔎 <b>Family card dhoondh rahe hain…</b>\n"
+            "🔎 <b>Family card dhoondh rahe hain...</b>\n"
             "<i>Please wait 10-30 seconds.</i>", parse_mode=HTML)
-        try:
-            af = await asyncio.to_thread(hub_aadhaar, a_digits) or {}
-        except Exception as e:                                   # noqa: BLE001
-            af = {"ok": False, "error": clean_err(str(e), 120)}
+        af, _task = await hub_with_progress(wait, hub_aadhaar, a_digits,
+                                            "Family card dhoondh rahe hain...")
+        if af is None:
+            # abhi nahi aaya -> background me chalne do, aate hi yahin bhej denge
+            asyncio.create_task(deliver_hub_later(_task, context, chat_id, _aadhaar_text))
+            try:
+                await wait.edit_text(
+                    "⏳ <b>Source thoda slow hai...</b>\n"
+                    "<i>Result taiyar hote hi yahin bhej diya jayega (30-60 sec).</i>",
+                    parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                pass
+            add_use(uid)
+            return
         try:
             await wait.delete()
         except Exception:                                        # noqa: BLE001
             pass
 
-        if not af.get("ok") or not af.get("has_data"):
-            why = clean_err(str(af.get("error") or ""), 140)
-            await update.message.reply_text(
-                "❌ <b>KOI RECORD NAHI MILA</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🆔 <b>Aadhaar:</b> <code>{hesc(_mask_govt_id(a_digits))}</code>\n"
-                + (f"💡 <i>{hesc(why)}</i>\n" if why else "")
-                + "\n💚 <b>Koi credit nahi kata</b> — jab tak record nahi milta, tool free hai.\n"
-                "🔢 <b>Dusra Aadhaar number bhej kar dekhein:</b>", parse_mode=HTML)
-            add_use(uid)
-            return
-
-        await update.message.reply_text(spend_credit_msg(uid, "aadhaar"), parse_mode=HTML)
-
-        L = [f"🆔 <b>{to_bold('AADHAAR FAMILY CARD')}</b>",
-             "━━━━━━━━━━━━━━━━━━━━━━",
-             f"🎫 <b>Aadhaar:</b> <code>{hesc(af.get('aadhaar_masked') or _mask_govt_id(a_digits))}</code>"
-             + ("  ✅ <i>valid</i>" if af.get("valid") else "  ⚠️ <i>checksum</i>"),
-             ]
-        if af.get("ration_card") and str(af.get("ration_card")).upper() not in ("NA", "N/A"):
-            L.append(f"🪪 <b>Ration Card:</b> <code>{hesc(af['ration_card'])}</code>")
-        if af.get("fps_id") and str(af.get("fps_id")).upper() not in ("NA", "N/A"):
-            L.append(f"🏪 <b>FPS ID:</b> <code>{hesc(af['fps_id'])}</code>")
-
-        loc = af.get("location") or {}
-        if any(loc.get(k) for k in ("district", "state", "pincode")):
-            L.append("━━━━━━━━━━━━━━━━━━━━━━")
-            L.append("📍 <b>LOCATION</b>")
-            if loc.get("district"):
-                L.append(f"   🏙️ <b>District:</b> {hesc(loc['district'])}")
-            if loc.get("state"):
-                L.append(f"   🗺️ <b>State:</b> {hesc(loc['state'])}")
-            if loc.get("pincode"):
-                L.append(f"   📮 <b>PIN:</b> <code>{hesc(loc['pincode'])}</code>")
-
-        members = af.get("members") or []
-        L.append("━━━━━━━━━━━━━━━━━━━━━━")
-        L.append(f"👨\u200d👩\u200d👧\u200d👦 <b>MEMBERS — {af.get('member_count') or len(members)}</b>")
-        for i, m in enumerate(members[:8], 1):
-            L.append(f"\n<b>{i}.</b> 👤 <b>{hesc(m.get('name') or '—')}</b>")
-            bits = []
-            if m.get("aadhaar_masked"):
-                bits.append(f"🎫 <code>{hesc(m['aadhaar_masked'])}</code>")
-            if m.get("relation"):
-                bits.append(hesc(m["relation"]))
-            if bits:
-                L.append("   " + " · ".join(bits))
-            if m.get("father_name"):
-                L.append(f"   👨 <b>Father:</b> {hesc(m['father_name'])}")
-            if m.get("phones"):
-                L.append("   📞 " + ", ".join(f"<code>{hesc(x)}</code>" for x in m["phones"][:3]))
-            if m.get("address"):
-                L.append(f"   🏠 {hesc(str(m['address'])[:190])}")
-        if len(members) > 8:
-            L.append(f"\n   <i>…aur {len(members) - 8} members</i>")
-
-        L.append("")
-        L.append("━━━━━━━━━━━━━━━━━━━━━━")
-        L.append("🔒 <i>Aadhaar numbers hamesha masked hote hain (sirf last 4 digit).</i>")
-        L.append("ℹ️ <i>Data public/leaked sources se aata hai — kaanooni kaam ke liye hi use karein.</i>")
-        L.append("")
-        L.append("🔢 <b>Dusra Aadhaar number bhejein (mode chalu hai):</b>")
-        L.append(f"⚡ {BRAND_LINE}")
-
         rows_a = [[InlineKeyboardButton("🔎 Check on official portal",
                                         url="https://myaadhaar.uidai.gov.in/")],
                   [InlineKeyboardButton("🚨 Data misuse? Report 1930",
                                         url="https://cybercrime.gov.in/")]]
-        await update.message.reply_text("\n".join(L), reply_markup=InlineKeyboardMarkup(rows_a),
+        await update.message.reply_text(_aadhaar_text(af),
+                                        reply_markup=InlineKeyboardMarkup(rows_a),
                                         parse_mode=HTML)
         add_use(uid)
         return
@@ -5860,6 +6004,11 @@ def main():
     app.add_error_handler(on_error)
 
     print("🚀 Starting ToolVault / Utility Duniya Super Bot (v30 Ultra)...")
+    # NOTE: ek hi bot instance chalna chahiye. Agar do instance (do Render service /
+    # do deploy ek saath) getUpdates karenge to Telegram "Conflict: terminated by
+    # other getUpdates request" dega aur bot chup ho jayega.
+    log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
+                socket.gethostname(), os.getpid())
     app.run_polling(drop_pending_updates=True)
 
 
