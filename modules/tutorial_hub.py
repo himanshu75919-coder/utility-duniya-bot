@@ -16,6 +16,7 @@ Bina internet ho ya telegra.ph block ho to bot fallback link (GitHub) use karta 
 
 import hashlib
 import json
+import os
 import re
 
 try:
@@ -136,6 +137,119 @@ Sawaal ho to bot me /support ya @Supermannn_x par message kar do.
 
 
 # ======================================================================
+# 1b. HAR TOOL KA TUTORIAL VIDEO (30-40 sec, Hindi voice, HIMANSHU)
+# ======================================================================
+REPO_SLUG = os.getenv("TUTORIAL_REPO", "himanshu75919-coder/utility-duniya-bot")
+# jsDelivr CDN (fast + Telegram ko pasand) — fallback: GitHub raw
+VIDEO_BASE = os.getenv(
+    "TUTORIAL_VIDEO_BASE",
+    f"https://cdn.jsdelivr.net/gh/{REPO_SLUG}@main/tutorial_videos",
+).rstrip("/")
+VIDEO_BASE_FALLBACK = os.getenv(
+    "TUTORIAL_VIDEO_BASE_FALLBACK",
+    f"https://raw.githubusercontent.com/{REPO_SLUG}/main/tutorial_videos",
+).rstrip("/")
+
+# bot ke tool/action → video file ka naam
+TUTORIAL_VIDEO_KEYS = {
+    "terabox": "terabox",
+    "insta_dl": "video_dl",
+    "cloner": "cloner",
+    "cloner_private_help": "cloner",
+    "voice": "voice",
+    "pp_stamp": "pp_stamp",
+    "print_sheet": "print_sheet",
+    "doc_compress": "doc_compress",
+    "pdf": "pdf",
+    "shot": "shot",
+    "shot_full": "shot",
+    "rto": "rto",
+    "numinfo": "numinfo",
+    "ifsc": "ifsc",
+    "pin": "pin",
+    "idfind": "idfind",
+    "ip": "ip",
+    "qr": "qr",
+    "qr_upi": "upi",
+    "qr_wifi": "qr",
+    "qr_vcard": "qr",
+    "upi": "upi",
+    "pwd": "pwd",
+    "pwd_name": "pwd",
+    "pwd_rand": "pwd",
+    "pwd_pin": "pwd",
+    "pwd_phrase": "pwd",
+    "short": "short",
+    "linkbypass": "linkbypass",
+    "linkcheck": "linkcheck",
+    "emi": "emi",
+    "interest": "interest",
+    "age": "age",
+    "search": "search",
+    "appfind": "appfind",
+    "sarkari": "sarkari",
+    "exam": "exam",
+    "premium": "premium",
+    "vip": "premium",
+    "refer": "refer",
+    "account": "account",
+    "vnum": "vnum",
+    "tutorial": "tutorial",
+    "help": "tutorial",
+    "video_dl": "video_dl",
+}
+
+# video ke caption me tool ki jhalak (video title)
+VIDEO_TITLES = {
+    "video_dl": "📥 VIDEO DOWNLOADER", "terabox": "⚡ TERABOX DOWNLOADER", "cloner": "🔄 CHANNEL CLONER",
+    "voice": "🎙️ ACTORS VOICE STUDIO", "pp_stamp": "📸 PASSPORT PHOTO", "print_sheet": "🖨️ 8-IN-1 PRINT SHEET",
+    "doc_compress": "📄 DOCUMENT PDF COMPRESS", "pdf": "🖼️ IMAGE TO PDF", "shot": "🖼️ SITE SCREENSHOT",
+    "rto": "🚗 RTO VEHICLE INFO", "numinfo": "📱 NUMBER INFO", "ifsc": "🏦 IFSC INFO", "pin": "📮 PINCODE INFO",
+    "idfind": "🆔 ID FINDER", "ip": "🌐 IP / DOMAIN INFO", "qr": "📷 QR CODE", "upi": "💰 UPI QR GENERATOR",
+    "pwd": "🔐 PASSWORD GENERATOR", "short": "🔗 URL SHORT", "linkbypass": "🔓 LINK BYPASS",
+    "linkcheck": "🔍 LINK CHECK", "emi": "🧮 EMI CALCULATOR", "interest": "📈 INTEREST CALCULATOR",
+    "age": "🎂 AGE CALCULATOR", "search": "🔎 WEB SEARCH", "appfind": "📦 APP FINDER",
+    "sarkari": "🏛️ SARKARI PORTALS", "exam": "🎓 STUDENT EXAM HUB", "premium": "💎 VIP PREMIUM",
+    "refer": "🎁 REFER & EARN", "account": "👤 MY ACCOUNT", "vnum": "🌐 VIRTUAL NUMBERS",
+    "tutorial": "❓ HOW TO USE BOT",
+}
+
+
+def video_key(action: str) -> str:
+    return TUTORIAL_VIDEO_KEYS.get(action, action)
+
+
+def tutorial_video_url(action: str) -> str:
+    return f"{VIDEO_BASE}/{video_key(action)}.mp4"
+
+
+def tutorial_video_url_fallback(action: str) -> str:
+    return f"{VIDEO_BASE_FALLBACK}/{video_key(action)}.mp4"
+
+
+def video_urls(action: str) -> list:
+    """[primary CDN, fallback raw] — pehla jo chale wahi bhejenge."""
+    p, fb = tutorial_video_url(action), tutorial_video_url_fallback(action)
+    return [p] if p == fb else [p, fb]
+
+
+def has_video(action: str) -> bool:
+    return action in TUTORIAL_VIDEO_KEYS
+
+
+def video_caption(action: str) -> str:
+    key = video_key(action)
+    title = VIDEO_TITLES.get(key, "🎬 TUTORIAL")
+    return (
+        f"🎬 <b>{title}</b> — TUTORIAL\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "30 second ka video — poora tareeka step by step 🔥\n\n"
+        "👤 <b>By:</b> HIMANSHU • @Supermannn_x\n"
+        "▶️ Dekho, samjho, aur neeche menu se wahi tool kholo."
+    )
+
+
+# ======================================================================
 # 2. TOOL PROMPT SE TUTORIAL LINES HATANA
 # ======================================================================
 def _is_block_start(line: str) -> bool:
@@ -253,6 +367,14 @@ def build_page_content(prompts_map: dict = None, short_list: str = "") -> list:
         nodes.append({"tag": "h3", "children": ["Har tool — ek line me"]})
         nodes += text_to_nodes(short_list)
     if prompts_map:
+        nodes.append({"tag": "hr"})
+        nodes.append({"tag": "h3", "children": ["Video tutorial (har tool ka 30 second video)"]})
+        for key in prompts_map:
+            if not has_video(key):
+                continue
+            title = VIDEO_TITLES.get(video_key(key), key)
+            nodes.append({"tag": "p", "children": [
+                {"tag": "a", "attrs": {"href": tutorial_video_url(key)}, "children": [f"🎬 {title} — video dekho"]}]})
         nodes.append({"tag": "hr"})
         nodes.append({"tag": "h3", "children": ["Har tool ki poori detail"]})
         for key, text in prompts_map.items():

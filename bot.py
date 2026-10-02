@@ -123,8 +123,12 @@ from modules.cyber_studio import (
 from modules.cloud_tools import resolve_cloud_url
 from modules.tutorial_hub import (
     TUTORIAL_TITLE,
+    has_video,
     publish_tutorial,
     strip_tutorial_lines,
+    tutorial_video_url,
+    video_caption,
+    video_urls,
 )
 from modules.channel_cloner import (
     CLONER_GUIDE_TEXT,
@@ -815,10 +819,20 @@ def tutorial_link_line() -> str:
 TUTORIAL_NOTICE = (
     "❓ <b>MADAD / TUTORIAL</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "Bot me ab har tool ka <b>poora tareeka ek page</b> par hai (step-by-step + example ke saath).\n"
-    "Isliye tool ke andar tutorial ki bheed nahi — bas neeche wala <b>link</b>.\n\n"
+    "🎬 <b>Har tool ka apna 30-second video</b> hai (HIMANSHU ke saath)!\n"
+    "   Koi tool kholo → neeche <b>🎬 Tutorial Video</b> button dabao → video dekh lo.\n\n"
+    "📖 <b>Poora text tutorial</b> (saare tools ka tareeka) is page par hai.\n"
     "👇 Page kholne ke liye button dabao:"
 )
+
+
+def tool_tutorial_kb(action: str):
+    """Tool ke neeche: 🎬 video tutorial + 📖 text tutorial."""
+    rows = []
+    if has_video(action):
+        rows.append([InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data=f"toolvid:{action}")])
+    rows.append([InlineKeyboardButton("📖 Text Tutorial (poora)", url=tutorial_url())])
+    return InlineKeyboardMarkup(rows)
 
 
 def tool_prompt(action: str) -> str:
@@ -869,7 +883,8 @@ def voice_home_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("🎭 Actor / Character Voices (24)", callback_data="voice_actors")],
         [InlineKeyboardButton("🧪 Voice Lab (30 voices + speed)", callback_data="vlab_list")],
-        [InlineKeyboardButton("📖 Tutorial (poora tareeka)", url=tutorial_url())],
+        [InlineKeyboardButton("🎬 Tutorial Video (30 sec)", callback_data="toolvid:voice")],
+        [InlineKeyboardButton("📖 Text Tutorial (poora)", url=tutorial_url())],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home")],
     ])
 
@@ -1158,7 +1173,12 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• 📸 Cyber Cafe Photo & Doc Studio HD\n\n"
         "👉 Plan select karein aur instant QR code se pay karein:"
     )
-    await update.message.reply_text(text, reply_markup=get_premium_plans_kb(), parse_mode=HTML)
+    await update.message.reply_text(
+        text,
+        reply_markup=InlineKeyboardMarkup(
+            list(get_premium_plans_kb().inline_keyboard) +
+            [[InlineKeyboardButton("🎬 VIP kaise lete hain? (30 sec video)", callback_data="toolvid:premium")]]),
+        parse_mode=HTML)
 
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1359,6 +1379,51 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.edit_text(WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
         return
 
+    # ---------- 🎬 TOOL KA TUTORIAL VIDEO ----------
+    if data.startswith("toolvid:"):
+        key = data.split(":", 1)[1]
+        if not has_video(key):
+            await q.answer("Is tool ka video jald aa raha hai!", show_alert=True)
+            return
+        urls = video_urls(key)
+        url = urls[0]
+        await q.answer("🎬 Tutorial video bhej raha hoon (30 sec)...")
+        sent = False
+        for u in urls:
+            try:
+                await context.bot.send_video(
+                    chat_id=q.message.chat.id,
+                    video=u,
+                    caption=video_caption(key),
+                    parse_mode=HTML,
+                    supports_streaming=True,
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("🔁 Dobara Dekho", callback_data=f"toolvid:{key}")],
+                    ]),
+                )
+                url = u
+                sent = True
+                break
+            except Exception:
+                continue
+        if not sent:
+            for u in urls:
+                try:
+                    await context.bot.send_document(chat_id=q.message.chat.id, document=u,
+                                                    caption=video_caption(key), parse_mode=HTML)
+                    url = u
+                    sent = True
+                    break
+                except Exception:
+                    continue
+        if not sent:
+            await q.message.reply_text(
+                "⚠️ Video bhejne me dikkat aayi. Aap seedha yahan dekh lo:\n"
+                f'🎬 <a href="{url}">Tutorial Video (30 sec)</a>\n\n'
+                '<i>Tip: video stream hone me 2-3 second lag sakte hain.</i>',
+                parse_mode=HTML)
+        return
+
     # Virtual Numbers Funnel
     if data in ("vnum_open", "vnum_back"):
         await q.message.edit_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(), parse_mode=HTML)
@@ -1460,7 +1525,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "open_vip_menu":
-        await q.message.reply_text("💎 Plan select karein:", reply_markup=get_premium_plans_kb(), parse_mode=HTML)
+        await q.message.reply_text(
+            "💎 Plan select karein:",
+            reply_markup=InlineKeyboardMarkup(
+                list(get_premium_plans_kb().inline_keyboard) +
+                [[InlineKeyboardButton("🎬 VIP kaise lete hain? (30 sec video)", callback_data="toolvid:premium")]]),
+            parse_mode=HTML)
         return
 
     if data == "open_refer_menu":
@@ -1840,9 +1910,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "3️⃣ <b>FULL AUTO ON</b> kar do — bas, posts khud chali jayengi\n\n"
             "📖 Poori detail (settings, watermark, replace words) tutorial page par hai:",
             reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎬 Tutorial Video (30 sec)", callback_data="toolvid:cloner")],
                 [InlineKeyboardButton("🚀 Ab Setup Karein (3 Steps)", callback_data="cloner_setup")],
                 [InlineKeyboardButton("📊 Meri Setting Dekho", callback_data="cloner_status")],
-                [InlineKeyboardButton("📖 Poora Tutorial Kholo", url=tutorial_url())],
+                [InlineKeyboardButton("📖 Text Tutorial Kholo", url=tutorial_url())],
             ]),
             parse_mode=HTML,
         )
@@ -1979,15 +2050,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ============ NAYE TOOL CALLBACKS ============
     if data == "qr_upi":
         context.user_data["mode"] = "qr_upi"
-        await q.message.reply_text(tool_prompt("qr_upi"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_upi"), reply_markup=tool_tutorial_kb("qr_upi"), parse_mode=HTML)
         return
     if data == "qr_wifi":
         context.user_data["mode"] = "qr_wifi"
-        await q.message.reply_text(tool_prompt("qr_wifi"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_wifi"), reply_markup=tool_tutorial_kb("qr_wifi"), parse_mode=HTML)
         return
     if data == "qr_vcard":
         context.user_data["mode"] = "qr_vcard"
-        await q.message.reply_text(tool_prompt("qr_vcard"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_vcard"), reply_markup=tool_tutorial_kb("qr_vcard"), parse_mode=HTML)
         return
     if data == "pwd_pin":
         context.user_data["mode"] = "pwd_pin"
@@ -2013,15 +2084,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if data == "qr_text":
         context.user_data["mode"] = "qr"
-        await q.message.reply_text(tool_prompt("qr"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr"), reply_markup=tool_tutorial_kb("qr"), parse_mode=HTML)
         return
     if data == "shot_hd":
         context.user_data["mode"] = "shot"
-        await q.message.reply_text(tool_prompt("shot"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("shot"), reply_markup=tool_tutorial_kb("shot"), parse_mode=HTML)
         return
     if data == "shot_full":
         context.user_data["mode"] = "shot_full"
-        await q.message.reply_text(tool_prompt("shot_full"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("shot_full"), reply_markup=tool_tutorial_kb("shot_full"), parse_mode=HTML)
         return
 
     # Document compress: size + grayscale + GO
@@ -2632,7 +2703,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if check_limit_exceeded(u, uid):
                 await update.message.reply_text(get_limit_exceeded_text(), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
                 return
-            await update.message.reply_text(tool_prompt(action) + "\n\n<i>/cancel kabhi bhi dabayein.</i>", parse_mode=HTML)
+            await update.message.reply_text(tool_prompt(action) + "\n\n<i>/cancel kabhi bhi dabayein.</i>", reply_markup=tool_tutorial_kb(action), parse_mode=HTML)
             return
 
     # Check Active Working Modes
@@ -4201,7 +4272,7 @@ def main():
 
     # Specific Tool Commands
     app.add_handler(CommandHandler("vnum", lambda u, c: send_vnum_card(u, c)))
-    app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(tool_prompt("terabox"), parse_mode=HTML)))
+    app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_tutorial_kb("terabox"), parse_mode=HTML)))
     app.add_handler(CommandHandler("cloner", lambda u, c: u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)))
     app.add_handler(CommandHandler("sarkari", lambda u, c: u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)))
     app.add_handler(CommandHandler("exam", lambda u, c: u.message.reply_text(STUDENT_EXAM_TEXT, reply_markup=get_student_exam_kb(), parse_mode=HTML)))
