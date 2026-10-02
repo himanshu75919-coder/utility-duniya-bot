@@ -88,6 +88,30 @@ Uske baad Telegram par apne bot ko `/start` bhejo.
 
 ---
 
+## 🔁 Deploy ke waqt "Conflict" error aaye to (permanent fix)
+
+Agar logs me ye aaye:
+```
+ERROR | Exception handling update: Conflict: terminated by other getUpdates request
+```
+to iska matlab **do instance ek saath Telegram se update maang rahe hain**.
+Render par deploy ke waqt purana instance ~10-20 second tak naye ke saath chalta hai —
+ye aam baat hai aur **khud-ba-khud theek ho jata hai** (purana band hote hi).
+
+Par agar ye baar-baar aaye to **webhook mode** chalu kar do — isme getUpdates hota
+hi nahi, to Conflict kabhi nahi aayega:
+
+1. Service → **Environment** tab
+2. Naya variable add karo:
+   - `WEBHOOK_URL` = `https://utility-duniya-bot.onrender.com`
+3. **Save Changes** (bot khud redeploy hoga)
+4. Logs me dikhna chahiye: `WEBHOOK MODE | path=/webhook/*** | polling OFF`
+
+> Webhook mode me Render ka **Health Check Path khali chhod do** (Settings me),
+> warna Render `/` par 404 dekh kar service ko unhealthy samjhega.
+
+---
+
 ## ⚠️ Free plan ki ek baat
 
 Render free instance **15 minute inactive rehne ke baad so jata hai**, aur
