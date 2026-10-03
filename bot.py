@@ -2936,6 +2936,11 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
 
 
 # ---------------- TEXT HANDLER ----------------
+def kv_row(label, val):
+    """Khaali value ho to line skip — GST/PAN card ke liye."""
+    return f"• <b>{label}:</b> {hesc(str(val))}\n" if str(val or "").strip() else ""
+
+
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
@@ -4241,26 +4246,39 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = await asyncio.to_thread(hubapi.hub_gst, g)
         if not res.get("ok"):
             await st.edit_text(
-                f"❌ <b>GST CHECK FAILED</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"❌ <b>GST CHECK NAHI HO PAYA</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ {hesc(str(res.get('error'))[:200])}\n"
-                "✅ No credit was cut. GSTIN 15 character ka hota hai (example <code>19BOKPS7056D1ZI</code>).",
+                "✅ Koi credit nahi kata. GSTIN 15 character ka hota hai (jaise <code>19BOKPS7056D1ZI</code>).",
                 parse_mode=HTML)
             return
-        def _row(label, val):
-            return f"• <b>{label}:</b> {hesc(str(val))}\n" if str(val or "").strip() else ""
+        _st = str(res.get("state") or "")
+        if res.get("state_code"):
+            _st = (_st + f" (code {res.get('state_code')})").strip()
+        _chk = res.get("checksum_valid")
+        _chk_line = ""
+        if _chk is True:
+            _chk_line = "• <b>Checksum:</b> ✅ sahi\n"
+        elif _chk is False:
+            _chk_line = ("• <b>Checksum:</b> ⚠️ match nahi hua "
+                         f"(expected <code>{hesc(str(res.get('checksum_expected')))}</code>) — "
+                         "GSTIN ka aakhri character galat lagta hai\n")
+        _extra = kv_row("Legal Name", res.get("legal_name")) + kv_row("Trade Name", res.get("trade_name")) \
+            + kv_row("Status", res.get("status")) + kv_row("Registered", res.get("reg_date")) \
+            + kv_row("Address", res.get("address"))
         card = (f"🏢 <b>{to_bold('GST NUMBER DETAILS')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"• <b>GSTIN:</b> <code>{hesc(res.get('gstin'))}</code>\n"
-                + _row("Legal Name", res.get("legal_name"))
-                + _row("Trade Name", res.get("trade_name"))
-                + _row("Status", res.get("status"))
-                + _row("Type", res.get("type"))
-                + _row("State", res.get("state"))
-                + _row("Registered", res.get("reg_date"))
-                + _row("PAN", res.get("pan"))
-                + _row("Address", res.get("address"))
+                + kv_row("State", _st)
+                + kv_row("PAN", res.get("pan"))
+                + kv_row("PAN Holder Type", res.get("pan_holder_type"))
+                + kv_row("Registration Type", res.get("registration_type"))
+                + _chk_line
+                + _extra
                 + "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"<i>Source: {hesc(str(res.get('source')))}</i>")
+                + ("" if _extra else
+                   "ℹ️ Legal name / address / filing status hub ke records me nahi hain.\n"
+                   "Upar ka data GSTIN ke format ka analysis hai (state, PAN, holder type, checksum).\n")
+                + f"<i>Source: {hesc(str(res.get('source')))}</i>")
         await st.edit_text(card, parse_mode=HTML)
         await update.message.reply_text(spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
         context.user_data.pop("mode", None)
@@ -4273,9 +4291,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = await asyncio.to_thread(hubapi.hub_pan, p10)
         if not res.get("ok"):
             await st.edit_text(
-                f"❌ <b>PAN CHECK FAILED</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"❌ <b>PAN CHECK NAHI HO PAYA</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"⚠️ {hesc(str(res.get('error'))[:200])}\n"
-                "✅ No credit was cut. PAN 10 character ka hota hai (example <code>AAYFK4129N</code>).",
+                "✅ Koi credit nahi kata. PAN 10 character ka hota hai (jaise <code>AAYFK4129N</code>).",
                 parse_mode=HTML)
             return
         rows = []
@@ -4286,11 +4304,20 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         card = (f"🪪 <b>{to_bold('PAN → GST DETAILS')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"• <b>PAN:</b> <code>{hesc(res.get('pan'))}</code>\n"
+                + (kv_row("Format", "✅ sahi" if res.get("valid_format") else "")
+                   if res.get("valid_format") is not None else "")
+                + kv_row("Holder Type", res.get("holder_type"))
+                + kv_row("Series", res.get("series"))
                 + (f"• <b>Name:</b> {hesc(res.get('name'))}\n" if res.get("name") else "")
-                + (f"• <b>Pan Status:</b> {hesc(res.get('status'))}\n" if res.get("status") else "")
+                + (f"• <b>PAN Status:</b> {hesc(res.get('status'))}\n" if res.get("status") else "")
                 + f"• <b>GST numbers:</b> {len(res.get('gstins') or [])}\n\n"
-                + ("\n".join(rows) if rows else "<i>Is PAN par koi GST number nahi mila.</i>")
-                + f"\n━━━━━━━━━━━━━━━━━━━━━━\n<i>Source: {hesc(str(res.get('source')))}</i>")
+                + ("\n".join(rows) if rows else
+                   "<i>Is PAN par hub ke records me koi GST number nahi mila.</i>")
+                + f"\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                + ("ℹ️ Hub abhi PAN ka <b>offline analysis</b> deta hai (format + holder type + series).\n"
+                   "GSTIN ki poori list ke liye upstream records chahiye.\n"
+                   if not rows else "")
+                + f"<i>Source: {hesc(str(res.get('source')))}</i>")
         await st.edit_text(card, parse_mode=HTML)
         await update.message.reply_text(spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
         context.user_data.pop("mode", None)

@@ -441,7 +441,7 @@ async def test_bot_flows():
     m2 = FakeMsg("12345", uid=USER)
     before2 = dbm.get_credits(USER)
     await bot.on_text(upd(m2, n=104), ctx2)
-    ok("galat GSTIN par saaf fail + credit nahi", "GST CHECK FAILED" in m2.U()
+    ok("galat GSTIN par saaf fail + credit nahi", ("GST CHECK FAILED" in m2.U() or "GST CHECK NAHI HO PAYA" in m2.U())
        and dbm.get_credits(USER) == before2 and "GSTIN" in m2.U(), m2.replies_text()[:200])
 
     # PAN flow

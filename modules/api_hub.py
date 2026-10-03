@@ -125,12 +125,21 @@ def hub_get(path: str, params: dict | None = None, timeout: int = 45) -> dict:
         return {"ok": False, "error": _short(str(e))}
 
 
+# v49: hub par jo endpoint exist hi nahi karta (404) use yaad rakho —
+# baar-baar call karne se ID finder jaisa tool 2-3 second slow ho jata tha.
+_MISSING = {}
+
+
 def hub_try(pairs: list, timeout: int = 45) -> dict:
     """Ek se zyada endpoint try karo — pehla jo chale wahi do.
     pairs = [("/ip-v2", {"ip": x}), ("/ip-v3", {"ip": x}), ...]
     """
     last = {"ok": False, "error": "Koi endpoint nahi chala"}
     for path, params in pairs:
+        if _MISSING.get(path):
+            last = {"ok": False, "missing": True,
+                    "error": f"Ye endpoint hub par nahi hai ({path})"}
+            continue
         res = hub_get(path, params, timeout=timeout)
         if res.get("ok"):
             res["endpoint"] = path
@@ -138,6 +147,8 @@ def hub_try(pairs: list, timeout: int = 45) -> dict:
         last = res
         if res.get("no_key") or res.get("disabled"):
             break                                   # key hi nahi — aage try karne ka matlab nahi
+        if res.get("status") == 404 or "404" in str(res.get("error", "")):
+            _MISSING[path] = True                   # hub par ye endpoint hi nahi hai
     return last
 
 
@@ -203,7 +214,7 @@ def hub_ip(target: str) -> dict:
         return {"ok": False, "error": "Send a domain or IP"}
     res = hub_try([("/ip-v2", {"ip": t}), ("/ip-v3", {"ip": t}), ("/ip-v1", {"query": t})], timeout=40)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     ip = str(_pick(d, "ip", "query", "ipaddress", default=t))
     lat, lon = _pick(d, "lat", "latitude"), _pick(d, "lon", "lng", "longitude")
@@ -241,7 +252,7 @@ def hub_ifsc(code: str) -> dict:
         return {"ok": False, "error": "IFSC is 11 characters (example SBIN0000001)"}
     res = hub_get("/ifsc", {"ifsc": clean}, timeout=40)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     bank = str(_pick(d, "bank", "bankname", "bank_name", default="Bank"))
     branch = str(_pick(d, "branch", "branchname", "branch_name", default="Branch"))
@@ -272,7 +283,7 @@ def hub_pincode(pin: str) -> dict:
         return {"ok": False, "error": "Pincode is 6 digits (example 800001)"}
     res = hub_get("/pincode", {"pincode": clean}, timeout=40)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     pos = _find_list(d, keys=("postoffice", "postoffices", "post_office", "offices", "results", "data"))
     names = []
@@ -308,7 +319,7 @@ def hub_terabox(url: str) -> dict:
     res = hub_try([("/terabox-file", {"url": url}),
                    ("/terabox-stream-v3", {"url": url})], timeout=20)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     raw = _find_list(d, keys=("files", "items", "list", "links", "data", "results"))
     files = []
@@ -433,7 +444,7 @@ def hub_youtube(url: str) -> dict:
     """YouTube link → video ke direct mp4/audio links (clip maker + downloader ke liye)."""
     res = hub_try([("/youtube-all", {"url": url}), ("/youtube-info", {"url": url})], timeout=60)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
 
     def _link_of(node) -> str:
@@ -492,7 +503,7 @@ def hub_twitter_video(url: str) -> dict:
     res = hub_try([("/twitter-video-v6", {"url": url}), ("/twitter-hd-video", {"url": url}),
                    ("/twitter-video-v5", {"url": url}), ("/twitter-video-v2", {"url": url})], timeout=60)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     link = ""
     for key in ("hd", "url", "video", "videourl", "download", "link", "mp4", "sd"):
@@ -567,7 +578,12 @@ def hub_snap_stories(username: str) -> dict:
                 urls.append(u)
         elif isinstance(s, str) and s.startswith("http"):
             urls.append(s)
-    return {"ok": bool(urls), "urls": urls, "count": len(urls)}
+    if urls:
+        return {"ok": True, "urls": urls, "count": len(urls), "source": "hub/snap-stories"}
+    # hub ne saaf error diya ho to wahi dikhao (jaise "public profile nahi mila")
+    err = str(_pick(res["data"], "error", "message", default="") or "")
+    return {"ok": False, "urls": [], "count": 0,
+            "error": err or "Is username ki koi public story nahi mili"}
 
 
 def hub_twitter_profile(username: str) -> dict:
@@ -592,19 +608,36 @@ def hub_twitter_profile(username: str) -> dict:
 def hub_gst(gstin: str) -> dict:
     g = re.sub(r"\s+", "", (gstin or "")).upper()
     if len(g) != 15:
-        return {"ok": False, "error": "GSTIN is 15 characters (example 19BOKPS7056D1ZI)"}
+        return {"ok": False, "error": "GSTIN 15 character ka hota hai (jaise 19BOKPS7056D1ZI)"}
     res = hub_try([("/gst-search", {"gstin": g}), ("/gst-info", {"gst": g}),
                    ("/gst-direct", {"gstin": g}), ("/gst-info-v2", {"gst": g})], timeout=60)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
+    # v49: hub ab GSTIN ka OFFLINE parser deta hai (state/code/PAN/holder type/checksum).
+    # Legal name / address ke liye upstream records chahiye — shayad khaali aaye.
+    vf = d.get("valid_format")
+    _note = str(_pick(d, "note", "message", "error", default="") or "")
+    _useful = bool(vf) or bool(d.get("state")) or bool(d.get("pan")) or bool(d.get("state_code"))
+    if vf is False or (not _useful and _note):
+        return {"ok": False, "gstin": g, "raw_note": _note,
+                "error": ("Ye GSTIN format me galat hai. Sahi format: 2 state code + 10 PAN + "
+                          "1 entity + Z + 1 checksum (jaise 19BOKPS7056D1ZI).")
+                         if vf is False or "not a valid" in _note.lower() or not _note else _note}
     return {
         "ok": True, "source": f"hub{res.get('endpoint')}", "gstin": g,
+        "valid_format": bool(vf) if vf is not None else None,
+        "state_code": str(_pick(d, "state_code", "statecode", default="") or ""),
+        "pan_holder_type": str(d.get("pan_holder_type") or d.get("pan_holder_code") or ""),
+        "registration_type": str(_pick(d, "registration_type", "regtype", default="") or ""),
+        "checksum_valid": d.get("checksum_valid"),
+        "checksum_expected": str(_pick(d, "checksum_expected", default="") or ""),
+        "analysis_note": str(_pick(d, "note", default="") or ""),
         "legal_name": str(_pick(d, "legalname", "legal_name", "name", "lgnm", default="") or ""),
         "trade_name": str(_pick(d, "tradename", "trade_name", "tradenam", "trade_name_", default="") or ""),
         "status": str(_pick(d, "status", "gststatus", "sts", default="") or ""),
         "type": str(_pick(d, "gsttype", "taxpayertype", "dty", "type", default="") or ""),
-        "state": str(_pick(d, "state", "pradr_state", default="") or ""),
+        "state": str(d.get("state") or _pick(d, "pradr_state", default="") or ""),
         "address": str(_pick(d, "address", "pradr", "addr", default="") or "")[:220],
         "reg_date": str(_pick(d, "regdate", "registrationdate", "rgdt", default="") or ""),
         "pan": str(_pick(d, "pan", "pan_no", default="") or ""),
@@ -615,12 +648,12 @@ def hub_gst(gstin: str) -> dict:
 def hub_pan(pan: str) -> dict:
     p = re.sub(r"[^A-Za-z0-9]", "", (pan or "")).upper()
     if len(p) != 10:
-        return {"ok": False, "error": "PAN is 10 characters (example AAYFK4129N)"}
+        return {"ok": False, "error": "PAN 10 character ka hota hai (jaise AAYFK4129N)"}
     res = hub_try([("/pan-to-gst-v4", {"pan": p}), ("/pan-to-gst-v3", {"pan": p}),
                    ("/pan-to-gst-v2", {"pan": p}), ("/pan-to-gst", {"pan": p}),
                    ("/pan-info", {"pan": p})], timeout=60)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     gsts = _find_list(d, keys=("gstin", "gstins", "results", "data", "items", "list"))
     out = []
@@ -636,8 +669,20 @@ def hub_pan(pan: str) -> dict:
     if single and not out:
         out.append({"gstin": single, "status": str(_pick(d, "status", default="") or ""),
                     "name": str(_pick(d, "name", "legalname", default="") or "")})
-    return {"ok": bool(out) or bool(_pick(d, "status", "name")), "source": f"hub{res.get('endpoint')}",
+    # v49: hub ka PAN endpoint OFFLINE parser hai — valid_format + holder type + series.
+    # GSTIN linkage ke liye upstream records chahiye (isliye gstins khali ho sakta hai).
+    vf = d.get("valid_format")
+    if vf is False:
+        return {"ok": False, "pan": p,
+                "error": "Ye PAN format me galat hai (10 character: 5 letter + 4 digit + 1 letter)."}
+    has_analysis = bool(vf) or bool(d.get("holder_type") or d.get("alphabetic_series") or d.get("local_analysis"))
+    return {"ok": bool(out) or has_analysis or bool(_pick(d, "status", "name")),
+            "source": f"hub{res.get('endpoint')}",
             "pan": p, "gstins": out, "count": len(out),
+            "valid_format": bool(vf) if vf is not None else None,
+            "holder_type": str(d.get("holder_type") or d.get("holder_type_code") or ""),
+            "series": str(_pick(d, "alphabetic_series", default="") or ""),
+            "analysis_note": str(_pick(d, "note", "gstin_note", default="") or ""),
             "status": str(_pick(d, "status", "panstatus", default="") or ""),
             "name": str(_pick(d, "name", "legalname", default="") or "")}
 
@@ -653,7 +698,7 @@ def hub_num_info(number_digits: str) -> dict:
         return {"ok": False, "error": "10 digit number bhejo"}
     res = hub_try([("/num-info", {"q": dg}), ("/leak-v1", {"q": dg})], timeout=60)
     if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
+        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
     return {"ok": True, "source": f"hub{res.get('endpoint')}", "data": res["data"]}
 
 
@@ -670,7 +715,7 @@ def hub_num_report(number_digits: str) -> dict:
     res = hub_try([("/num-info", {"q": dg}), ("/number-info", {"q": dg}), ("/num", {"q": dg})], timeout=70)
     if not res.get("ok"):
         return {"ok": False, "disabled_by_hub": res.get("disabled_by_hub", False),
-                "error": res.get("error") or "Hub ne jawab nahi diya"}
+                "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     people = []
     raw_people = d.get("people") if isinstance(d, dict) else None
@@ -712,7 +757,7 @@ def hub_vehicle_report_new(plate: str) -> dict:
     if not res.get("ok"):
         return {"ok": False, "disabled_by_hub": res.get("disabled_by_hub", False),
                 "status": res.get("status"),
-                "error": res.get("error") or "Hub ne jawab nahi diya"}
+                "error": res.get("error") or "Hub se jawab nahi aaya"}
     d = res["data"]
     if not isinstance(d, dict):
         return {"ok": False, "error": "Hub ka jawab samajh nahi aaya"}

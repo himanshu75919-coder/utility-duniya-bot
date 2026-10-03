@@ -235,6 +235,50 @@ ok("credits_line ban raha", len(bot.credits_line(u, 999000111)) > 10)
 ok("get_credits_over_text ban raha", len(bot.get_credits_over_text("imei")) > 100)
 
 # ======================================================================
+section("8) v49.1 — GST / PAN card fix + dead code saaf")
+# ======================================================================
+from modules import api_hub as _hub
+g1 = _hub.hub_gst("27AAPFU0939F1ZV")
+ok("GST check chal raha", g1.get("ok") is True, g1.get("error"))
+ok("GST state aaya", bool(g1.get("state")), g1.get("state"))
+ok("GST PAN holder type aaya", len(str(g1.get("pan_holder_type") or "")) > 3, g1.get("pan_holder_type"))
+ok("GST registration type aaya", bool(g1.get("registration_type")), g1.get("registration_type"))
+ok("GST checksum field aaya", g1.get("checksum_valid") in (True, False), g1.get("checksum_valid"))
+ok("GSTIN galat lambai par saaf error", _hub.hub_gst("123").get("ok") is False)
+ok("GSTIN galat format par saaf error", _hub.hub_gst("99XXXXXXXXXXXXX").get("ok") is False)
+
+p1 = _hub.hub_pan("AAPFU0939F")
+ok("PAN check ab FAIL nahi hota (offline analysis)", p1.get("ok") is True, p1)
+ok("PAN holder type aaya", len(str(p1.get("holder_type") or "")) > 3, p1.get("holder_type"))
+ok("PAN series aaya", bool(p1.get("series")), p1.get("series"))
+ok("PAN galat lambai par saaf error", _hub.hub_pan("ABC").get("ok") is False)
+
+ok("Missing endpoint memo (404 dobara call nahi)", isinstance(_hub._MISSING, dict))
+r_snap = _hub.hub_snap_stories("snapchat")
+ok("Snap stories error message deta hai", r_snap.get("ok") is True or bool(r_snap.get("error")), r_snap)
+
+ok("bot me kv_row helper hai", callable(getattr(bot, "kv_row", None)))
+ok("GST card Hinglish", "GST CHECK NAHI HO PAYA" in open(os.path.join(HERE, "bot.py"), encoding="utf-8").read())
+ok("PAN card Hinglish", "PAN CHECK NAHI HO PAYA" in open(os.path.join(HERE, "bot.py"), encoding="utf-8").read())
+ok("UTR help Hinglish", "kahan milega" in __import__("modules.payguard", fromlist=["x"]).utr_help_text())
+ok("Sarkari card Hinglish", "sarkari portal" in __import__("modules.sarkari_hub", fromlist=["x"]).SARKARI_CITIZEN_TEXT)
+ok("Tutorial page Hinglish", "Ye bot kaise chalta hai" in __import__("modules.tutorial_hub", fromlist=["x"]).TUTORIAL_INTRO)
+
+import importlib
+try:
+    importlib.import_module("modules.clip_maker"); ok("clip_maker.py deleted", False)
+except ImportError:
+    ok("clip_maker.py deleted", True)
+try:
+    importlib.import_module("modules.ai_brain"); ok("ai_brain.py deleted", False)
+except ImportError:
+    ok("ai_brain.py deleted", True)
+ok("purane dev-note md gaye", not os.path.exists(os.path.join(HERE, "v48-IMEI-YOUTUBE-1080.md")))
+ok("stale tutorial video gaye", not os.path.exists(os.path.join(HERE, "tutorial_videos", "interest.mp4")))
+_vids = len([f for f in os.listdir(os.path.join(HERE, "tutorial_videos")) if f.endswith(".mp4")])
+ok(f"tutorial videos = 24 (mila {_vids})", _vids == 24, _vids)
+
+# ======================================================================
 print("\n" + "=" * 70)
 print(f"v49 VERIFY — PASS: {len(PASS)} | FAIL: {len(FAIL)}   ({time.time()-t0:.1f}s)")
 print("=" * 70)
