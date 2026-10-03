@@ -198,6 +198,7 @@ from modules.clip_maker import (
     ytdlp_available as clips_ytdlp_available,
     youtube_download as clips_youtube_download,
 )
+from modules.render_health import webhook_url_from_env
 from modules.imei_lookup import (
     device_title as imei_title,
     fallback_links as imei_fallback_links,
@@ -265,7 +266,8 @@ FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
 FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
+# Render ka webhook default overlapping polling instances se Telegram Conflict rokta hai.
+WEBHOOK_URL = webhook_url_from_env()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
 async def hub_with_progress(wait_msg, hub_fn, arg, what="", timeout=24):
@@ -5751,8 +5753,9 @@ def main():
         secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
         path = f"/webhook/{secret}"
         full_url = WEBHOOK_URL.rstrip("/") + path
-        log.warning("WEBHOOK MODE | path=%s | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
-                    path, socket.gethostname(), os.getpid())
+        # Secret webhook path ko logs me kabhi print na karein.
+        log.warning("WEBHOOK MODE | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
+                    socket.gethostname(), os.getpid())
         app.run_webhook(
             listen="0.0.0.0",
             port=port,

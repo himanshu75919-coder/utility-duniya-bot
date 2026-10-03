@@ -10,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules import imei_lookup
 from modules import osint_hub
+from modules.render_health import webhook_url_from_env
 
 try:
     from modules.osint_tools import lookup_phone_info
@@ -99,6 +100,30 @@ class ImeiLookupTests(unittest.TestCase):
             self.assertTrue(osint_hub.vehicle_report_v2("BR00XX0000")["fallback"])
 
 
+class RenderWebhookConfigTests(unittest.TestCase):
+    def test_explicit_webhook_url_wins_and_is_normalized(self):
+        self.assertEqual(
+            webhook_url_from_env({
+                "WEBHOOK_URL": "https://utility-duniya-bot.onrender.com/",
+                "RENDER_EXTERNAL_URL": "https://fallback.onrender.com",
+            }),
+            "https://utility-duniya-bot.onrender.com",
+        )
+
+    def test_render_external_url_is_webhook_fallback(self):
+        self.assertEqual(
+            webhook_url_from_env({"WEBHOOK_URL": "", "RENDER_EXTERNAL_URL": "https://bot.onrender.com/"}),
+            "https://bot.onrender.com",
+        )
+
+    def test_render_blueprint_sets_webhook_by_default(self):
+        render_yaml = Path(__file__).resolve().parents[1] / "render.yaml"
+        self.assertIn(
+            "- key: WEBHOOK_URL\n        value: https://utility-duniya-bot.onrender.com",
+            render_yaml.read_text(encoding="utf-8"),
+        )
+
+
 class SafePhoneInfoTests(unittest.TestCase):
     @unittest.skipIf(lookup_phone_info is None, "phonenumbers dependency is not installed")
     def test_phone_tool_only_shows_local_metadata_and_official_safety_links(self):
@@ -139,6 +164,7 @@ except ImportError:  # local minimal test environments may omit webhook extras
 if __name__ == "__main__":
     suite = unittest.TestSuite()
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(ImeiLookupTests))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(RenderWebhookConfigTests))
     suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(SafePhoneInfoTests))
     if WebhookHealthTests is not None:
         suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(WebhookHealthTests))

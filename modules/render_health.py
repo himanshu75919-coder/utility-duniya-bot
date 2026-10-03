@@ -8,6 +8,14 @@ adds read-only health routes to the same Tornado application and port.
 
 from __future__ import annotations
 
+import os
+
+
+def webhook_url_from_env(env=None) -> str:
+    """Render service URL explicit ho to use karo; warna Render ka auto URL lo."""
+    values = os.environ if env is None else env
+    return str(values.get("WEBHOOK_URL") or values.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+
 
 def install_webhook_health_routes() -> None:
     """Add GET/HEAD `/` and `/health` routes to PTB's webhook app once."""
