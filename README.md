@@ -1,12 +1,13 @@
-# ⚡ Utility Duniya Super-Bot — **v45**
+# ⚡ Utility Duniya Super-Bot — **v46**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v45):** 🔌 **aapka apna API HUB poore bot me** — ek key (`HUB_API_KEY`) lagate hi
-> IP/Domain, IFSC, Pincode, TeraBox, Clip Maker (YouTube), X/Twitter video, ID Finder,
-> GST + PAN check, Vehicle, IMEI, Number info — sab aapke hub se. Guide: **`v45-API-HUB-FULL.md`**.
-> ⚠️ Purani public key `Demo` ab **band** hai.
+> **Naya (v46):** 🔌 aapke asli hub se **live key verified** — `HUB_API_KEY` = **`Demo`**
+> (lifetime, ALL ENDPOINTS). IFSC/Pincode/IP/YouTube/GST/PAN/Song/Leak-check + **IMEI ab brand+model**
+> dene lage. Number-info & vehicle-report aapke hub par khud **OFF (410)** hain — bot ab saaf message +
+> free RTO card deta hai (credit nahi kata, koi crash nahi). Guide: **`v46-HUB-LIVE.md`**.
+> **v45:** 🔌 poora bot aapke hub par shift (`v45-API-HUB-FULL.md`).
 > **v44:** 🧠 **AI Brain Clip Maker me** — Gemini/Groq key lagate hi AI khud video dekh kar
 > best moments (hasi, cheer, action, shor) chunta hai + har clip ko AI ka title milta hai.
 > Saath me: 🎓 STUDENT EXAM HUB **hata diya**, 3 crash fix (passport photo, bade video ka timeout,

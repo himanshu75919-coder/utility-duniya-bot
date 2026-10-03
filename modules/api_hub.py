@@ -28,10 +28,14 @@ import requests
 
 UA = {"User-Agent": "UtilityDuniya-Bot/1.0 (+hub)"}
 
-# purani public demo key ab kaam nahi karti — inhe "key nahi hai" maano
-PLACEHOLDER_KEYS = {"", "demo", "demo_key", "your_api_key", "key", "none", "null", "changeme"}
+# khaali / dummy values — inhe "key nahi hai" maano (Demo ab VALID key hai)
+PLACEHOLDER_KEYS = {"", "demo_key", "your_api_key", "key", "none", "null", "changeme",
+                    "change_me", "apni_key"}
 
-DEFAULT_BASE = "https://osint-apis-hub.onrender.com/api"
+# ✅ user ka asli hub (59 endpoints, Demo key = lifetime, ALL ENDPOINTS plan)
+DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"
+# purana hub (v2.0) — sirf tab jab env me khud set karo
+LEGACY_BASE = "https://osint-apis-hub.onrender.com/api"
 
 
 # =====================================================================
@@ -42,22 +46,27 @@ def hub_base() -> str:
         v = (os.environ.get(var) or "").strip()
         if v:
             v = v.rstrip("/")
-            if not v.endswith("/api") and "osint-apis-hub" in v:
+            if not v.endswith("/api") and ("osint-api" in v or "osint-apis" in v):
                 v += "/api"
             return v
     return DEFAULT_BASE
 
 
 def hub_key() -> str:
+    """Key: HUB_API_KEY → VEHICLE/IMEI/NUM keys → default 'Demo' (public demo key jo chalti hai)."""
     for var in ("HUB_API_KEY", "VEHICLE_API_KEY", "IMEI_API_KEY", "NUM_INFO_API_KEY"):
         v = (os.environ.get(var) or "").strip()
         if v and v.lower() not in PLACEHOLDER_KEYS:
             return v
-    return ""
+    return "Demo"
 
 
 def hub_ready() -> bool:
-    """Key set hai to True. ('Demo' ab invalid hai — wo ready nahi maana jata.)"""
+    """Hub chalu hai? (base + Demo/key set, aur HUB_ENABLED off na ho.)
+
+    Demo key aapke hub par by-default chalti hai (lifetime, ALL ENDPOINTS).
+    Kisi call par 401 aaye to hum use tool ke level par fallback de dete hain.
+    """
     return bool(hub_key()) and not hub_disabled()
 
 
@@ -91,6 +100,15 @@ def hub_get(path: str, params: dict | None = None, timeout: int = 45) -> dict:
         if r.status_code == 401:
             return {"ok": False, "auth": True, "status": 401,
                     "error": "Hub ne key reject kar di (401 Invalid API key)"}
+        if r.status_code == 410:
+            j = {}
+            try:
+                j = r.json()
+            except Exception:
+                pass
+            return {"ok": False, "disabled_by_hub": True, "status": 410,
+                    "error": _short(str(j.get("error") or "This endpoint is turned off on the hub")),
+                    "hint": j.get("hint"), "official_links": j.get("official_links")}
         if r.status_code >= 400:
             return {"ok": False, "status": r.status_code,
                     "error": f"Hub HTTP {r.status_code}: {_short(r.text)}"}
@@ -288,9 +306,7 @@ def hub_pincode(pin: str) -> dict:
 def hub_terabox(url: str) -> dict:
     """TeraBox file list + direct links. cloud_tools.resolve_terabox() jaisa shape."""
     res = hub_try([("/terabox-file", {"url": url}),
-                   ("/terabox-stream-v3", {"url": url}),
-                   ("/terabox-stream-v2", {"url": url}),
-                   ("/terabox-stream", {"url": url})], timeout=60)
+                   ("/terabox-stream-v3", {"url": url})], timeout=20)
     if not res.get("ok"):
         return {"ok": False, "error": res.get("error") or "Hub ne jawab nahi diya"}
     d = res["data"]
@@ -569,6 +585,111 @@ def hub_num_info(number_digits: str) -> dict:
 
 
 # =====================================================================
+# 🧾 NUM REPORT (full)  →  /num-info   [hub par abhi OFF ho sakta hai]
+# =====================================================================
+def hub_num_report(number_digits: str) -> dict:
+    """Number → poora report (naam/papa/address). Hub par ON ho to data aayega."""
+    dg = re.sub(r"\D", "", number_digits or "")
+    if len(dg) == 10:
+        dg = "91" + dg
+    if len(dg) != 12:
+        return {"ok": False, "error": "10 digit number bhejo"}
+    res = hub_try([("/num-info", {"q": dg}), ("/number-info", {"q": dg}), ("/num", {"q": dg})], timeout=70)
+    if not res.get("ok"):
+        return {"ok": False, "disabled_by_hub": res.get("disabled_by_hub", False),
+                "error": res.get("error") or "Hub ne jawab nahi diya"}
+    d = res["data"]
+    people = []
+    raw_people = d.get("people") if isinstance(d, dict) else None
+    if not isinstance(raw_people, list):
+        raw_people = _find_list(d, keys=("people", "records", "results", "data"))
+    for p in (raw_people or [])[:5]:
+        if not isinstance(p, dict):
+            continue
+        phones = p.get("phones") or p.get("alt_phones") or []
+        people.append({
+            "name": str(_pick(p, "name", "full_name", default="") or ""),
+            "father": str(_pick(p, "father_name", "father", "guardian", default="") or ""),
+            "phones": [str(x) for x in phones][:6] if isinstance(phones, list) else [],
+            "alt_phones": [str(x) for x in (p.get("alt_phones") or [])][:6],
+            "region": str(_pick(p, "region", "operator", "circle", default="") or ""),
+            "govt_ids": [str(x) for x in (p.get("govt_ids") or [])][:4],
+            "addresses": [str(x) for x in (p.get("addresses") or [])][:4]
+                         if isinstance(p.get("addresses"), list) else ([str(p.get("address"))] if p.get("address") else []),
+            "sources": p.get("sources") or [],
+        })
+    return {"ok": bool(people), "source": res.get("source") or f"hub{res.get('endpoint')}",
+            "number": dg, "people": people, "count": len(people),
+            "record_count": _pick(d, "record_count", "total", default=len(people)),
+            "sources_used": d.get("sources_used") if isinstance(d, dict) else None,
+            "formatted": (d.get("formatted") if isinstance(d, dict) else "") or "",
+            "error": "" if people else "Is number ka koi record nahi mila."}
+
+
+# =====================================================================
+# 🚗 VEHICLE FULL REPORT  →  /vehicle-report   [hub par abhi OFF ho sakta hai]
+# =====================================================================
+def hub_vehicle_report_new(plate: str) -> dict:
+    """Plate → RC + RTO + insurance + PUC + challans (ek hi call me)."""
+    pl = re.sub(r"[^A-Za-z0-9]", "", plate or "").upper()
+    if len(pl) < 8:
+        return {"ok": False, "error": "Send a correct number plate (example BR30AR0802)"}
+    res = hub_try([("/vehicle-report", {"number": pl}), ("/vehicle-full", {"number": pl}),
+                   ("/rc-info", {"rc": pl})], timeout=70)
+    if not res.get("ok"):
+        return {"ok": False, "disabled_by_hub": res.get("disabled_by_hub", False),
+                "status": res.get("status"),
+                "error": res.get("error") or "Hub ne jawab nahi diya"}
+    d = res["data"]
+    if not isinstance(d, dict):
+        return {"ok": False, "error": "Hub ka jawab samajh nahi aaya"}
+    return {"ok": True, "source": res.get("source") or "hub/vehicle-report",
+            "plate": pl, "raw": d,
+            "vehicle": d.get("vehicle") if isinstance(d.get("vehicle"), dict) else {},
+            "owner": d.get("owner") if isinstance(d.get("owner"), dict) else {},
+            "rto": d.get("rto") if isinstance(d.get("rto"), dict) else {},
+            "rc": d.get("rc") if isinstance(d.get("rc"), dict) else {},
+            "insurance": d.get("insurance") if isinstance(d.get("insurance"), dict) else {},
+            "puc": d.get("puc") if isinstance(d.get("puc"), dict) else {},
+            "challans": d.get("challans") if isinstance(d.get("challans"), dict) else {},
+            "formatted": str(d.get("formatted") or ""),
+            "server_line": str(d.get("server_line") or "")}
+
+
+# =====================================================================
+# 🔑 KEY INFO  →  /key-info
+# =====================================================================
+def hub_key_info() -> dict:
+    res = hub_get("/key-info", {}, timeout=40)
+    if not res.get("ok"):
+        return {"ok": False, "error": res.get("error")}
+    d = res["data"]
+    return {"ok": True, "plan": _pick(d, "plan", default=""), "status": _pick(d, "status", default=""),
+            "expires": _pick(d, "expires_at_ist", "expires", default=""), "raw": d}
+
+
+# =====================================================================
+# 🎵 SONG SEARCH  →  /song  (iTunes preview + metadata)
+# =====================================================================
+def hub_song(query: str) -> dict:
+    res = hub_get("/song", {"song": query}, timeout=50)
+    if not res.get("ok"):
+        return {"ok": False, "error": res.get("error")}
+    items = _find_list(res["data"], keys=("results", "data", "songs"))
+    out = []
+    for it in items[:8]:
+        if isinstance(it, dict):
+            out.append({"title": str(_pick(it, "title", "name", default="") or ""),
+                        "artist": str(_pick(it, "artists", "artist", default="") or ""),
+                        "album": str(_pick(it, "album", default="") or ""),
+                        "preview": str(_pick(it, "download_url", "preview_url", default="") or ""),
+                        "art": str(_pick(it, "artwork", default="") or ""),
+                        "applemusic": str(_pick(it, "apple_music_url", default="") or "")})
+    return {"ok": bool(out), "songs": out, "count": len(out),
+            "error": "" if out else "Koi gaana nahi mila"}
+
+
+# =====================================================================
 # admin status
 # =====================================================================
 def status_card() -> str:
@@ -577,26 +698,33 @@ def status_card() -> str:
     ready = hub_ready()
     lines = ["🔌 <b>API HUB — status</b>", "━━━━━━━━━━━━━━━━━━━━━━",
              f"• Base: <code>{base}</code>",
-             f"• Key: {'✅ set (' + hub_key_name() + ')' if ready else '❌ <b>nahi lagi</b>'}"]
+             f"• Key: {'✅ ' + hesc(key[:8]) + '…' if ready else '❌ <b>nahi lagi</b>'}",
+             "• Plan: <b>Demo = ALL ENDPOINTS</b> (lifetime) · apni key Dashboard → API Keys se"]
+    lines += ["",
+              "✅ <b>Chalte hain:</b> 🏦 IFSC · 📮 PINCODE · 🌐 IP · 📲 IMEI (brand/model) ·",
+              "▶️ YouTube info · 🧮 GST/PAN format check · 🎵 Song search · 🔑 Password breach check",
+              "",
+              "⛔ <b>Hub par abhi OFF:</b> 🚗 Vehicle RC/challan · 📱 Number records (naam/address)",
+              "<i>Ye hub ke apne switch se band hain (safety). Chalu karne ke liye hub ke",
+              "dashboard/settings me sensitive endpoints ON karo ya UPSTREAM_KEY set karo.</i>",
+              "⛔ <b>Upstream key chahiye:</b> ⚡ TeraBox · 📸 Instagram · 👻 Snapchat"]
     if not ready:
-        lines += ["",
-                  "Render → Environment me ye add karo:",
-                  "<code>HUB_API_KEY</code> = <i>aapki hub key</i>",
-                  "",
-                  "⚠️ Purani public key <code>Demo</code> ab <b>band ho gayi hai</b> (hub v2.0).",
-                  "Key na hone par bot purane free APIs par chal raha hai (kuch tootega nahi).",
-                  "Key lagne par ye tools hub par shift ho jayenge:",
-                  "🌐 IP · 🏦 IFSC · 📮 PINCODE · ⚡ TERABOX · 🎬 CLIP MAKER (YouTube) ·",
-                  "📥 VIDEO DOWNLOADER (X) · 🆔 ID FINDER · 📜 KAGAZ (GST/PAN) · 🚗 VEHICLE · 📲 IMEI · 📱 NUMBER"]
+        lines += ["", "Render → Environment: <code>HUB_API_KEY</code> = <code>Demo</code> (ya apni key)"]
     return "\n".join(lines)
 
 
+def hesc(t) -> str:
+    return (str(t or "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
+
+
 def live_test() -> dict:
-    """Hub par ek chhota live check."""
+    """Hub par live check — IP + key-info (kaun kaun se endpoint chalu hain bhi batata hai)."""
     if not hub_ready():
-        return {"ok": False, "error": "HUB_API_KEY set nahi hai"}
-    res = hub_get("/ip-v2", {"ip": "8.8.8.8"}, timeout=40)
-    if res.get("ok"):
-        d = res["data"]
-        return {"ok": True, "say": f"ip-v2 chal gaya ({_pick(d, 'country', 'city', default='ok')})"}
-    return {"ok": False, "error": res.get("error")}
+        return {"ok": False, "error": "Hub band hai (HUB_ENABLED=off)"}
+    res = hub_get("/ip-v2", {"ip": "8.8.8.8"}, timeout=50)
+    if not res.get("ok"):
+        return {"ok": False, "error": res.get("error")}
+    d = res["data"]
+    ki = hub_key_info()
+    plan = hesc(ki.get("plan") or "?") if ki.get("ok") else "?"
+    return {"ok": True, "say": f"ip-v2 ✅ ({_pick(d, 'country', 'city', default='ok')}) · plan: {plan}"}

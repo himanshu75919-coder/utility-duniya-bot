@@ -123,7 +123,40 @@ class HubHandler(BaseHTTPRequestHandler):
                                     "gstins": [{"gstin": "19BOKPS7056D1ZI", "status": "Active",
                                                 "name": "TEST ENTERPRISES"}]})
         if path in ("/num-info", "/leak-v1"):
-            return self._json(200, {"name": "TEST USER", "father": "TEST FATHER", "address": "Patna"})
+            return self._json(200, {"success": True, "query": q.get("q", [""])[0], "record_count": 1,
+                                    "people": [{"name": "TEST USER", "father_name": "TEST FATHER",
+                                                "phones": ["9058390341"], "region": "JIO UPW",
+                                                "addresses": ["Patna, Bihar"], "govt_ids": ["123456789012"]}],
+                                    "sources_used": ["num-info"], "formatted": "NUMBER REPORT"})
+        if path in ("/num-disabled",):
+            return self._json(410, {"success": False, "status": "disabled",
+                                    "error": "Leaked personal-record lookup yahan supported nahi.",
+                                    "official_links": {"report": "https://cybercrime.gov.in/"}})
+        if path in ("/vehicle-report", "/vehicle-full", "/rc-info"):
+            if os.environ.get("MOCK_VEH_DISABLED") == "1":
+                return self._json(410, {"success": False, "status": "disabled",
+                                        "error": "Live vehicle/owner/challan lookup disabled hai."})
+            return self._json(200, {"vehicle": {"maker": "HONDA", "model": "SHINE"},
+                                    "owner": {"name": "S*****U S*H"},
+                                    "rto": {"code": "BR30", "name": "SITAMARHI", "state": "BIHAR"},
+                                    "rc": {"registration": "29-Aug-2025", "fitness": "28-Aug-2040"},
+                                    "insurance": {"company": "GO DIGIT", "valid_upto": "27-Jul-2030"},
+                                    "puc": {"valid_upto": "28-Aug-2026"},
+                                    "challans": {"count": 1, "pending_count": 1, "pending_amount": 1000,
+                                                 "total_amount": 1000,
+                                                 "list": [{"challan_number": "BR250023260716183506",
+                                                           "amount": 1000, "status": "PENDING",
+                                                           "offence": "Driving without helmet",
+                                                           "date": "16-07-2026"}]}})
+        if path == "/key-info":
+            return self._json(200, {"success": True, "plan": "ALL ENDPOINTS", "status": "active",
+                                    "expires_at_ist": "Never (lifetime)"})
+        if path == "/song":
+            return self._json(200, {"results": [{"title": "Chandni", "artists": "Sachet Tandon",
+                                                 "download_url": "http://127.0.0.1:%d/dl/s.mp3" % PORT}]})
+        if path == "/imei":
+            return self._json(200, {"success": True, "tac": "35301011", "brand": "APPLE",
+                                    "model": "iPhone 12 mini", "reporting_body": "BABT (UK)"})
         return self._json(404, {"error": "Endpoint not found"})
 
     def do_POST(self):
@@ -140,8 +173,10 @@ def test_client():
     ok("hub ready (key lagi)", hub.hub_ready() is True, hub.status_card()[:80])
     ok("base env se uthaya", hub.hub_base() == f"http://127.0.0.1:{PORT}/api", hub.hub_base())
     ok("key name batata hai", hub.hub_key_name() in ("HUB_API_KEY", "VEHICLE_API_KEY"), hub.hub_key_name())
-    ok("Demo key ready nahi maani jati",
-       (os.environ.__setitem__("HUB_API_KEY", "Demo") or hub.hub_ready()) is False)
+    ok("Demo key valid hai (hub ka public lifetime key)",
+       (os.environ.__setitem__("HUB_API_KEY", "Demo") or hub.hub_ready()) is True)
+    ok("key khaali ho to bhi default Demo chalti hai",
+       (os.environ.__setitem__("HUB_API_KEY", "") or hub.hub_key()) == "Demo")
     os.environ["HUB_API_KEY"] = OK_KEY
 
     ip = hub.hub_ip("8.8.8.8")
@@ -182,7 +217,26 @@ def test_client():
     ok("PAN → GST mile", pan.get("ok") and pan["gstins"][0]["gstin"] == "19BOKPS7056D1ZI", pan)
 
     ni = hub.hub_num_info("9876543210")
-    ok("num-info hub se", ni.get("ok") and ni["data"]["name"] == "TEST USER", ni)
+    ok("num-info hub se", ni.get("ok") is True and isinstance(ni.get("data"), dict), ni)
+
+    # v46: naye endpoints
+    rep = hub.hub_num_report("9058390341")
+    ok("num report (people[] merge) chala", rep.get("ok") and rep["people"][0]["name"] == "TEST USER"
+       and rep["people"][0]["father"] == "TEST FATHER", rep)
+    ok("num report me phone/address bhi", rep["people"][0]["phones"] == ["9058390341"]
+       and rep["people"][0]["addresses"] == ["Patna, Bihar"], rep["people"][0])
+
+    veh = hub.hub_vehicle_report_new("BR30AR0802")
+    ok("vehicle-report parse hua", veh.get("ok") and veh["vehicle"]["maker"] == "HONDA"
+       and veh["challans"]["count"] == 1, veh)
+
+    ki = hub.hub_key_info()
+    ok("key-info plan batata hai", ki.get("ok") and "ALL" in str(ki.get("plan", "")).upper(), ki)
+
+    sg = hub.hub_song("chandani")
+    ok("song search chala", sg.get("ok") and sg["songs"][0]["title"] == "Chandni", sg)
+
+    ok("live_test me plan bhi aata hai", "plan" in str(hub.live_test().get("say", "")).lower(), hub.live_test())
 
     ok("galat input par saaf error (crash nahi)", hub.hub_ifsc("ABC").get("ok") is False
        and "11 characters" in hub.hub_ifsc("ABC")["error"], hub.hub_ifsc("ABC"))
@@ -194,12 +248,22 @@ def test_client():
     ok("galat key par auth error", r.get("ok") is False and r.get("auth") is True, r)
     os.environ["HUB_API_KEY"] = OK_KEY
 
-    # key hata kar: no_key + status card
-    saved = os.environ.pop("HUB_API_KEY")
-    ok("key na ho to no_key error", hub.hub_get("/ip-v2", {}).get("no_key") is True)
-    ok("status card key ka tarika batata hai", "HUB_API_KEY" in hub.status_card()
-       and "Demo" in hub.status_card(), hub.status_card()[:120])
-    os.environ["HUB_API_KEY"] = saved
+    # hub off karne par: disabled error + status card
+    os.environ["HUB_ENABLED"] = "off"
+    ok("HUB_ENABLED=off par disabled error", hub.hub_get("/ip-v2", {}).get("disabled") is True)
+    ok("off hone par ready False", hub.hub_ready() is False)
+    os.environ.pop("HUB_ENABLED", None)
+    ok("status card Demo + OFF wale endpoints batata hai",
+       "Demo" in hub.status_card() and "Vehicle" in hub.status_card() and "OFF" in hub.status_card().upper(),
+       hub.status_card()[:160])
+    ok("default base = user ka hub (module constant)",
+       "osint-api-hub.onrender.com" in hub.DEFAULT_BASE, hub.DEFAULT_BASE)
+
+    # v46: 410 disabled detection
+    os.environ["MOCK_VEH_DISABLED"] = "1"
+    dv = hub.hub_vehicle_report_new("BR30AR0802")
+    ok("410 par disabled_by_hub detect hota hai", dv.get("ok") is False and dv.get("disabled_by_hub") is True, dv)
+    os.environ.pop("MOCK_VEH_DISABLED", None)
 
 
 def test_tools_hub():
@@ -234,10 +298,11 @@ def test_tools_hub():
 
 
 def test_fallback():
-    print("\n--- 3) 🛟 FALLBACK (hub key na ho to bhi sab chale) ---")
+    print("\n--- 3) 🛟 FALLBACK (hub band ho to bhi sab chale) ---")
     saved = os.environ.pop("HUB_API_KEY")
+    os.environ["HUB_ENABLED"] = "off"
     try:
-        ok("hub ready nahi", hub.hub_ready() is False)
+        ok("hub ready nahi (off)", hub.hub_ready() is False)
         # ip-api (network) — real internet chahiye; fail bhi ho to crash nahi hona chahiye
         r = ost.lookup_ip_domain("8.8.8.8")
         ok("IP tool phir bhi jawab deta hai (fallback/khali error)", isinstance(r, dict) and "ok" in r, r)
@@ -246,10 +311,10 @@ def test_fallback():
         tb = ct.resolve_terabox("https://1024terabox.com/s/1ahJz-qdH7h_9One0lXxDoA")
         ok("TERABOX fallback crash nahi karta", isinstance(tb, dict) and "ok" in tb, tb.get("error"))
         res = cm.hub_youtube_download("https://youtu.be/x", "/tmp")
-        ok("AI/hub youtube path key ke bina saaf mana karta hai", res.get("ok") is False
-           and "key" in str(res.get("reason", "")).lower(), res)
+        ok("AI/hub youtube path band hub par saaf mana karta hai", res.get("ok") is False, res)
     finally:
         os.environ["HUB_API_KEY"] = saved
+        os.environ.pop("HUB_ENABLED", None)
 
 
 # ======================================================================
@@ -399,16 +464,16 @@ async def test_bot_flows():
     await bot.cmd_clipstatus(upd(m6, uid=OWNER, n=109), ctx6)
     ok("/clipstatus me hub line", "API HUB" in m6.U(), m6.replies_text()[:220])
 
-    # key na ho to kagaz GST mana kare
-    saved = os.environ.pop("HUB_API_KEY")
+    # hub off ho to kagaz GST mana kare
+    os.environ["HUB_ENABLED"] = "off"
     try:
         ctx7 = Ctx()
         q7 = FakeQuery("kagaz_gst", uid=USER)
         await bot.on_cb(Update(update_id=110, callback_query=q7), ctx7)
-        ok("key bina GST kholne par saaf message", "HUB_API_KEY" in q7.message.replies_text(),
+        ok("hub off hone par GST saaf message deta hai", "API HUB" in q7.message.replies_text(),
            q7.message.replies_text()[:200])
     finally:
-        os.environ["HUB_API_KEY"] = saved
+        os.environ.pop("HUB_ENABLED", None)
 
 
 test_client()

@@ -301,6 +301,17 @@ def lookup_ip_domain(target: str) -> dict:
     clean = re.sub(r"^https?://", "", (target or "").strip()).split("/")[0].strip()
     if not clean:
         return {"ok": False, "error": "Send a domain or IP (example google.com or 8.8.8.8)"}
+    # 🏠 v46: private / LAN IP ka koi public record nahi hota (hub se pehle block)
+    _m = re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", clean)
+    if _m:
+        _o = [int(x) for x in _m.groups()]
+        if not all(0 <= x <= 255 for x in _o):
+            return {"ok": False, "error": "This is not a valid IP address (each part must be 0-255)."}
+        if (_o[0] in (0, 10, 127) or (_o[0] == 192 and _o[1] == 168)
+                or (_o[0] == 172 and 16 <= _o[1] <= 31) or (_o[0] == 169 and _o[1] == 254)):
+            return {"ok": False, "private_ip": True,
+                    "error": "This is a private / LAN IP (home router or local network). "
+                             "No public info exists for it. Send a public IP or a domain instead."}
     # 🌐 v45: pehle user ka API hub, phir purana ip-api
     if hub is not None and hub.hub_ready():
         res = hub.hub_ip(clean)
@@ -365,9 +376,14 @@ def lookup_public_records(number: str) -> dict:
 
     digits = re.sub(r"\D", "", number or "")
     if hub is not None and hub.hub_ready():
-        _hres = hub.hub_num_info(digits)
-        if _hres.get("ok"):
-            return {"ok": True, "source": _hres.get("source", "hub"), "raw": _hres.get("data")}
+        _rep = hub.hub_num_report(digits)
+        if _rep.get("ok") and _rep.get("people"):
+            return {"ok": True, "source": _rep.get("source", "hub"), "raw": _rep,
+                    "hub_people": _rep["people"], "formatted": _rep.get("formatted") or ""}
+        if _rep.get("disabled_by_hub"):
+            return {"ok": False, "disabled_by_hub": True,
+                    "error": "Public-records lookup is turned off on the data provider right now. "
+                             "The full number card above still works."}
     if len(digits) == 10:
         digits = "91" + digits
     if len(digits) != 12:

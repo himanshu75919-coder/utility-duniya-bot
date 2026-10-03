@@ -3,7 +3,20 @@
 Aapke Render → Environment page me abhi ye hain: `ADMIN_ID`, `BOT_TOKEN`, `FORCE_CHANNEL`,
 `FORCE_CHANNEL_LINK`, `UPI_ID`, `UPI_NAME`, `WEBHOOK_URL` — **ye sab theek hai, inhe chhedna nahi hai.**
 
-Sirf **1 nayi key** add karni hai (AI ke liye). Chaaho to 2 add kar sakte ho.
+### 🆕 Sabse pehle ye 1 line add karo (v46) — API HUB
+
+```
+KEY   = HUB_API_KEY
+VALUE = Demo
+```
+
+Bas. Isse IFSC, Pincode, IP, YouTube (clip maker), GST, PAN, Song, ID Finder, IMEI — sab aapke
+hub se chalne lagte hain. (Wahi `HUB_API_KEY` wala khaana jo screenshot me khaali tha —
+**usme `Demo` likho**, blank mat chhodo.) Detail: **`v46-HUB-LIVE.md`**.
+
+---
+
+Uske baad **1 nayi key** add karni hai (AI ke liye). Chaaho to 2 add kar sakte ho.
 
 ---
 

@@ -168,7 +168,33 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
         if "invalid" in low and "imei" in low:
             return {"ok": False, "error": "This IMEI is not in the database (not a valid device IMEI).",
                     "imei": imei, "not_found": True}
+        if "disabled" in low or "not supported" in low:
+            return {"ok": False, "imei": imei, "hub_disabled": True, "error": api_err}
         return {"ok": False, "error": api_err, "imei": imei}
+
+    # 🆕 v46: user ke hub ka TAC (local match) response:
+    # {"success":true,"tac":"35301011","brand":"APPLE","model":"iPhone 12 mini","reporting_body":"BABT (UK)"}
+    if payload.get("success") and (payload.get("brand") or payload.get("model") or payload.get("tac")):
+        brand = _clean_val(payload.get("brand"))
+        model = _clean_val(payload.get("model"))
+        tac = _clean_val(payload.get("tac"))
+        body = _clean_val(payload.get("reporting_body"))
+        note = _clean_val(payload.get("note"))
+        dev_rows = [(k, v) for k, v in (("Brand", brand), ("Model", model), ("TAC (first 8 digits)", tac)) if v]
+        sections = [{"title": "Device (TAC match)", "rows": dev_rows}] if dev_rows else []
+        if body:
+            sections.append({"title": "Reporting body", "rows": [("GSMA reporting body", body)]})
+        if note:
+            sections.append({"title": "Note", "rows": [("Info", note)]})
+        q = "+".join(x for x in (brand, model) if x).replace(" ", "+")
+        links = []
+        if q:
+            links.append(("📱 Full specs (GSMArena)", f"https://www.gsmarena.com/res.php3?sSearch={q}"))
+            links.append(("🔎 Search this device", f"https://www.google.com/search?q={q}+specifications"))
+        links.append(("📲 Check on imei.info", f"https://www.imei.info/?imei={imei}"))
+        return {"ok": True, "imei": imei, "brand": brand, "model": model, "tac": tac,
+                "photo": "", "sections": sections, "links": links, "basic": True,
+                "source": "hub (TAC)"}
 
     res = payload.get("result")
     if isinstance(res, str):                       # {"result": "Invalid IMEI"}
