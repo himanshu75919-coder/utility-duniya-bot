@@ -10,7 +10,7 @@ Kahan se data aata hai:
   /api/imei?key=...&imei=15-digit     → { imei, result: { header:{brand,model,photo,imei},
                                                          items:[{role,title,content}] } }
 
-Default base: https://osint-apis-hub.onrender.com/api   (key: apni key env me daalo — HUB_API_KEY; purani Demo key band ho gayi hai)
+Default base: https://osint-api-hub.onrender.com/api   (key: HUB_API_KEY ya IMEI_API_KEY, default Demo)
 ENV (Render → Environment):
   IMEI_API_BASE     = API host + /api   (khaali ho to VEHICLE_API_BASE / default)
   IMEI_API_KEY      = apni key          (khaali ho to HUB_API_KEY / VEHICLE_API_KEY)
@@ -30,7 +30,7 @@ from datetime import datetime
 
 import requests
 
-DEFAULT_BASE = "https://osint-apis-hub.onrender.com/api"
+DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"   # v49: naya LIVE hub (purana dead tha)
 TIMEOUT = int(os.environ.get("IMEI_TIMEOUT", "25"))
 CACHE_TTL = 600          # 10 minute — same IMEI dobara check ho to API call na lage
 _FAIL_TTL = 60
@@ -100,15 +100,15 @@ def validate_imei(text: str) -> tuple:
     """(ok, clean_imei, error_hindi_free_english)"""
     c = clean_imei(text)
     if len(c) != 15:
-        return False, c, "IMEI must be exactly 15 digits."
+        return False, c, "IMEI poori 15 digit ka hona chahiye."
     if not luhn_ok(c):
-        return False, c, "This IMEI is not valid (check digit failed). Please re-check."
+        return False, c, "Ye IMEI sahi nahi hai (check digit fail). Dobara check karo."
     return True, c, ""
 
 
 def imei_of_device() -> str:
     """Jahan IMEI milta hai — user ko batane ke liye."""
-    return "Dial *#06# on the phone — the IMEI shows on the screen."
+    return "Phone me *#06# dial karo — IMEI screen par dikh jayega."
 
 
 # ---------------------------------------------------------------- http
@@ -116,15 +116,15 @@ def _get(url: str, params: dict, tmo: int = TIMEOUT):
     try:
         r = requests.get(url, params=params, headers=UA_HEADERS, timeout=tmo)
     except requests.Timeout:
-        return None, "The API took too long to answer."
+        return None, "API ne jawab dene me zyada time liya."
     except Exception as e:
-        return None, f"Could not reach the API: {str(e)[:80]}"
+        return None, f"API tak nahi pahunch paye: {str(e)[:80]}"
     if r.status_code != 200:
-        return None, f"The API returned HTTP {r.status_code}."
+        return None, f"API ne HTTP {r.status_code} bheja."
     try:
         return r.json(), None
     except Exception:
-        return None, "The API did not send JSON."
+        return None, "API ne JSON nahi bheja."
 
 
 def _err_of(payload) -> str:
@@ -160,13 +160,13 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     links    = [ ("Tutorials", "https://..."), ... ]
     """
     if not isinstance(payload, dict):
-        return {"ok": False, "error": "Bad API response.", "imei": imei}
+        return {"ok": False, "error": "API ka jawab kharab aaya.", "imei": imei}
 
     api_err = _err_of(payload)
     if api_err:
         low = api_err.lower()
         if "invalid" in low and "imei" in low:
-            return {"ok": False, "error": "This IMEI is not in the database (not a valid device IMEI).",
+            return {"ok": False, "error": "Ye IMEI database me nahi hai (valid device IMEI nahi hai).",
                     "imei": imei, "not_found": True}
         if "disabled" in low or "not supported" in low:
             return {"ok": False, "imei": imei, "hub_disabled": True, "error": api_err}
@@ -287,11 +287,11 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     if isinstance(res, str):                       # {"result": "Invalid IMEI"}
         low = res.lower()
         if "invalid" in low:
-            return {"ok": False, "error": "This IMEI is not in the database (not a valid device IMEI).",
+            return {"ok": False, "error": "Ye IMEI database me nahi hai (valid device IMEI nahi hai).",
                     "imei": imei, "not_found": True}
         return {"ok": False, "error": res[:120], "imei": imei}
     if not isinstance(res, dict):
-        return {"ok": False, "error": "No device details found for this IMEI.", "imei": imei, "not_found": True}
+        return {"ok": False, "error": "Is IMEI ki device details nahi mili.", "imei": imei, "not_found": True}
 
     head = res.get("header") or {}
     items = res.get("items") or []
@@ -488,7 +488,7 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
         shown += 1
     if res.get("specs_rows"):
         lines.append(f"📊 <b>{res['specs_rows']} specification points found</b>")
-    lines.append("👇 <i>Full specification in the next message.</i>")
+    lines.append("👇 <i>Poori specification agle message me hai.</i>")
     out = "\n".join(lines)
     return out[:1024]
 
@@ -512,7 +512,7 @@ def render_text(res: dict, max_len: int = 3600) -> str:
                 txt = txt[:119] + "…"
             out.append(txt)
         if len("\n".join(out)) > max_len:
-            out.append("<i>…spec list is long (full copy in the .json file below)</i>")
+            out.append("<i>…spec list lambi hai (poori copy neeche .json file me hai)</i>")
             break
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
     if res.get("tac"):
@@ -582,9 +582,9 @@ def help_card(error: str = "", imei: str = "") -> str:
         head += f"\n⚠️ <b>{error}</b>"
     return (
         head + "\n"
-        "Send the <b>15 digit IMEI</b> of the phone.\n"
-        "📍 Where to find it: dial <code>*#06#</code> on the phone, or see the box / bill.\n"
-        "✅ You get: brand, model, <b>device photo</b> + <b>full spec sheet</b> (display, chipset, "
-        "camera, battery, network and more) + a <b><code>.json</code> copy file</b>.\n"
-        "<i>Works for any phone/tablet. For legal use only (checking your own or a device you are buying).</i>"
+        "Phone ka <b>15 digit IMEI</b> bhejo.\n"
+        "📍 Kahan milega: phone me <code>*#06#</code> dial karo, ya box/bill dekho.\n"
+        "✅ Milega: brand, model, <b>phone ki photo</b> + <b>poori spec sheet</b> "
+        "(display, chipset, camera, battery, network) + <b><code>.json</code> file</b>.\n"
+        "<i>Kisi bhi phone/tablet par chalega. Sirf legal use ke liye (apna phone ya jo kharid rahe ho).</i>"
     )

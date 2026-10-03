@@ -8,8 +8,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 # 🏛️ CITIZEN SERVICES
 SARKARI_CITIZEN_TEXT = (
-    "🏛️ <b>OFFICIAL GOVERNMENT SERVICES HUB</b> 🏛️\n"
-    "<blockquote>100% verified official government portals — direct links, no fake ads.</blockquote>\n\n"
+    "🏛️ <b>SARKARI SEVA PORTAL HUB</b> 🏛️\n"
+    "<blockquote>100% verified official government portal — direct link, no fake ads.</blockquote>\n\n"
     "📌 <b>Available Services:</b>\n"
     "• 💳 <b>Aadhaar:</b> Download, PVC Card, Mobile Link & Lock\n"
     "• 🪪 <b>PAN Card:</b> 10-Min Free e-PAN, Link Status & Apply\n"
@@ -55,7 +55,7 @@ def get_sarkari_citizen_kb():
 
 
 STATE_PORTALS_TEXT = (
-    "📜 <b>STATE-WISE CASTE, INCOME & RESIDENCE CERTIFICATE PORTALS</b>\n\n"
+    "📜 <b>RAJYA-WISE JAATI, AAY AUR NIVAS Praman-Patra PORTAL</b>\n\n"
     "• <b>Bihar:</b> RTPS Service Plus (rtps.bihar.gov.in)\n"
     "• <b>Uttar Pradesh:</b> eDistrict UP (edistrict.up.gov.in)\n"
     "• <b>Jharkhand:</b> Jharsewa (jharsewa.jharkhand.gov.in)\n"

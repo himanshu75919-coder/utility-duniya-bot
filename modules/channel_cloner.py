@@ -43,18 +43,18 @@ HTML = "HTML"
 # USER GUIDE (simple Hinglish — pehli baar use karne wale ke liye)
 # --------------------------------------------------------------------------------
 CLONER_GUIDE_TEXT = (
-    "📘 <b>HOW DOES AUTO FORWARD WORK?</b>\n"
+    "📘 <b>AUTO FORWARD KAISE CHALTA HAI?</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "1️⃣ <b>SOURCE</b> = channel you copy from\n"
-    "2️⃣ <b>TARGET</b> = channel you post to\n"
-    "3️⃣ The bot copies every <b>new</b> post automatically in 2-5 seconds,\n"
-    "   with your caption, tag, watermark and thumbnail.\n\n"
-    "⚠️ <b>2 things needed:</b>\n"
-    "• Make the bot <b>Admin</b> in both channels.\n"
-    "• Private channel? Add the bot as admin there, then forward any post\n"
-    "   from it to the bot — the bot will read the ID itself. ✅\n\n"
-    "📦 <b>Works with:</b> videos, PDF/notes, photos, audio, files and albums (2-10 items).\n"
-    "⚡ Only <b>new</b> posts are copied. For old posts use <b>🚀 Manual Forward Mode</b>."
+    "1️⃣ <b>SOURCE</b> = jis channel se copy karni hai\n"
+    "2️⃣ <b>TARGET</b> = jis channel me post jayegi\n"
+    "3️⃣ Bot har <b>nayi</b> post 2-5 second me khud copy kar deta hai,\n"
+    "   aapke caption, tag, watermark aur thumbnail ke saath.\n\n"
+    "⚠️ <b>2 cheezein zaroori:</b>\n"
+    "• Dono channel me bot ko <b>Admin</b> banao.\n"
+    "• Private channel? Bot ko wahan admin banao, phir us channel se\n"
+    "   koi bhi post is bot ko forward karo — bot khud ID padh lega. ✅\n\n"
+    "📦 <b>Kaam karta hai:</b> video, PDF/notes, photo, audio, file aur album (2-10 item) par.\n"
+    "⚡ Sirf <b>nayi</b> posts copy hoti hain. Purani ke liye <b>🚀 Manual Forward Mode</b> use karo."
 )
 
 
@@ -340,7 +340,7 @@ async def clone_messages(bot: Bot, msgs: list, uid: int) -> tuple:
     cfg = get_cloner_config(uid)
     target = (cfg.get("target_chat_id") or "").strip()
     if not target:
-        return False, "⚠️ <b>Target Chat ID is not set!</b> First set the channel with the <b>📑 Target</b> button."
+        return False, "⚠️ <b>Target Chat ID set nahi hai!</b> Pehle <b>📑 Target</b> button se channel set karo."
 
     try:
         if len(msgs) == 1:
@@ -354,7 +354,7 @@ async def clone_messages(bot: Bot, msgs: list, uid: int) -> tuple:
         log.error("Clone failed: %s", e)
         return False, (
             f"❌ <b>Error:</b> <code>{str(e)[:200]}</code>\n\n"
-            "<i>Check: is the bot ADMIN in the target channel? (with Post Messages permission)</i>"
+            "<i>Check karo: target channel me bot ADMIN hai? (Post Messages permission ke saath)</i>"
         )
 
 

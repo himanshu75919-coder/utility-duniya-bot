@@ -169,7 +169,7 @@ def test_imei():
     good, clean, err = il.validate_imei("356356426587792")
     ok("IMEI validation pass (15 digit + Luhn)", good, err)
     bad, _, berr = il.validate_imei("356356426587790")
-    ok("Galat IMEI reject (Luhn fail)", not bad and "valid" in berr.lower(), berr)
+    ok("Galat IMEI reject (Luhn fail)", not bad and ("valid" in berr.lower() or "sahi nahi" in berr.lower() or "check digit" in berr.lower()), berr)
 
     res = il.fetch_imei_details("356356426587792", use_cache=False)
     ok("hub v2.4 payload parse ok", res.get("ok"), res.get("error"))

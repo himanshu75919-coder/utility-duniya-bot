@@ -2,10 +2,10 @@
 """
 🔌 API HUB (v45) — user ke apne OSINT API hub se baat karne ka ek hi darwaza.
 
-Hub: https://osint-apis-hub.onrender.com  (v2.0 · 56 endpoints)
+Hub: https://osint-api-hub.onrender.com  (v2.5 · 100+ endpoints, Demo key = lifetime)
 
 Env (Render → Environment):
-  HUB_API_BASE  = https://osint-apis-hub.onrender.com/api   (default)
+  HUB_API_BASE  = https://osint-api-hub.onrender.com/api   (default)
   HUB_API_KEY   = aapki apni key      ← ye lagate hi saare tools hub par shift ho jaate hain
                   (khaali ho to VEHICLE_API_KEY / IMEI_API_KEY / NUM_INFO_API_KEY
                    me se jo mile wahi use hoti hai)

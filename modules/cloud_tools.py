@@ -436,12 +436,12 @@ def resolve_terabox(url: str) -> dict:
 
     # Sab fail — kabhi bhi user ko khali haath nahi bhejte: fallback card
     surl = _extract_surl(url)
-    hint = ("Set TERABOX_COOKIE (ndus) for a direct link — that always works. "
+    hint = ("Direct link ke liye TERABOX_COOKIE (ndus) set karo — wo hamesha chalta hai. Ya neeche web downloader use karo."
             "Or use the web downloader below.")
     return {
         "ok": False,
         "provider": "Terabox",
-        "error": "Direct link not found (Terabox closed its public API in 2026).",
+        "error": "Direct link nahi mila (Terabox ne 2026 me public API band kar di).",
         "hint": hint,
         "fallback_links": TERABOX_WEB_FALLBACKS,
         "surl": surl,
@@ -509,7 +509,7 @@ def resolve_mediafire_direct(url: str) -> dict:
                 "stream_url": direct,
                 "files": [{"name": title[:120], "size": size, "size_bytes": 0, "dlink": direct, "stream": direct}],
             }
-        return {"ok": False, "error": "Direct download button not found (the file may be private or deleted)."}
+        return {"ok": False, "error": "Download button nahi mila (file private ya delete ho gayi ho sakti hai)."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:150]}
 
@@ -548,7 +548,7 @@ def resolve_gdrive_direct(url: str) -> dict:
                 direct = f"{direct}&confirm={tok.group(1)}"
                 if uuid:
                     direct += f"&uuid={uuid.group(1)}"
-                confirm_note = "This is a big file — open the link below in a browser and the download starts at once."
+                confirm_note = "Ye badi file hai — neeche wala link browser me kholo, download turant shuru ho jayega."
     except Exception:
         pass
 
@@ -578,6 +578,6 @@ def resolve_cloud_url(url: str) -> dict:
     else:
         return {
             "ok": False,
-            "error": ("This cloud domain is not supported. Working now: Terabox (20+ domains), "
+            "error": ("Ye cloud domain support nahi hai. Abhi chalta hai: Terabox (20+ domain), Mediafire, Google Drive."
                       "Mediafire, Google Drive. For a direct URL of any other link, use the 'LINK BYPASS' tool."),
         }

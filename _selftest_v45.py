@@ -475,8 +475,7 @@ async def test_bot_flows():
 
     ctx6 = Ctx()
     m6 = FakeMsg("", uid=OWNER)
-    await bot.cmd_clipstatus(upd(m6, uid=OWNER, n=109), ctx6)
-    ok("/clipstatus me hub line", "API HUB" in m6.U(), m6.replies_text()[:220])
+    # v49: CLIP MAKER tool hata diya gaya — clipstatus test bhi hata diya
 
     # hub off ho to kagaz GST mana kare
     os.environ["HUB_ENABLED"] = "off"
