@@ -15,21 +15,18 @@
 """
 
 import asyncio
-import base64
 import io
 import json
 import logging
 import os
-import random
 import re
-import sqlite3
-import string
+import socket
 import tempfile
 import time
 import threading
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from html import escape as hesc
-from urllib.parse import quote, unquote, urlparse
+from urllib.parse import quote
 
 try:
     from dotenv import load_dotenv
@@ -194,6 +191,7 @@ from modules.clip_maker import (
     ytdlp_available as clips_ytdlp_available,
     youtube_download as clips_youtube_download,
 )
+from modules.render_health import webhook_url_from_env
 from modules.imei_lookup import (
     device_title as imei_title,
     fallback_links as imei_fallback_links,
@@ -235,7 +233,6 @@ from modules.payguard import (
     MAX_BAD_TRIES,
     admin_payment_card,
     analyze_screenshot,
-    shot_verdict_line,
     user_payment_reply,
     utr_help_text,
     validate_utr,
@@ -264,7 +261,8 @@ FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
 FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
-WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
+# Render ka webhook default overlapping polling instances se Telegram Conflict rokta hai.
+WEBHOOK_URL = webhook_url_from_env()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
 SUPPORT_USERNAME = "@Supermannn_x"
@@ -409,7 +407,7 @@ def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 Get VIP (Unlimited)", callback_data="open_vip_menu")],
         [InlineKeyboardButton("🎬 How to get VIP? (30 sec video)", callback_data="toolvid:premium")],
-        [InlineKeyboardButton(f"🎁 Refer & Earn (Free VIP)", callback_data="open_refer_menu"),
+        [InlineKeyboardButton("🎁 Refer & Earn (Free VIP)", callback_data="open_refer_menu"),
          InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
     ])
 
@@ -1624,7 +1622,7 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "⚠️ <b>IMEI API is not set.</b>\n\nAdd this on Render → Environment:\n"
             "<code>HUB_API_KEY</code> = your hub key  <i>(ek hi key saare hub tools ke liye)</i>\n"
-            "<i>(base already set: osint-apis-hub.onrender.com/api — purani public key Demo ab band hai)</i>",
+            "<i>(base already set: osint-api-hub.onrender.com/api)</i>",
             parse_mode=HTML)
         return
     args = [a.strip() for a in (context.args or []) if a.strip()]
@@ -1740,12 +1738,11 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(update.effective_user.id):
         st = payment_stats()
         await update.message.reply_text(
-
-            f"👑 <b>You are the OWNER / ADMIN of this bot</b>\n"
+            "👑 <b>You are the OWNER / ADMIN of this bot</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "✅ Everything is <b>unlimited</b> for you — no daily limit, no VIP payment.\n"
             "You never need to buy premium 😄\n"
-            "💳 <b>Pending payments (to verify):</b> \n"
+            f"💳 <b>Pending payments (to verify):</b> {st['pending']}\n"
             "👉 To verify payments open <b>/payments</b> or <b>/admin</b>.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"💳 Pending Payments ({st['pending']})", callback_data="admpay_list")],
@@ -2143,13 +2140,21 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("✅ VIP activated!")
         try:
             user_obj = get_user(target_uid)
-            new_until = "👑 LIFETIME" if days >= 9999 else premium_expiry(user_obj)
+            exp = "👑 LIFETIME" if days >= 9999 else (premium_expiry(user_obj) or "—")
             await context.bot.send_message(
                 target_uid,
-
                 "🎉 <b>CONGRATS! VIP IS ACTIVE</b> 💎\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "🧾 <b>Payment ID:</b> #",
+                f"🧾 <b>Payment ID:</b> #{pid}\n"
+                f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
+                f"👑 <b>VIP:</b> {dur}\n"
+                f"📅 <b>Valid till:</b> {exp}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚡ Ab saare premium tools <b>unlimited</b> hain — credits khatam "
+                "hone ka koi tension nahi.\n\n"
+                "🚀 <b>Start:</b> /menu\n"
+                "📊 <b>My account:</b> /account\n\n"
+                "🙏 Thanks for supporting us!",
                 parse_mode=HTML)
         except Exception:
             pass
@@ -2399,7 +2404,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
             return
         await q.message.reply_text("🔎 <b>Checking this IMEI again…</b>", parse_mode=HTML)
-        res_ii = fetch_imei_details(imei, use_cache=False)
+        res_ii = await asyncio.to_thread(fetch_imei_details, imei, False)
         if res_ii.get("ok"):
             await q.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
             if res_ii.get("photo") and not str(res_ii["photo"]).lower().endswith(".gif"):
@@ -2711,7 +2716,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             chat = await context.bot.get_chat(int(cid))
             title = chat.title or str(cid)
-        except Exception as e:
+        except Exception:
             await q.answer("Add the bot to that channel as admin, then try again", show_alert=True)
             return
         save_cloner_config(uid, source_chat_id=cid)
@@ -4118,7 +4123,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         wait = await update.message.reply_text(
             "🔎 <b>Fetching the device details…</b>\n<i>Please wait 5-15 seconds.</i>", parse_mode=HTML)
-        res_i = fetch_imei_details(imei_clean)
+        res_i = await asyncio.to_thread(fetch_imei_details, imei_clean)
         try:
             await wait.delete()
         except Exception:
@@ -4146,7 +4151,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 photo_sent = False
         body = render_imei_text(res_i)
-        if not photo_sent:
+        if not photo_sent and not body.startswith("📲"):
             body = ("📲 <b>" + hesc(imei_title(res_i)) + "</b>\n"
                     f"🔢 <b>IMEI:</b> <code>{hesc(str(res_i.get('imei') or ''))}</code>\n" + body)
         await update.message.reply_text(body, parse_mode=HTML, disable_web_page_preview=True)
@@ -4833,9 +4838,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await st.edit_text(f"🔗 <b>{to_bold('SHORT LINKS READY')}</b>\n\n{body}{extra}", reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
             await st.edit_text(
-
-                f"⚠️ <b>Could not make a short link</b> (all providers are busy).\n"
-                "🧹 <b>Cleaned original link:</b>",
+                "⚠️ <b>Could not make a short link</b> (all providers are busy).\n"
+                f"🧹 <b>Cleaned original link:</b>\n<code>{hesc(str(clean))}</code>",
                 parse_mode=HTML,
             )
         add_use(uid)
@@ -5665,9 +5669,11 @@ def main():
         print("❌ ERROR: BOT_TOKEN is missing in environment variables or .env file!")
         return
 
-    threading.Thread(target=_keepalive, daemon=True).start()
     # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
     threading.Thread(target=publish_tutorial_now, daemon=True).start()
+    # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
+    if not WEBHOOK_URL:
+        threading.Thread(target=_keepalive, daemon=True).start()
 
     app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
            .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
@@ -5731,7 +5737,34 @@ def main():
     app.add_error_handler(on_error)
 
     print("🚀 Starting ToolVault / Utility Duniya Super Bot (v30 Ultra)...")
-    app.run_polling(drop_pending_updates=True)
+    # ---------- v47+: WEBHOOK MODE (Render par sabse safe) ----------
+    # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
+    # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
+    # Webhook me Telegram khud update bhejta hai, getUpdates hota hi nahi -> Conflict kabhi nahi.
+    if WEBHOOK_URL:
+        from modules.render_health import install_webhook_health_routes
+        install_webhook_health_routes()
+        port = int(os.environ.get("PORT", "10000"))
+        secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
+        path = f"/webhook/{secret}"
+        full_url = WEBHOOK_URL.rstrip("/") + path
+        # Secret webhook path ko logs me kabhi print na karein.
+        log.warning("WEBHOOK MODE | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
+                    socket.gethostname(), os.getpid())
+        app.run_webhook(
+            listen="0.0.0.0",
+            port=port,
+            url_path=path,
+            webhook_url=full_url,
+            allowed_updates=Update.ALL_TYPES,
+            drop_pending_updates=True,
+            secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
+        )
+        return
+
+    log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
+                socket.gethostname(), os.getpid())
+    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":

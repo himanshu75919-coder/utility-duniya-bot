@@ -13,12 +13,13 @@ import subprocess
 import sys
 import unicodedata
 
+ROOT = os.path.dirname(os.path.abspath(__file__))
 os.environ["DB_PATH"] = "/tmp/_v44.db"
 os.environ["BOT_TOKEN"] = "123456789:AAHtesttoken_testtoken_testtoken_testtok"
 os.environ["ADMIN_ID"] = "8607774564"
 os.environ["CLIP_YTDLP"] = "0"
 os.environ["AI_MOCK"] = "1"                 # AI layer test (koi internet nahi)
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, ROOT)
 
 for f in ("/tmp/_v44.db",):
     if os.path.exists(f):
@@ -90,13 +91,13 @@ def test_exam_removed():
     kb_txt = norm(str(bot.KB_BTNS))
     ok("menu me STUDENT EXAM button nahi", "STUDENT EXAM" not in kb_txt.upper(), kb_txt[:120])
     ok("BTN_MODE_MAP me exam nahi", "exam" not in bot.BTN_MODE_MAP.values(), bot.BTN_MODE_MAP.get("STUDENT EXAM HUB"))
-    src = io.open("/home/user/fix/bot.py", encoding="utf-8").read()
+    src = io.open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
     ok("bot.py me student_exam callback nahi", "student_exam" not in src)
     ok("bot.py me /exam command nahi", 'CommandHandler("exam"' not in src)
     ok("sarkari_hub se STUDENT_EXAM_TEXT hata", "STUDENT_EXAM_TEXT" not in
-       io.open("/home/user/fix/modules/sarkari_hub.py", encoding="utf-8").read())
+       io.open(os.path.join(ROOT, "modules", "sarkari_hub.py"), encoding="utf-8").read())
     ok("tutorial_hub me exam key nahi", '"exam"' not in
-       io.open("/home/user/fix/modules/tutorial_hub.py", encoding="utf-8").read())
+       io.open(os.path.join(ROOT, "modules", "tutorial_hub.py"), encoding="utf-8").read())
     rows = bot.KB_BTNS
     ok("har menu row 2 buttons (aakhri row bhi)", all(1 <= len(r) <= 2 for r in rows), [len(r) for r in rows])
     ok("menu rows 16", len(rows) == 16, len(rows))
@@ -540,7 +541,7 @@ def test_helpers():
     ok("clean_err link hatata hai", "http" not in bot.clean_err("ERROR: [youtube] failed https://github.com/x/y see"))
     ok("clean_err trim karta hai", len(bot.clean_err("x" * 500)) <= 210, len(bot.clean_err("x" * 500)))
     ok("clean_err khaali par default deta hai", bot.clean_err("") != "", bot.clean_err(""))
-    _src = io.open("/home/user/fix/bot.py", encoding="utf-8").read()
+    _src = io.open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
     ok("PTB timeouts bade set hain (240s+)", "write_timeout(240.0)" in _src
        and "media_write_timeout(300.0)" in _src and "read_timeout(60.0)" in _src)
 

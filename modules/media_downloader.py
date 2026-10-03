@@ -29,7 +29,6 @@ import shutil
 import requests
 from PIL import Image
 from bs4 import BeautifulSoup
-from urllib.parse import quote
 
 try:
     import parth_dl
