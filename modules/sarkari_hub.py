@@ -25,11 +25,11 @@ def get_sarkari_citizen_kb():
     buttons = [
         [
             InlineKeyboardButton("💳 e-Aadhaar Download", url="https://myaadhaar.uidai.gov.in/"),
-            InlineKeyboardButton("🪪 Order PVC Aadhaar", url="https://myaadhaar.uidai.gov.in/genricPVC"),
+            InlineKeyboardButton("🪪 PVC Aadhaar order karo", url="https://myaadhaar.uidai.gov.in/genricPVC"),
         ],
         [
             InlineKeyboardButton("🆓 10-Min Instant e-PAN", url="https://eportal.incometax.gov.in/iec/foservices/#/pre-login/instant-e-pan"),
-            InlineKeyboardButton("🔗 PAN-Aadhaar Link Status", url="https://eportal.incometax.gov.in/iec/foservices/#/pre-login/link-aadhaar-status"),
+            InlineKeyboardButton("🔗 PAN-Aadhaar link status", url="https://eportal.incometax.gov.in/iec/foservices/#/pre-login/link-aadhaar-status"),
         ],
         [
             InlineKeyboardButton("🍚 Ration Card (NFSA)", url="https://nfsa.gov.in/portal/ration_card_state_portals_aa"),

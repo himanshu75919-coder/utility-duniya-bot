@@ -90,7 +90,7 @@ def get_cloner_settings_kb(uid: int):
     auto_txt = "ON 🟢" if auto_on else "OFF 🔴"
 
     buttons = [
-        [InlineKeyboardButton("🚀 AUTO FORWARD SETUP (3 Steps)", callback_data="cloner_setup")],
+        [InlineKeyboardButton("🚀 AUTO FORWARD SETUP (3 Step)", callback_data="cloner_setup")],
         [InlineKeyboardButton("📘 How to Use? (Guide)", callback_data="cloner_guide")],
         [
             InlineKeyboardButton("🤖 FULL AUTO: " + auto_txt, callback_data="cloner_toggle_auto"),
