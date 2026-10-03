@@ -15,9 +15,6 @@ Result: table + /home/user/UPLOAD-KARO/v44-TOOLS-AUDIT.md me bhi likhta hai.
 """
 import io
 import os
-
-ROOT = os.path.dirname(os.path.abspath(__file__))
-import os
 import re
 import sys
 
@@ -28,7 +25,7 @@ os.environ.setdefault("ADMIN_ID", "8607774564")
 
 import bot                                              # noqa: E402
 
-BOT_SRC = io.open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
+BOT_SRC = io.open("/home/user/fix/bot.py", encoding="utf-8").read()
 MOD_DIR = "/home/user/fix/modules"
 
 # tool → (module file, mode keys, premium?)
@@ -156,8 +153,8 @@ for tool in sorted(bot.PROMPTS.keys()):
 # ---------------------------------------------------------------- extra checks
 EXTRA = [
     ("menu rows normalise", "har row 1-2 buttons", all(1 <= len(r) <= 2 for r in bot.KB_BTNS)),
-    ("menu button count", "33 buttons (exam hata, aadhaar add)", sum(len(r) for r in bot.KB_BTNS) == 33),
-    ("premium tools", "11 premium tools", len(bot.PREMIUM_TOOLS) == 11),
+    ("menu button count", "32 buttons (exam hata)", sum(len(r) for r in bot.KB_BTNS) == 32),
+    ("premium tools", "10 premium tools", len(bot.PREMIUM_TOOLS) == 10),
     ("removed tools", "purane removed tools wapas nahi aaye", not any(
         t in bot.BTN_MODE_MAP for t in ("STUDENT EXAM HUB", "AGE CALCULATOR", "PASSWORD GENERATOR",
                                         "WEB SEARCH", "UPI QR", "EMI"))),
@@ -219,5 +216,5 @@ if FAILS:
     md += ["", "## ❌ Fail list", ""] + [f"- {f}" for f in FAILS]
 else:
     md += ["", "## ✅ Fail list", "", "Kuch nahi — saare checks pass."]
-io.open(os.path.join(ROOT, "v44-TOOLS-AUDIT.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
+io.open("/home/user/UPLOAD-KARO/v44-TOOLS-AUDIT.md", "w", encoding="utf-8").write("\n".join(md) + "\n")
 print("→ report: /home/user/UPLOAD-KARO/v44-TOOLS-AUDIT.md")

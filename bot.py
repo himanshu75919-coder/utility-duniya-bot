@@ -20,7 +20,6 @@ import io
 import json
 import logging
 import os
-import socket
 import random
 import re
 import sqlite3
@@ -171,17 +170,14 @@ from modules.toolkit_extras import (
     village_compound_interest,
 )
 from modules.vehicle_challan import (
+    fetch_vehicle_report,
+    is_configured as vehicle_api_ready,
     render_report as render_vehicle_report,
     valid_plate as vehicle_plate_ok,
 )
-# ---- OSINT hub: health-only status; private lookups retired ----
-from modules import osint_hub as hub
-from modules.osint_hub import (
-    is_configured as vehicle_api_ready,
-    vehicle_report_v2 as hub_vehicle,
-)
 from modules import clip_maker as clipm
 from modules import ai_brain as aib
+from modules import api_hub as hubapi
 from modules.clip_maker import (
     CLIP_COUNT as CLIP_MAKER_COUNT,
     MAX_MINUTES as CLIP_MAKER_MAX_MIN,
@@ -198,7 +194,6 @@ from modules.clip_maker import (
     ytdlp_available as clips_ytdlp_available,
     youtube_download as clips_youtube_download,
 )
-from modules.render_health import webhook_url_from_env
 from modules.imei_lookup import (
     device_title as imei_title,
     fallback_links as imei_fallback_links,
@@ -212,7 +207,10 @@ from modules.imei_lookup import (
     validate_imei as imei_validate,
 )
 from modules.osint_tools import (
+    NUM_LEAK_ENABLED,
+    PUBLIC_RECORD_WARNING,
     check_username_platforms,
+    lookup_public_records,
     search_by_area_name,
     lookup_ifsc,
     lookup_ip_domain,
@@ -266,61 +264,9 @@ FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "").strip()
 FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "").strip()
 UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
 UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
-# Render ka webhook default overlapping polling instances se Telegram Conflict rokta hai.
-WEBHOOK_URL = webhook_url_from_env()
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "").strip()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
-async def hub_with_progress(wait_msg, hub_fn, arg, what="", timeout=24):
-    """Hub API ko background me chalao aur user ko LIVE progress dikhao.
-
-    Pehle bot 60 second tak chup rehta tha - user ko lagta tha bot mar gaya.
-    Ab har 6 sec me "data aa raha hai... Xs" dikhta hai, aur 24 sec ke baad
-    bhi result na aaye to call background me chalti rehti hai aur result
-    baad me bhej diya jata hai (deliver_hub_later).
-
-    Returns: (result_dict | None, task)
-             None  ->  abhi tak nahi aaya, task abhi bhi chal raha hai
-    """
-    loop = asyncio.get_running_loop()
-    task = loop.create_task(asyncio.to_thread(hub_fn, arg))
-    waited = 0
-    while waited < timeout:
-        try:
-            res = await asyncio.wait_for(asyncio.shield(task), timeout=6)
-            return (res if isinstance(res, dict) else {}), task
-        except asyncio.TimeoutError:
-            waited += 6
-            try:
-                await wait_msg.edit_text(
-                    f"\U0001f50e <b>{hesc(what or 'Searching...')}</b>\n"
-                    f"<i>Source se data aa raha hai... <b>{waited}s</b> ho gaye.</i>\n"
-                    "Bas thoda aur wait karein \u23f3", parse_mode=HTML)
-            except Exception:                                    # noqa: BLE001
-                pass
-        except Exception as e:                                   # noqa: BLE001
-            return {"ok": False, "has_data": False,
-                    "error": clean_err(str(e), 120)}, task
-    return None, task
-
-
-async def deliver_hub_later(task, context, chat_id, build_fn):
-    """Hub call der se poora ho to result baad me yahin bhej do (60s tak bhi)."""
-    try:
-        res = await task
-    except Exception as e:                                       # noqa: BLE001
-        res = {"ok": False, "has_data": False, "error": clean_err(str(e), 120)}
-    if not isinstance(res, dict):
-        res = {}
-    try:
-        text = build_fn(res)
-    except Exception:                                            # noqa: BLE001
-        text = "\u274c <b>Result taiyar karte waqt error aa gaya.</b> Dobara try karein."
-    try:
-        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode=HTML)
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
 SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
@@ -368,28 +314,25 @@ PREMIUM_TOOLS = {
     "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
     "kagaz",               # 📜 SARKARI KAGAZ SUITE
     "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
-    # ---- VEHICLE RTO + OFFICIAL LINKS; live provider requires explicit authorization ----
-    "vehicle",             # 🚗 RTO INFO + OFFICIAL LINKS
-    # ---- IMEI / DEVICE MODEL (TAC-only lookup) ----
+    # ---- v40 VEHICLE INFO + CHALLAN (live API) ----
+    "vehicle",             # 🚗 VEHICLE & CHALLAN REPORT
+    # ---- v41 IMEI / PHONE DETAILS (live API) ----
     "imei",                # 📲 IMEI & PHONE SPEC CARD
     # ---- v43 CLIP MAKER (video → 4-7 clips) ----
     "clips",               # 🎬 CLIP MAKER
-    # ---- Aadhaar access: official UIDAI/NFSA portal guidance only ----
-    "aadhaar",             # 🆔 OFFICIAL PORTAL GUIDANCE
 }
 
 PREMIUM_TOOL_NAMES = {
     "insta_dl": "📥 Video Downloader",
-    "numinfo": "📱 Number Info (safe metadata)",
+    "numinfo": "📱 Number Info",
     "cloner": "🔄 Channel Cloner",
     "cloner_private_help": "🔒 Private Channel Setup",
     "bankpdf": "🏦 Bank Statement → Excel",
     "kagaz": "📜 Sarkari Kagaz Suite",
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
-    "vehicle": "🚗 RTO Info + Official Links",
-    "imei": "📲 IMEI / Device Model (TAC)",
+    "vehicle": "🚗 Vehicle Info + Challan Report",
+    "imei": "📲 IMEI / Phone Details",
     "clips": "🎬 Clip Maker (video → 4-7 clips)",
-    "aadhaar": "🆔 Aadhaar (official portal only)",
 }
 
 
@@ -436,13 +379,12 @@ def get_credits_over_text(action: str = "") -> str:
         "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 📈 Interest Calc • 🧮 Registry Cost...\n\n"
         "👑 <b>Get VIP for the premium tools:</b>\n"
         "• 📥 Video Downloader — <b>unlimited</b>\n"
-        "• 📱 Number Info (safe metadata + official safety links) — <b>unlimited</b>\n"
-        "• 🆔 Aadhaar — <b>official UIDAI/NFSA portal guide only</b>\n"
-        "• 🚗 Vehicle — <b>RTO/state info + official links</b>; live data needs an authorized provider\n"
+        "• 📱 Number Info — <b>unlimited</b>\n"
         "• 🔄 Channel Cloner + Auto-Forward — <b>unlimited</b>\n"
         "• 🔒 Private Channel Setup — <b>unlimited</b>\n"
         "• 🏦 Bank PDF → Excel • 📜 Document Suite • ⚡ Media Studio — <b>unlimited</b>\n"
-        "• 📲 IMEI / Device Model (TAC only) — <b>unlimited</b>\n"
+        "• 🚗 Vehicle Info + Challan Report — <b>unlimited</b>\n"
+        "• 📲 IMEI / Phone Details — <b>unlimited</b>\n"
         "• 🎬 Clip Maker (video → 4-7 clips) — <b>unlimited</b>\n"
         "• ♾️ Whole bot unlimited (no limits at all)\n\n"
         "🎁 <i>Want VIP free? Share with {n} friends (/refer).</i>"
@@ -502,10 +444,6 @@ def spend_credit_msg(uid: int, action: str = "") -> str:
 SUPPORT_USERNAME = "@Supermannn_x"
 SUPPORT_LINK = '<a href="https://t.me/Supermannn_x">@Supermannn_x</a>'
 
-# ---- v45 branding: har nayi card par "Powered by @Supermannn_x" ----
-BRAND_TAG = os.environ.get("BRAND_TAG", SUPPORT_USERNAME)
-BRAND_LINE = f"⚡ Powered by {BRAND_TAG}  |  API Developer / Telegram: {BRAND_TAG}"
-
 
 def inr(amount, decimals: int = 0) -> str:
     """Indian style money format: 100000 -> ₹1,00,000 | 12500000 -> ₹1,25,00,000 (lakh/crore style)."""
@@ -548,16 +486,6 @@ def words_amount(amount) -> str:
     if n >= 1000:
         return f"{n / 1000:.1f} hazaar".replace(".0", "")
     return ""
-
-
-def _mask_govt_id(val: str) -> str:
-    """Aadhaar/Document number partially mask (DPDP-safe). Full chahiye to NUM_SHOW_FULL_IDS=1."""
-    if os.environ.get("NUM_SHOW_FULL_IDS") == "1":
-        return str(val)
-    s = re.sub(r"\D", "", str(val or ""))
-    if len(s) <= 8:
-        return str(val)
-    return f"{s[:4]}{'*' * (len(s) - 8)}{s[-4:]}"
 
 
 def fail_msg(title: str, reason: str = "") -> str:
@@ -685,9 +613,8 @@ KB_BTNS = [
     [f"🔍 {to_bold('LINK CHECK')}", f"📈 {to_bold('INTEREST CALC')}"],
     [f"📦 {to_bold('APP FINDER')}", f"🖼️ {to_bold('SITE SCREENSHOT')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
-    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('RTO + OFFICIAL LINKS')}"],
+    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"🎬 {to_bold('CLIP MAKER')}"],
-    [f"🆔 {to_bold('AADHAAR OFFICIAL PORTALS')}"],
     [f"💎 {to_bold('VIP PREMIUM')}", f"🎁 {to_bold('REFER & EARN')}"],
     [f"👤 {to_bold('MY ACCOUNT')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -732,7 +659,6 @@ BTN_MODE_MAP = {
     "SITE SCREENSHOT (FULL PAGE)": "shot_full",
     "SARKARI SEVA PORTALS": "sarkari",
     "RTO VEHICLE INFO": "rto",
-    "RTO + OFFICIAL LINKS": "rto",
     "VEHICLE INFO + CHALLAN": "rto",
     "VEHICLE INFO": "rto",
     "IMEI / PHONE DETAILS": "imei",
@@ -743,11 +669,6 @@ BTN_MODE_MAP = {
     "CLIPS MAKER": "clips",
     "VIDEO CLIP MAKER": "clips",
     "NUMBER INFO": "numinfo",
-    "AADHAAR OFFICIAL PORTALS": "aadhaar",
-    "AADHAAR FAMILY": "aadhaar",
-    "AADHAR FAMILY": "aadhaar",
-    "AADHAAR": "aadhaar",
-    "AADHAAR FAMILY INFO": "aadhaar",
     "IFSC INFO": "ifsc",
     "PINCODE INFO": "pin",
     "ID & USERNAME FINDER": "idfind",
@@ -834,18 +755,16 @@ PROMPTS = {
         "👇 <b>Select an option below:</b>"
     ),
     "rto": (
-        f"🚗 <b>{to_bold('RTO + OFFICIAL VEHICLE LINKS')}</b>\n"
-        "Free me RTO/state format info aur official VAHAN/e-Challan links milenge.\n"
-        "Live RC/challan details ke liye authorized provider ya official OTP/CAPTCHA portal zaroori hai; owner ka private data yahan nahi dikhaya jata.\n"
-        "📌 Dummy format example: <code>XX00XX0000</code>\n"
-        "🔢 <b>Number plate bhejein:</b>"
+        f"🚗 <b>{to_bold('VEHICLE INFO + CHALLAN')}</b>\n"
+        "Full RC record + all challans (pending/paid, amount, offence).\n"
+        "📌 Example: <code>BR30AR0802</code>\n"
+        "🔢 <b>Now send the number plate:</b>"
     ),
     "imei": (
-        f"📲 <b>{to_bold('IMEI / DEVICE MODEL')}</b>\n"
-        "Apne/authorized device ka 15 digit IMEI bhejein. Sirf pehle 8 digit TAC API ko jayega.\n"
-        "Catalog me available brand/model aur specs + <code>.json</code> copy file mil sakti hai; full specs har model ke liye guaranteed nahi.\n"
-        "📍 IMEI: phone par <code>*#06#</code> dial karein.\n"
-        "🔢 <b>Ab 15 digit IMEI bhejein:</b>"
+        f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b>\n"
+        "Brand, model, device photo + full spec sheet + <code>.json</code> copy file.\n"
+        "📍 IMEI: dial <code>*#06#</code> · 📌 Example: <code>353010111111110</code>\n"
+        "🔢 <b>Now send the 15 digit IMEI:</b>"
     ),
     "clips": (
         f"🎬 <b>{to_bold('CLIP MAKER')}</b>\n"
@@ -856,16 +775,9 @@ PROMPTS = {
     ),
     "numinfo": (
         f"📱 <b>{to_bold('NUMBER INFO')}</b>\n"
-        "Operator/carrier, circle (region), number type, validity aur spam-safety links.\n"
-        "🔒 Naam, family/linked numbers, ghar ka pata ya government-ID leaked databases se fetch nahi hote.\n"
-        "📌 Format: <code>XXXXXXXXXX</code> (10 digits)\n"
-        "🔢 <b>Apna ya authorized number bhejein:</b>"
-    ),
-    "aadhaar": (
-        f"🆔 <b>{to_bold('AADHAAR / FAMILY')}</b>\n"
-        "Is bot me Aadhaar ya family-member lookup nahi hota.\n"
-        "Apne record ke liye UIDAI/NFSA ka official portal use karein; OTP/consent wahan required ho sakta hai.\n"
-        "🔒 Aadhaar number is chat me mat bhejein."
+        "Operator, circle (region), number type + 6 useful links.\n"
+        "📌 Example: <code>9876543210</code>\n"
+        "🔢 <b>Now send the 10 digit mobile number:</b>"
     ),
     "ifsc": (
         f"🏦 <b>{to_bold('IFSC BANK BRANCH')}</b>\n"
@@ -1102,9 +1014,18 @@ ASK_LINES = {
 KAGAZ_MENU_TEXT = (
     f"📜 <b>{to_bold('DOCUMENT SUITE (BIHAR/UP)')}</b>\n"
     "Ready drafts: rent agreement, affidavit, notice 138, bayana, loan paper, "
-    "registry total cost, bigha/kattha converter.\n"
+    "registry total cost, bigha/kattha converter, GST/PAN check.\n"
     "⚡ Every document = <b>1 credit</b> · ⚠️ Get the draft checked by a notary\n"
     "👇 <b>Select from the menu below:</b>"
+)
+
+HUB_KEY_MISSING_TEXT = (
+    "🔌 <b>API HUB key not set</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Ye check aapke apne API hub se chalta hai.\n"
+    "Render → Environment me add karo:\n"
+    "<code>HUB_API_KEY</code> = aapki hub key\n"
+    "<i>(Purani public key <code>Demo</code> ab band ho gayi hai.)</i>"
 )
 
 MEDIA_MENU_TEXT = (
@@ -1161,6 +1082,8 @@ def kagaz_menu_kb():
         [InlineKeyboardButton("🤝 Bayana / Pakki Rasid (zameen)", callback_data="kagaz_bayana"),
          InlineKeyboardButton("📝 Rin Shodh (loan paper)", callback_data="kagaz_loan")],
         [InlineKeyboardButton("🧾 Name/Address/Income Affidavit", callback_data="kagaz_nameaff")],
+        [InlineKeyboardButton("🏢 GST Number Check", callback_data="kagaz_gst"),
+         InlineKeyboardButton("🪪 PAN → GST Check", callback_data="kagaz_pan")],
         [InlineKeyboardButton("🧮 Registry Total Cost", callback_data="kagaz_registry"),
          InlineKeyboardButton("📐 Bigha/Kattha Converter", callback_data="kagaz_land")],
         [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:kagaz")],
@@ -1309,10 +1232,8 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "🆓 <b>FREE tools</b> — always free, no credits (passport photo, PDF, IFSC, QR, link tools... all)\n"
-        "💎 <b>PREMIUM tools</b> — 1 credit per use: 📥 Video Downloader · 📱 Number Info · "
-        "🆔 Aadhaar Official Portals · 🚗 RTO + Official Links · 📲 IMEI · 🔄 Channel Cloner · "
-        "🔒 Private Channel Setup · 🏦 Bank PDF → Excel · 📜 Document Suite · ⚡ Media Studio · "
-        "🎬 Clip Maker\n\n"
+        "💎 <b>PREMIUM tools</b> — 1 credit per use: 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · "
+        "🔒 Private Channel Setup · 🏦 Bank PDF → Excel · 📜 Document Suite · ⚡ Media Studio\n\n"
         f"🎁 <i>Free VIP: share with {REFER_NEED} friends (/refer) — or get it from /premium.</i>"
     )
     kb = InlineKeyboardMarkup([
@@ -1498,8 +1419,7 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             target,
             f"🎁 <b>Great news!</b> You received <b>{n} credits</b> (total: {new_val}).\n"
-            "📥 Video Downloader · 📱 Number Info · 🆔 Aadhaar Official Portals · 🚗 RTO + Official Links · 📲 IMEI · "
-            "🔄 Cloner · 🔒 Private Setup · 🏦 Bank PDF → Excel · "
+            "📥 Video Downloader · 📱 Number Info · 🔄 Cloner · 🔒 Private Setup · 🏦 Bank PDF → Excel · "
             "📜 Document Suite · ⚡ Media Studio are now unlocked. 🚀",
             parse_mode=HTML)
     except Exception:
@@ -1673,38 +1593,28 @@ async def start_clip_job(context, chat_id: int, uid: int, src_path: str, mode: s
 
 
 async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/vehstatus — safe config check only; never queries a sample plate."""
+    """/vehstatus — admin: check the vehicle API is working (live test on a sample plate)."""
     if not is_admin(update.effective_user.id):
         return
     if not vehicle_api_ready():
         await update.message.reply_text(
-            "🚗 <b>Live vehicle/challan provider configured nahi hai.</b>\n\n"
-            "Abhi bot sirf RTO/state info aur official VAHAN/e-Challan links dikhata hai.\n"
-            "Live lookup tabhi enable karein jab provider ki written authorization ho; "
-            "/vehstatus kisi real number plate ko test nahi karta.",
+            "⚠️ <b>Vehicle API key is not set.</b>\n\nAdd this on Render → Environment:\n"
+            "<code>HUB_API_KEY</code> = your hub key  <i>(ek key = vehicle + imei + number + IP + IFSC + GST ...)</i>\n"
+            "<code>VEHICLE_API_PARAM</code> = plate field name (default <code>vehicle_number</code>)\n\n"
+            "Then redeploy. The 🚗 VEHICLE INFO + CHALLAN tool will show the live report.",
             parse_mode=HTML)
         return
-    await update.message.reply_text(
-        "✅ <b>Authorized provider config detected.</b>\n"
-        "🔒 Privacy ke liye /vehstatus koi sample plate ya owner record query nahi karta.\n"
-        "Provider ka health/status check uske documented health endpoint se alag se karein.",
-        parse_mode=HTML)
-
-
-async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/hubstatus — admin health check only; no personal identifiers are queried."""
-    if not is_admin(update.effective_user.id):
-        return
-    st = await update.message.reply_text("🔌 <b>Hub health check…</b>\n<i>Koi phone/plate/Aadhaar query nahi hoga.</i>",
-                                         parse_mode=HTML)
-    try:
-        txt = await asyncio.to_thread(hub.hub_status)
-    except Exception as e:                                       # noqa: BLE001
-        txt = f"❌ <b>Hub test failed:</b> {clean_err(str(e), 200)}"
-    try:
-        await st.edit_text(txt, parse_mode=HTML)
-    except Exception:                                            # noqa: BLE001
-        await update.message.reply_text(txt, parse_mode=HTML)
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    plate = args[0] if args else "BR30AR0802"
+    st = await update.message.reply_text(f"🔎 Testing the API with <code>{plate}</code>…", parse_mode=HTML)
+    res = fetch_vehicle_report(plate)
+    if res.get("ok"):
+        await st.edit_text(f"✅ <b>API is working</b> — RC fields: {len(res.get('rc') or {})}, "
+                           f"challans: {len(res.get('challans') or [])}\n\n"
+                           + render_vehicle_report(res)[:1500], parse_mode=HTML)
+    else:
+        await st.edit_text(f"❌ <b>API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
+                           "Check VEHICLE_API_URL / KEY / PARAM.", parse_mode=HTML)
 
 
 async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1713,10 +1623,9 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if not imei_api_ready():
         await update.message.reply_text(
-            "⚠️ <b>IMEI device catalog configured nahi hai.</b>\n\nRender → Environment me ye values rakhein:\n"
-            "<code>IMEI_API_BASE=https://osint-api-hub.onrender.com/api</code>\n"
-            "<code>IMEI_API_KEY=Demo</code>\n"
-            "<i>Bot network par sirf 8-digit TAC bhejta hai; full IMEI nahi.</i>",
+            "⚠️ <b>IMEI API is not set.</b>\n\nAdd this on Render → Environment:\n"
+            "<code>HUB_API_KEY</code> = your hub key  <i>(ek hi key saare hub tools ke liye)</i>\n"
+            "<i>(base already set: osint-apis-hub.onrender.com/api — purani public key Demo ab band hai)</i>",
             parse_mode=HTML)
         return
     args = [a.strip() for a in (context.args or []) if a.strip()]
@@ -1724,22 +1633,40 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not ok15:
         await update.message.reply_text(f"❌ {imei_e}", parse_mode=HTML)
         return
-    st = await update.message.reply_text(
-        f"🔎 Testing the device catalog with TAC <code>{hesc(imei_in[:8])}</code> only…",
-        parse_mode=HTML)
+    st = await update.message.reply_text(f"🔎 Testing the IMEI API with <code>{imei_in}</code>…",
+                                         parse_mode=HTML)
     res = fetch_imei_details(imei_in, use_cache=False)
     if res.get("ok"):
         await st.edit_text(
-            "✅ <b>TAC/device-model lookup working hai</b>\n"
+            "✅ <b>IMEI API is working</b>\n"
             f"📲 <b>{hesc(imei_title(res))}</b>\n"
             f"• Brand: {hesc(str(res.get('brand') or '-'))}\n"
-            f"• Catalog sections: {len(res.get('sections') or [])} (full specs har model ke liye available nahi)\n"
+            f"• Spec sections: {len(res.get('sections') or [])}\n"
             f"• JSON file: {len(imei_specs_json(res))} bytes · {hesc(imei_specs_filename(res))}\n"
             f"• Photo: {'✅' if res.get('photo') else '❌'}\n\n" +
             hesc(render_imei_text(res))[:900], parse_mode=HTML)
     else:
         await st.edit_text(f"❌ <b>IMEI API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
                            "Check IMEI_API_BASE / IMEI_API_KEY.", parse_mode=HTML)
+
+
+async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/hubstatus — admin: user ke API hub ka status + live test."""
+    if not is_admin(update.effective_user.id):
+        return
+    st = await update.message.reply_text("🔌 <b>API Hub check kar raha hoon…</b>", parse_mode=HTML)
+    card = hubapi.status_card()
+    if not hubapi.hub_ready():
+        await st.edit_text(card, parse_mode=HTML)
+        return
+    res = await asyncio.to_thread(hubapi.live_test)
+    if res.get("ok"):
+        await st.edit_text(card + f"\n• Live test: ✅ <b>working</b> ({hesc(str(res.get('say'))[:80])})\n"
+                                  "• Ab ye tools hub par chal rahe hain: IP · IFSC · PINCODE · TERABOX · "
+                                  "CLIP MAKER (YouTube) · VIDEO DL (X) · ID FINDER · KAGAZ (GST/PAN) · "
+                                  "VEHICLE · IMEI · NUMBER INFO", parse_mode=HTML)
+    else:
+        await st.edit_text(card + f"\n• Live test: ❌ {hesc(str(res.get('error'))[:150])}", parse_mode=HTML)
 
 
 async def cmd_aistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1772,6 +1699,7 @@ async def cmd_clipstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Limit: <b>{int(CLIP_MAKER_MAX_MIN)} min</b> video · <b>{CLIP_MAKER_COUNT}</b> clips · "
         "clip 25-60 sec\n"
         f"• YouTube (yt-dlp): {'✅ available' if clips_ytdlp_available() else '❌ not installed (file ya direct .mp4 link chalega)'}\n"
+        f"• 🔌 API Hub (YouTube/X/Terabox/IP/IFSC/GST): {'✅ key lagi hai' if hubapi.hub_ready() else '❌ HUB_API_KEY set karo'}\n"
         f"• Direct .mp4 link download: ✅\n"
         f"• 🧠 AI Brain: {'✅ ' + hesc(aib.ai_label()) if aib.ai_available() else '❌ off (GEMINI_API_KEY / GROQ_API_KEY set karo)'}\n"
         f"• Output: 16:9 (480p) ya 9:16 (540x960)\n"
@@ -2216,22 +2144,13 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("✅ VIP activated!")
         try:
             user_obj = get_user(target_uid)
-            exp = ("👑 LIFETIME" if days >= 9999
-                   else (premium_expiry(user_obj) or "—"))
+            new_until = "👑 LIFETIME" if days >= 9999 else premium_expiry(user_obj)
             await context.bot.send_message(
                 target_uid,
+
                 "🎉 <b>CONGRATS! VIP IS ACTIVE</b> 💎\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🧾 <b>Payment ID:</b> #{pid}\n"
-                f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
-                f"👑 <b>VIP:</b> {dur}\n"
-                f"📅 <b>Valid till:</b> {exp}\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "⚡ Ab saare premium tools <b>unlimited</b> hain — credits khatam "
-                "hone ka koi tension nahi.\n\n"
-                "🚀 <b>Start:</b> /menu\n"
-                "📊 <b>My account:</b> /account\n\n"
-                "🙏 Thanks for supporting us!",
+                "🧾 <b>Payment ID:</b> #",
                 parse_mode=HTML)
         except Exception:
             pass
@@ -2385,45 +2304,14 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not can_use_premium_tool(_u, uid):
             await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
             return
-        def _veh_again_text(lv):
-            if not lv.get("ok"):
-                return ("\u26a0\ufe0f <b>Live RC / challan report nahi mil paaya.</b>\n"
-                        + hesc(str(lv.get("error") or "source slow")[:120])
-                        + "\n\n\U0001f49a <b>Koi credit nahi kata.</b>")
-            if not (lv.get("has_data") or _veh_has_rc_data(lv)):
-                return ("\U0001f50e <b>Is number ka koi RC / challan record nahi mila.</b>\n"
-                        "\U0001f49a <b>Koi credit nahi kata.</b>")
-            note = ("\u267b\ufe0f <b>Cached result</b> \u2014 koi credit nahi kata."
-                    if lv.get("cached") else spend_credit_msg(uid, "vehicle"))
-            return note + "\n\n" + render_vehicle_report(lv)
-
-        wait_v = await q.message.reply_text(
-            "\U0001f50e <b>Checking live RC + challan record again\u2026</b>", parse_mode=HTML)
-        live, _task = await hub_with_progress(wait_v, hub_vehicle, plate,
-                                              "Live RC + challan check chal raha hai\u2026",
-                                              timeout=18)
-        if live is None:
-            asyncio.create_task(deliver_hub_later(_task, context, wait_v.chat_id, _veh_again_text))
-            try:
-                await wait_v.edit_text(
-                    "\u23f3 <b>Source slow hai…</b>\n"
-                    "<i>Result taiyar hote hi yahin bhej denge (30-60 sec).</i>", parse_mode=HTML)
-            except Exception:                                    # noqa: BLE001
-                pass
-            add_use(uid)
-            return
-        if live.get("ok") and not (live.get("has_data") or _veh_has_rc_data(live)):
+        await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
+        live = fetch_vehicle_report(plate)
+        if live.get("ok") and not _veh_has_rc_data(live):
             await q.answer("No RC / challan record found for this number — no credit was cut.", show_alert=True)
             add_use(uid)
             return
         if live.get("ok"):
-            # cache se aaya → dobara credit NAHI katte (v45 fairness fix)
-            if live.get("cached"):
-                await q.message.reply_text(
-                    "♻️ <b>Ye abhi ka hi result hai</b> (5 minute cache) — "
-                    "<b>koi credit nahi kata.</b>", parse_mode=HTML)
-            else:
-                await q.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
+            await q.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
             rows_live = [
                 [InlineKeyboardButton("🚨 Check / pay on e-Challan (official)",
                                       url="https://echallan.parivahan.gov.in/"),
@@ -2824,7 +2712,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             chat = await context.bot.get_chat(int(cid))
             title = chat.title or str(cid)
-        except Exception:
+        except Exception as e:
             await q.answer("Add the bot to that channel as admin, then try again", show_alert=True)
             return
         save_cloner_config(uid, source_chat_id=cid)
@@ -2905,6 +2793,28 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• <code>3 dhur</code> / <code>1 acre</code> / <code>2.5 gaj</code>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 "📐 <b>Now type your area:</b>", parse_mode=HTML)
+            return
+        if kind == "gst":
+            if not hubapi.hub_ready():
+                await q.message.reply_text(HUB_KEY_MISSING_TEXT, parse_mode=HTML)
+                return
+            context.user_data["mode"] = "kagaz_gst"
+            await q.message.reply_text(
+                "🏢 <b>GST NUMBER CHECK</b>\n"
+                "GSTIN bhejo — legal name, trade name, status, type, state, address.\n"
+                "📌 Example: <code>19BOKPS7056D1ZI</code>\n"
+                "🔤 <b>Now send the 15 character GSTIN:</b>", parse_mode=HTML)
+            return
+        if kind == "pan":
+            if not hubapi.hub_ready():
+                await q.message.reply_text(HUB_KEY_MISSING_TEXT, parse_mode=HTML)
+                return
+            context.user_data["mode"] = "kagaz_pan"
+            await q.message.reply_text(
+                "🪪 <b>PAN → GST CHECK</b>\n"
+                "PAN bhejo — us PAN par registered saare GST numbers.\n"
+                "📌 Example: <code>AAYFK4129N</code>\n"
+                "🔤 <b>Now send the 10 character PAN:</b>", parse_mode=HTML)
             return
         if kind not in KAGAZ_FIELDS:
             await q.message.reply_text("❌ This document was not found.", parse_mode=HTML)
@@ -3023,9 +2933,55 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # ============ PERSONAL RECORDS (retired for privacy) ============
+    # ============ PUBLIC RECORDS (optional feature) ============
     if data.startswith("numrec:"):
-        await q.answer("Leaked personal-record search privacy ke liye available nahi hai.", show_alert=True)
+        number = data.split(":", 1)[1]
+        if not NUM_LEAK_ENABLED():
+            await q.answer("This feature is currently off.", show_alert=True)
+            return
+        await q.answer("Searching... (5-15 seconds)")
+        st = await q.message.reply_text("🧾 <b>Searching public records...</b>\n<i>This can take 5-20 seconds, please wait.</i>", parse_mode=HTML)
+        try:
+            res = await asyncio.to_thread(lookup_public_records, number)
+        except Exception as e:
+            res = {"ok": False, "error": str(e)[:120]}
+
+        if not res.get("ok"):
+            await st.edit_text(
+                f"❌ <b>No public record found</b>\n\n{res.get('error')}\n\n"
+                "💡 <i>This number may not be in the database. Try another number.</i>",
+                parse_mode=HTML)
+            add_use(uid)
+            return
+
+        lines = [f"🧾 <b>{to_bold('PUBLIC RECORDS')}</b> — <code>+{hesc(res['number'])}</code>",
+                 f"<i>Found: {res['count']} record (total in database: {res.get('record_count', res['count'])})</i>",
+                 "━━━━━━━━━━━━━━━━━━━━━━"]
+        for i, rec in enumerate(res["records"], 1):
+            lines.append(f"<b>{i}. {hesc(rec['name'])}</b>")
+            if rec.get("father"):
+                lines.append(f"   👨 <b>Father's name:</b> {hesc(rec['father'])}")
+            if rec.get("address"):
+                lines.append(f"   🏠 <b>Pata:</b> {hesc(rec['address'])}")
+            if rec.get("phone"):
+                lines.append(f"   📞 <b>Linked number:</b> <code>{hesc(rec['phone'])}</code>")
+            if rec.get("doc"):
+                lines.append(f"   🪪 <b>Doc/Aadhaar:</b> <code>{hesc(rec['doc'])}</code>")
+            if rec.get("region"):
+                lines.append(f"   🗺️ <b>Region/Operator:</b> {hesc(rec['region'])}")
+            lines.append("")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("ℹ️ <b>Sometimes the record belongs to someone else</b> — this happens when a number is recycled or ported. "
+                     "Trust it only after matching the name or address.")
+        lines.append("")
+        lines.append(PUBLIC_RECORD_WARNING)
+
+        kb_rec = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚨 Fraud/Spam? Complaint on 1930", url="https://cybercrime.gov.in/")],
+            [InlineKeyboardButton("🚫 Report on Chakshu (TRAI)", url="https://sancharsaathi.gov.in/")],
+        ])
+        await st.edit_text("\n".join(lines), reply_markup=kb_rec, parse_mode=HTML)
+        add_use(uid)
         return
 
     # Copy buttons (pincode / area results)
@@ -3453,16 +3409,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if action in ("tutorial", "help"):
             await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
-            return
-        if action == "aadhaar":
-            await q.message.reply_text(
-                "🔒 <b>Aadhaar/family lookup yahan supported nahi hai.</b>\n"
-                "Aadhaar number bot ko mat bhejein. Apne record ke liye UIDAI MyAadhaar ya NFSA ke official portal ka use karein; OTP/consent wahan required ho sakta hai.",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("UIDAI MyAadhaar", url="https://myaadhaar.uidai.gov.in/")],
-                    [InlineKeyboardButton("NFSA official portal", url="https://nfsa.gov.in/")],
-                ]), parse_mode=HTML)
-            context.user_data.pop("mode", None)
             return
 
         # Standard prompt modes
@@ -4084,7 +4030,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ---- live RC + challan report (agar API set hai) ----
         if vehicle_api_ready() and vehicle_plate_ok(raw_text):
-            # v45: seedha aapka naya /api/vehicle-report (RC + challan ek hi call me)
             _u = get_user(uid, update.effective_user.first_name)
             if not can_use_premium_tool(_u, uid):
                 await update.message.reply_text(get_credits_over_text("vehicle"),
@@ -4096,40 +4041,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             wait = await update.message.reply_text("🔎 <b>Checking live RC + challan record…</b>\n<i>Please wait 5-20 seconds.</i>",
                                                    parse_mode=HTML)
-            def _veh_late_text(lv):
-                """Live report der se aaye to ye text bhejenge."""
-                if not lv.get("ok"):
-                    return ("\u26a0\ufe0f <b>Live RC / challan report nahi mil paaya.</b>\n"
-                            + hesc(str(lv.get("error") or "source slow")[:120])
-                            + "\n\n\U0001f49a <b>Koi credit nahi kata.</b>")
-                if not (lv.get("has_data") or _veh_has_rc_data(lv)):
-                    return ("\U0001f50e <b>Is number ka koi RC / challan record nahi mila.</b>\n"
-                            "\U0001f49a <b>Koi credit nahi kata.</b>")
-                note = ("\u267b\ufe0f <b>Cached result</b> \u2014 koi credit nahi kata."
-                        if lv.get("cached") else spend_credit_msg(uid, "vehicle"))
-                return note + "\n\n" + render_vehicle_report(lv)
-
-            live, _task = await hub_with_progress(wait, hub_vehicle, raw_text,
-                                                  "Live RC + challan check chal raha hai\u2026",
-                                                  timeout=18)
-            if live is None:
-                # free card TURANT, live report baad me
-                card_txt, kb_free = _free_card(
-                    "\u23f3 <b>Live RC + challan report aa raha hai\u2026</b>\n"
-                    "<i>Milte hi yahin bhej denge (30-60 sec). Abhi tak koi credit nahi kata.</i>")
-                await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
-                asyncio.create_task(deliver_hub_later(_task, context, chat_id, _veh_late_text))
-                try:
-                    await wait.delete()
-                except Exception:                                # noqa: BLE001
-                    pass
-                add_use(uid)
-                return
+            live = fetch_vehicle_report(raw_text)
             try:
                 await wait.delete()
-            except Exception:                                    # noqa: BLE001
+            except Exception:
                 pass
-            if live.get("ok") and not (live.get("has_data") or _veh_has_rc_data(live)):
+            if live.get("ok") and not _veh_has_rc_data(live):
                 card_txt, kb_free = _free_card(
                     "🔎 <b>No RC / challan record found for this number.</b>\n"
                     "✅ <b>No credit was cut</b> — check the number plate once and send again.")
@@ -4137,12 +4054,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 add_use(uid)
                 return
             if live.get("ok"):
-                if live.get("cached"):
-                    await update.message.reply_text(
-                        "♻️ <b>Ye abhi ka hi result hai</b> (5 minute cache) — "
-                        "<b>koi credit nahi kata.</b>", parse_mode=HTML)
-                else:
-                    await update.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
+                await update.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
                 rows_live = [
                     [InlineKeyboardButton("🚨 Check / pay on e-Challan (official)",
                                           url="https://echallan.parivahan.gov.in/"),
@@ -4160,10 +4072,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
 
-        card_txt, kb_free = _free_card(
-            "🔒 <b>Live RC/challan data abhi available nahi hai.</b>\n"
-            "Authorized provider configure hone tak sirf RTO/state parsing aur official VAHAN/e-Challan links dikhte hain.\n"
-            "Apni RC/challan status official portal par check karein.")
+        card_txt, kb_free = _free_card("🚨 <b>Challan + full RC report:</b> VIP users get the live report (challan pending/paid, insurance, PUC, finance). → /premium")
         await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
         add_use(uid)
         return
@@ -4201,7 +4110,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ <b>DEVICE DETAILS NOT FOUND</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🔎 TAC (first 8 digits): <code>{hesc(imei_clean[:8])}</code>\n"
+                f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n"
                 f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
                 "✅ <b>No credit was cut</b> — check the number and send again.\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -4210,21 +4119,26 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
         await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
+        photo_sent = False
         if res_i.get("photo") and not str(res_i["photo"]).lower().endswith(".gif"):
             try:
                 await update.message.reply_photo(photo=res_i["photo"],
                                                  caption=render_imei_caption(res_i), parse_mode=HTML)
+                photo_sent = True
             except Exception:
-                pass
+                photo_sent = False
         body = render_imei_text(res_i)
+        if not photo_sent:
+            body = ("📲 <b>" + hesc(imei_title(res_i)) + "</b>\n"
+                    f"🔢 <b>IMEI:</b> <code>{hesc(str(res_i.get('imei') or ''))}</code>\n" + body)
         await update.message.reply_text(body, parse_mode=HTML, disable_web_page_preview=True)
         try:
             buf_spec = io.BytesIO(imei_specs_json(res_i))
             buf_spec.name = imei_specs_filename(res_i)
             await update.message.reply_document(
                 document=buf_spec,
-                caption=("📄 <b>" + hesc(imei_title(res_i)) + "</b> — catalog me available device details\n"
-                         "<i>JSON copy file; har model ke liye full specifications guaranteed nahi.</i>"),
+                caption=("📄 <b>" + hesc(imei_title(res_i)) + "</b> — full specifications\n"
+                         "<i>JSON copy file — open it or paste it anywhere (copy code style).</i>"),
                 parse_mode=HTML)
         except Exception as e:
             log.warning("imei json file send fail: %s", e)
@@ -4295,11 +4209,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                  parse_mode=HTML)
             d = tempfile.mkdtemp(prefix="clipin_")
             if clips_is_yt_url(url):
-                if not clips_ytdlp_available():
+                if not clips_ytdlp_available() and not hubapi.hub_ready():
                     clips_cleanup(d)
                     await st.edit_text(
                         "⚠️ <b>YouTube download is not available right now.</b>\n\n"
-                        "👉 Send the <b>video file</b> itself, or a <b>direct .mp4 link</b>.",
+                        "👉 Send the <b>video file</b> itself, or a <b>direct .mp4 link</b>.\n"
+                        "<i>(Owner: <code>HUB_API_KEY</code> lagao to YouTube bhi chalega.)</i>",
                         parse_mode=HTML)
                     add_use(uid)
                     return
@@ -4343,67 +4258,44 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "numinfo":
-        # ---------- Safe local phone metadata only; personal-record lookup stays disabled ----------
         _u = get_user(uid, update.effective_user.first_name)
         if not can_use_premium_tool(_u, uid):
             await update.message.reply_text(get_credits_over_text("numinfo"),
                                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
-            add_use(uid)
             return
-
-        res = lookup_phone_info(raw_text)          # local (free): operator, circle, validity
-        if not res.get("ok"):
+        res = lookup_phone_info(raw_text)
+        if res.get("ok"):
+            await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
+            rows = []
+            pair = []
+            for label, url in res["links"]:
+                pair.append(InlineKeyboardButton(label, url=url))
+                if len(pair) == 2:
+                    rows.append(pair); pair = []
+            if pair:
+                rows.append(pair)
+            card = (
+                f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• <b>Number:</b> <code>{res['international']}</code>\n"
+                f"• <b>National:</b> {res['national']}\n"
+                f"• <b>Type:</b> {res['type']} {res['series_note']}\n"
+                f"• <b>Operator:</b> {res['operator']}\n"
+                f"• <b>Circle/Region:</b> {res['circle']}\n"
+                f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
+                f"• <b>Timezone:</b> {res['timezones']}\n"
+                f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"ℹ️ <i>{res['note']}</i>\n\n"
+                "👇 Links for further checks:"
+            )
+            if NUM_LEAK_ENABLED():
+                rows.insert(0, [InlineKeyboardButton("🧾 Check Public Records too (name/address)", callback_data=f"numrec:{res['e164']}")])
+            await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+        else:
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            add_use(uid)
-            return
-
-        # 1) basic card — turant (koi wait nahi)
-        rows = []
-        pair = []
-        for label, url in res["links"]:
-            pair.append(InlineKeyboardButton(label, url=url))
-            if len(pair) == 2:
-                rows.append(pair); pair = []
-        if pair:
-            rows.append(pair)
-
-        card = [
-            f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>",
-            "━━━━━━━━━━━━━━━━━━━━━━",
-            f"• <b>Number:</b> <code>{res['international']}</code>",
-            f"• <b>National:</b> {res['national']}",
-            f"• <b>Type:</b> {res['type']} {res['series_note']}",
-            f"• <b>Operator:</b> {res['operator']}",
-            f"• <b>Circle/Region:</b> {res['circle']}",
-            f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})",
-            f"• <b>Timezone:</b> {res['timezones']}",
-            f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}",
-            "━━━━━━━━━━━━━━━━━━━━━━",
-        ]
-
-        card.extend([
-            "🔒 <b>Personal-record lookup disabled</b>",
-            "Leaked data se naam, family/linked numbers, address ya government-ID fetch nahi hote.",
-            "Sirf upar diya gaya non-sensitive phone metadata dikhaya gaya hai.",
-            "━━━━━━━━━━━━━━━━━━━━━━",
-        ])
-
-        await update.message.reply_text("\n".join(card),
-                                        reply_markup=InlineKeyboardMarkup(rows) if rows else None,
-                                        parse_mode=HTML)
         add_use(uid)
-        return
-
-    if mode == "aadhaar":
-        context.user_data.pop("mode", None)
-        await update.message.reply_text(
-            "🔒 <b>Aadhaar/family lookup yahan supported nahi hai.</b>\n"
-            "Aadhaar number is chat me mat bhejein. Apne records ke liye UIDAI MyAadhaar ya NFSA official portal use karein.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("UIDAI MyAadhaar", url="https://myaadhaar.uidai.gov.in/")],
-                [InlineKeyboardButton("NFSA official portal", url="https://nfsa.gov.in/")],
-            ]), parse_mode=HTML)
         return
 
     if mode == "ifsc":
@@ -4510,12 +4402,33 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             found = find_by_username("@" + p_info["username"])
             id_line = f"\n🆔 <b>ID saved with the bot:</b> <code>{found[0]}</code> ({hesc(found[1])})" if found else ""
 
+            # 🆔 v45: hub se asli profile info (Instagram / Snapchat / X)
+            prof_lines = []
+            profs = p_info.get("profiles") or {}
+            ig = profs.get("instagram")
+            if ig:
+                prof_lines.append(
+                    f"📸 <b>Instagram:</b> {hesc(ig.get('full_name') or '')}"
+                    + (f" · {ig.get('followers')} followers" if ig.get("followers") not in (None, "") else "")
+                    + (" · 🔒 private" if ig.get("private") else "")
+                    + (f"\n   <i>{hesc(ig.get('bio'))}</i>" if ig.get("bio") else ""))
+            tw = profs.get("twitter")
+            if tw:
+                prof_lines.append(
+                    f"🐦 <b>X (Twitter):</b> {hesc(tw.get('name') or '')}"
+                    + (f" · {tw.get('followers')} followers" if tw.get("followers") not in (None, "") else "")
+                    + (" ✅" if tw.get("verified") else ""))
+            sp = profs.get("snapchat")
+            if sp:
+                prof_lines.append(f"👻 <b>Snapchat:</b> {sp.get('count')} public stories/highlights mili")
+
             rows = [[InlineKeyboardButton(f"🔗 {l['label']}", url=l["url"])] for l in p_info["links"][:8]]
             await st.edit_text(
                 f"🔍 <b>{to_bold('USERNAME CHECK')}:</b> <code>@{p_info['username']}</code>\n"
                 f"(found on {p_info['found']}/5 platforms)\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 + "\n".join(lines) + id_line +
+                (("\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(prof_lines)) if prof_lines else "") +
                 "\n━━━━━━━━━━━━━━━━━━━━━━\n"
                 "👇 Direct links to open the other platforms:",
                 reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
@@ -4645,6 +4558,68 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         panch = 2.0 if str(st).lower().startswith("bih") else 0.0
         res = registry_cost(st, area, rate, buyer, panchayat_pct=panch)
         await update.message.reply_text(registry_text(res) + "\n\n" + spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return
+
+    if mode == "kagaz_gst":
+        g = re.sub(r"\s+", "", raw_text or "").upper()
+        st = await update.message.reply_text("🔎 <b>GSTIN check kar raha hoon…</b>", parse_mode=HTML)
+        res = await asyncio.to_thread(hubapi.hub_gst, g)
+        if not res.get("ok"):
+            await st.edit_text(
+                f"❌ <b>GST CHECK FAILED</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⚠️ {hesc(str(res.get('error'))[:200])}\n"
+                "✅ No credit was cut. GSTIN 15 character ka hota hai (example <code>19BOKPS7056D1ZI</code>).",
+                parse_mode=HTML)
+            return
+        def _row(label, val):
+            return f"• <b>{label}:</b> {hesc(str(val))}\n" if str(val or "").strip() else ""
+        card = (f"🏢 <b>{to_bold('GST NUMBER DETAILS')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• <b>GSTIN:</b> <code>{hesc(res.get('gstin'))}</code>\n"
+                + _row("Legal Name", res.get("legal_name"))
+                + _row("Trade Name", res.get("trade_name"))
+                + _row("Status", res.get("status"))
+                + _row("Type", res.get("type"))
+                + _row("State", res.get("state"))
+                + _row("Registered", res.get("reg_date"))
+                + _row("PAN", res.get("pan"))
+                + _row("Address", res.get("address"))
+                + "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<i>Source: {hesc(str(res.get('source')))}</i>")
+        await st.edit_text(card, parse_mode=HTML)
+        await update.message.reply_text(spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return
+
+    if mode == "kagaz_pan":
+        p10 = re.sub(r"[^A-Za-z0-9]", "", raw_text or "").upper()
+        st = await update.message.reply_text("🔎 <b>PAN check kar raha hoon…</b>", parse_mode=HTML)
+        res = await asyncio.to_thread(hubapi.hub_pan, p10)
+        if not res.get("ok"):
+            await st.edit_text(
+                f"❌ <b>PAN CHECK FAILED</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⚠️ {hesc(str(res.get('error'))[:200])}\n"
+                "✅ No credit was cut. PAN 10 character ka hota hai (example <code>AAYFK4129N</code>).",
+                parse_mode=HTML)
+            return
+        rows = []
+        for g in (res.get("gstins") or [])[:10]:
+            rows.append(f"• <code>{hesc(g.get('gstin'))}</code>"
+                        + (f" — {hesc(g.get('name'))}" if g.get("name") else "")
+                        + (f" <i>({hesc(g.get('status'))})</i>" if g.get("status") else ""))
+        card = (f"🪪 <b>{to_bold('PAN → GST DETAILS')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• <b>PAN:</b> <code>{hesc(res.get('pan'))}</code>\n"
+                + (f"• <b>Name:</b> {hesc(res.get('name'))}\n" if res.get("name") else "")
+                + (f"• <b>Pan Status:</b> {hesc(res.get('status'))}\n" if res.get("status") else "")
+                + f"• <b>GST numbers:</b> {len(res.get('gstins') or [])}\n\n"
+                + ("\n".join(rows) if rows else "<i>Is PAN par koi GST number nahi mila.</i>")
+                + f"\n━━━━━━━━━━━━━━━━━━━━━━\n<i>Source: {hesc(str(res.get('source')))}</i>")
+        await st.edit_text(card, parse_mode=HTML)
+        await update.message.reply_text(spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
         context.user_data.pop("mode", None)
         add_use(uid)
         return
@@ -5672,11 +5647,9 @@ def main():
         print("❌ ERROR: BOT_TOKEN is missing in environment variables or .env file!")
         return
 
+    threading.Thread(target=_keepalive, daemon=True).start()
     # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
     threading.Thread(target=publish_tutorial_now, daemon=True).start()
-    # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
-    if not WEBHOOK_URL:
-        threading.Thread(target=_keepalive, daemon=True).start()
 
     app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
            .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
@@ -5691,10 +5664,10 @@ def main():
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
-    app.add_handler(CommandHandler(["hubstatus", "hubapi", "osintstatus"], cmd_hubstatus))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["clipstatus", "clipapi"], cmd_clipstatus))
     app.add_handler(CommandHandler(["aistatus", "aiapi"], cmd_aistatus))
+    app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
@@ -5740,40 +5713,7 @@ def main():
     app.add_error_handler(on_error)
 
     print("🚀 Starting ToolVault / Utility Duniya Super Bot (v30 Ultra)...")
-    # ---------- v47: WEBHOOK MODE (Render par sabse safe) ----------
-    # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
-    # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
-    # Webhook me Telegram khud update bhejta hai, getUpdates hota hi nahi -> Conflict kabhi nahi.
-    if WEBHOOK_URL:
-        # PTB ka default webhook server sirf Telegram POST route banata hai; Render/UptimeRobot
-        # ke GET / aur GET /health ko 404 se bachane ke liye same port par health routes jodein.
-        from modules.render_health import install_webhook_health_routes
-        install_webhook_health_routes()
-        port = int(os.environ.get("PORT", "10000"))
-        secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
-        path = f"/webhook/{secret}"
-        full_url = WEBHOOK_URL.rstrip("/") + path
-        # Secret webhook path ko logs me kabhi print na karein.
-        log.warning("WEBHOOK MODE | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
-                    socket.gethostname(), os.getpid())
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            url_path=path,
-            webhook_url=full_url,
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,
-            secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
-        )
-        return
-
-    # NOTE: polling me ek hi bot instance chalna chahiye. Agar do instance (do Render
-    # service / do deploy ek saath) getUpdates karenge to Telegram "Conflict:
-    # terminated by other getUpdates request" dega aur bot chup ho jayega.
-    # Permanent chhutkara chahiye to Environment me WEBHOOK_URL daal do.
-    log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
-                socket.gethostname(), os.getpid())
-    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
+    app.run_polling(drop_pending_updates=True)
 
 
 if __name__ == "__main__":

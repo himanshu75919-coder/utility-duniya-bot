@@ -1,17 +1,20 @@
 """LIVE health-check: bot ke saare tools ko real network calls se test karta hai."""
 import io
-import os
 import json
 import sys
 import traceback
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FTimeout
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, "/home/user/fix")
 
 RESULTS = []
 
 
 def check(name, fn, timeout=30):
+    """fn na do (None) to SKIP — jaise live API checks jab HUB_API_KEY nahi lagi."""
+    if fn is None:
+        RESULTS.append((name, "SKIP", "HUB_API_KEY nahi lagi — key lagte hi apne aap chalega"))
+        return
     with ThreadPoolExecutor(max_workers=1) as ex:
         fut = ex.submit(fn)
         try:
@@ -160,11 +163,7 @@ def _shot(path, expect_good):
     r = analyze_screenshot(data)
     return r["ok"] == expect_good
 
-_SHOT_FIXTURE = "/home/user/uploads/Screenshot_20261002_054432_Telegram.jpg"
-if os.path.exists(_SHOT_FIXTURE):
-    check("Screenshot check: asli Telegram screenshot pass", lambda: _shot(_SHOT_FIXTURE, True))
-else:
-    RESULTS.append(("Screenshot check", "SKIP", "fixture file nahi mili — test chhod diya"))
+check("Screenshot check: asli Telegram screenshot pass", lambda: _shot("/home/user/uploads/Screenshot_20261002_054432_Telegram.jpg", True))
 check("Bot: admin bypass (is_admin function)", lambda: "def is_admin" in open("bot.py", encoding="utf-8").read())
 check("Bot: limit me admin bypass laga hai", lambda: "if uid and is_admin(uid):" in open("bot.py", encoding="utf-8").read())
 check("Bot: purana edit_caption bug fix (fallback)", lambda: "_edit_admin_msg" in open("bot.py", encoding="utf-8").read())
@@ -179,9 +178,9 @@ check("DB: payments table me plan_days + flags", lambda: "plan_days" in open("da
 print("\n" + "=" * 100)
 fails = []
 for n, st, info in RESULTS:
-    icon = {"PASS": "✅", "FAIL": "❌", "ERROR": "💥", "TIMEOUT": "⏱️", "SKIP": "⏭️"}.get(st, "•")
+    icon = {"PASS": "✅", "FAIL": "❌", "ERROR": "💥", "TIMEOUT": "⏱️", "SKIP": "⏭️"}[st]
     print(f"{icon} {st:8} | {n}\n            -> {info}")
-    if st != "PASS":
+    if st not in ("PASS", "SKIP"):
         fails.append((n, st, info))
 print("=" * 100)
 print(f"TOTAL: {len(RESULTS)} | PASS: {len(RESULTS)-len(fails)} | PROBLEM: {len(fails)}")
@@ -314,6 +313,17 @@ def _clips_live_probe():
 
 
 # ---------------- v41: IMEI (PHONE DETAILS) + VEHICLE HUB ----------------
+
+def _hub_ready():
+    try:
+        from modules import api_hub as _h
+        return bool(_h.hub_ready())
+    except Exception:
+        return False
+
+
+_HUB_LIVE = _hub_ready()
+
 from modules import imei_lookup as _il
 from modules import vehicle_challan as _vc
 
@@ -321,27 +331,29 @@ check("IMEI: 15 digit + Luhn check (galat reject hota hai)",
       lambda: _il.validate_imei("353010111111110")[0] is True and _il.validate_imei("12345")[0] is False
       and _il.validate_imei("123456789012345")[0] is False)
 check("IMEI: live hub se device details (Apple iPhone 12 mini)",
-      lambda: (lambda r: r.get("ok") is True and "iphone" in _il.device_title(r).lower()
-               and len(r.get("sections") or []) >= 5 and bool(r.get("photo")))(_il.fetch_imei_details("353010111111110")),
+      (lambda: (lambda r: r.get("ok") is True and "iphone" in _il.device_title(r).lower()
+                and len(r.get("sections") or []) >= 5 and bool(r.get("photo")))(_il.fetch_imei_details("353010111111110")))
+      if _HUB_LIVE else None,
       timeout=60)
 check("IMEI: specs JSON file banti hai",
-      lambda: len(_il.specs_json_bytes(_il.fetch_imei_details("353010111111110"))) > 400
-      and _il.specs_filename(_il.fetch_imei_details("353010111111110")).endswith("_specs.json"))
+      (lambda: len(_il.specs_json_bytes(_il.fetch_imei_details("353010111111110"))) > 400
+       and _il.specs_filename(_il.fetch_imei_details("353010111111110")).endswith("_specs.json"))
+      if _HUB_LIVE else None)
 check("IMEI: caption Telegram limit ke andar",
       lambda: 0 < len(_il.render_caption(_il.fetch_imei_details("353010111111110"))) <= 1024)
 check("VEHICLE: live hub (RC + challan + v4 summary)",
-      lambda: (lambda r: r.get("ok") is True and bool(r.get("rc", {}).get("maker"))
-               and set(r.get("sources") or []) >= {"vehicle-rc", "vehicle-challan", "vehicle-challan-v4"}
-               and (r.get("summary") or {}).get("count", 0) >= 1)(_vc.fetch_vehicle_report("HR26EV0001")),
+      (lambda: (lambda r: r.get("ok") is True and bool(r.get("rc", {}).get("maker"))
+                and set(r.get("sources") or []) >= {"vehicle-rc", "vehicle-challan", "vehicle-challan-v4"}
+                and (r.get("summary") or {}).get("count", 0) >= 1)(_vc.fetch_vehicle_report("HR26EV0001")))
+      if _HUB_LIVE else None,
       timeout=90)
 check("VEHICLE: card HTML-safe (& escape)",
       lambda: "&amp;" in _vc.render_report(_vc.fetch_vehicle_report("HR26EV0001")))
-check("Bot: IMEI menu button + premium list (11 tools, 33 buttons)",
+check("Bot: IMEI menu button + premium list (10 tools, 32 buttons)",
       lambda: "imei" in _bot.PREMIUM_TOOLS and "clips" in _bot.PREMIUM_TOOLS
-      and len(_bot.PREMIUM_TOOLS) == 11
+      and len(_bot.PREMIUM_TOOLS) == 10
       and any("IMEI" in _bot.unbold(b).upper() for row in _bot.KB_BTNS for b in row)
-      and sum(len(r) for r in _bot.KB_BTNS) == 33
-      and "aadhaar" in _bot.PREMIUM_TOOLS)
+      and sum(len(r) for r in _bot.KB_BTNS) == 32)
 check("Bot: IMEI prompt + video button",
       lambda: "Now send the 15 digit IMEI" in _bot.tool_prompt("imei") and bool(_bot.tool_tutorial_kb("imei")))
 check("ClipMaker: limits + url detect",
@@ -376,11 +388,32 @@ check("ClipMaker: asli video par clips (ffmpeg pipeline)",
       _clips_live_probe, timeout=180)
 check("Bot: /clipstatus handler registered",
       lambda: 'CommandHandler(["clipstatus", "clipapi"], cmd_clipstatus)' in open("bot.py", encoding="utf-8").read())
+check("Bot: /hubstatus handler registered",
+      lambda: 'CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus)' in open("bot.py", encoding="utf-8").read())
+check("v45: API hub module + saare wrappers",
+      lambda: (lambda h: all(hasattr(h, f) for f in ("hub_ip", "hub_ifsc", "hub_pincode", "hub_terabox",
+                                                     "hub_youtube", "hub_twitter_video", "hub_gst", "hub_pan",
+                                                     "hub_num_info", "status_card", "live_test")) and not h.hub_ready() == None
+               )(__import__("modules.api_hub", fromlist=["x"])))
+check("v45: tools hub-first wired (IP/IFSC/pincode/terabox/clips)",
+      lambda: all(m in open("modules/osint_tools.py", encoding="utf-8").read() for m in
+                  ("hub.hub_ip", "hub.hub_ifsc", "hub.hub_pincode"))
+      and "_tb_hub" in open("modules/cloud_tools.py", encoding="utf-8").read()
+      and "hub_youtube_download" in open("modules/clip_maker.py", encoding="utf-8").read())
+check("v45: kagaz me GST + PAN buttons",
+      lambda: 'callback_data="kagaz_gst"' in open("bot.py", encoding="utf-8").read()
+      and 'callback_data="kagaz_pan"' in open("bot.py", encoding="utf-8").read()
+      and 'mode == "kagaz_gst"' in open("bot.py", encoding="utf-8").read())
 check("Bot: /imeistatus handler registered",
       lambda: 'CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus)' in open("bot.py", encoding="utf-8").read())
 
 
-fails2 = [(n, st) for n, st, _ in RESULTS if st != "PASS"]
+fails2 = [(n, st) for n, st, _ in RESULTS if st not in ("PASS", "SKIP")]
+_skips = [n for n, st, _ in RESULTS if st == "SKIP"]
+if _skips:
+    print(f"⏭️  SKIPPED ({len(_skips)} live checks — HUB_API_KEY lagao to ye bhi chalenge):")
+    for n in _skips:
+        print("   •", n)
 print("\n" + "=" * 100)
 print(f"FINAL: {len(RESULTS)} checks | PASS: {len(RESULTS)-len(fails2)} | PROBLEM: {len(fails2)}")
 for n, st in fails2:

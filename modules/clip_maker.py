@@ -446,13 +446,40 @@ def _yt_friendly(err: str) -> str:
     return e[:160] or "Download failed."
 
 
+def hub_youtube_download(url: str, dest_dir: str, max_mb: float = 400.0) -> dict:
+    """v45: YouTube link user ke hub se — direct mp4 link milta hai, yt-dlp ki zaroorat nahi.
+    (Yeh 'bot-check' wali problem ka permanent ilaaj hai.)"""
+    try:
+        from modules import api_hub as hub
+    except Exception:
+        return {"ok": False, "reason": "hub module nahi mila"}
+    if not hub.hub_ready():
+        return {"ok": False, "reason": "hub key nahi lagi"}
+    info = hub.hub_youtube(url)
+    if not info.get("ok") or not info.get("video"):
+        return {"ok": False, "reason": info.get("error") or "hub se link nahi mila"}
+    dest = os.path.join(dest_dir, "src_hub.mp4")
+    res = download_direct(info["video"], dest, max_mb=max_mb, timeout=300)
+    if not res.get("ok"):
+        return {"ok": False, "reason": res.get("error") or "hub link se download fail"}
+    return {"ok": True, "path": res.get("path", dest), "size_mb": res.get("size_mb"),
+            "engine": f"hub{info.get('source', '')}", "title": info.get("title") or "",
+            "duration": info.get("duration") or 0}
+
+
 def youtube_download(url: str, dest_dir: str, max_minutes: float = MAX_MINUTES,
                      max_mb: float = 400.0, quiet: bool = False) -> dict:
     """YouTube/Direct link → file (yt-dlp). Client fallback chain + cookies (env se)."""
+    # v45: pehle user ka API hub (direct mp4 deta hai — koi bot-check nahi)
+    _hres = hub_youtube_download(url, dest_dir, max_mb=max_mb)
+    if _hres.get("ok"):
+        return _hres
+    _hub_reason = _hres.get("reason", "")
     if not ytdlp_available():
         return {"ok": False, "no_ytdlp": True,
-                "error": "YouTube download is not available on the server right now. "
-                         "Send the video file itself, or a direct .mp4 link."}
+                "error": ("YouTube download is not available on the server right now. "
+                          "Send the video file itself, or a direct .mp4 link.")
+                         + (f" (hub: {_hub_reason})" if _hub_reason else "")}
     import yt_dlp
     base = {
         "format": "bv*[height<=720][ext=mp4]+ba[ext=m4a]/b[height<=720]/b",

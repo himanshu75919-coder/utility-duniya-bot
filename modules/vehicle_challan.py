@@ -9,10 +9,10 @@ Kahan se data aata hai (teen engine, sabse best merge hota hai):
   2) /api/vehicle-challan       → challan list (ULIP e-Challan): number, amount, date, offence, court
   3) /api/vehicle-challan-v4    → summary: total challans + total amount (pending vs disposed)
 
-Default base: https://osint-apis-hub.onrender.com/api   (key: Demo — apni key env me daal do)
+Default base: https://osint-apis-hub.onrender.com/api   (key: apni key env me daalo — HUB_API_KEY; purani Demo key band ho gayi hai)
 ENV (Render → Environment):
   VEHICLE_API_BASE   = API host + /api   (default upar wala)
-  VEHICLE_API_KEY    = apni key          (default: Demo)
+  VEHICLE_API_KEY    = apni key          (default: HUB_API_KEY, warna Demo — jo ab invalid hai)
   VEHICLE_API_URL    = (optional) purani single-endpoint API (ProPortalx style)
   VEHICLE_TIMEOUT    = seconds (default 25)
 
@@ -54,10 +54,22 @@ def api_base() -> str:
         m = re.match(r"^(https?://[^/]+/api)", old)
         if m:
             return m.group(1)
+    try:
+        from modules import api_hub as _hub
+        if _hub.hub_key():
+            return _hub.hub_base()
+    except Exception:
+        pass
     return DEFAULT_BASE
 
 
 def api_key() -> str:
+    try:
+        from modules import api_hub as _hub
+        if _hub.hub_ready():
+            return _hub.hub_key()
+    except Exception:
+        pass
     return (os.environ.get("VEHICLE_API_KEY") or os.environ.get("VEHICLE_API_TOKEN") or "Demo").strip()
 
 

@@ -169,8 +169,8 @@ accept kiya, sirf "invalid key" bola → matlab code bilkul sahi endpoint/payloa
 1. **Render → Manual Deploy → Clear build cache & deploy** (v44 ek saath chala jayega).
 2. **AI key add karo:** Environment me `GEMINI_API_KEY` (ya `GROQ_API_KEY`) daalo → redeploy →
    phir `/aistatus` bhejo. ✅ working aata hai to AI live hai.
-3. **🔑 GitHub token revoke karo:** `ghp_<REDACTED>…Qzr1X` ab **6 baar** use ho gaya
-   (v39–v44) aur `ghp_<REDACTED>…AEP` bhi. GitHub → Settings → Developer settings → Personal access tokens → **Revoke**.
+3. **🔑 GitHub token revoke karo:** `ghp_IoNvZy…Qzr1X` ab **6 baar** use ho gaya
+   (v39–v44) aur `ghp_XABWY…AEP` bhi. GitHub → Settings → Developer settings → Personal access tokens → **Revoke**.
    (Naya token chahiye ho to batao — agli push ke liye maang lunga.)
 
 ⚠️ **Copyright:** Clip Maker se sirf apna video ya jiska use karne ki permission ho, usi ka clip banao.

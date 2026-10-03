@@ -75,10 +75,10 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 ## 5. Information tools
 
-> • 🚗 VEHICLE + CHALLAN — free me sirf number-plate ka RTO/state format aur official VAHAN/e-Challan links milte hain. Live RC/owner/challan tabhi jab documented authorized provider configured ho; default me disabled.
-> • 📲 IMEI / DEVICE MODEL — apne ya authorized device ka IMEI locally validate hota hai; network par sirf pehle 8 digits (TAC) jaate hain. Catalog me brand/model hint mil sakta hai; full specs/photo ki guarantee nahi.
+> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
+> • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
 > • 🎬 CLIP MAKER — send a video (file, direct .mp4 link, or YouTube) → 4-7 short clips (25-60 sec). 🧠 Smart AI + loud/action moments (Best Moments) or Equal Parts, 16:9 or 9:16. Limit 15 min. VIP feature.
-> • 📱 NUMBER INFO — local carrier/type/region/timezone metadata aur official safety links. Leaked naam, family/linked numbers, address ya ID lookup nahi hota.
+> • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
 > • 🌐 IP / DOMAIN INFO — IP or website → location, ISP, VPN/proxy check.
@@ -193,8 +193,6 @@ TUTORIAL_VIDEO_KEYS = {
     # ---- v40/v41 live API tools (closest video; apna video banega) ----
     "imei": "numinfo",
     "clips": "video_dl",
-    # ---- Aadhaar official portal guidance (no family-record lookup) ----
-    "aadhaar": "numinfo",
 }
 
 # video ke caption me tool ki jhalak (video title)
@@ -202,16 +200,15 @@ VIDEO_TITLES = {
     "video_dl": "📥 VIDEO DOWNLOADER", "terabox": "⚡ TERABOX DOWNLOADER", "cloner": "🔄 CHANNEL CLONER",
     "pp_stamp": "📸 PASSPORT PHOTO", "print_sheet": "🖨️ 8-IN-1 PRINT SHEET",
     "doc_compress": "📄 DOCUMENT PDF COMPRESS", "pdf": "🖼️ IMAGE TO PDF", "shot": "🖼️ SITE SCREENSHOT",
-    "rto": "🚗 RTO + OFFICIAL LINKS", "numinfo": "📱 NUMBER INFO", "ifsc": "🏦 IFSC INFO", "pin": "📮 PINCODE INFO",
+    "rto": "🚗 VEHICLE INFO + CHALLAN", "numinfo": "📱 NUMBER INFO", "ifsc": "🏦 IFSC INFO", "pin": "📮 PINCODE INFO",
     "idfind": "🆔 ID FINDER", "ip": "🌐 IP / DOMAIN INFO", "qr": "📷 QR CODE",
     "short": "🔗 URL SHORT", "linkbypass": "🔓 LINK BYPASS",
     "linkcheck": "🔍 LINK CHECK", "interest": "📈 INTEREST CALCULATOR", "appfind": "📦 APP FINDER",
     "sarkari": "🏛️ SARKARI PORTALS", "premium": "💎 VIP PREMIUM",
     "refer": "🎁 REFER & EARN", "account": "👤 MY ACCOUNT", "vnum": "🌐 VIRTUAL NUMBERS",
     "tutorial": "❓ HOW TO USE BOT",
-    "bankpdf": "🏦 BANK PDF → EXCEL", "kagaz": "📜 DOCUMENT SUITE", "mediastudio": "⚡ MEDIA STUDIO",
+    "bankpdf": "🏦 BANK PDF → EXCEL", "kagaz": "📜 DOCUMENT SUITE (+ GST/PAN check)", "mediastudio": "⚡ MEDIA STUDIO",
     "imei": "📲 IMEI / PHONE DETAILS", "clips": "🎬 CLIP MAKER",
-    "aadhaar": "🆔 AADHAAR OFFICIAL PORTALS",
 }
 
 
