@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """
-v45 TEST — Aapka apna OSINT HUB bot me laga (Number Info / Vehicle / Aadhaar Family)
-====================================================================================
+v45 TEST — OSINT HUB & Privacy-Safe Guardrails
+==============================================
 Offline chalne wale tests:
-  1) modules/osint_hub.py — parsing, masking, error, cache (hub_get mock)
+  1) modules/osint_hub.py — privacy-safe disabled lookups, vehicle_report_v2, error, cache (hub_get mock)
   2) bot.py wiring — menu button, premium set, prompt, handler, /hubstatus
-  3) bot ke asli handlers (fake Telegram objects se) — numinfo / aadhaar / vehicle
+  3) bot ke asli handlers (fake Telegram objects se) — numinfo / vehicle
   4) live smoke test — agar internet hai to asli hub se (nahi to SKIP)
 
 Chalao:  python3 _selftest_v45_hub.py
@@ -13,17 +13,16 @@ Chalao:  python3 _selftest_v45_hub.py
 import asyncio
 import io
 import os
-import re
 import sys
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-os.environ["DB_PATH"] = "/tmp/_v45.db"
+os.environ["DB_PATH"] = "/tmp/_v45_hub.db"
 os.environ["BOT_TOKEN"] = "123456789:AAHtesttoken_testtoken_testtoken_testtok"
 os.environ["ADMIN_ID"] = "8607774564"
 os.environ["OSINT_API_KEY"] = "Demo"
 sys.path.insert(0, ROOT)
 
-for f in ("/tmp/_v45.db",):
+for f in ("/tmp/_v45_hub.db",):
     if os.path.exists(f):
         os.remove(f)
 
@@ -32,9 +31,11 @@ from telegram.constants import ChatType                        # noqa: E402
 
 import bot                                                     # noqa: E402
 import database as dbm                                         # noqa: E402
+from modules import api_hub                                    # noqa: E402
 from modules import osint_hub as hub                           # noqa: E402
+from modules import vehicle_challan as vc                      # noqa: E402
 
-REAL_HUB_GET = hub.hub_get          # mock lagne se pehle asli wala bacha lo
+REAL_HUB_GET = hub.hub_get
 
 PASS, FAIL = [], []
 OWNER = 8607774564
@@ -50,24 +51,6 @@ def norm(t):
     import unicodedata
     return unicodedata.normalize("NFKC", t or "")
 
-
-# ======================================================================
-#  SAMPLE PAYLOADS (asli hub ke shape par)
-# ======================================================================
-NUM_PAYLOAD = {
-    "success": True, "query": "9058390341", "record_count": 2,
-    "people": [{
-        "name": "Brajesh Kumar", "father_name": "Rabendra Singh",
-        "phones": ["9058390341", "916395131687"], "alt_phones": ["916395131687"],
-        "region": "JIO UPE UPW; AIRTEL UPW", "govt_ids": ["861313813129"],
-        "emails": [], "addresses": ["S/O Rabendra Singh,puraiya,JOGAAMainpuri,Uttar Pradesh,206301"],
-        "sources": ["num-info", "leak-v1"], "record_count": 2,
-    }],
-    "sources_used": ["num-info", "leak-v1"],
-}
-
-NUM_EMPTY = {"success": True, "query": "9000000000", "record_count": 0, "people": [],
-             "sources_used": ["num-info"]}
 
 VEH_PAYLOAD = {
     "success": True, "number": "BR30AR0802",
@@ -92,37 +75,21 @@ VEH_PAYLOAD = {
     "sources_used": ["vehicle-rc", "vehicle-challan"],
 }
 
-AADHAAR_PAYLOAD = {
-    "success": True, "aadhaar_masked": "XXXXXXXX3129", "aadhaar_valid_checksum": True,
-    "ration_card_number": "NA", "fps_id": "NA", "member_count": 13,
-    "primary": {"name": "Brajesh Kumar", "father_name": "Rabendra Singh",
-                "phones": ["916395131687"], "govt_ids": ["861313813129"],
-                "addresses": ["S/O Rabendra Singh,puraiya,JOGAAMainpuri,Uttar Pradesh,206301"]},
-    "members": [
-        {"name": "Brajesh Kumar", "aadhaar_masked": "XXXXXXXX3129",
-         "relation": "searched Aadhaar holder", "father_name": "Rabendra Singh",
-         "phones": ["916395131687"], "address": "S/O Rabendra Singh,puraiya"},
-        {"name": "Shailendra Singh", "aadhaar_masked": "XXXXXXXX4321", "relation": "family",
-         "father_name": "Jansan Singh", "phones": [], "address": ""},
-    ],
-    "location": {"district": "JOGAAMAINPURI", "state": "UTTAR PRADESH", "pincode": "206301"},
-    "sources_used": ["num-info", "leak-v1"],
-}
-
 
 class _MockHub:
-    """hub_get ko replace kar deta hai — bina internet ke poora rasta test ho jata hai."""
-
     def __init__(self, mapping):
         self.mapping = mapping
         self.calls = []
 
-    def __call__(self, path, params=None, tmo=None, tries=1):
+    def __call__(self, path, params=None, tmo=None, tries=1,
+                 base_override=None, key_override=None):
         self.calls.append((path, dict(params or {})))
         for key, val in self.mapping.items():
             if key in path:
                 if isinstance(val, Exception):
                     raise val
+                if val is None:
+                    return None, "The API did not answer."
                 return val, None
         return None, "The API did not answer."
 
@@ -143,24 +110,26 @@ def test_hub_module():
     ok("default base aapka hub hai", "osint-api-hub.onrender.com" in hub.DEFAULT_BASE, hub.DEFAULT_BASE)
     ok("default key Demo", hub.api_key() == "Demo", hub.api_key())
 
-    # ---- num-info ----
-    m = _patch({"num-info": NUM_PAYLOAD})
+    # ---- privacy-safe disabled num-info & aadhaar ----
+    m = _patch({})
     r = hub.num_info_report("9058390341")
-    ok("num-info ok", r.get("ok") is True, r)
-    ok("num-info has_data", r.get("has_data") is True)
-    ok("naam mila", (r["people"][0]["name"] == "Brajesh Kumar"), r.get("people"))
-    ok("father mila", r["people"][0]["father_name"] == "Rabendra Singh")
-    ok("alt number juda", "916395131687" in r["people"][0]["phones"])
-    ok("address mila", "206301" in r["people"][0]["addresses"][0])
-    ok("query normalise (10 digit)", m.calls[-1][1]["q"] == "9058390341", m.calls[-1])
-    # asli hub_get (requests layer) → URL + key sahi jata hai
+    ok("num-info privacy disabled (ok=False)", r.get("ok") is False and r.get("disabled") is True, r)
+    ok("num-info has_data False", r.get("has_data") is False)
+    ok("num-info koi network call nahi karta", len(m.calls) == 0, m.calls)
+
+    a = hub.aadhaar_family_report("861313813129")
+    ok("aadhaar privacy disabled (ok=False)", a.get("ok") is False and a.get("disabled") is True, a)
+    ok("aadhaar has_data False", a.get("has_data") is False)
+    ok("aadhaar koi network call nahi karta", len(m.calls) == 0, m.calls)
+
+    # ---- asli hub_get (requests layer) ----
     captured = {}
 
     class _Resp:
         status_code = 200
 
         def json(self):
-            return {"success": True, "people": [], "sources_used": []}
+            return {"success": True}
 
     def _fake_get(url, params=None, headers=None, timeout=None):
         captured["url"], captured["params"] = url, dict(params or {})
@@ -172,60 +141,42 @@ def test_hub_module():
     hub.hub_get = REAL_HUB_GET
     try:
         hub.cache_clear()
-        hub.num_info_report("9058390341")
+        hub.hub_get("health", {"format": "json"})
     finally:
         hub.requests.get = real_get
         hub.hub_get = real_hub_get
-    ok("hub_get URL sahi", str(captured.get("url", "")).endswith("/api/num-info"), captured.get("url"))
+    ok("hub_get URL sahi", str(captured.get("url", "")).endswith("/api/health"), captured.get("url"))
     ok("hub_get me key jata hai", captured.get("params", {}).get("key") == "Demo", captured.get("params"))
-    ok("format=json bheja", m.calls[-1][1].get("format") == "json")
+    ok("format=json bheja", captured.get("params", {}).get("format") == "json")
 
-    r2 = hub.num_info_report("+91 90583-90341")
-    ok("11-12 digit se bhi 10 nikalta hai", m.calls[-1][1]["q"] == "9058390341", m.calls[-1][1])
-    r3 = hub.num_info_report("123")
-    ok("chhota number reject", r3.get("ok") is False)
+    # ---- vehicle (default unauthorized vs authorized) ----
+    os.environ.pop("VEHICLE_PROVIDER_AUTHORIZED", None)
+    os.environ.pop("VEHICLE_API_BASE", None)
+    v_unauth = hub.vehicle_report_v2("BR30AR0802")
+    ok("vehicle bina authorization fallback deta hai", v_unauth.get("ok") is False and v_unauth.get("fallback") is True)
 
-    # ---- empty record ----
-    _patch({"num-info": NUM_EMPTY})
-    r4 = hub.num_info_report("9000000000")
-    ok("khaali record par has_data False", r4.get("has_data") is False, r4)
-
-    # ---- error ----
-    _patch({"num-info": None})
-    r5 = hub.num_info_report("9058390341")
-    ok("API error par ok=False", r5.get("ok") is False)
-    ok("API error par saaf message", bool(r5.get("error")), r5)
-
-    # ---- vehicle ----
-    m = _patch({"vehicle-report": VEH_PAYLOAD})
-    v = hub.vehicle_report_v2("br30ar0802")
-    ok("vehicle ok", v.get("ok") is True, v)
-    ok("plate upper + clean", v["plate"] == "BR30AR0802", v.get("plate"))
-    ok("maker map hua", v["rc"]["maker"] == "HONDA")
-    ok("model map hua", v["rc"]["model"] == "SHINE")
-    ok("insurance map hua", "GO DIGIT" in (v["rc"]["ins_company"] or ""), v["rc"]["ins_company"])
-    ok("PUC map hua", v["rc"]["puc_upto"] == "28-Aug-2026")
-    ok("challan count", v["summary"]["count"] == 1, v.get("summary"))
-    ok("pending amount", v["summary"]["pending_amount"] == 1000.0, v["summary"])
-    ok("challan list me 1 row", len(v["challans"]) == 1)
-    ok("challan number asli", v["challans"][0]["challan_number"] == "BR250023260716183506")
-    ok("has_data True", v.get("has_data") is True)
-    ok("cache dobara call nahi karta", len(m.calls) == 1, m.calls)
-    hub.vehicle_report_v2("BR30AR0802")
-    ok("dusri call cache se (network call nahi hua)", len(m.calls) == 1, len(m.calls))
-
-    # ---- aadhaar ----
-    m = _patch({"aadhaar-family": AADHAAR_PAYLOAD})
-    a = hub.aadhaar_family_report("861313813129")
-    ok("aadhaar ok", a.get("ok") is True, a)
-    ok("aadhaar masked", a["aadhaar_masked"] == "XXXXXXXX3129", a.get("aadhaar_masked"))
-    ok("members mile", len(a["members"]) == 2, len(a["members"]))
-    ok("member_count", a["member_count"] == 13)
-    ok("location district", a["location"]["district"] == "JOGAAMAINPURI")
-    ok("location pincode", a["location"]["pincode"] == "206301")
-    ok("has_data True", a.get("has_data") is True)
-    ok("12 digit chhota reject", hub.aadhaar_family_report("12345").get("ok") is False)
-    ok("poora 12 digit bheja gaya", m.calls[-1][1]["aadhaar"] == "861313813129", m.calls[-1])
+    os.environ["VEHICLE_PROVIDER_AUTHORIZED"] = "1"
+    os.environ["VEHICLE_API_BASE"] = "https://osint-api-hub.onrender.com/api"
+    try:
+        m = _patch({"vehicle-report": VEH_PAYLOAD})
+        v = hub.vehicle_report_v2("br30ar0802")
+        ok("vehicle ok", v.get("ok") is True, v)
+        ok("plate upper + clean", v["plate"] == "BR30AR0802", v.get("plate"))
+        ok("maker map hua", v["rc"]["maker"] == "HONDA")
+        ok("model map hua", v["rc"]["model"] == "SHINE")
+        ok("insurance map hua", "GO DIGIT" in (v["rc"]["ins_company"] or ""), v["rc"]["ins_company"])
+        ok("PUC map hua", v["rc"]["puc_upto"] == "28-Aug-2026")
+        ok("challan count", v["summary"]["count"] == 1, v.get("summary"))
+        ok("pending amount", v["summary"]["pending_amount"] == 1000.0, v["summary"])
+        ok("challan list me 1 row", len(v["challans"]) == 1)
+        ok("challan number asli", v["challans"][0]["challan_number"] == "BR250023260716183506")
+        ok("has_data True", v.get("has_data") is True)
+        ok("cache dobara call nahi karta", len(m.calls) == 1, m.calls)
+        hub.vehicle_report_v2("BR30AR0802")
+        ok("dusri call cache se (network call nahi hua)", len(m.calls) == 1, len(m.calls))
+    finally:
+        os.environ.pop("VEHICLE_PROVIDER_AUTHORIZED", None)
+        os.environ.pop("VEHICLE_API_BASE", None)
 
 
 # ======================================================================
@@ -236,31 +187,15 @@ def test_wiring():
     src = io.open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 
     kb_txt = norm(str(bot.KB_BTNS)).upper()
-    ok("menu me AADHAAR FAMILY button", "AADHAAR FAMILY" in kb_txt, kb_txt[:150])
-    ok("BTN_MODE_MAP me aadhaar", bot.BTN_MODE_MAP.get("AADHAAR FAMILY") == "aadhaar",
-       bot.BTN_MODE_MAP.get("AADHAAR FAMILY"))
-    ok("aadhaar premium tool hai", "aadhaar" in bot.PREMIUM_TOOLS)
-    ok("aadhaar ka premium naam", "Aadhaar" in (bot.PREMIUM_TOOL_NAMES.get("aadhaar") or ""))
-    ok("aadhaar prompt maujood", "aadhaar" in bot.PROMPTS and "12 digit" in bot.PROMPTS["aadhaar"])
-    ok("numinfo handler hub use karta hai", "hub_numinfo" in src)
-    ok("vehicle handler hub v2 use karta hai", "hub_vehicle" in src)
-    ok("aadhaar handler hub use karta hai", "hub_aadhaar" in src)
-    ok("mode == \"aadhaar\" handler", 'mode == "aadhaar"' in src)
+    ok("menu me NUMBER INFO button", "NUMBER INFO" in kb_txt)
+    ok("menu me VEHICLE + CHALLAN button", "VEHICLE" in kb_txt)
+    ok("menu me IMEI / PHONE DETAILS button", "IMEI" in kb_txt)
+    ok("api_hub wired in bot.py", "from modules import api_hub" in src)
     ok("/hubstatus registered", 'CommandHandler(["hubstatus"' in src)
-    ok("BRAND_LINE defined", "BRAND_LINE" in src and "@Supermannn_x" in src)
-    ok("_mask_govt_id helper", "_mask_govt_id" in src)
-    ok("tutorial video map me aadhaar",
-       '"aadhaar"' in io.open(os.path.join(ROOT, "modules/tutorial_hub.py"), encoding="utf-8").read())
-    ok("env example me OSINT_API_BASE",
-       "OSINT_API_BASE" in io.open(os.path.join(ROOT, ".env.example"), encoding="utf-8").read())
-
-    # masking
-    os.environ.pop("NUM_SHOW_FULL_IDS", None)
-    ok("Aadhaar mask hota hai", bot._mask_govt_id("861313813129") == "8613****3129",
-       bot._mask_govt_id("861313813129"))
-    os.environ["NUM_SHOW_FULL_IDS"] = "1"
-    ok("env se full ID on", bot._mask_govt_id("861313813129") == "861313813129")
-    os.environ.pop("NUM_SHOW_FULL_IDS", None)
+    ok("SUPPORT_USERNAME defined", "SUPPORT_USERNAME" in src and "@Supermannn_x" in src)
+    ok("sancharsaathi safety link", "sancharsaathi.gov.in" in src)
+    ok("env example me HUB_API_BASE",
+       "HUB_API_BASE" in io.open(os.path.join(ROOT, ".env.example"), encoding="utf-8").read())
 
 
 # ======================================================================
@@ -343,113 +278,74 @@ def _grant_credits(uid, n=50):
 
 
 async def flows():
-    print("\n--- 3) 🤖 bot handlers (numinfo / aadhaar / vehicle) ---")
-    hub.hub_get = _MockHub({})
-    me = await bot.application.bot.get_me() if False else None   # noqa: F841
+    print("\n--- 3) 🤖 bot handlers (numinfo / vehicle / hubstatus) ---")
 
-    # ---------- AADHAAR: galat input ----------
-    ctx = Ctx(mode="aadhaar")
-    u, m = _upd("12345")
-    await bot.on_text(u, ctx)
-    ok("aadhaar: galat input par error", "GALAT" in m.U() or "12 digit" in m.replies(), m.replies()[:150])
-
-    # ---------- AADHAAR: sahi input, record mila ----------
-    _patch({"aadhaar-family": AADHAAR_PAYLOAD})
-    uid = 880000901
-    _grant_credits(uid)
-    ctx = Ctx(mode="aadhaar")
-    u, m = _upd("861313813129", uid=uid)
-    await bot.on_text(u, ctx)
-    txt = m.replies()
-    ok("aadhaar: card bana", "AADHAAR FAMILY CARD" in m.U(), txt[:200])
-    ok("aadhaar: masked number", "XXXXXXXX3129" in txt, txt[:300])
-    ok("aadhaar: district", "JOGAAMAINPURI" in txt)
-    ok("aadhaar: member naam", "Brajesh Kumar" in txt)
-    ok("aadhaar: member count", "MEMBERS — 13" in txt or "MEMBERS — 2" in txt, txt[:400])
-    ok("aadhaar: branding", "SUPERMANNN_X" in m.U() or "@Supermannn_x" in txt)
-    ok("aadhaar: credit kata", "credit" in txt.lower(), txt[:200])
-
-    # ---------- AADHAAR: koi record nahi → credit NAHI katte ----------
-    _patch({"aadhaar-family": {"success": True, "aadhaar_masked": "XXXXXXXX0000",
-                               "members": [], "member_count": 0, "location": {},
-                               "sources_used": []}})
-    uid2 = 880000902
-    _grant_credits(uid2)
-    before = dbm.get_credits(uid2)
-    ctx = Ctx(mode="aadhaar")
-    u, m = _upd("999999999999", uid=uid2)
-    await bot.on_text(u, ctx)
-    txt = m.replies()
-    ok("aadhaar: no record message", "RECORD NAHI MILA" in m.U(), txt[:200])
-    ok("aadhaar: no record par credit NAHI kata", dbm.get_credits(uid2) == before,
-       f"{before} -> {dbm.get_credits(uid2)}")
-    ok("aadhaar: 'koi credit nahi kata' likha", "CREDIT NAHI KATA" in m.U())
-
-    # ---------- NUMBER INFO ----------
-    _patch({"num-info": NUM_PAYLOAD})
+    # ---------- NUMBER INFO (local metadata + official safety links) ----------
     uid3 = 880000903
     _grant_credits(uid3)
     ctx = Ctx(mode="numinfo")
-    u, m = _upd("9058390341", uid=uid3)
+    u, m = _upd("9876543210", uid=uid3)
     await bot.on_text(u, ctx)
     txt = m.replies()
+    urls = [b.url for kb in m.kbs for row in getattr(kb, "inline_keyboard", []) for b in row if getattr(b, "url", None)]
     ok("numinfo: basic card", "NUMBER INFORMATION" in m.U(), txt[:200])
     ok("numinfo: operator", "OPERATOR" in m.U())
-    ok("numinfo: public records section", "PUBLIC RECORDS" in m.U())
-    ok("numinfo: naam aaya", "Brajesh Kumar" in txt, txt[:400])
-    ok("numinfo: father aaya", "Rabendra Singh" in txt)
-    ok("numinfo: alt number aaya", "916395131687" in txt)
-    ok("numinfo: ID masked (poora Aadhaar nahi)", "861313813129" not in txt, txt[:600])
-    ok("numinfo: masked ID dikha", "8613****3129" in txt or "8613" in txt, txt[:600])
-
-    # ---------- NUMBER INFO: koi record nahi → credit NAHI ----------
-    _patch({"num-info": NUM_EMPTY})
-    uid4 = 880000904
-    _grant_credits(uid4)
-    before = dbm.get_credits(uid4)
-    ctx = Ctx(mode="numinfo")
-    u, m = _upd("9000000000", uid=uid4)
-    await bot.on_text(u, ctx)
-    txt = m.replies()
-    ok("numinfo: no record message", "RECORD NAHI MILA" in m.U(), txt[:250])
-    ok("numinfo: no record par credit NAHI kata", dbm.get_credits(uid4) == before,
-       f"{before} -> {dbm.get_credits(uid4)}")
+    ok("numinfo: safety link button", any("sancharsaathi.gov.in" in u for u in urls), urls)
 
     # ---------- VEHICLE ----------
-    _patch({"vehicle-report": VEH_PAYLOAD})
-    uid5 = 880000905
-    _grant_credits(uid5)
-    ctx = Ctx(mode="rto")
-    u, m = _upd("BR30AR0802", uid=uid5)
-    await bot.on_text(u, ctx)
-    txt = m.replies()
-    ok("vehicle: HONDA aaya", "HONDA" in txt, txt[:300])
-    ok("vehicle: SHINE aaya", "SHINE" in txt)
-    ok("vehicle: challan amount", "1,000" in txt or "1000" in txt, txt[:600])
-    ok("vehicle: RC section", "RC" in m.U() or "REGISTRATION" in m.U() or "OWNER" in m.U(), txt[:300])
-    ok("vehicle: RTO", "SITAMARHI" in txt.upper(), txt[:400])
+    orig_fetch = bot.fetch_vehicle_report
+    try:
+        def _fake_veh(plate):
+            return {
+                "ok": True,
+                "plate": "BR30AR0802",
+                "rc": hub._rc_from_hub(VEH_PAYLOAD, "BR30AR0802"),
+                "challans": VEH_PAYLOAD["challans"]["list"],
+                "summary": {"count": 1, "pending": 1, "paid": 0, "other": 0,
+                            "total_amount": 1000.0, "pending_amount": 1000.0},
+                "sources": ["vehicle-report (hub v2)"],
+            }
+        bot.fetch_vehicle_report = _fake_veh
+        uid5 = 880000905
+        _grant_credits(uid5)
+        ctx = Ctx(mode="rto")
+        u, m = _upd("BR30AR0802", uid=uid5)
+        await bot.on_text(u, ctx)
+        txt = m.replies()
+        ok("vehicle: HONDA aaya", "HONDA" in txt, txt[:300])
+        ok("vehicle: SHINE aaya", "SHINE" in txt)
+        ok("vehicle: challan amount", "1,000" in txt or "1000" in txt, txt[:600])
+        ok("vehicle: RTO", "SITAMARHI" in txt.upper(), txt[:400])
 
-    # ---------- VEHICLE: API down → free fallback + credit nahi ----------
-    _patch({"vehicle-report": None})
-    uid6 = 880000906
-    _grant_credits(uid6)
-    before = dbm.get_credits(uid6)
-    ctx = Ctx(mode="rto")
-    u, m = _upd("MH12AB1234", uid=uid6)
-    await bot.on_text(u, ctx)
-    txt = m.replies()
-    ok("vehicle: API fail par crash nahi", bool(txt.strip()), txt[:150])
-    ok("vehicle: API fail par credit NAHI kata", dbm.get_credits(uid6) == before,
-       f"{before} -> {dbm.get_credits(uid6)}")
+        # ---------- VEHICLE: API down → free fallback + credit nahi ----------
+        bot.fetch_vehicle_report = lambda p: {"ok": False, "error": "API down", "fallback": True}
+        uid6 = 880000906
+        _grant_credits(uid6)
+        before = dbm.get_credits(uid6)
+        ctx = Ctx(mode="rto")
+        u, m = _upd("MH12AB1234", uid=uid6)
+        await bot.on_text(u, ctx)
+        txt = m.replies()
+        ok("vehicle: API fail par crash nahi", bool(txt.strip()), txt[:150])
+        ok("vehicle: API fail par credit NAHI kata", dbm.get_credits(uid6) == before,
+           f"{before} -> {dbm.get_credits(uid6)}")
+    finally:
+        bot.fetch_vehicle_report = orig_fetch
 
     # ---------- /hubstatus admin ----------
-    _patch({"num-info": NUM_PAYLOAD, "vehicle-report": VEH_PAYLOAD,
-            "aadhaar-family": AADHAAR_PAYLOAD})
-    ctx = Ctx()
-    u, m = _upd("/hubstatus", uid=OWNER)
-    await bot.cmd_hubstatus(u, ctx)
-    ok("/hubstatus admin ko status", "HUB STATUS" in m.U(), m.replies()[:200])
-    ok("/hubstatus me teeno API", all(k in m.replies() for k in ("num-info", "vehicle-report", "aadhaar-family")))
+    orig_test = api_hub.live_test
+    orig_ready = api_hub.hub_ready
+    try:
+        api_hub.hub_ready = lambda: True
+        api_hub.live_test = lambda: {"ok": True, "say": "PIN 800001 -> Bihar"}
+        ctx = Ctx()
+        u, m = _upd("/hubstatus", uid=OWNER)
+        await bot.cmd_hubstatus(u, ctx)
+        ok("/hubstatus admin ko status", "API HUB" in m.U(), m.replies()[:200])
+        ok("/hubstatus me tools list", all(k in m.replies() for k in ("IFSC", "PINCODE", "IMEI", "VEHICLE")))
+    finally:
+        api_hub.live_test = orig_test
+        api_hub.hub_ready = orig_ready
 
     uid7 = 880000907
     ctx = Ctx()
@@ -463,8 +359,6 @@ async def flows():
 # ======================================================================
 def live_smoke():
     print("\n--- 4) 🌐 LIVE hub (agar internet ho) ---")
-    import importlib
-    importlib.reload(hub)
     try:
         import socket
         socket.create_connection(("osint-api-hub.onrender.com", 443), timeout=6).close()
@@ -472,12 +366,10 @@ def live_smoke():
         print(f"⏭️  SKIP — hub reachable nahi ({type(e).__name__})")
         return
     try:
-        v = hub.vehicle_report_v2("BR30AR0802")
-        ok("live vehicle ok", v.get("ok") is True, str(v)[:150])
-        n = hub.num_info_report("9058390341")
-        ok("live num-info ok", n.get("ok") is True, str(n)[:150])
-        a = hub.aadhaar_family_report("861313813129")
-        ok("live aadhaar ok", a.get("ok") is True, str(a)[:150])
+        lt = api_hub.live_test()
+        ok("live hub ip-v2 + key-info ok", lt.get("ok") is True, str(lt)[:150])
+        v = vc.fetch_vehicle_report("BR30AR0802")
+        ok("live vehicle response ya safe disabled fallback", v.get("ok") is True or v.get("hub_disabled") is True, str(v)[:150])
     except Exception as e:                                     # noqa: BLE001
         ok("live hub reachable", False, f"{type(e).__name__}: {str(e)[:150]}")
 

@@ -13,13 +13,12 @@ Sab functions yahan pure-Python / ffmpeg se chalte hain — bot.py inhe import k
 from __future__ import annotations
 
 import io
-import json
 import os
 import re
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # ============================================================
 #  FFMPEG (system ka, warna imageio-ffmpeg ka bundled binary)
@@ -447,9 +446,7 @@ def _pdf_doc(title: str, lines: list, footer: str = "") -> bytes:
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
     from reportlab.lib.units import mm
-    from reportlab.pdfgen import canvas as _canvas  # noqa
-
-    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
     from reportlab.lib import colors
 
     buf = io.BytesIO()

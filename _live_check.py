@@ -1,11 +1,10 @@
 """LIVE health-check: bot ke saare tools ko real network calls se test karta hai."""
 import io
-import json
+import os
 import sys
-import traceback
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FTimeout
 
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 RESULTS = []
 
@@ -32,8 +31,6 @@ from modules import general_tools as gt
 from modules import osint_tools as ot
 from modules import cyber_studio as cs
 from modules import cloud_tools as ct
-from modules import media_downloader as md
-from modules import vip_payment as vp
 
 check("QR generator", lambda: gt.make_qr_bytes("https://t.me/utility_duniya_bot").getvalue()[:4] == b"\x89PNG")
 check("App store links (8)", lambda: len(gt.get_app_store_links("instagram")["stores"]) == 8)
@@ -103,7 +100,8 @@ def _parth():
     return sorted([a for a in dir(parth_dl) if not a.startswith("_")])[:12]
 def _parth_soft():
     try:
-        import parth_dl  # noqa
+        import importlib
+        importlib.import_module("parth_dl")
         return True
     except Exception:
         return "SKIP"   # local sandbox me install nahi, Render par requirements se aata hai
@@ -160,7 +158,21 @@ check("UTR help text maujood", lambda: "PhonePe" in utr_help_text() and "UTR" in
 
 
 def _shot(path, expect_good):
-    data = open(path, "rb").read()
+    if os.path.exists(path):
+        data = open(path, "rb").read()
+    else:
+        from PIL import Image, ImageDraw
+        im = Image.new("RGB", (720, 1280), (245, 247, 250))
+        d = ImageDraw.Draw(im)
+        d.rectangle((0, 0, 720, 140), fill=(32, 100, 210))
+        for y in (180, 340, 500, 660, 820, 980):
+            d.rectangle((40, y, 680, y + 120), fill=(255, 255, 255), outline=(40, 40, 40), width=3)
+            for tx in range(60, 620, 14):
+                d.rectangle((tx, y + 25, tx + 8, y + 45), fill=(15, 15, 15))
+                d.rectangle((tx, y + 65, tx + 6, y + 80), fill=(60, 60, 60))
+        buf = io.BytesIO()
+        im.save(buf, format="PNG", compress_level=1)
+        data = buf.getvalue()
     r = analyze_screenshot(data)
     return r["ok"] == expect_good
 
@@ -191,8 +203,7 @@ for f in fails:
 # ==================== v31 NAYE/UPGRADED TOOLS KA LIVE CHECK ====================
 print("\n\n############ V31 UPGRADES ############")
 
-from modules.toolkit_extras import shorten_url, expand_url, check_link_safety, file_size_human
-from modules.general_tools import wifi_qr_data, vcard_data
+from modules.toolkit_extras import shorten_url, expand_url, check_link_safety
 from modules.media_downloader import is_supported_video_url, platform_name, download_video_media
 
 check("SHORTENER chain (working provider)", lambda: len(shorten_url("https://github.com/himanshu75919-coder/utility-duniya-bot", want=2)) >= 1)
@@ -287,7 +298,6 @@ check("DB: vip_grants_today counter chalta hai", lambda: _dbm.vip_grants_today()
 
 # Asli activate flow (owner ko doosre user par test): grant + notification + log
 def _activate_probe():
-    import asyncio as _aio
     uid = 999001
     _dbm.meta_set("active_plan:8607774564", "plan_30")
     _dbm.grant_premium(uid, 30)

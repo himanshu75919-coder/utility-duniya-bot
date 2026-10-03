@@ -18,15 +18,16 @@ import os
 import re
 import sys
 
-sys.path.insert(0, "/home/user/fix")
+ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, ROOT)
 os.environ.setdefault("DB_PATH", "/tmp/_audit44.db")
 os.environ.setdefault("BOT_TOKEN", "1:x")
 os.environ.setdefault("ADMIN_ID", "8607774564")
 
 import bot                                              # noqa: E402
 
-BOT_SRC = io.open("/home/user/fix/bot.py", encoding="utf-8").read()
-MOD_DIR = "/home/user/fix/modules"
+BOT_SRC = io.open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
+MOD_DIR = os.path.join(ROOT, "modules")
 
 # tool → (module file, mode keys, premium?)
 TOOL_MODULE = {
@@ -216,5 +217,5 @@ if FAILS:
     md += ["", "## ❌ Fail list", ""] + [f"- {f}" for f in FAILS]
 else:
     md += ["", "## ✅ Fail list", "", "Kuch nahi — saare checks pass."]
-io.open("/home/user/UPLOAD-KARO/v44-TOOLS-AUDIT.md", "w", encoding="utf-8").write("\n".join(md) + "\n")
-print("→ report: /home/user/UPLOAD-KARO/v44-TOOLS-AUDIT.md")
+io.open(os.path.join(ROOT, "v44-TOOLS-AUDIT.md"), "w", encoding="utf-8").write("\n".join(md) + "\n")
+print("→ report:", os.path.join(ROOT, "v44-TOOLS-AUDIT.md"))

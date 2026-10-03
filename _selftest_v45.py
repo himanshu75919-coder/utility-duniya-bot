@@ -7,10 +7,8 @@ Kya test hota hai:
   4. Bot flows: KAGAZ GST/PAN card, ID finder profiles, /hubstatus, clip gate
 """
 import asyncio
-import io
 import json
 import os
-import re
 import sys
 import threading
 import unicodedata
@@ -28,7 +26,7 @@ if os.path.exists("/tmp/_v45.db"):
 PORT = 8899
 os.environ["HUB_API_BASE"] = f"http://127.0.0.1:{PORT}/api"
 os.environ["HUB_API_KEY"] = "testkey123"
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from telegram import Chat, Update, User                      # noqa: E402
 from telegram.constants import ChatType                      # noqa: E402

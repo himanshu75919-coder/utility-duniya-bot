@@ -5,7 +5,6 @@ Dynamic QR generation, plan selection, payment proof submission, and 1-tap admin
 """
 
 import io
-from urllib.parse import quote
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from modules.general_tools import make_qr_bytes, build_upi_link
 

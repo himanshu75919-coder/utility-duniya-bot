@@ -454,7 +454,7 @@ def status_card() -> str:
     provider = provider_name()
     lines = ["🧠 <b>AI BRAIN — status</b>", "━━━━━━━━━━━━━━━━━━━━━━"]
     if provider == "gemini":
-        lines += [f"• Provider: <b>Google Gemini</b> ✅", f"• Model: <code>{gemini_model()}</code>",
+        lines += ["• Provider: <b>Google Gemini</b> ✅", f"• Model: <code>{gemini_model()}</code>",
                   "• Video: frames + audio samajhta hai ✅",
                   f"• Groq (backup): {'✅ set' if groq_key() else '— not set'}"]
     elif provider == "groq":

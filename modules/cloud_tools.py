@@ -23,7 +23,7 @@ import json
 import os
 import re
 from html import unescape
-from urllib.parse import quote, unquote, urlparse, parse_qs
+from urllib.parse import quote, unquote
 
 import requests
 

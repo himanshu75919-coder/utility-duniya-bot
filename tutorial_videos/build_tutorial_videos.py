@@ -15,8 +15,6 @@ import math
 import os
 import random
 import subprocess
-import sys
-import tempfile
 import time
 
 import imageio_ffmpeg
