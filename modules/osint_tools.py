@@ -106,7 +106,7 @@ def lookup_vehicle_rto(plate: str) -> dict:
             ("📄 Sarathi DL Status", "https://sarathi.parivahan.gov.in/sarathiservice/stateSelection.do"),
             ("📲 mParivahan App", "https://play.google.com/store/apps/details?id=com.nic.mparivahan"),
         ],
-        "note": "VAHAN/Parivahan needs OTP and captcha, so real RC details are only available there — this tool takes you to the right place.",
+        "note": "VAHAN/Parivahan par OTP aur captcha lagta hai, isliye asli RC details wahi milti hain — ye tool aapko official page par le jata hai.",
     }
 
 
@@ -178,7 +178,7 @@ def lookup_phone_info(number_str: str) -> dict:
             ("🚨 Chakshu (Spam Report - TRAI)", "https://sancharsaathi.gov.in/sfc/"),
             ("🚔 Cyber Crime Helpline 1930", "https://cybercrime.gov.in/"),
         ],
-        "note": "Carrier/circle can change if the number was ported (MNP).",
+        "note": "Number port (MNP) hua ho to carrier/circle badal sakta hai.",
     }
 
 
@@ -265,7 +265,7 @@ def search_by_area_name(area: str) -> dict:
     """Area/post-office ke naam se pincode dhoondhta hai (India Post API)."""
     q = re.sub(r"[^A-Za-z\s.]", "", area or "").strip()
     if len(q) < 3:
-        return {"ok": False, "error": "Send an area name with at least 3 letters (example: Patna GPO, Kankarbagh)"}
+        return {"ok": False, "error": "Kam se kam 3 letter ka area name bhejo (jaise: Patna GPO, Kankarbagh)"}
     try:
         r = requests.get(f"https://api.postalpincode.in/postoffice/{requests.utils.quote(q)}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
@@ -310,7 +310,7 @@ def lookup_ip_domain(target: str) -> dict:
         if (_o[0] in (0, 10, 127) or (_o[0] == 192 and _o[1] == 168)
                 or (_o[0] == 172 and 16 <= _o[1] <= 31) or (_o[0] == 169 and _o[1] == 254)):
             return {"ok": False, "private_ip": True,
-                    "error": "This is a private / LAN IP (home router or local network). "
+                    "error": "Ye private / LAN IP hai (ghar ka router ya local network). Iski public info nahi hoti. Public IP ya website ka naam bhejo."
                              "No public info exists for it. Send a public IP or a domain instead."}
     # 🌐 v45: pehle user ka API hub, phir purana ip-api
     if hub is not None and hub.hub_ready():
@@ -351,7 +351,7 @@ def lookup_ip_domain(target: str) -> dict:
 # =====================================================================================
 # PUBLIC-RECORDS LOOKUP (OPTIONAL — bot owner ne enable kiya; env se off ho sakta hai)
 # =====================================================================================
-NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-apis-hub.onrender.com").rstrip("/")
+NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-api-hub.onrender.com").rstrip("/")
 NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
 NUM_LEAK_ENABLED = lambda: os.environ.get("NUM_LEAK_ENABLED", "on").strip().lower() not in ("off", "0", "false", "no")
 
@@ -382,7 +382,7 @@ def lookup_public_records(number: str) -> dict:
                     "hub_people": _rep["people"], "formatted": _rep.get("formatted") or ""}
         if _rep.get("disabled_by_hub"):
             return {"ok": False, "disabled_by_hub": True,
-                    "error": "Public-records lookup is turned off on the data provider right now. "
+                    "error": "Public-records lookup abhi provider ne band kar diya hai. Upar wala number card phir bhi kaam karta hai."
                              "The full number card above still works."}
     if len(digits) == 10:
         digits = "91" + digits

@@ -71,7 +71,7 @@ def validate_utr(raw: str) -> dict:
     up = cleaned.upper()
 
     if not cleaned:
-        return {"ok": False, "utr": "", "reason": "You only typed 'UTR' — send the number after it too."}
+        return {"ok": False, "utr": "", "reason": "Sirf 'UTR' likha hai — uske baad ka number bhi bhejo."}
 
     digits_only = re.sub(r"\D", "", cleaned)
 
@@ -88,10 +88,10 @@ def validate_utr(raw: str) -> dict:
     # --- common galtiyan, saaf-saaf batao ---
     if re.fullmatch(r"[6-9]\d{9}", digits_only) and len(cleaned) <= 12:
         return {"ok": False, "utr": cleaned,
-                "reason": "This looks like a <b>mobile number</b> (10 digits). A UTR is usually 12 digits."}
+                "reason": "Ye <b>mobile number</b> lag raha hai (10 digit). UTR aam taur par 12 digit ka hota hai."}
     if len(digits_only) == 10:
         return {"ok": False, "utr": cleaned,
-                "reason": "A 10 digit number is not a UTR. In the UPI app the <b>UTR / Transaction ID</b> is 12 digits."}
+                "reason": "10 digit number UTR nahi hota. UPI app me <b>UTR / Transaction ID</b> 12 digit ka hota hai."}
     if len(cleaned) < 10:
         return {"ok": False, "utr": cleaned, "reason": f"Too short ({len(cleaned)} char) — a UTR is at least 12 digits."}
     if len(cleaned) > 25:
@@ -103,7 +103,7 @@ def validate_utr(raw: str) -> dict:
                 "reason": f"{len(cleaned)} digit number is not a valid UTR. Copy the <b>full 12 digit UTR</b> from the UPI app "
                           "(or the 16-22 character reference from the bank app)."}
     return {"ok": False, "utr": cleaned,
-            "reason": "This does not look like a UTR. Open the payment app → transaction details → copy the <b>UTR / Ref No</b> from there."}
+            "reason": "Ye UTR nahi lag raha. Payment app kholo → transaction details → wahan se <b>UTR / Ref No</b> copy karo."}
 
 
 # ===========================================================================
@@ -316,7 +316,7 @@ def user_payment_reply(pay_id: int, plan_name: str, amount: int, analysis: dict)
         f"💰 <b>Amount:</b> ₹{amount}\\n"
         f"{shot_verdict_line(analysis)}\\n"
         "━━━━━━━━━━━━━━━━━━━━━━\\n"
-        "⏳ The admin will verify and activate VIP (usually 5-30 minutes).\\n"
+        "⏳ Admin check karke VIP chalu kar dega (aam taur par 5-30 minute).\\n"
         f"📌 To check status send <code>/mypay</code>.\\n\\n"
         "<i>Tip: correct UTR and screenshot get approved faster.</i>"
     )

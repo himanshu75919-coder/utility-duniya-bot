@@ -77,7 +77,6 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 > • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
 > • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
-> • 🎬 CLIP MAKER — send a video (file, direct .mp4 link, or YouTube) → 4-7 short clips (25-60 sec). 🧠 Smart AI + loud/action moments (Best Moments) or Equal Parts, 16:9 or 9:16. Limit 15 min. VIP feature.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
@@ -98,9 +97,8 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 ## 7. Small daily tools
 
 > • 📷 QR CODE — link/text, WiFi share, contact card.
-> • 📈 INTEREST CALC — compound interest the village way (per ₹100 per month).
 > • 📦 APP FINDER — app name → direct links from 8 trusted stores (do not download APKs from random sites).
-> • 🔗 URL SHORT — shorten a long link. 🔓 LINK BYPASS — get the real link behind ad links. 🔍 LINK CHECK — is a link fake or safe.
+> • 🔗 URL SHORT — lamba link chhota karo. 🔍 LINK CHECK — link nakli hai ya safe.
 > • 🧮 REGISTRY TOTAL COST (inside Document Suite) — stamp duty + registration + MVR.
 
 ## 8. VIP / Premium — what you get
@@ -173,9 +171,7 @@ TUTORIAL_VIDEO_KEYS = {
     "qr_wifi": "qr",
     "qr_vcard": "qr",
     "short": "short",
-    "linkbypass": "linkbypass",
     "linkcheck": "linkcheck",
-    "interest": "interest",
     "appfind": "appfind",
     "sarkari": "sarkari",
     "premium": "premium",
@@ -192,7 +188,6 @@ TUTORIAL_VIDEO_KEYS = {
     "mediastudio": "video_dl",
     # ---- v40/v41 live API tools (closest video; apna video banega) ----
     "imei": "numinfo",
-    "clips": "video_dl",
 }
 
 # video ke caption me tool ki jhalak (video title)
@@ -202,13 +197,13 @@ VIDEO_TITLES = {
     "doc_compress": "📄 DOCUMENT PDF COMPRESS", "pdf": "🖼️ IMAGE TO PDF", "shot": "🖼️ SITE SCREENSHOT",
     "rto": "🚗 VEHICLE INFO + CHALLAN", "numinfo": "📱 NUMBER INFO", "ifsc": "🏦 IFSC INFO", "pin": "📮 PINCODE INFO",
     "idfind": "🆔 ID FINDER", "ip": "🌐 IP / DOMAIN INFO", "qr": "📷 QR CODE",
-    "short": "🔗 URL SHORT", "linkbypass": "🔓 LINK BYPASS",
-    "linkcheck": "🔍 LINK CHECK", "interest": "📈 INTEREST CALCULATOR", "appfind": "📦 APP FINDER",
+    "short": "🔗 URL SHORT",
+    "linkcheck": "🔍 LINK CHECK", "appfind": "📦 APP FINDER",
     "sarkari": "🏛️ SARKARI PORTALS", "premium": "💎 VIP PREMIUM",
     "refer": "🎁 REFER & EARN", "account": "👤 MY ACCOUNT", "vnum": "🌐 VIRTUAL NUMBERS",
     "tutorial": "❓ HOW TO USE BOT",
     "bankpdf": "🏦 BANK PDF → EXCEL", "kagaz": "📜 DOCUMENT SUITE (+ GST/PAN check)", "mediastudio": "⚡ MEDIA STUDIO",
-    "imei": "📲 IMEI / PHONE DETAILS", "clips": "🎬 CLIP MAKER",
+    "imei": "📲 IMEI / PHONE DETAILS",
 }
 
 
@@ -240,7 +235,7 @@ def video_caption(action: str) -> str:
     return (
         f"🎬 <b>{title}</b> — TUTORIAL\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "30 second video — full steps step by step 🔥\n\n"
+        "30 second video — poore steps ek-ek karke 🔥\n\n"
         "👤 <b>By:</b> HIMANSHU • @Supermannn_x\n"
         "▶️ Watch it, then open the same tool from the menu below."
     )

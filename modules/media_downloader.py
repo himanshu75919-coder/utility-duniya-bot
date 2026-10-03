@@ -462,13 +462,13 @@ def download_instagram_media(url: str) -> dict:
 
     if media_cat == "story":
         return {"ok": False, "category": "story",
-                "error": "Instagram Stories stay live only 24 hours. Instagram does not allow expired or private stories without login."}
+                "error": "Instagram Story sirf 24 ghante rehti hai. Expire ho gayi ya private story bina login nahi milti."}
     if media_cat == "reel":
         return {"ok": False, "category": "reel",
-                "error": ("Instagram blocked this Reel with a rate-limit/login wall (shared server IP). "
+                "error": ("Instagram ne ye Reel block kar di (rate-limit/login wall). 30-60 second baad dobara try karo, ya doosra link bhejo."
                           "Try again after 30-60 seconds, or set the IG_COOKIES_FILE env to make it always work.")}
     return {"ok": False, "category": media_cat,
-            "error": "Could not extract the media — check if the post is public (private/age-restricted posts do not work)."}
+            "error": "Media nahi nikal paya — dekho post public hai kya (private/age-restrict post nahi chalti)."}
 
 
 # =====================================================================================
@@ -495,17 +495,17 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
         if link:
             return {"ok": True, "type": "link", "platform": "Instagram", "title": title or "",
                     "size_mb": round((size or 0) / (1024 * 1024), 2) if size else 0,
-                    "direct_url": link, "note": "Got the video but it is bigger than the upload limit — use this direct link (it plays in a browser right away).",
+                    "direct_url": link, "note": "Video mil gayi par upload limit se badi hai — ye direct link use karo (browser me turant chalegi).",
                     "reason": res.get("error", "")}
         return res
 
     # --- Baaki platforms: yt-dlp ---
     if not yt_dlp:
-        return {"ok": False, "error": "The yt-dlp engine did not load (check requirements.txt install)."}
+        return {"ok": False, "error": "yt-dlp engine load nahi hua (requirements.txt install check karo)."}
 
     info = _ytdlp_info(url)
     if not info:
-        return {"ok": False, "error": "yt-dlp could not handle this link. Check if the link is public."}
+        return {"ok": False, "error": "yt-dlp ye link handle nahi kar paya. Link public hai kya check karo."}
 
     plat = platform_name(url)
 

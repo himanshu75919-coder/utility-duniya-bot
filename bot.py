@@ -161,13 +161,8 @@ from modules.media_downloader import (
     platform_name,
 )
 from modules.toolkit_extras import (
-
     check_link_safety,
-    expand_url,
-
-    rate_from_per_hundred,
     shorten_url,
-    village_compound_interest,
 )
 from modules.vehicle_challan import (
     fetch_vehicle_report,
@@ -175,25 +170,7 @@ from modules.vehicle_challan import (
     render_report as render_vehicle_report,
     valid_plate as vehicle_plate_ok,
 )
-from modules import clip_maker as clipm
-from modules import ai_brain as aib
 from modules import api_hub as hubapi
-from modules.clip_maker import (
-    CLIP_COUNT as CLIP_MAKER_COUNT,
-    MAX_MINUTES as CLIP_MAKER_MAX_MIN,
-    TARGET_LEN as CLIP_MAKER_LEN,
-    best_of_best as clips_best_of_best,
-    caption_for as clips_caption,
-    cleanup as clips_cleanup,
-    download_direct as clips_download_direct,
-    fmt_t as clips_fmt_t,
-    help_card as clips_help_card,
-    is_direct_video_url as clips_is_direct_url,
-    is_youtube_url as clips_is_yt_url,
-    probe_info as clips_probe,
-    ytdlp_available as clips_ytdlp_available,
-    youtube_download as clips_youtube_download,
-)
 from modules.imei_lookup import (
     device_title as imei_title,
     fallback_links as imei_fallback_links,
@@ -270,7 +247,7 @@ FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
 SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
-BAN_MSG = "🚫 Your account is banned. Please contact the admin."
+BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
 BOT_VERSION = "v30 Ultra"
 START_TIME = datetime.now()
 
@@ -318,8 +295,6 @@ PREMIUM_TOOLS = {
     "vehicle",             # 🚗 VEHICLE & CHALLAN REPORT
     # ---- v41 IMEI / PHONE DETAILS (live API) ----
     "imei",                # 📲 IMEI & PHONE SPEC CARD
-    # ---- v43 CLIP MAKER (video → 4-7 clips) ----
-    "clips",               # 🎬 CLIP MAKER
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -332,7 +307,6 @@ PREMIUM_TOOL_NAMES = {
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
     "vehicle": "🚗 Vehicle Info + Challan Report",
     "imei": "📲 IMEI / Phone Details",
-    "clips": "🎬 Clip Maker (video → 4-7 clips)",
 }
 
 
@@ -358,8 +332,8 @@ def credits_line(u: dict, uid: int = 0) -> str:
     if left >= 999999:
         return "⚡ <b>Credits:</b> ♾️ Unlimited (VIP)"
     if left <= 0:
-        return "⚡ <b>Credits:</b> 0 / %d — <b>all used!</b> Get VIP for premium tools: /premium" % CREDITS_START
-    return f"⚡ <b>Credits:</b> {left} / {CREDITS_START} (for premium tools)"
+        return "⚡ <b>Credits:</b> 0 / %d — <b>khatam!</b> Premium tools ke liye VIP lo: /premium" % CREDITS_START
+    return f"⚡ <b>Credits:</b> {left} / {CREDITS_START} (premium tools ke liye)"
 
 
 def can_use_premium_tool(u: dict, uid: int = 0) -> bool:
@@ -370,24 +344,19 @@ def can_use_premium_tool(u: dict, uid: int = 0) -> bool:
 def get_credits_over_text(action: str = "") -> str:
     tool_name = PREMIUM_TOOL_NAMES.get(action, "Ye tool")
     return (
-        f"⚡ <b>{to_bold('ALL CREDITS USED')}</b>\n"
+        f"⚡ <b>{to_bold('CREDITS KHATAM')}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"{tool_name} is a <b>premium tool</b>. It uses 1 credit per use.\n"
-        f"Your <b>{CREDITS_START} free credits are finished.</b>\n\n"
-        "✅ <b>All other tools are still FREE</b> — no credits, no limit:\n"
-        "   📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🖼️ Image→PDF • 📄 Document Suite\n"
-        "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 📈 Interest Calc • 🧮 Registry Cost...\n\n"
-        "👑 <b>Get VIP for the premium tools:</b>\n"
-        "• 📥 Video Downloader — <b>unlimited</b>\n"
-        "• 📱 Number Info — <b>unlimited</b>\n"
-        "• 🔄 Channel Cloner + Auto-Forward — <b>unlimited</b>\n"
-        "• 🔒 Private Channel Setup — <b>unlimited</b>\n"
-        "• 🏦 Bank PDF → Excel • 📜 Document Suite • ⚡ Media Studio — <b>unlimited</b>\n"
-        "• 🚗 Vehicle Info + Challan Report — <b>unlimited</b>\n"
-        "• 📲 IMEI / Phone Details — <b>unlimited</b>\n"
-        "• 🎬 Clip Maker (video → 4-7 clips) — <b>unlimited</b>\n"
-        "• ♾️ Whole bot unlimited (no limits at all)\n\n"
-        "🎁 <i>Want VIP free? Share with {n} friends (/refer).</i>"
+        f"{tool_name} ek <b>premium tool</b> hai — 1 use = 1 credit.\n"
+        f"Aapke <b>{CREDITS_START} free credits khatam ho gaye.</b>\n\n"
+        "✅ <b>Baaki saare tools FREE hain</b> — koi credit nahi, koi limit nahi:\n"
+        "   📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🖼️ Image→PDF • 📜 Kagaz Suite\n"
+        "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 🔍 Link Check...\n\n"
+        "👑 <b>VIP lene se ye sab UNLIMITED ho jayega:</b>\n"
+        "• 📥 Video Downloader • 📱 Number Info • 🔄 Channel Cloner\n"
+        "• 🔒 Private Channel Setup • 🏦 Bank PDF→Excel • 📜 Kagaz Suite\n"
+        "• ⚡ Media Studio • 📲 IMEI Details\n"
+        "• ♾️ Poora bot unlimited\n\n"
+        "🎁 <i>VIP free chahiye? {n} dost ko share karo (/refer).</i>"
     ).replace("{n}", str(REFER_NEED))
 
 
@@ -407,9 +376,9 @@ def clean_err(text: str, limit: int = 200) -> str:
 
 def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Get VIP (Unlimited)", callback_data="open_vip_menu")],
-        [InlineKeyboardButton("🎬 How to get VIP? (30 sec video)", callback_data="toolvid:premium")],
-        [InlineKeyboardButton(f"🎁 Refer & Earn (Free VIP)", callback_data="open_refer_menu"),
+        [InlineKeyboardButton("💎 VIP lo (Unlimited)", callback_data="open_vip_menu")],
+        [InlineKeyboardButton("🎬 VIP kaise milega? (30 sec video)", callback_data="toolvid:premium")],
+        [InlineKeyboardButton("🎁 Refer karo (Free VIP)", callback_data="open_refer_menu"),
          InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
     ])
 
@@ -430,15 +399,15 @@ def spend_credit_msg(uid: int, action: str = "") -> str:
     name = PREMIUM_TOOL_NAMES.get(action, "Premium tool")
     if left <= 0:
         return (
-            f"⚡ <b>1 credit used</b> — <b>0 credits left!</b>\n\n"
-            f"That was your last free use of {name}.\n"
-            "From now on this premium tool is locked. VIP opens it unlimited. "
-            "All free tools keep working without credits. → /premium"
+            f"⚡ <b>1 credit laga</b> — <b>ab 0 credit bacha!</b>\n\n"
+            f"{name} ka ye aakhri free use tha.\n"
+            "Ab ye premium tool lock hai. VIP lene par unlimited chalega. "
+            "Baaki saare free tools bina credit chalte rahenge. → /premium"
         )
     if left <= 5:
-        return (f"⚡ <b>1 credit used</b> — left: <b>{left}/{CREDITS_START}</b>\n"
-                f"<i>Only {left} premium uses left, after that VIP is needed (/premium)</i>")
-    return f"⚡ <b>1 credit used</b> — left: <b>{left}/{CREDITS_START}</b>"
+        return (f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>\n"
+                f"<i>Sirf {left} premium use bache hain, uske baad VIP lena padega (/premium)</i>")
+    return f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>"
 
 
 SUPPORT_USERNAME = "@Supermannn_x"
@@ -492,7 +461,7 @@ def fail_msg(title: str, reason: str = "") -> str:
     body = f"\n\n{reason}" if reason else ""
     return (
         f"❌ <b>{to_bold(title)}</b>{body}\n\n"
-        f"💡 <b>Tip:</b> Try the same tool once more. If the problem stays, contact support: {SUPPORT_LINK}"
+        f"💡 <b>Tip:</b> Ek baar dobara try karo. Problem rahe to support pe likho: {SUPPORT_LINK}"
     )
 
 
@@ -546,15 +515,13 @@ VNUM_COUNTRIES = (
 )
 
 VNUM_INTRO = (
-    f"🌐✨ <b>{to_bold('VIRTUAL NUMBERS (OTP STOCK)')}</b> ✨🌐\n"
+    f"🌐 <b>{to_bold('VIRTUAL NUMBERS (OTP)')}</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "⚡ <b>Fresh OTP Numbers:</b> Fast &amp; 100% Reliable\n"
-    "🟢 Instant OTP Delivery • Permanent Numbers\n"
-    "🌍 <b>16 Countries</b> • 📲 <b>10 Services</b> Live Stock\n"
+    "OTP ke liye virtual number — 16 desh, 10 service.\n"
+    "📌 Jaise: WhatsApp ke liye number chahiye\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "🎯 <b>3 Simple Steps:</b>\n"
-    "1️⃣ Service → 2️⃣ Country → 3️⃣ Get Instant Number\n\n"
-    "<i>Only for account verification. No spam.</i>"
+    "1️⃣ Service chuno → 2️⃣ Country chuno → 3️⃣ Number lo\n"
+    "<i>Sirf account verify karne ke liye. Spam nahi.</i>"
 )
 
 
@@ -609,14 +576,13 @@ KB_BTNS = [
     [f"📮 {to_bold('PINCODE INFO')}", f"🆔 {to_bold('ID & USERNAME FINDER')}"],
     [f"🌐 {to_bold('IP / DOMAIN INFO')}", f"🔒 {to_bold('PRIVATE CHANNEL SETUP')}"],
     [f"📷 {to_bold('QR CODE')}", f"🖼️ {to_bold('IMAGE→PDF')}"],
-    [f"🔗 {to_bold('URL SHORT')}", f"🔓 {to_bold('LINK BYPASS')}"],
-    [f"🔍 {to_bold('LINK CHECK')}", f"📈 {to_bold('INTEREST CALC')}"],
+    [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"📦 {to_bold('APP FINDER')}", f"🖼️ {to_bold('SITE SCREENSHOT')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
-    [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"🎬 {to_bold('CLIP MAKER')}"],
-    [f"💎 {to_bold('VIP PREMIUM')}", f"🎁 {to_bold('REFER & EARN')}"],
-    [f"👤 {to_bold('MY ACCOUNT')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
+    [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
+    [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
+    [f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
 
 
@@ -665,9 +631,6 @@ BTN_MODE_MAP = {
     "IMEI INFO": "imei",
     "IMEI LOOKUP": "imei",
     "PHONE INFO (IMEI)": "imei",
-    "CLIP MAKER": "clips",
-    "CLIPS MAKER": "clips",
-    "VIDEO CLIP MAKER": "clips",
     "NUMBER INFO": "numinfo",
     "IFSC INFO": "ifsc",
     "PINCODE INFO": "pin",
@@ -675,9 +638,7 @@ BTN_MODE_MAP = {
     "QR CODE": "qr",
     "IMAGE→PDF": "pdf",
     "URL SHORT": "short",
-    "LINK BYPASS": "linkbypass",
     "LINK CHECK": "linkcheck",
-    "INTEREST CALC": "interest",
     "APP FINDER": "appfind",
     "BANK STATEMENT → EXCEL": "bankpdf",
     "BANK STATEMENT TO EXCEL": "bankpdf",
@@ -702,192 +663,182 @@ BTN_MODE_MAP = {
 
 PROMPTS = {
     "terabox": (
-        f"⚡ <b>{to_bold('TERABOX & CLOUD')}</b>\n"
-        "✅ <b>Ad-free</b> download + stream (Terabox, Mediafire, Drive, Mega)\n"
-        "⚠️ Server rejects sometimes — just send the link again.\n"
-        "📌 Example: <code>https://terabox.com/s/xxxxx</code>\n"
-        "🔗 <b>Now send your link:</b>"
+        f"⚡ <b>{to_bold('TERABOX / CLOUD')}</b>\n"
+        "Terabox, Mediafire, Drive ya Mega ka link bhejo → seedha download link milega.\n"
+        "📌 Jaise: <code>https://terabox.com/s/xxxxx</code>\n"
+        "🔗 <b>Ab apna link bhejo:</b>"
     ),
     "insta_dl": (
         f"📥 <b>{to_bold('VIDEO DOWNLOADER')}</b>\n"
-        "Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit (20+ sites)\n"
-        "📌 Example: <code>https://www.instagram.com/reel/xxxxx</code>\n"
-        "🔗 <b>Now send the video link:</b>"
+        "Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit — 20+ sites.\n"
+        "📌 Jaise: <code>https://www.instagram.com/reel/xxxxx</code>\n"
+        "🔗 <b>Ab video ka link bhejo:</b>"
     ),
     "pp_stamp": (
-        f"📸 <b>{to_bold('GOVT EXAM PASSPORT PHOTO')}</b>\n"
-        "Send photo → then name → then date. Output: 3.5 × 4.5 cm with name/date stamp.\n"
-        "📌 Example: photo, <code>Rahul Kumar</code>, <code>02-10-2026</code>\n"
-        "📸 <b>Now send your passport photo:</b>"
+        f"📸 <b>{to_bold('EXAM PASSPORT PHOTO')}</b>\n"
+        "Photo + naam + date → 3.5 × 4.5 cm ready photo.\n"
+        "📌 Jaise: photo bhejo, phir <code>Rahul Kumar</code>, phir <code>02-10-2026</code>\n"
+        "📸 <b>Ab apni photo bhejo:</b>"
     ),
     "print_sheet": (
         f"🖨️ <b>{to_bold('8-IN-1 PRINT SHEET')}</b>\n"
-        "One photo → 4×6 inch sheet with 8 copies (print at any shop, ₹10-20).\n"
-        "📌 Example: any passport size photo\n"
-        "📸 <b>Now send one photo:</b>"
+        "Ek photo → 4×6 inch sheet me 8 copies. Dukaan pe ₹10-20 me print.\n"
+        "📌 Jaise: koi bhi passport size photo\n"
+        "📸 <b>Ab ek photo bhejo:</b>"
     ),
     "doc_compress": (
         f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b>\n"
-        "Marksheet or certificate photo → sharp PDF (100KB-500KB, size buttons come after).\n"
-        "📌 Example: 10th marksheet photo\n"
-        "📸 <b>Now send the marksheet or certificate photo:</b>"
+        "Marksheet ya certificate ki photo → saaf PDF (100KB-500KB).\n"
+        "📌 Jaise: 10th marksheet ki photo\n"
+        "📸 <b>Ab marksheet ya certificate ki photo bhejo:</b>"
     ),
     "ip": (
         f"🌐 <b>{to_bold('IP / DOMAIN INFO')}</b>\n"
-        "📌 Example: <code>8.8.8.8</code> or <code>google.com</code>\n"
-        "👉 <b>Now send the IP or website name:</b>"
+        "IP ya website ka location, ISP, company sab milega.\n"
+        "📌 Jaise: <code>8.8.8.8</code> ya <code>google.com</code>\n"
+        "👉 <b>Ab IP ya website ka naam bhejo:</b>"
     ),
     "bankpdf": (
-        f"🏦 <b>{to_bold('BANK STATEMENT PDF TO EXCEL')}</b>\n"
-        "Send the <b>PDF file</b> (not a photo). Password PDF? The bot will ask for it.\n"
-        "📌 Example: SBI / HDFC / PNB statement PDF\n"
-        "📄 <b>Now send your bank statement PDF:</b>"
+        f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b>\n"
+        "Bank statement ka <b>PDF</b> bhejo (photo nahi) → Excel/CSV table ban jayegi.\n"
+        "📌 Jaise: SBI / HDFC / PNB ka statement PDF\n"
+        "📄 <b>Ab apna statement PDF bhejo:</b>"
     ),
     "kagaz": (
-        f"📜 <b>{to_bold('DOCUMENT SUITE (BIHAR/UP)')}</b>\n"
-        "Rent agreement, affidavit, notice 138, bayana, loan paper, registry cost, bigha→kattha.\n"
-        "⚡ 1 credit per document · ⚠️ Get the draft checked by a notary\n"
-        "👇 <b>Select your document from the menu below:</b>"
+        f"📜 <b>{to_bold('KAGAZ SUITE (BIHAR/UP)')}</b>\n"
+        "Kirayanama, affidavit, notice 138, bayana, loan paper, registry cost, bigha→kattha.\n"
+        "⚡ Har document = 1 credit\n"
+        "👇 <b>Neeche se apna document chuno:</b>"
     ),
     "mediastudio": (
         f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-        "YouTube→MP3, status video, ringtone, karaoke, 8D, voice change, trim, compress. No watermark.\n"
-        "👇 <b>Select an option below:</b>"
+        "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim, compress.\n"
+        "👇 <b>Neeche se option chuno:</b>"
     ),
     "rto": (
-        f"🚗 <b>{to_bold('VEHICLE INFO + CHALLAN')}</b>\n"
-        "Full RC record + all challans (pending/paid, amount, offence).\n"
-        "📌 Example: <code>BR30AR0802</code>\n"
-        "🔢 <b>Now send the number plate:</b>"
+        f"🚗 <b>{to_bold('VEHICLE / RTO INFO')}</b>\n"
+        "Number plate bhejo → state, RTO office + official RC/challan links.\n"
+        "📌 Jaise: <code>BR30AR0802</code>\n"
+        "🔢 <b>Ab number plate bhejo:</b>"
     ),
     "imei": (
         f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b>\n"
-        "Brand, model, device photo + full spec sheet + <code>.json</code> copy file.\n"
-        "📍 IMEI: dial <code>*#06#</code> · 📌 Example: <code>353010111111110</code>\n"
-        "🔢 <b>Now send the 15 digit IMEI:</b>"
-    ),
-    "clips": (
-        f"🎬 <b>{to_bold('CLIP MAKER')}</b>\n"
-        "Video → 4-7 short clips (25-60 sec). Best moments = loud + action parts.\n"
-        "📌 Limit: 15 min · 20MB file · ya direct <code>.mp4</code> link\n"
-        "⚠️ Use your own video or one you are allowed to reuse.\n"
-        "📸 <b>Now send the video file (or link):</b>"
+        "IMEI bhejo → phone ka naam, photo + poori spec sheet + JSON file.\n"
+        "📌 Jaise: <code>353010111111110</code> · IMEI dekhne ke liye <code>*#06#</code> dial karo\n"
+        "🔢 <b>Ab 15 digit IMEI bhejo:</b>"
     ),
     "numinfo": (
         f"📱 <b>{to_bold('NUMBER INFO')}</b>\n"
-        "Operator, circle (region), number type + 6 useful links.\n"
-        "📌 Example: <code>9876543210</code>\n"
-        "🔢 <b>Now send the 10 digit mobile number:</b>"
+        "Mobile number bhejo → operator, circle aur number ka type.\n"
+        "📌 Jaise: <code>9876543210</code>\n"
+        "🔢 <b>Ab 10 digit mobile number bhejo:</b>"
     ),
     "ifsc": (
         f"🏦 <b>{to_bold('IFSC BANK BRANCH')}</b>\n"
-        "Bank, branch, address, MICR (printed on passbook / cheque).\n"
-        "📌 Example: <code>SBIN0000001</code>\n"
-        "🔤 <b>Now send the IFSC code:</b>"
+        "IFSC code bhejo → bank, branch, address, MICR.\n"
+        "📌 Jaise: <code>SBIN0000001</code>\n"
+        "🔤 <b>Ab IFSC code bhejo:</b>"
     ),
     "pin": (
-        f"📮 <b>{to_bold('PINCODE & POST OFFICE')}</b>\n"
-        "6 digit pincode → district, state + all post offices.\n"
-        "📌 Example: <code>800001</code> or <code>Rajendra Nagar</code>\n"
-        "📮 <b>Now send the pincode or area name:</b>"
+        f"📮 <b>{to_bold('PINCODE INFO')}</b>\n"
+        "Pincode ya area ka naam bhejo → district, state + saare post office.\n"
+        "📌 Jaise: <code>800001</code> ya <code>Rajendra Nagar</code>\n"
+        "📮 <b>Ab pincode ya area ka naam bhejo:</b>"
     ),
     "idfind": (
         f"🆔 <b>{to_bold('ID & USERNAME FINDER')}</b>\n"
-        "Your ID, someone's ID (forward a message) or @username check on 5 platforms.\n"
-        "📌 Example: <code>me</code> / <code>@username</code> / forward any message\n"
-        "🆔 <b>Now send me / @username / or forward a message:</b>"
+        "Apni ID, kisi ki ID (message forward karo) ya @username 5 platform par check.\n"
+        "📌 Jaise: <code>me</code> / <code>@username</code> / koi message forward karo\n"
+        "🆔 <b>Ab me / @username bhejo, ya message forward karo:</b>"
     ),
     "qr": (
-        f"📷 <b>{to_bold('HD QR CODE GENERATOR')}</b>\n"
-        "📌 Example: <code>https://t.me/utility_duniya_bot</code>\n"
-        "🔗 <b>Now send the text or link:</b>"
+        f"📷 <b>{to_bold('QR CODE MAKER')}</b>\n"
+        "Link ya text bhejo → HD QR code mil jayega.\n"
+        "📌 Jaise: <code>https://t.me/utility_duniya_bot</code>\n"
+        "🔗 <b>Ab text ya link bhejo:</b>"
     ),
     "pdf": (
-        f"🖼️ <b>{to_bold('IMAGE TO PDF')}</b> — up to 10 photos\n"
-        "Send photos one by one, then tap the button (A4 = best for printing).\n"
-        "📌 Example: 3 marksheet photos, then tap <b>A4 PDF</b>\n"
-        "📸 <b>Now send your photos:</b>"
+        f"🖼️ <b>{to_bold('IMAGE → PDF')}</b> — 10 photo tak\n"
+        "Photo ek-ek karke bhejo, phir neeche <b>A4 PDF</b> button dabao.\n"
+        "📌 Jaise: 3 marksheet photo, phir A4 PDF dabao\n"
+        "📸 <b>Ab apni photo bhejo:</b>"
     ),
     "short": (
         f"🔗 <b>{to_bold('URL SHORTENER')}</b>\n"
-        "📌 Example: <code>https://example.com/very/long/path?x=1</code>\n"
-        "🔗 <b>Now send the long link:</b>"
-    ),
-    "linkbypass": (
-        f"🔓 <b>{to_bold('LINK BYPASS')}</b>\n"
-        "Real link behind ad links — no ads, no waiting.\n"
-        "📌 Example: <code>https://gplinks.co/xxxxx</code>\n"
-        "🔗 <b>Now send that link:</b>"
+        "Lamba link chhota kar do.\n"
+        "📌 Jaise: <code>https://example.com/very/long/path?x=1</code>\n"
+        "🔗 <b>Ab lamba link bhejo:</b>"
     ),
     "linkcheck": (
         f"🔍 <b>{to_bold('LINK SAFETY CHECK')}</b>\n"
-        "Check before opening — fake or safe.\n"
-        "📌 Example: <code>http://sbi-kyc-verify.xyz</code>\n"
-        "🔍 <b>Now send the link:</b>"
+        "Link kholne se pehle check karo — nakli hai ya safe.\n"
+        "📌 Jaise: <code>http://sbi-kyc-verify.xyz</code>\n"
+        "🔍 <b>Ab link bhejo:</b>"
     ),
     "appfind": (
         f"📦 <b>{to_bold('APP FINDER')}</b>\n"
-        "Direct links from 8 trusted stores (Play Store, APKPure, UptoDown...).\n"
-        "📌 Example: <code>instagram</code>\n"
-        "📦 <b>Now send the app name:</b>"
+        "App ka naam bhejo → 8 trusted store ke direct link.\n"
+        "📌 Jaise: <code>instagram</code>\n"
+        "📦 <b>Ab app ka naam bhejo:</b>"
     ),
     "shot": (
-        f"🖼️ <b>{to_bold('WEBSITE SCREENSHOT (HD)')}</b>\n"
-        "📌 Example: <code>github.com</code>\n"
-        "🌐 <b>Now send the website URL:</b>"
+        f"🖼️ <b>{to_bold('SITE SCREENSHOT (HD)')}</b>\n"
+        "Website ka top part ka screenshot.\n"
+        "📌 Jaise: <code>github.com</code>\n"
+        "🌐 <b>Ab website ka URL bhejo:</b>"
     ),
     "shot_full": (
         f"📜 <b>{to_bold('FULL PAGE SCREENSHOT')}</b>\n"
-        "Takes 10-20 seconds (full long page).\n"
-        "📌 Example: <code>flipkart.com</code>\n"
-        "📜 <b>Now send the website URL:</b>"
+        "Poori lambi page ka screenshot (10-20 second lagte hain).\n"
+        "📌 Jaise: <code>flipkart.com</code>\n"
+        "📜 <b>Ab website ka URL bhejo:</b>"
     ),
     "qr_wifi": (
         f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n"
-        "Guest scans it → phone connects to WiFi automatically.\n"
-        "📌 Example: <code>JioFiber_Home</code>\n"
-        "📶 <b>Now send the WiFi name (SSID):</b>"
+        "Guest QR scan karega → phone khud WiFi se jud jayega.\n"
+        "📌 Jaise: <code>JioFiber_Home</code>\n"
+        "📶 <b>Ab WiFi ka naam (SSID) bhejo:</b>"
     ),
     "qr_vcard": (
         f"👤 <b>{to_bold('CONTACT CARD QR')}</b>\n"
-        "Scan it → contact saves automatically.\n"
-        "📌 Example: <code>Himanshu Kumar</code>\n"
-        "👤 <b>Now send your name:</b>"
+        "QR scan karte hi contact save ho jayega.\n"
+        "📌 Jaise: <code>Himanshu Kumar</code>\n"
+        "👤 <b>Ab apna naam bhejo:</b>"
     ),
 }
 TUTORIAL_TEXT = (
-    f"❓ <b>{to_bold('HELP / TUTORIAL — EVERY TOOL IN 1 LINE')}</b>\n"
+    f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-
-    "📥 <b>Download & sharing:</b>\n"
-    "• VIDEO DOWNLOADER → send an Instagram/YouTube/FB/X link, get the video\n"
-    "• TERABOX / CLOUD → TeraBox, Drive, MediaFire or Mega link → direct download link\n"
-    "• CHANNEL CLONER → set Source + Target, turn FULL AUTO ON, posts copy by themselves\n"
+    "📥 <b>Download:</b>\n"
+    "• 📥 VIDEO DOWNLOADER → Insta/YT/FB/X ka link bhejo → video mil jayega\n"
+    "• ⚡ TERABOX / CLOUD → Terabox/Drive/MediaFire link bhejo → direct link mil jayega\n"
+    "• 🔄 CHANNEL CLONER → Source + Target set karo, FULL AUTO ON karo, posts khud copy honge\n"
     "\n"
-    "📄 <b>Documents:</b>\n"
-    "• DOC PDF COMPRESS → marksheet photo → 100-500KB PDF\n"
-    "• IMAGE→PDF → up to 10 photos in one PDF (A4 print ready)\n"
-    "• PASSPORT PHOTO → photo + name/date → print-ready photo with stamp\n"
-    "• 8-IN-1 SHEET → one photo → 8 copies on a 4x6 sheet\n"
-    "• BANK PDF → EXCEL → statement PDF → Excel/CSV table\n"
-    "• DOCUMENT SUITE → rent agreement, affidavit, notice, registry cost, bigha/kattha\n"
+    "📄 <b>Document:</b>\n"
+    "• 📸 PASSPORT PHOTO → photo + naam + date bhejo → print ready photo\n"
+    "• 🖨️ 8-IN-1 SHEET → ek photo bhejo → 8 copies ki sheet\n"
+    "• 📄 DOC PDF → marksheet ki photo bhejo → chhoti size ka PDF\n"
+    "• 🖼️ IMAGE→PDF → 10 photo tak bhejo → ek PDF\n"
+    "• 🏦 BANK PDF → EXCEL → statement PDF bhejo → Excel table\n"
+    "• 📜 KAGAZ SUITE → kirayanama, affidavit, notice, registry cost\n"
     "\n"
     "🔍 <b>Information:</b>\n"
-    "• RTO → number plate → state + RTO office + official links\n"
-    "• NUMBER INFO → 10 digit number → operator, circle, useful links\n"
-    "• IFSC → code → bank, branch, MICR\n"
-    "• PINCODE → pincode or area name → post offices\n"
-    "• IP INFO → IP or website → location, ISP\n"
-    "• ID FINDER → <code>me</code> or <code>@username</code> → real check\n"
+    "• 📲 IMEI → <code>*#06#</code> se IMEI lo, bhejo → full phone details\n"
+    "• 🚗 VEHICLE → number plate bhejo → RTO office + official RC/challan link\n"
+    "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
+    "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
+    "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
+    "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
+    "• 🆔 ID FINDER → <code>me</code> ya @username bhejo → check ho jayega\n"
     "\n"
-    "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass boost, voice change, trim, compress\n"
+    "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim\n"
     "\n"
-    "🧰 <b>Small tools:</b> QR code, site screenshot, URL short, link bypass, link check, app finder, interest calculator\n"
+    "🧰 <b>Chhote tools:</b> QR code, site screenshot, URL short, link check, app finder\n"
     "\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "⌨️ <b>Commands:</b> /start /menu /help /tutorial /cancel\n"
+    "⌨️ <b>Commands:</b> /start /menu /help /cancel\n"
     "\n"
-    "💬 <b>Stuck?</b> Every tool has a 🎬 Tutorial Video button under it. Close any tool with <b>/cancel</b>."
+    "💬 <b>Atak gaye?</b> Har tool ke neeche 🎬 Tutorial Video button hai. Tool band karne ke liye <b>/cancel</b> dabao."
 )
 
 # ============================================================
@@ -981,14 +932,11 @@ def tutorial_link_line() -> str:
 
 # MADAD / TUTORIAL — sirf 🎬 video, koi text tutorial nahi
 TUTORIAL_NOTICE = (
-        "❓ <b>HELP / TUTORIAL</b>\n"
+        "❓ <b>MADAD / TUTORIAL</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🎬 <b>Every tool has its own 30 second video tutorial</b> (with HIMANSHU)!\n\n"
-        "<b>How to watch:</b>\n"
-        "1️⃣ Open any tool (for example 📥 VIDEO DOWNLOADER)\n"
-        "2️⃣ Tap the <b>🎬 Tutorial Video</b> button under it\n"
-        "3️⃣ Watch the video — full steps in 30 seconds\n\n"
-        "👇 Or open a tool video directly from here:"
+        "Har tool ke saath <b>🎬 30 second ka video</b> hai.\n"
+        "📌 Jaise: 📥 Video Downloader kholo → neeche 🎬 button dabao → video dekh lo\n\n"
+        "👇 Ya yahan se seedha tool ka video kholo:"
     )
 
 
@@ -1003,20 +951,20 @@ def tool_tutorial_kb(action: str):
 
 # Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
 ASK_LINES = {
-    "pin": "📮 <b>Now send the pincode or area name</b>:",
-    "idfind": "🆔 <b>Now send</b> <code>me</code> / <code>@username</code> / or forward any message:",
-    "shot_full": "📜 <b>Now send the website URL:</b>",
-    "qr_wifi": "📶 <b>Now send the WiFi name (SSID):</b>",
-    "qr_vcard": "👤 <b>Now send your name:</b>",
+    "pin": "📮 <b>Ab pincode ya area ka naam bhejo:</b>",
+    "idfind": "🆔 <b>Ab</b> <code>me</code> / <code>@username</code> bhejo, ya message forward karo:",
+    "shot_full": "📜 <b>Ab website ka URL bhejo:</b>",
+    "qr_wifi": "📶 <b>Ab WiFi ka naam (SSID) bhejo:</b>",
+    "qr_vcard": "👤 <b>Ab apna naam bhejo:</b>",
 }
 
 
 KAGAZ_MENU_TEXT = (
     f"📜 <b>{to_bold('DOCUMENT SUITE (BIHAR/UP)')}</b>\n"
-    "Ready drafts: rent agreement, affidavit, notice 138, bayana, loan paper, "
-    "registry total cost, bigha/kattha converter, GST/PAN check.\n"
-    "⚡ Every document = <b>1 credit</b> · ⚠️ Get the draft checked by a notary\n"
-    "👇 <b>Select from the menu below:</b>"
+    "Kirayanama, affidavit, notice 138, bayana, loan paper, "
+    "registry cost, bigha/kattha, GST/PAN check.\n"
+    "⚡ Har document = <b>1 credit</b> · ⚠️ Draft notary se check karwa lena\n"
+    "👇 <b>Neeche se chuno:</b>"
 )
 
 HUB_KEY_MISSING_TEXT = (
@@ -1029,10 +977,10 @@ HUB_KEY_MISSING_TEXT = (
 
 MEDIA_MENU_TEXT = (
     f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-    "YouTube→MP3, status video, ringtone, karaoke, 8D, bass boost, voice change, "
-    "video trim/compress, video→MP3. <b>No watermark.</b>\n"
-    "⚡ Every option = <b>1 credit</b>\n"
-    "👇 <b>Select from the menu below:</b>"
+    "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, "
+    "trim/compress. <b>No watermark.</b>\n"
+    "⚡ Har option = <b>1 credit</b>\n"
+    "👇 <b>Neeche se chuno:</b>"
 )
 
 CITY_COORDS = {
@@ -1120,12 +1068,12 @@ def kagaz_ask_next(key: str, data: dict, step: int = 0) -> str:
     if step >= len(fields):
         return ""
     fname, label, hint = fields[step]
-    return (f"📜 <b>{to_bold('DOCUMENT SUITE')}</b> — {key}\n"
+    return (f"📜 <b>{to_bold('KAGAZ SUITE')}</b> — {key}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"✍️ Type the <b>{label}</b>\n"
-            f"<i>(example: {hint})</i>\n"
-            f"🚫 To leave it empty, type <code>skip</code> · ❌ To stop, send /start\n"
-            f"📊 Step {step + 1} of {len(fields)}")
+            f"✍️ <b>{label}</b> likho\n"
+            f"<i>(jaise: {hint})</i>\n"
+            f"🚫 Khaali chhodna hai to <code>skip</code> likho · ❌ Band karne ke liye /cancel\n"
+            f"📊 Step {step + 1} / {len(fields)}")
 
 
 def tool_prompt(action: str) -> str:
@@ -1153,16 +1101,15 @@ def publish_tutorial_now(force: bool = False) -> str:
 
 
 WELCOME_TEXT = (
-    f"⚡ <b>{to_bold('TOOLVAULT • UTILITY DUNIYA')}</b> ⚡\n"
-    "<blockquote>30+ High-Power Automation Tools • Instant 1-Sec Response 🚀</blockquote>\n\n"
-    f"🔥 <b>{to_bold('POPULAR UTILITIES')}:</b>\n"
-    f"• 🌐 <b>{to_bold('Virtual Numbers')}:</b> OTP numbers for WhatsApp &amp; TG\n"
-    f"• ⚡ <b>{to_bold('Terabox DL')}:</b> Ad-free direct bypass\n"
-    f"• 🔄 <b>{to_bold('Channel Cloner')}:</b> Auto-forward with custom branding\n"
-    f"• 📸 <b>{to_bold('Insta Downloader')}:</b> Reels, Posts &amp; Stories (100% Sound)\n"
-    f"• 📸 <b>{to_bold('Cyber Studio')}:</b> Name/Date photo, Signature clean\n"
-    f"• 🏛️ <b>{to_bold('Sarkari Portals')}:</b> Direct official Govt links\n\n"
-    "👇 <b>Tap any tool in the menu below</b>"
+    f"⚡ <b>{to_bold('UTILITY DUNIYA SUPER BOT')}</b> ⚡\n"
+    "<blockquote>Aapke saare daily kaam ke tools — ek hi jagah 🚀</blockquote>\n\n"
+    f"🔥 <b>{to_bold('SABSE ZYADA USE HONE WALE')}:</b>\n"
+    f"• 📲 <b>IMEI Details</b> — phone ka naam, photo + full specs\n"
+    f"• 📥 <b>Video Downloader</b> — Insta / YouTube / FB / X\n"
+    f"• ⚡ <b>Terabox</b> — bina ad ke seedha download\n"
+    f"• 📸 <b>Photo &amp; PDF</b> — passport photo, marksheet PDF, 8-in-1 sheet\n"
+    f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n\n"
+    "👇 <b>Neeche menu se koi bhi tool dabao</b>"
 )
 
 
@@ -1181,11 +1128,11 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ref_id = int(context.args[0].split("_")[1])
             count = add_referral(user.id, ref_id)
             if count:
-                await update.message.reply_text("🎉 Welcome! Thanks for joining with a referral link!")
+                await update.message.reply_text("🎉 Swagat! Referral link se aaye ho — dhanyavaad!")
                 if count % REFER_NEED == 0:
                     grant_premium(ref_id, 30)
                     try:
-                        await context.bot.send_message(ref_id, f"🎉 Congrats! {count} referrals done! You got 30 days VIP free 💎")
+                        await context.bot.send_message(ref_id, f"🎉 Badhai ho! {count} referral poore! 30 din VIP free mil gaya 💎")
                     except Exception:
                         pass
         except Exception:
@@ -1206,38 +1153,47 @@ async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
 
 
+async def cmd_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/refresh — keyboard/menu dobara set karo (purana menu hatane ke liye)."""
+    context.user_data.pop("mode", None)
+    await update.message.reply_text(
+        "🔄 <b>Menu refresh ho gaya!</b>\n"
+        "Purane buttons hata diye gaye hain — ab neeche wala naya menu use karo 👇",
+        reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
+
+
 async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await update.message.reply_text("✅ Cancelled! Your tools menu is ready 👇", reply_markup=kb_for(update.effective_user.id))
+    await update.message.reply_text("✅ Band kar diya! Menu ready hai 👇", reply_markup=kb_for(update.effective_user.id))
 
 
 async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid_ = update.effective_user.id
     u = get_user(uid_, update.effective_user.first_name)
-    vip_status = "👑 ACTIVE VIP" if is_premium(u) else ("👑 OWNER/ADMIN" if is_admin(uid_) else "🆓 Free User")
+    vip_status = "👑 VIP ACTIVE" if is_premium(u) else ("👑 OWNER/ADMIN" if is_admin(uid_) else "🆓 Free User")
     expiry = premium_expiry(u)
     left = credits_left(u, uid_)
     cred_line = "♾️ Unlimited (VIP)" if left >= 999999 else f"{left} / {CREDITS_START}"
     if left < 999999 and left <= 0:
-        cred_line += " — <b>finished!</b> (get VIP for premium tools)"
+        cred_line += " — <b>khatam!</b> (premium tools ke liye VIP lo)"
     text = (
-        f"👤 <b>{to_bold('MY ACCOUNT DETAILS')}</b>\n"
+        f"👤 <b>{to_bold('MERI ACCOUNT')}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"• <b>Name:</b> {hesc(u.get('name', 'User'))}\n"
+        f"• <b>Naam:</b> {hesc(u.get('name', 'User'))}\n"
         f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
         f"• <b>Status:</b> {vip_status}\n"
-        f"• <b>VIP Expiry:</b> {expiry}\n"
-        f"• ⚡ <b>Credits (for premium tools):</b> {cred_line}\n"
+        f"• <b>VIP kab tak:</b> {expiry}\n"
+        f"• ⚡ <b>Credits (premium tools ke liye):</b> {cred_line}\n"
         f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🆓 <b>FREE tools</b> — always free, no credits (passport photo, PDF, IFSC, QR, link tools... all)\n"
-        "💎 <b>PREMIUM tools</b> — 1 credit per use: 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · "
-        "🔒 Private Channel Setup · 🏦 Bank PDF → Excel · 📜 Document Suite · ⚡ Media Studio\n\n"
-        f"🎁 <i>Free VIP: share with {REFER_NEED} friends (/refer) — or get it from /premium.</i>"
+        "🆓 <b>FREE tools</b> — hamesha free, koi credit nahi (passport photo, PDF, IFSC, QR, link check...)\n"
+        "💎 <b>PREMIUM tools</b> — 1 use = 1 credit: 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · "
+        "🔒 Private Channel Setup · 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio · 📲 IMEI Details\n\n"
+        f"🎁 <i>VIP free chahiye? {REFER_NEED} dost ko share karo (/refer) — ya /premium se lo.</i>"
     )
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Buy / Upgrade VIP", callback_data="open_vip_menu")],
-        [InlineKeyboardButton("🎁 Refer & Earn Link", callback_data="open_refer_menu")],
+        [InlineKeyboardButton("💎 VIP lo / upgrade karo", callback_data="open_vip_menu")],
+        [InlineKeyboardButton("🎁 Refer link (free VIP)", callback_data="open_refer_menu")],
     ])
     await update.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
 
@@ -1247,14 +1203,14 @@ async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ref_link = f"https://t.me/{bot_info.username}?start=ref_{update.effective_user.id}"
     u = get_user(update.effective_user.id)
     text = (
-        f"🎁 <b>{to_bold('REFER & EARN FREE VIP')}</b> 🎁\n\n"
-        f"Share this bot with your friends and get **30 days VIP Access FREE**!\n\n"
-        f"📊 <b>Your referrals:</b> {u.get('referrals', 0)}\n"
-        f"🎯 <b>Target:</b> every {REFER_NEED} referrals = 30 Days VIP Free\n\n"
-        f"🔗 <b>Your Personal Invite Link:</b>\n<code>{ref_link}</code>"
+        f"🎁 <b>{to_bold('REFER KARO — VIP FREE LO')}</b>\n\n"
+        f"Doston ko bot share karo aur <b>30 din VIP FREE</b> pao!\n\n"
+        f"📊 <b>Aapke referrals:</b> {u.get('referrals', 0)}\n"
+        f"🎯 <b>Target:</b> har {REFER_NEED} referral = 30 din VIP Free\n\n"
+        f"🔗 <b>Aapka invite link:</b>\n<code>{ref_link}</code>"
     )
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Share on Telegram", url=f"https://t.me/share/url?url={quote(ref_link)}&text={quote('🔥 Check out Utility Duniya Super Bot!')}")],
+        [InlineKeyboardButton("📢 Telegram pe share karo", url=f"https://t.me/share/url?url={quote(ref_link)}&text={quote('🔥 Utility Duniya Super Bot dekho!')}")],
     ])
     await update.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
 
@@ -1439,158 +1395,6 @@ def _veh_has_rc_data(live: dict) -> bool:
     return bool((live.get("summary") or {}).get("count"))
 
 
-# ---------------- v43: CLIP MAKER ----------------
-def clip_choice_kb(mode=None, vertical=None, use_ai=None):
-    def _tick(txt, on):
-        return txt + ("  ✅" if on else "")
-    if use_ai is None:
-        use_ai = aib.ai_available()
-    rows = [
-        [InlineKeyboardButton(_tick("🎯 Best Moments", mode == "smart"), callback_data="clmode:smart"),
-         InlineKeyboardButton(_tick("⏱️ Equal Parts", mode == "equal"), callback_data="clmode:equal")],
-        [InlineKeyboardButton(_tick("🖥️ Normal 16:9", vertical is False), callback_data="clorient:169"),
-         InlineKeyboardButton(_tick("📱 9:16 (Shorts)", vertical is True), callback_data="clorient:916")],
-        [InlineKeyboardButton(_tick("🧠 Smart AI", use_ai), callback_data="clai:toggle")],
-        [InlineKeyboardButton("🚀 Make clips", callback_data="clipgo")],
-    ]
-    return InlineKeyboardMarkup(rows)
-
-
-def clip_choice_text(mode=None, vertical=None, use_ai=None) -> str:
-    m = "🎯 Best Moments" if mode != "equal" else "⏱️ Equal Parts"
-    o = "📱 9:16 (Shorts)" if vertical else "🖥️ 16:9 (normal)"
-    if use_ai is None:
-        use_ai = aib.ai_available()
-    ai_line = (f"🧠 Smart AI: <b>ON</b> · {hesc(aib.ai_label())}\n"
-               "<i>AI video dekhta hai — funny/loud/action wale asli best moments.</i>\n"
-               if use_ai else
-               "🧠 Smart AI: <b>OFF</b> · classic loud+scene analysis\n")
-    return (
-        "🎬 <b>CLIP MAKER</b>\n"
-        f"Mode: <b>{m}</b> · Format: <b>{o}</b> · Clips: <b>{CLIP_MAKER_COUNT}</b>\n"
-        f"{ai_line}"
-        "👇 Setting badlo ya seedha <b>🚀 Make clips</b> dabao:"
-    )
-
-
-async def send_clips_now(context, chat_id: int, uid: int, status, src_path: str,
-                         mode: str, vertical: bool, use_ai: bool = False) -> bool:
-    """Clips banao + bhejo. Success par True. Credit sirf success par katta hai."""
-    t0 = time.time()
-    ai_moments, ai_engine, ai_note = None, "", ""
-    # 🧠 AI step (v44): AI ke paas kaam do — fail ho to classic engine chalta rahega
-    if use_ai and aib.ai_available() and mode == "smart":
-        try:
-            await status.edit_text(
-                "🧠 <b>AI video dekh raha hai…</b>\n"
-                "<i>Funny / loud / action wale asli best moments dhoond raha hoon. "
-                "1-3 min lag sakte hain.</i>", parse_mode=HTML)
-        except Exception:
-            pass
-        try:
-            info_ai = await asyncio.to_thread(clipm.probe_info, src_path)
-            dur_ai = float(info_ai.get("duration") or 0)
-
-            ai_res = await asyncio.to_thread(aib.plan_moments, src_path, dur_ai,
-                                             CLIP_MAKER_COUNT, 15.0, float(CLIP_MAKER_LEN), None, None)
-            if ai_res.get("ok") and ai_res.get("moments"):
-                ai_moments = ai_res["moments"]
-                ai_engine = str(ai_res.get("engine") or "AI")
-                tr = int(ai_res.get("transcript") or 0)
-                ai_note = f"🧠 AI: {hesc(ai_engine)}" + (f" · transcript {tr} lines" if tr else "")
-            else:
-                ai_note = f"⚠️ AI skip: {hesc(str(ai_res.get('error'))[:90])}"
-        except Exception as e:
-            ai_note = f"⚠️ AI skip: {hesc(str(e)[:80])}"
-    try:
-        res = await asyncio.to_thread(clipm.analyze, src_path, mode, vertical, CLIP_MAKER_COUNT,
-                                      ai_moments, ai_engine)
-    except Exception as e:
-        res = {"ok": False, "error": f"Clip engine error: {str(e)[:120]}"}
-    if not res.get("ok"):
-        err = hesc(str(res.get("error") or "Clips could not be made.")[:220])
-        try:
-            await status.edit_text(
-                "❌ <b>CLIPS NOT MADE</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⚠️ {err}\n"
-                "✅ <b>No credit was cut</b> — you can try again.", parse_mode=HTML)
-        except Exception:
-            pass
-        clips_cleanup(res.get("outdir") or "")
-        add_use(uid)
-        return False
-
-    clips = res.get("clips") or []
-    best_idx = {c.get("idx") for c in clips_best_of_best(clips)}
-    try:
-        await status.edit_text(
-            f"✂️ <b>{len(clips)} clips ready</b> — sending now…\n"
-            + (f"<i>{ai_note}</i>\n" if ai_note else "")
-            + f"<i>{res.get('scenes', 0)} scene cuts · {res.get('loud_peaks', 0)} loud moments mile</i>",
-            parse_mode=HTML)
-    except Exception:
-        pass
-
-    sent = 0
-    for c in clips:
-        cap = clips_caption(c, len(clips), vertical)
-        if c.get("idx") in best_idx:
-            cap += "\n🔥 <b>Best of best</b>"
-        try:
-            with open(c["path"], "rb") as fh:
-                await context.bot.send_video(
-                    chat_id=chat_id, video=fh, caption=cap, parse_mode="HTML",
-                    width=int(c.get("width") or 0) or None, height=int(c.get("height") or 0) or None,
-                    duration=int(c.get("dur") or 0) or None, supports_streaming=True)
-            sent += 1
-        except RetryAfter as e:
-            await asyncio.sleep(float(getattr(e, "retry_after", 3)) + 1)
-            try:
-                with open(c["path"], "rb") as fh:
-                    await context.bot.send_video(chat_id=chat_id, video=fh, caption=cap,
-                                                 parse_mode="HTML", supports_streaming=True)
-                sent += 1
-            except Exception:
-                pass
-        except Exception as e:
-            log.warning("clip send fail: %s", e)
-        await asyncio.sleep(0.7)
-
-    clips_cleanup(res.get("outdir") or "")
-    clips_cleanup(os.path.dirname(src_path) if src_path else "")
-
-    if not sent:
-        try:
-            await status.edit_text("❌ The clips were made but could not be sent — please try again. "
-                                   "No credit was cut.", parse_mode=HTML)
-        except Exception:
-            pass
-        add_use(uid)
-        return False
-
-    try:
-        await status.edit_text(
-            f"✅ <b>{sent} clips sent</b> ({'9:16' if vertical else '16:9'}) — "
-            f"took {int(time.time() - t0)} sec.\n"
-            "🔥 = best of best (score-wise top). Baaki clips upar hain.", parse_mode=HTML)
-    except Exception:
-        pass
-    await context.bot.send_message(chat_id=chat_id, text=spend_credit_msg(uid, "clips"), parse_mode=HTML)
-    add_use(uid)
-    return True
-
-
-async def start_clip_job(context, chat_id: int, uid: int, src_path: str, mode: str, vertical: bool,
-                         use_ai: bool = False):
-    status = await context.bot.send_message(
-        chat_id=chat_id,
-        text=("🔍 <b>Analysing the video…</b>\n<i>Loud moments + scene cuts dekh raha hoon. "
-              "10-15 min video par 1-3 minute lag sakte hain.</i>"),
-        parse_mode=HTML)
-    await send_clips_now(context, chat_id, uid, status, src_path, mode, vertical, use_ai)
-
-
 async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/vehstatus — admin: check the vehicle API is working (live test on a sample plate)."""
     if not is_admin(update.effective_user.id):
@@ -1624,7 +1428,7 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "⚠️ <b>IMEI API is not set.</b>\n\nAdd this on Render → Environment:\n"
             "<code>HUB_API_KEY</code> = your hub key  <i>(ek hi key saare hub tools ke liye)</i>\n"
-            "<i>(base already set: osint-apis-hub.onrender.com/api — purani public key Demo ab band hai)</i>",
+            "<i>(base set hai: osint-api-hub.onrender.com/api — Demo key chalti hai)</i>",
             parse_mode=HTML)
         return
     args = [a.strip() for a in (context.args or []) if a.strip()]
@@ -1666,46 +1470,6 @@ async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   "VEHICLE · IMEI · NUMBER INFO", parse_mode=HTML)
     else:
         await st.edit_text(card + f"\n• Live test: ❌ {hesc(str(res.get('error'))[:150])}", parse_mode=HTML)
-
-
-async def cmd_aistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/aistatus — admin: AI Brain ka status + live test."""
-    if not is_admin(update.effective_user.id):
-        return
-    st = await update.message.reply_text("🧠 <b>AI Brain check kar raha hoon…</b>", parse_mode=HTML)
-    card = aib.status_card()
-    if not aib.ai_available():
-        await st.edit_text(card, parse_mode=HTML)
-        return
-    res = await asyncio.to_thread(aib.live_test)
-    if res.get("ok"):
-        await st.edit_text(card + f"\n• Live test: ✅ <b>working</b> ({hesc(str(res.get('say')))} · "
-                                  f"{hesc(str(res.get('engine')))})", parse_mode=HTML)
-    else:
-        await st.edit_text(card + f"\n• Live test: ❌ {hesc(str(res.get('error'))[:150])}", parse_mode=HTML)
-
-
-async def cmd_clipstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/clipstatus — admin: clip engine ready hai ya nahi (ffmpeg + limits)."""
-    if not is_admin(update.effective_user.id):
-        return
-    ff = clipm.ffmpeg_path()
-    ok_ff = bool(ff and (os.path.exists(ff) or __import__("shutil").which(ff)))
-    await update.message.reply_text(
-        "🎬 <b>CLIP MAKER — status</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"• ffmpeg: {'✅ ' + hesc(ff[:60]) if ok_ff else '❌ not found (Render build me ffmpeg install karo)'}\n"
-        f"• Limit: <b>{int(CLIP_MAKER_MAX_MIN)} min</b> video · <b>{CLIP_MAKER_COUNT}</b> clips · "
-        "clip 25-60 sec\n"
-        f"• YouTube (yt-dlp): {'✅ available' if clips_ytdlp_available() else '❌ not installed (file ya direct .mp4 link chalega)'}\n"
-        f"• 🔌 API Hub (YouTube/X/Terabox/IP/IFSC/GST): {'✅ key lagi hai' if hubapi.hub_ready() else '❌ HUB_API_KEY set karo'}\n"
-        f"• Direct .mp4 link download: ✅\n"
-        f"• 🧠 AI Brain: {'✅ ' + hesc(aib.ai_label()) if aib.ai_available() else '❌ off (GEMINI_API_KEY / GROQ_API_KEY set karo)'}\n"
-        f"• Output: 16:9 (480p) ya 9:16 (540x960)\n"
-        "• 🧠 AI: sirf <b>🎯 Best Moments</b> mode me lagta hai (Equal Parts me nahi)\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Test: menu se 🎬 CLIP MAKER kholo aur ek chhota video bhejo.</i>",
-        parse_mode=HTML)
 
 
 async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1756,18 +1520,19 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     text = (
-        f"💎 <b>{to_bold('VIP PREMIUM MEMBERSHIP')}</b> 💎\n"
-        "<blockquote>Unlock Unlimited High-Speed Cloud Downloads, Cloner, Photo Studio & AI Voices!</blockquote>\n\n"
-        f"⚡ <b>{to_bold('VIP FEATURES')}:</b>\n"
-        "• ♾️ Unlimited Daily Usage (No free limits)\n"
-        "• 🚀 Ultra High-Speed Terabox Video Stream & Direct Downloads\n"
-        "• 🔄 Channel Cloner & Auto-Forwarder with Custom Branding\n"
-        "• 🎙️ Full AI Actors Voice Studio\n"
-        "• 📸 Cyber Cafe Photo & Doc Studio HD\n\n"
-        f"\n🎟️ <i>Note: every new user gets {CREDITS_START} free credits for the premium tools "
-        "(Video Downloader, Number Info, Cloner, Bank PDF, Document Suite, Media Studio). "
-        "All other tools are always free.</i>\n\n"
-        "👉 Select a plan and pay with the instant QR code:"
+        f"💎 <b>{to_bold('VIP PREMIUM')}</b>\n"
+        "<blockquote>Sab kuch unlimited — bina kisi limit ke</blockquote>\n\n"
+        f"⚡ <b>{to_bold('VIP ME KYA MILEGA')}:</b>\n"
+        "• ♾️ Sab tools unlimited (koi credit nahi)\n"
+        "• 📥 Video Downloader unlimited\n"
+        "• ⚡ Terabox high-speed stream + direct download\n"
+        "• 🔄 Channel Cloner + Auto-Forward\n"
+        "• 📲 IMEI / Phone Details unlimited\n"
+        "• 🏦 Bank PDF→Excel · 📜 Kagaz Suite · ⚡ Media Studio\n\n"
+        f"🎟️ <i>Har naye user ko {CREDITS_START} free credits milte hain "
+        "(Video Downloader, Number Info, Cloner, Bank PDF, Kagaz Suite, Media Studio, IMEI). "
+        "Baaki saare tools hamesha free hain.</i>\n\n"
+        "👉 Plan chuno aur QR code se pay karo:"
     )
     await update.message.reply_text(
         text,
@@ -1991,9 +1756,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "vnum_get":
         txt = (
-            f"📲 <b>{to_bold('STEP 1: SELECT SERVICE')}</b>\n"
+            f"📲 <b>{to_bold('STEP 1: SERVICE CHUNO')}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "What do you need the number for? Pick a service below 👇"
+            "Number kis kaam ke liye chahiye? Neeche se chuno 👇"
         )
         await _vnum_say(q, txt, _vnum_svc_kb())
         return
@@ -2003,10 +1768,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         svc_name = dict(VNUM_SERVICES).get(sl, sl.upper())
         context.user_data["vnum_svc"] = svc_name
         txt = (
-            f"🌍 <b>{to_bold('STEP 2: SELECT COUNTRY')}</b>\n"
+            f"🌍 <b>{to_bold('STEP 2: DESH CHUNO')}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"Service: <b>{svc_name}</b>\n\n"
-            "Which country number do you need? Select a country 👇"
+            "Kis desh ka number chahiye? Neeche se chuno 👇"
         )
         await _vnum_say(q, txt, _vnum_ctry_kb())
         return
@@ -2018,18 +1783,18 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         order_text = f"Hi, I need a Virtual Number:\nService: {svc_name}\nCountry: {ctry_name}"
         contact_url = f"https://t.me/Supermannn_x?text={quote(order_text)}"
         card = (
-            f"🎯 <b>{to_bold('STEP 3: GET YOUR NUMBER')}</b>\n"
+            f"🎯 <b>{to_bold('STEP 3: NUMBER LO')}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📲 <b>Service:</b> {svc_name}\n"
-            f"🌍 <b>Country:</b> {ctry_name}\n"
-            "⚡ <b>Delivery:</b> Instant (1-2 min)\n"
+            f"🌍 <b>Desh:</b> {ctry_name}\n"
+            "⚡ <b>Time:</b> 1-2 minute\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
-            "👉 Tap the <b>Contact Admin</b> button below to get the number:"
+            "👉 Number lene ke liye neeche <b>Contact Admin</b> dabao:"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💬 Contact @Supermannn_x", url=contact_url)],
-            [InlineKeyboardButton("🔁 Select Another", callback_data="vnum_get")],
-            [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+            [InlineKeyboardButton("💬 Admin se baat karo @Supermannn_x", url=contact_url)],
+            [InlineKeyboardButton("🔁 Doosra chuno", callback_data="vnum_get")],
+            [InlineKeyboardButton("⌨️ Menu", callback_data="back_home")],
         ])
         await _vnum_say(q, card, kb)
         return
@@ -2051,7 +1816,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if pending_n >= 3:
             mine = [p for p in pending_payments(20) if p.get("user_id") == uid]
             if len(mine) >= 3:
-                await q.answer("You already have 3 payments pending — the admin will verify them.", show_alert=True)
+                await q.answer("Aapke 3 payment already pending hain — admin check karega.", show_alert=True)
                 return
         context.user_data["mode"] = f"pay_utr_{plan_key}"
         context.user_data["pay_utr_tries"] = 0
@@ -2059,18 +1824,18 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         caption = (
             f"💎 <b>{to_bold(plan_name)}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 <b>Amount:</b> ₹{amt}\n"
+            f"💰 <b>Paisa:</b> ₹{amt}\n"
             f"🏦 <b>UPI ID:</b> <code>{UPI_ID}</code>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "📲 <b>Step 1:</b> Scan this QR and pay ₹" f"{amt} \n"
+            "📲 <b>Step 1:</b> Ye QR scan karke ₹" f"{amt} pay karo\n"
             "   (PhonePe / GPay / Paytm / BHIM)\n\n"
-            "📝 <b>Step 2:</b> After paying, send the <b>UTR / Transaction ID</b> here\n"
-            "📸 <b>Step 3:</b> Send the payment <b>screenshot</b>\n\n"
-            "⚠️ <b>Strict check:</b> the UTR must be correct and the screenshot must be of a real payment "
-            "(not a photo or meme). Wrong proof = no VIP."
+            "📝 <b>Step 2:</b> Pay karne ke baad <b>UTR / Transaction ID</b> yahan bhejo\n"
+            "📸 <b>Step 3:</b> Payment ka <b>screenshot</b> bhejo\n\n"
+            "⚠️ <b>Sakht check:</b> UTR sahi hona chahiye aur screenshot asli payment ka "
+            "(photo ya meme nahi). Galat proof = VIP nahi."
         )
         kb_pay = InlineKeyboardMarkup([
-            [InlineKeyboardButton("❓ Where do I find the UTR?", callback_data="pay_utr_help")],
+            [InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")],
             [InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
         ])
         await q.message.reply_photo(photo=qr_buf, caption=caption, reply_markup=kb_pay, parse_mode=HTML)
@@ -2325,73 +2090,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if data.startswith("clai:"):
-        _cur = context.user_data.get("clip_ai")
-        if _cur is None:
-            _cur = aib.ai_available()
-        context.user_data["clip_ai"] = not bool(_cur)
-        if context.user_data["clip_ai"] and not aib.ai_available():
-            context.user_data["clip_ai"] = False
-            await q.answer("AI key server par set nahi hai — classic mode hi chalega.", show_alert=True)
-        try:
-            await q.message.edit_text(
-                clip_choice_text(context.user_data.get("clip_mode"), context.user_data.get("clip_vert"),
-                                 context.user_data.get("clip_ai")),
-                reply_markup=clip_choice_kb(context.user_data.get("clip_mode"), context.user_data.get("clip_vert"),
-                                            context.user_data.get("clip_ai")), parse_mode=HTML)
-        except Exception:
-            await q.answer("Setting badal gayi ✅")
-        return
-
-    if data.startswith("clmode:") or data.startswith("clorient:") or data == "clipgo":
-        _src = context.user_data.get("clip_src") or ""
-        if not _src or not os.path.exists(_src):
-            await q.answer("Send the video first.", show_alert=True)
-            await q.message.reply_text(tool_prompt("clips"), parse_mode=HTML)
-            return
-        if data.startswith("clmode:"):
-            context.user_data["clip_mode"] = "equal" if data.endswith("equal") else "smart"
-            await q.answer("Mode set ✅")
-            await q.message.edit_text(clip_choice_text(context.user_data.get("clip_mode"),
-                                                       context.user_data.get("clip_vert")),
-                                      reply_markup=clip_choice_kb(context.user_data.get("clip_mode"),
-                                                                  context.user_data.get("clip_vert")),
-                                      parse_mode=HTML)
-            return
-        if data.startswith("clorient:"):
-            context.user_data["clip_vert"] = data.endswith("916")
-            await q.answer("Format set ✅")
-            await q.message.edit_text(clip_choice_text(context.user_data.get("clip_mode"),
-                                                       context.user_data.get("clip_vert")),
-                                      reply_markup=clip_choice_kb(context.user_data.get("clip_mode"),
-                                                                  context.user_data.get("clip_vert")),
-                                      parse_mode=HTML)
-            return
-        # 🚀 clipgo
-        _u_cg = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_cg, uid):
-            await q.answer("No credits left — get VIP for unlimited clips.", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("clips"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        mode_c = context.user_data.get("clip_mode") or "smart"
-        vert_c = bool(context.user_data.get("clip_vert"))
-        ai_c = context.user_data.get("clip_ai")
-        if ai_c is None:
-            ai_c = aib.ai_available()
-        ai_c = bool(ai_c) and aib.ai_available()
-        context.user_data["mode"] = None
-        context.user_data["clip_src"] = None
-        await q.answer("Making clips… 🎬")
-        await q.message.edit_text(
-            "🎬 <b>Clips ban rahe hain…</b>\n"
-            f"Mode: <b>{'🎯 Best Moments' if mode_c == 'smart' else '⏱️ Equal Parts'}</b> · "
-            f"<b>{'9:16' if vert_c else '16:9'}</b> · "
-            f"AI <b>{'ON 🧠' if ai_c else 'OFF'}</b>\n"
-            "<i>Analysing phir cutting. Please wait.</i>", parse_mode=HTML)
-        asyncio.create_task(start_clip_job(context, q.message.chat.id, uid, _src, mode_c, vert_c, ai_c))
-        return
-
     if data.startswith("imeiagain:"):
         imei = re.sub(r"\D", "", data.split(":", 1)[1])[:15]
         _u_ii = get_user(uid, q.from_user.first_name)
@@ -2586,17 +2284,17 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "cloner_guide":
         await q.message.reply_text(
 
-            "🔄 <b>AUTO FORWARD (CLONER) — 3 STEPS</b>\n"
+            "🔄 <b>AUTO FORWARD (CLONER) — 3 STEP</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "1️⃣ Set <b>SOURCE</b> (channel to copy posts from)\n"
-            "2️⃣ Set <b>TARGET</b> (channel to send posts to — bot must be admin there)\n"
-            "3️⃣ Turn <b>FULL AUTO ON</b> — done, posts copy by themselves\n"
+            "1️⃣ <b>SOURCE</b> set karo (jis channel se post copy hogi)\n"
+            "2️⃣ <b>TARGET</b> set karo (jis channel me post jayegi — bot wahan admin ho)\n"
+            "3️⃣ <b>FULL AUTO ON</b> karo — bas, posts khud copy hone lagengi\n"
             "\n"
-            "🎬 Watch the video below — full steps in 30 seconds:",
+            "🎬 Neeche video dekho — 30 second me poora tarika:",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:cloner")],
-                [InlineKeyboardButton("🚀 Start Setup (3 Steps)", callback_data="cloner_setup")],
-                [InlineKeyboardButton("📊 My Settings", callback_data="cloner_status")],
+                [InlineKeyboardButton("🚀 Setup shuru karo", callback_data="cloner_setup")],
+                [InlineKeyboardButton("📊 Meri settings", callback_data="cloner_status")],
             ]),
             parse_mode=HTML,
         )
@@ -2687,17 +2385,17 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "cloner_private":
         await q.message.reply_text(
 
-            "🔒 <b>COPY POSTS FROM A PRIVATE CHANNEL?</b>\n"
+            "🔒 <b>PRIVATE CHANNEL SE POST COPY KARNA HAI?</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Very easy — <b>no login, no password</b>. Just 3 things:\n"
-            "1️⃣ In your <b>private channel</b> go to <b>Administrators</b> → <b>Add Admin</b> → add this bot (<code>@utility_duniya_bot</code>) ✅\n"
-            "   <i>(This is the only 'login' — bot only needs to be inside. Do it once.)</i>\n"
-            "2️⃣ <b>FORWARD any one post</b> (video/PDF/photo) from that channel to this bot\n"
-            "   → the bot picks up the channel ID by itself\n"
-            "3️⃣ The bot gives you a button: <b>📡 Make this SOURCE</b> — tap it, source is set\n"
+            "Bilkul aasan — <b>na login, na password</b>. Sirf 3 kaam:\n"
+            "1️⃣ Apne <b>private channel</b> me jao → <b>Administrators</b> → <b>Add Admin</b> → is bot ko add karo (<code>@utility_duniya_bot</code>) ✅\n"
+            "   <i>(Bas itna hi 'login' hai — bot ko channel ke andar hona chahiye. Ek baar karna hai.)</i>\n"
+            "2️⃣ Us channel se <b>koi ek post forward karo</b> (video/PDF/photo) is bot ko\n"
+            "   → bot khud channel ID pakad lega\n"
+            "3️⃣ Bot ek button dega: <b>📡 Make this SOURCE</b> — dabao, source set ho jayega\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "After that set <b>Target</b> and turn <b>FULL AUTO</b> ON. Done! 🎉\n"
-            "⚠️ Telegram does not allow forwarding from channels with copy protection — in that case the bot grabs the post directly (auto mode) because it is <b>admin</b> there."
+            "Uske baad <b>Target</b> set karo aur <b>FULL AUTO</b> ON karo. Bas! 🎉\n"
+            "⚠️ Copy-protection wale channel se Telegram forward nahi karta — us case me bot khud post uthata hai (auto mode) kyunki wo wahan <b>admin</b> hai."
             "",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔙 Back to setup", callback_data="cloner_setup")],
@@ -2836,13 +2534,13 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "ytmp3": ("🎵 <b>YOUTUBE → MP3</b>\n\nNow send the <b>YouTube link of the song</b>:\n<i>(example https://youtu.be/xxxx)</i>", "media_ytmp3"),
             "status": ("🎬 <b>STATUS VIDEO MAKER</b>\n\n1️⃣ First <b>send a photo</b> (the status is made on it)", "media_status_photo"),
             "ringtone": ("🎧 <b>RINGTONE CUTTER</b>\n\nSend a song (MP3) or video — I make a 30 second ringtone from it.", "media_ringtone"),
-            "karaoke": ("🎤 <b>KARAOKE MAKER</b>\n\nSend a song (MP3) or video — I remove the vocals and keep the music.", "media_karaoke"),
-            "8d": ("🔊 <b>8D SOUND</b>\n\nSend a song — I add the 8D effect.", "media_8d"),
-            "bass": ("💥 <b>BASS BOOST</b>\n\nSend a song — full bass, loud sound.", "media_bass"),
-            "voice": ("🗣️ <b>VOICE CHANGE</b>\n\nSend a voice note / audio / video — then pick a voice.", "media_voice_wait"),
-            "v2mp3": ("🎼 <b>VIDEO → MP3</b>\n\nSend a video — I make its MP3.", "media_v2mp3"),
-            "trim": ("✂️ <b>VIDEO TRIM</b>\n\nSend a video (max 2 minutes) — then give the time (example <code>0:10 to 0:45</code>).", "media_trim_wait"),
-            "compress": ("🗜️ <b>VIDEO COMPRESS</b>\n\nSend a video (max 2 minutes) — I make the size small (easy to send on WhatsApp).", "media_compress_wait"),
+            "karaoke": ("🎤 <b>KARAOKE MAKER</b>\n\nGaana (MP3) ya video bhejo — awaaz hata kar sirf music rakh dunga.", "media_karaoke"),
+            "8d": ("🔊 <b>8D SOUND</b>\n\nGaana bhejo — 8D effect laga dunga.", "media_8d"),
+            "bass": ("💥 <b>BASS BOOST</b>\n\nGaana bhejo — poori bass, tez awaaz.", "media_bass"),
+            "voice": ("🗣️ <b>VOICE CHANGE</b>\n\nVoice note / audio / video bhejo — phir voice chuno.", "media_voice_wait"),
+            "v2mp3": ("🎼 <b>VIDEO → MP3</b>\n\nVideo bhejo — uska MP3 bana dunga.", "media_v2mp3"),
+            "trim": ("✂️ <b>VIDEO TRIM</b>\n\nVideo bhejo (max 2 minute) — phir time batao (jaise <code>0:10 to 0:45</code>).", "media_trim_wait"),
+            "compress": ("🗜️ <b>VIDEO COMPRESS</b>\n\nVideo bhejo (max 2 minute) — size chhota kar dunga (WhatsApp par bhejne layak).", "media_compress_wait"),
         }.get(kind)
         if not ask:
             await q.message.reply_text("❌ Option not found.", parse_mode=HTML)
@@ -3003,15 +2701,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Advanced Channel Cloner Settings Handlers
     if data == "cloner_set_target":
         context.user_data["mode"] = "cloner_target"
-        await q.message.reply_text("📑 <b>Set Channel ID:</b>\nSend the TARGET channel username or ID:\n(example: <code>@MyChannel</code> ya <code>-100123456789</code>)\n\n<i>Note: Make the bot Admin in the target channel (with Post permission).</i>", parse_mode=HTML)
+        await q.message.reply_text("📑 <b>TARGET channel set karo:</b>\nUs channel ka username ya ID bhejo jahan post jayegi:\n(jaise: <code>@MyChannel</code> ya <code>-100123456789</code>)\n\n<i>Dhyan: target channel me bot ko Admin banao (Post permission ke saath).</i>", parse_mode=HTML)
         return
 
     if data == "cloner_set_source":
         context.user_data["mode"] = "cloner_source"
         await q.message.reply_text(
-            "📡 <b>Set SOURCE Channel:</b>\nSend the username or ID of the channel to copy posts FROM:\n"
-            "(example <code>@MySourceChannel</code> or <code>-1001234567890</code>)\n\n"
-            "<i>Important: the bot must be ADMIN in that source channel too — only then new posts reach the bot.</i>",
+            "📡 <b>SOURCE channel set karo:</b>\nJis channel se post copy karni hai uska username ya ID bhejo:\n"
+            "(jaise <code>@MySourceChannel</code> ya <code>-1001234567890</code>)\n\n"
+            "<i>Zaroori: us source channel me bhi bot ko ADMIN banao — tabhi nayi posts bot tak pahunchti hain.</i>",
             parse_mode=HTML,
         )
         return
@@ -3021,20 +2719,20 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if cfg.get("auto_status") == "on":
             save_cloner_config(uid, auto_status="off")
             await q.message.reply_text(
-                "🛑 <b>FULL AUTO CLONE OFF!</b>\n\nNew posts will not be copied automatically now. (Manual forwarding still works.)",
+                "🛑 <b>FULL AUTO CLONE OFF!</b>\n\nAb nayi posts apne aap copy nahi hongi. (Manual forward phir bhi chalega.)",
                 reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
             )
             return
 
         if not cfg.get("target_chat_id"):
-            await q.message.reply_text("⚠️ First set the <b>📑 Target</b> channel (where the post should go).", parse_mode=HTML)
+            await q.message.reply_text("⚠️ Pehle <b>📑 Target</b> channel set karo (jahan post jayegi).", parse_mode=HTML)
             return
         if not cfg.get("source_chat_id"):
-            await q.message.reply_text("⚠️ First set the <b>📡 Source</b> channel (where the post comes from).", parse_mode=HTML)
+            await q.message.reply_text("⚠️ Pehle <b>📡 Source</b> channel set karo (jahan se post aayegi).", parse_mode=HTML)
             return
         if str(cfg.get("target_chat_id")).strip() == str(cfg.get("source_chat_id")).strip():
-            await q.message.reply_text("❌ Source and Target cannot be the same (the post would loop forever).", parse_mode=HTML)
+            await q.message.reply_text("❌ Source aur Target ek hi nahi ho sakte (post ghoomti rehti rahegi).", parse_mode=HTML)
             return
 
         _u_c = get_user(uid)
@@ -3052,8 +2750,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📡 Source: <code>{cfg.get('source_chat_id')}</code>\n"
             f"📑 Target: <code>{cfg.get('target_chat_id')}</code>\n\n"
 
-            "Now every <b>new post</b> in the source channel is copied to your target channel in 2-5 seconds — with caption, tag, watermark, replace/remove words and thumbnail settings.\n"
-            "<i>Note: only NEW posts are copied (not old ones). Tap the same button again to stop.</i>",
+            "Ab source channel ki har <b>nayi post</b> 2-5 second me aapke target channel me copy ho jayegi — caption, tag, watermark, replace/remove words aur thumbnail settings ke saath.\n"
+            "<i>Dhyan: sirf NAYI posts copy hoti hain (purani nahi). Rokne ke liye wahi button dobara dabao.</i>",
             reply_markup=get_cloner_settings_kb(uid),
             parse_mode=HTML,
         )
@@ -3061,12 +2759,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "cloner_set_tag":
         context.user_data["mode"] = "cloner_tag"
-        await q.message.reply_text("🏷️ <b>Set Rename Tag:</b>\nWhich tag should be added in front of every video/post title?\n(example <code>[🔥 4K HD]</code> or <code>@MyChannel</code>)", parse_mode=HTML)
+        await q.message.reply_text("🏷️ <b>Rename Tag set karo:</b>\nHar video/post ke title ke aage kaun sa tag lagega?\n(jaise <code>[🔥 4K HD]</code> ya <code>@MyChannel</code>)", parse_mode=HTML)
         return
 
     if data == "cloner_set_caption":
         context.user_data["mode"] = "cloner_caption"
-        await q.message.reply_text("📝 <b>Set Custom Caption:</b>\nWhich custom caption should be added to posts?\n(example <code>Join @MyChannel for daily free updates!</code>)", parse_mode=HTML)
+        await q.message.reply_text("📝 <b>Apna Caption set karo:</b>\nPost me kaun sa caption judega?\n(jaise <code>Roz free updates ke liye @MyChannel join karo!</code>)", parse_mode=HTML)
         return
 
     if data == "cloner_set_replace":
@@ -3091,13 +2789,13 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "cloner_set_wm":
         context.user_data["mode"] = "cloner_wm"
-        await q.message.reply_text("💧 <b>Watermark Setup:</b>\nSend the watermark text/link to show at the bottom of posts:\n(example: <code>⚡ Forwarded by @MyChannel</code>)", parse_mode=HTML)
+        await q.message.reply_text("💧 <b>Watermark set karo:</b>\nPost ke neeche kaun sa text/link dikhega?\n(jaise: <code>⚡ Forwarded by @MyChannel</code>)", parse_mode=HTML)
         return
 
     if data == "cloner_reset":
         save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="", source_chat_id="", auto_status="off")
         context.user_data.pop("mode", None)
-        await q.message.reply_text("🔄 <b>Settings Reset!</b> All cloner settings are back to default.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        await q.message.reply_text("🔄 <b>Settings reset ho gayi!</b> Cloner ki saari settings default par aa gayi.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     if data == "cloner_start_mode":
@@ -3111,7 +2809,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text(spend_credit_msg(uid, "cloner").replace("1 credit used", "Fast Forward ON — 1 credit used"),
                                        parse_mode=HTML)
         context.user_data["mode"] = "cloning_active"
-        await q.message.reply_text("🚀 <b>Fast Auto-Forward Active!</b>\n\nNow forward 10-15 posts/videos from any channel, or send media directly — the bot posts everything to your target channel in 1-2 seconds!\n\nStop it any time with /cancel.", parse_mode=HTML)
+        await q.message.reply_text("🚀 <b>Fast Auto-Forward chalu!</b>\n\nAb kisi bhi channel se 10-15 post/video forward karo, ya media seedha bhejo — bot sab kuch 1-2 second me aapke target channel me daal dega!\n\nRokne ke liye /cancel dabao.", parse_mode=HTML)
         return
 
 async def _vnum_say(q, text, kb):
@@ -3150,15 +2848,15 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
         context.user_data["pay_shot_tries"] = tries + 1
         await st.edit_text(
 
-            "❌ <b>This does not look like a payment screenshot!</b>\n"
+            "❌ <b>Ye payment ka screenshot nahi lag raha!</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "📸 <b>Send the screenshot like this:</b>\n"
-            "1️⃣ Open PhonePe / GPay / Paytm on your phone\n"
-            "2️⃣ Go to <b>History / Passbook</b>\n"
-            "3️⃣ Tap that payment\n"
-            "4️⃣ Take a <b>screenshot</b> → send it here (amount, success and UTR must be clear)\n"
-            "⚠️ Selfies, photos or memes are rejected as proof.\n"
-            "<i>Your UTR is saved — just send the correct screenshot.</i>",
+            "📸 <b>Aise screenshot bhejo:</b>\n"
+            "1️⃣ Phone me PhonePe / GPay / Paytm kholo\n"
+            "2️⃣ <b>History / Passbook</b> me jao\n"
+            "3️⃣ Us payment par tap karo\n"
+            "4️⃣ <b>Screenshot</b> lo → yahan bhejo (amount, success aur UTR saaf dikhna chahiye)\n"
+            "⚠️ Selfie, photo ya meme proof nahi mane jayenge.\n"
+            "<i>Aapka UTR save hai — bas sahi screenshot bhejo.</i>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ Where do I find the UTR?", callback_data="pay_utr_help")]]),
             parse_mode=HTML,
         )
@@ -3170,10 +2868,10 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
     if shot_dup:
         await st.edit_text(
 
-            "🚫 <b>This screenshot was already used!</b>\n"
-            "One screenshot can get VIP only once.\n"
-            "📸 Make a new payment and send the <b>screenshot</b> of that new payment.\n"
-            "💬 Any problem? Support: @Supermannn_x",
+            "🚫 <b>Ye screenshot pehle use ho chuka hai!</b>\n"
+            "Ek screenshot se sirf ek baar VIP milta hai.\n"
+            "📸 Naya payment karo aur us naye payment ka <b>screenshot</b> bhejo.\n"
+            "💬 Problem hai? Support: @Supermannn_x",
             parse_mode=HTML)
         return
     flags = {
@@ -3188,7 +2886,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
     pid = create_payment(uid, plan_key, plan["name"], plan["price"], plan["days"], utr,
                          photo_obj.file_id, photo_obj.file_unique_id, flags)
     if not pid:
-        await st.edit_text("❌ Could not save the record. Try again in a bit or contact Support.")
+        await st.edit_text("❌ Record save nahi ho paya. Thodi der baad try karo ya Support se baat karo.")
         return
 
     card = admin_payment_card(
@@ -3246,6 +2944,39 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Match Action
     action = BTN_MODE_MAP.get(clean_key) or BTN_MODE_MAP.get(norm_text)
+
+    # ---------- v49: purane keyboard ke hata diye gaye buttons ----------
+    # Jo users purane menu par 🎬 CLIP MAKER / 🔓 LINK BYPASS / 📈 INTEREST CALC
+    # daba rahe hain — unko saaf message + naya keyboard mil jaye.
+    _removed_keys = {
+        "CLIP MAKER", "CLIPS MAKER", "VIDEO CLIP MAKER", "CLIPMAKER",
+        "LINK BYPASS", "LINKBYPASS", "BYPASS",
+        "INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC",
+    }
+    if not action and clean_key in _removed_keys:
+        _why = {
+            "CLIP MAKER": "🎬 Clip Maker",
+            "CLIPS MAKER": "🎬 Clip Maker",
+            "VIDEO CLIP MAKER": "🎬 Clip Maker",
+            "CLIPMAKER": "🎬 Clip Maker",
+            "LINK BYPASS": "🔓 Link Bypass",
+            "LINKBYPASS": "🔓 Link Bypass",
+            "BYPASS": "🔓 Link Bypass",
+            "INTEREST CALC": "📈 Interest Calc",
+            "INTEREST CALCULATOR": "📈 Interest Calc",
+            "INTEREST": "📈 Interest Calc",
+            "VYAAJ CALC": "📈 Interest Calc",
+        }.get(clean_key, "Ye tool")
+        await update.message.reply_text(
+            f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Ye tool ab bot me nahi hai — iske badle aap ye use kar sakte ho:\n"
+            "• 🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>\n"
+            "• 🔓 Link Bypass ki jagah → 🔍 <b>Link Safety Check</b> / 📥 <b>Video Downloader</b>\n"
+            "• 📈 Interest Calc ki jagah → 📜 <b>Kagaz Suite</b> (loan paper, registry cost)\n\n"
+            "👇 Naya menu neeche hai:",
+            reply_markup=kb_for(uid), parse_mode=HTML)
+        return
 
     if action:
         # 1. Virtual Numbers Funnel
@@ -3324,26 +3055,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "📜 <b>Full Page</b> — the whole long page, a bit slow\n\n"
                 "Send the URL first, the screenshot is made for you.",
                 reply_markup=kb, parse_mode=HTML)
-            return
-
-        # 7. Interest Calculator — sirf CHAKRAVRIDDHI (compound), gaon/kasbe wala byaaj system
-        if action == "interest":
-            context.user_data["mode"] = "int_p"
-            await update.message.reply_text(
-                f"📈 <b>{to_bold('VYAAJ (CHAKRAVRIDDHI) CALCULATOR')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-
-                "This is the <b>compound interest</b> calculation — the same way village interest works at ₹x per ₹100 per month.\n"
-                "<i>(The simple interest option has been removed — compound is the real calculation.)</i>\n"
-                "Just 3 steps:\n"
-                "1️⃣ How much money you took (principal)\n"
-                "2️⃣ Interest per ₹100 per month\n"
-                "3️⃣ How many months\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "<b>Step 1/3 — how much money did you take?</b>\n"
-                "Send: <code>50000</code> or <code>1.5 lakh</code> or <code>50k</code>",
-                parse_mode=HTML,
-            )
             return
 
         # 8. Image to PDF
@@ -3769,9 +3480,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         plan_key = mode.replace("pay_shot_", "")
         await update.message.reply_text(
 
-            "📸 <b>Now I need a screenshot (not text)!</b>\n"
-            "Open the payment app on your phone → take a <b>screenshot</b> of that payment → send it here.\n"
-            "⚠️ The screenshot must show: <b>amount, success/paid, and UTR</b>.",
+            "📸 <b>Yahan screenshot chahiye (text nahi)!</b>\n"
+            "Phone me payment app kholo → us payment ka <b>screenshot</b> lo → yahan bhejo.\n"
+            "⚠️ Screenshot me dikhna chahiye: <b>amount, success/paid, aur UTR</b>.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Open the plan again", callback_data=f"buy_plan_{plan_key}")]]),
             parse_mode=HTML)
         return
@@ -4081,8 +3792,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             # API fail → free card + reason
             if live.get("hub_disabled"):
-                _why = ("⚠️ <b>Live RC / challan data is turned off right now.</b>\n"
-                        "<i>The data provider has paused vehicle records. The RTO card below still works.</i>")
+                _why = ("⚠️ <b>Live RC / challan data abhi band hai.</b>\n"
+                        "<i>Data provider ne vehicle records rok diye hain. Neeche RTO card phir bhi kaam karta hai.</i>")
             else:
                 _why = f"⚠️ <b>Live report not available:</b> {hesc(str(live.get('error'))[:120])}"
             card_txt, kb_free = _free_card(_why)
@@ -4090,7 +3801,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
 
-        card_txt, kb_free = _free_card("🚨 <b>Challan + full RC report:</b> VIP users get the live report (challan pending/paid, insurance, PUC, finance). → /premium")
+        card_txt, kb_free = _free_card("🚨 <b>Challan + poori RC report:</b> official portal par apne aap check kar sakte ho (neeche links) → VAHAN / e-Challan")
         await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
         add_use(uid)
         return
@@ -4112,12 +3823,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return                       # mode chalu rehta hai — dobara bhej sakte ho
         if not imei_api_ready():
             await update.message.reply_text(
-                imei_help_card("Live IMEI details are not available right now. Please try later."),
+                imei_help_card("IMEI details abhi available nahi hain. Thodi der baad try karo."),
                 parse_mode=HTML)
             add_use(uid)
             return
         wait = await update.message.reply_text(
-            "🔎 <b>Fetching the device details…</b>\n<i>Please wait 5-15 seconds.</i>", parse_mode=HTML)
+            "🔎 <b>Phone ki details nikal raha hoon…</b>\n<i>5-15 second lagenge.</i>", parse_mode=HTML)
         res_i = fetch_imei_details(imei_clean)
         try:
             await wait.delete()
@@ -4126,13 +3837,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not res_i.get("ok"):
             rows_fb = [[InlineKeyboardButton(t, url=u)] for t, u in imei_fallback_links(imei_clean)]
             await update.message.reply_text(
-                "❌ <b>DEVICE DETAILS NOT FOUND</b>\n"
+                "❌ <b>DEVICE DETAILS NAHI MILE</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n"
                 f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
-                "✅ <b>No credit was cut</b> — check the number and send again.\n"
+                "✅ <b>Koi credit nahi kata</b> — number check karke dobara bhejo.\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "👇 You can also check on the official site:",
+                "👇 Official site par bhi check kar sakte ho:",
                 reply_markup=InlineKeyboardMarkup(rows_fb), parse_mode=HTML)
             add_use(uid)
             return
@@ -4210,68 +3921,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML)
         context.user_data.pop("mode", None)
         context.user_data.pop("raw_photo", None)
-        add_use(uid)
-        return
-
-    if mode in ("clips", "clips_wait", "clips_mode"):
-        url = (raw_text or "").strip()
-        _u_cl = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u_cl, uid):
-            await update.message.reply_text(get_credits_over_text("clips"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            add_use(uid)
-            return
-        if url.lower().startswith("http") and (clips_is_direct_url(url) or clips_is_yt_url(url)):
-            st = await update.message.reply_text("⬇️ <b>Downloading the video…</b>\n<i>Please wait.</i>",
-                                                 parse_mode=HTML)
-            d = tempfile.mkdtemp(prefix="clipin_")
-            if clips_is_yt_url(url):
-                if not clips_ytdlp_available() and not hubapi.hub_ready():
-                    clips_cleanup(d)
-                    await st.edit_text(
-                        "⚠️ <b>YouTube download is not available right now.</b>\n\n"
-                        "👉 Send the <b>video file</b> itself, or a <b>direct .mp4 link</b>.\n"
-                        "<i>(Owner: <code>HUB_API_KEY</code> lagao to YouTube bhi chalega.)</i>",
-                        parse_mode=HTML)
-                    add_use(uid)
-                    return
-                r = await asyncio.to_thread(clips_youtube_download, url, d,
-                                            CLIP_MAKER_MAX_MIN, 400.0)
-            else:
-                r = await asyncio.to_thread(clips_download_direct, url, os.path.join(d, "src.mp4"))
-            if not r.get("ok"):
-                clips_cleanup(d)
-                await st.edit_text(
-                    "❌ <b>DOWNLOAD FAILED</b>\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"⚠️ {hesc(str(r.get('error'))[:200])}\n"
-                    "✅ No credit was cut. 👉 Send the video <b>file</b> instead — that always works.",
-                    parse_mode=HTML)
-                add_use(uid)
-                return
-            info = await asyncio.to_thread(clips_probe, r["path"])
-            dur = float(info.get("duration") or 0)
-            if dur and dur > CLIP_MAKER_MAX_MIN * 60:
-                clips_cleanup(d)
-                await st.edit_text("⚠️ Video is <b>%d min</b> long — limit is <b>%d min</b>."
-                                   % (int(dur // 60), int(CLIP_MAKER_MAX_MIN)), parse_mode=HTML)
-                add_use(uid)
-                return
-            context.user_data["clip_src"] = r["path"]
-            context.user_data["clip_mode"] = None
-            context.user_data["clip_vert"] = None
-            context.user_data["mode"] = "clips_mode"
-            await st.edit_text(
-                "✅ <b>Video downloaded</b> — %s · %sMB\n\n" % (
-                    clips_fmt_t(dur) if dur else "?", r.get("size_mb"))
-                + clip_choice_text(None, None, context.user_data.get("clip_ai")),
-                reply_markup=clip_choice_kb(None, None, context.user_data.get("clip_ai")), parse_mode=HTML)
-            add_use(uid)
-            return
-        await update.message.reply_text(
-            clips_help_card() + "\n\n📸 <b>Now send the video file (or a direct .mp4 link):</b>",
-            parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4458,12 +4107,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             "🆔 <b>ID & USERNAME FINDER</b>\n"
             "\n"
-            "Three ways:\n"
-            "1️⃣ Send <code>me</code> → your own Telegram ID\n"
-            "2️⃣ <b>Forward a message</b> from any user/channel → their ID\n"
-            "3️⃣ Send <code>@username</code> → real check on 5 platforms ✅/❌\n"
+            "Teen tarike:\n"
+            "1️⃣ <code>me</code> bhejo → apni Telegram ID\n"
+            "2️⃣ <b>Koi message forward karo</b> (kisi user/channel se) → uski ID\n"
+            "3️⃣ <code>@username</code> bhejo → 5 platform par check ✅/❌\n"
             "\n"
-            "<i>Note: a private user's ID is shown only if the message is forwardable.</i>",
+            "<i>Dhyan: private user ki ID tabhi dikhti hai jab message forward ho sake.</i>",
             parse_mode=HTML,
         )
         return
@@ -4475,7 +4124,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buf = make_qr_bytes(raw_text)
         await update.message.reply_photo(
             photo=buf,
-            caption=f"📷 <b>{to_bold('HD QR CODE READY')}</b>\n\n🔗 <code>{hesc(raw_text[:80])}</code>\n\n<i>The link opens as soon as you scan it.</i>",
+            caption=f"📷 <b>{to_bold('HD QR CODE TAYYAR')}</b>\n\n🔗 <code>{hesc(raw_text[:80])}</code>\n\n<i>Scan karte hi link khul jayega.</i>",
             parse_mode=HTML)
         add_use(uid)
         return
@@ -4530,7 +4179,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["kagaz_reg_state"] = st
         context.user_data["mode"] = "kagaz_registry_area"
         await update.message.reply_text(
-            "📐 Now type the <b>land area</b> — simple format:\n"
+            "📐 Ab <b>zameen ka area</b> likho — simple tarika:\n"
             "• <code>2 katha</code>  • <code>1500 sqft</code>  • <code>1 bigha</code>  • <code>5 decimal</code>",
             parse_mode=HTML)
         return
@@ -4564,8 +4213,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["mode"] = "kagaz_registry_buyer"
         context.user_data["kagaz_reg_rate"] = rate
         await update.message.reply_text(
-            "👤 Who is the buyer? Type <code>male</code> / <code>female</code> / <code>joint</code>\n"
-            "<i>(Bihar: 1% less stamp duty for women or joint with a woman)</i>", parse_mode=HTML)
+            "👤 Kharidar kaun hai? <code>male</code> / <code>female</code> / <code>joint</code> likho\n"
+            "<i>(Bihar: aurat ya aurat ke saath joint par 1% kam stamp duty lagti hai)</i>", parse_mode=HTML)
         return
 
     if mode == "kagaz_registry_buyer":
@@ -4658,8 +4307,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------------- v38: BANK STATEMENT ----------------
     if mode == "bankpdf":
         await update.message.reply_text(
-            "📄 <b>Send the bank statement PDF</b> (as a document/file).\n"
-            "<i>Send the PDF only — not a screenshot or photo (they have no table).</i>", parse_mode=HTML)
+            "📄 <b>Bank statement ka PDF bhejo</b> (file/document ke roop me).\n"
+            "<i>Sirf PDF bhejo — screenshot ya photo nahi (unme table nahi hoti).</i>", parse_mode=HTML)
         return
 
     if mode == "bankpdf_pass":
@@ -4689,7 +4338,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode in ("media_ringtone", "media_karaoke", "media_8d", "media_bass", "media_voice_wait",
                 "media_v2mp3", "media_trim_wait", "media_compress_wait", "media_status_audio"):
-        await update.message.reply_text("🎵 First <b>send an audio/video file</b> (as per the instructions above).", parse_mode=HTML)
+        await update.message.reply_text("🎵 Pehle <b>audio/video file bhejo</b> (upar likhe tarike se).", parse_mode=HTML)
         return
 
     if mode == "media_ringtone_start":
@@ -4841,40 +4490,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if mode == "linkbypass":
-        st = await update.message.reply_text("🔓 Opening the link and checking the redirect chain...")
-        cloud = resolve_cloud_url(raw_text)
-        if cloud.get("ok"):
-            await st.edit_text(
-                f"🔓 <b>{to_bold('CLOUD DIRECT LINK')}</b>\n\n"
-                f"📁 {hesc(str(cloud.get('title', 'File'))[:70])}\n"
-                f"📊 {cloud.get('size', 'N/A')}\n\n"
-                f"🔗 <code>{cloud.get('direct_url')}</code>",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🚀 Open Link", url=cloud.get("direct_url"))]]),
-                parse_mode=HTML,
-            )
-            add_use(uid)
-            return
-
-        exp = expand_url(raw_text)
-        chain = exp.get("chain") or [raw_text]
-        final = exp.get("final") or raw_text
-        clean = exp.get("cleaned") or final
-        chain_txt = "\n".join(f"   {i}. <code>{hesc(c[:70])}</code>" for i, c in enumerate(chain[:5], 1))
-        kb_rows = [[InlineKeyboardButton("🚀 Open Clean Link", url=clean)]]
-        await st.edit_text(
-            f"🔓 <b>{to_bold('LINK UNPACKED')}</b>\n\n"
-            f"🔁 <b>Redirects:</b> {exp.get('hops', 0)}"
-            f"{'  (shortened link tha)' if exp.get('is_shortener') else ''}\n"
-            f"{chain_txt}\n\n"
-            f"🧹 <b>Final Clean Link (tracking removed):</b>\n<code>{clean}</code>"
-            + (f"\n\nℹ️ {hesc(str(cloud.get('error','')))[:100]}" if cloud.get('error') and 'not supported' not in str(cloud.get('error','')) else ""),
-            reply_markup=InlineKeyboardMarkup(kb_rows),
-            parse_mode=HTML,
-        )
-        add_use(uid)
-        return
-
     if mode == "linkcheck":
         st = await update.message.reply_text("🛡️ Running a 6-layer safety scan on the link...")
         chk = check_link_safety(raw_text)
@@ -4895,126 +4510,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         kb_rows = [[InlineKeyboardButton("🌐 Open Final Link", url=chk.get("final_url"))]]
         await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(kb_rows), parse_mode=HTML)
-        add_use(uid)
-        return
-
-    # ---- INTEREST / VYAAJ CALCULATOR (sirf CHAKRAVRIDDHI / compound — gaon-kasbe wala byaaj system) ----
-    if mode == "int_p":
-        try:
-            val = raw_text.lower().replace(",", "").replace("₹", "").strip()
-            if "lakh" in val or "lac" in val:
-                p_amt = float(re.search(r"\d+(?:\.\d+)?", val).group(0)) * 100000
-            elif "hazaar" in val or "hazar" in val or re.search(r"\d+\s*k\b", val):
-                p_amt = float(re.search(r"\d+(?:\.\d+)?", val).group(0)) * 1000
-            else:
-                p_amt = float(re.search(r"\d+(?:\.\d+)?", val).group(0))
-            assert p_amt > 0
-        except Exception:
-            await update.message.reply_text(
-                "⚠️ <b>How much money did you take (principal)?</b> Send it like:\n"
-                "<code>50000</code> ya <code>1.5 lakh</code> ya <code>50k</code>", parse_mode=HTML)
-            return
-        context.user_data["int_principal"] = p_amt
-        context.user_data["mode"] = "int_rate"
-        await update.message.reply_text(
-            f"📈 <b>{to_bold('VYAAJ (CHAKRAVRIDDHI) CALCULATOR')}</b> — Step 1/3 ✅\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 <b>Amount:</b> {inr(p_amt)} ({words_amount(p_amt)})\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Step 2/3 — <b>What is the monthly interest?</b>\n\n"
-            "👉 <b>How many rupees per ₹100 per month?</b>\n"
-            "   (example: ₹5 per ₹100 per month → send only <code>5</code>)\n\n"
-            "Or if you know the percentage: <code>3% month</code>\n"
-            "<i>(monthly, not yearly)</i>",
-            parse_mode=HTML,
-        )
-        return
-
-    if mode == "int_rate":
-        t = raw_text.lower().replace("%", " ").strip()
-        m = re.search(r"\d+(?:\.\d+)?", t)
-        if not m:
-            await update.message.reply_text("⚠️ Send the interest number (example <code>5</code> = ₹5 per ₹100 per month)", parse_mode=HTML)
-            return
-        per_ht = float(m.group(0))
-        if per_ht > 100:
-            await update.message.reply_text("⚠️ That is too high. How many rupees per ₹100 per month (example 2, 3, 5)?", parse_mode=HTML)
-            return
-        monthly_rate = rate_from_per_hundred(per_ht)   # ₹x per ₹100 per month = x% monthly
-        context.user_data["int_monthly_rate"] = monthly_rate
-        context.user_data["int_per_hundred"] = per_ht
-        context.user_data["mode"] = "int_time"
-        principal = context.user_data.get("int_principal", 0)
-        first_int = principal * monthly_rate / 100.0
-        await update.message.reply_text(
-            f"✅ <b>Step 2/3 purra!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 Amount: <b>{inr(principal)}</b> ({words_amount(principal)})\n"
-            f"📊 Interest: <b>₹{per_ht:g} per ₹100 per month</b> ({monthly_rate:g}% per month)\n"
-            f"🧮 First month interest: <b>{inr(first_int)}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Step 3/3 — <b>How many months should I calculate?</b>\n"
-            "(example <code>12</code> months, or <code>2 years</code>)",
-            parse_mode=HTML,
-        )
-        return
-
-    if mode == "int_time":
-        t = raw_text.lower()
-        years = re.search(r"(\d+(?:\.\d+)?)\s*(saal|sal|year|yr)", t)
-        months_only = re.search(r"(\d+(?:\.\d+)?)\s*(months?|mahine|mahina|m\b)", t)
-        bare = re.search(r"^(\d+)\s*$", t.strip())
-        months = 0
-        if years:
-            months += int(float(years.group(1)) * 12)
-        if months_only:
-            months += int(float(months_only.group(1)))
-        if not years and not months_only and bare:
-            months = int(bare.group(1))
-        if months < 1 or months > 600:
-            await update.message.reply_text("⚠️ Send the time: <code>12</code> (months) or <code>2 years</code>", parse_mode=HTML)
-            return
-
-        principal = float(context.user_data.get("int_principal", 0))
-        rate_m = float(context.user_data.get("int_monthly_rate", 0))
-        per_ht = context.user_data.get("int_per_hundred", rate_m)
-        v = village_compound_interest(principal, rate_m, months)
-        context.user_data.pop("mode", None)
-
-        # Mahine ka table (pehle 6) + milestones
-        rows_txt = []
-        for r in v["rows"][:6]:
-            rows_txt.append(f"   {r['month']}. Interest {inr(r['interest'])} → Total {inr(r['closing'])}")
-        if months > 6:
-            rows_txt.append(f"   ... ({months - 6} months and keeps growing like this)")
-        mile_txt = "".join(f"\n   • after {k}: <b>{inr(amt)}</b>" for k, amt in v["milestones"].items())
-
-        from datetime import timedelta as _td
-        _msg_date = getattr(update.message, "date", None)
-        end_date = (_msg_date + _td(days=30 * months)) if _msg_date else None
-        end_line = f"\n📅 <b>{months} months later (approx):</b> {end_date.strftime('%d %b %Y')}" if end_date else ""
-
-        await update.message.reply_text(
-            f"📈 <b>{to_bold('COMPOUND INTEREST REPORT')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 <b>Money taken:</b> {inr(v['principal'])} ({words_amount(v['principal'])})\n"
-            f"📊 <b>Interest:</b> ₹{per_ht:g} per ₹100 per month ({rate_m:g}% monthly)\n"
-            f"⏳ <b>Time:</b> {months} months\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"1️⃣ First month interest: <b>{inr(v['first_month_interest'])}</b>\n"
-            f"2️⃣ {months} months <b>total interest:</b> <b>{inr(v['total_interest'])}</b>\n"
-            f"3️⃣ <b>You have to pay back: {inr(v['total_payable'])}</b> ({words_amount(v['total_payable'])})\n"
-            f"{end_line}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📅 <b>Month by month (compound):</b>\n" + "\n".join(rows_txt) +
-            (f"\n\n🎯 <b>What you will owe when:</b>{mile_txt}" if mile_txt else "") +
-            "\n━━━━━━━━━━━━━━━━━━━━━━\n"
-
-            "💡 <b>Understand:</b> this is <b>compound</b> interest — interest that is not paid every month is added to the principal and then earns interest too. That is why it grows very fast.\n"
-            "👉 If you paid <b>only interest every month</b>, the principal would stay the same and interest would stay ₹{first:,.0f}/month (the village way).\n"
-            "<i>This information is not financial advice.</i>".format(first=v["first_month_interest"]),
-            parse_mode=HTML,
-        )
         add_use(uid)
         return
 
@@ -5085,7 +4580,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if _mode_now:
         _name = {"pp_stamp_text": "📸 PASSPORT PHOTO", "pp_stamp": "📸 PASSPORT PHOTO",
-                 "bankpdf_pass": "🏦 BANK PDF", "clips_mode": "🎬 CLIP MAKER"}.get(_mode_now)
+                 "bankpdf_pass": "🏦 BANK PDF"}.get(_mode_now)
         if _name:
             await update.message.reply_text(
                 f"🤔 <b>Samajh nahi aaya.</b> {_name} tool chalu hai — "
@@ -5114,7 +4609,7 @@ async def deliver_statement(update, context, uid, res):
 async def do_ytmp3(update, context, uid, url):
     """YouTube link → MP3 (1 credit)."""
     if "youtu" not in url.lower() and "youtube" not in url.lower():
-        await update.message.reply_text("❌ This does not look like a YouTube link. Send a link like <code>https://youtu.be/xxxx</code>",
+        await update.message.reply_text("❌ Ye YouTube link nahi lag raha. Aisa link bhejo: <code>https://youtu.be/xxxx</code>",
                                         parse_mode=HTML)
         return
     if not can_use_premium_tool(get_user(uid), uid):
@@ -5171,49 +4666,9 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
         context.user_data.pop("mode", None)
         return True
 
-    # ---------- 🎬 CLIP MAKER ----------
-    if mode in ("clips", "clips_wait", "clips_mode") and kind in ("video", "video_note", "animation"):
-        _u_c = get_user(uid)
-        if not can_use_premium_tool(_u_c, uid):
-            await say(get_credits_over_text("clips"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return True
-        d = tempfile.mkdtemp(prefix="clipin_")
-        p = os.path.join(d, "src.mp4")
-        try:
-            with open(p, "wb") as fh:
-                fh.write(data)
-        except Exception as e:
-            await say(fail_msg("FILE SAVE FAILED", str(e)[:120]), parse_mode=HTML)
-            return True
-        info = await asyncio.to_thread(clips_probe, p)
-        dur = float(info.get("duration") or 0)
-        if dur and dur > CLIP_MAKER_MAX_MIN * 60:
-            clips_cleanup(d)
-            await say(
-                "⚠️ <b>Video is too long</b> — this one is <b>%d min</b>. Limit is <b>%d min</b> "
-                "(server limit).\n👉 Send a shorter part of the video."
-                % (int(dur // 60) or 1, int(CLIP_MAKER_MAX_MIN)), parse_mode=HTML)
-            return True
-        if dur and dur < 20:
-            clips_cleanup(d)
-            await say("⚠️ <b>Video is too short</b> — need at least 20 seconds of video.", parse_mode=HTML)
-            return True
-        context.user_data["clip_src"] = p
-        context.user_data["clip_mode"] = None
-        context.user_data["clip_vert"] = None
-        context.user_data["mode"] = "clips_mode"
-        await say(
-            "✅ <b>Video received</b> — %s · %sMB%s\n\n" % (
-                clips_fmt_t(dur) if dur else "?", round(len(data) / 1048576, 1),
-                "" if info.get("has_audio") else " · ⚠️ no sound (scene-wise clips)") +
-            clip_choice_text(None, None, context.user_data.get("clip_ai")),
-            reply_markup=clip_choice_kb(None, None, context.user_data.get("clip_ai")), parse_mode=HTML)
-        return True
-
     # ---------- ⚡ MEDIA STUDIO ----------
     if mode == "media_menu":
-        await say("👆 Pick an option from the buttons above (MP3 / Status / Karaoke...).")
+        await say("👆 Upar wale buttons me se option chuno (MP3 / Status / Karaoke...).")
         return True
 
     if mode == "media_ytmp3" and kind == "text":
@@ -5225,8 +4680,8 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
             return True
         context.user_data["media_audio"] = data
         context.user_data["mode"] = "media_ringtone_start"
-        await say("⏱️ From which second should the ringtone start? (example <code>45</code> or <code>1:20</code>)\n"
-                  "<i>The ringtone will be 30 seconds long.</i>", parse_mode=HTML)
+        await say("⏱️ Ringtone kis second se shuru ho? (jaise <code>45</code> ya <code>1:20</code>)\n"
+                  "<i>Ringtone 30 second ka banega.</i>", parse_mode=HTML)
         return True
 
     if mode in ("media_karaoke", "media_8d", "media_bass") and kind in ("audio", "video", "voice", "video_note"):
@@ -5274,7 +4729,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
             await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return True
         context.user_data["media_audio"] = data
-        await say("🗣️ Now <b>pick a voice</b> (kid / heavy / robot / ghost / gadget / echo):",
+        await say("🗣️ Ab <b>voice chuno</b> (kid / heavy / robot / ghost / gadget / echo):",
                   reply_markup=voice_preset_kb(), parse_mode=HTML)
         return True
 
@@ -5284,15 +4739,15 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
             return True
         context.user_data["media_video"] = data
         context.user_data["mode"] = "media_trim_time"
-        await say("✂️ From where to where should I cut? Type it like: <code>0:10 0:45</code>\n"
-                  "<i>(start time and end time)</i>", parse_mode=HTML)
+        await say("✂️ Kahan se kahan tak kaatna hai? Aise likho: <code>0:10 0:45</code>\n"
+                  "<i>(shuru ka time aur end ka time)</i>", parse_mode=HTML)
         return True
 
     if mode == "media_compress_wait" and kind in ("video", "video_note"):
         if not can_use_premium_tool(get_user(uid), uid):
             await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return True
-        st = await say("🗜️ Compressing the video... (30 seconds - 3 minutes)\n<i>Big videos take more time.</i>")
+        st = await say("🗜️ Video compress ho raha hai... (30 second - 3 minute)\n<i>Badi video me zyada time lagta hai.</i>")
         res = await asyncio.to_thread(desi.video_compress, data, 18.0)
         if not res.get("ok"):
             await st.edit_text(fail_msg("COMPRESS FAILED", res.get("error", "")) +
@@ -5311,7 +4766,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
     if mode == "media_status_audio" and kind in ("audio", "voice"):
         context.user_data["media_status_audio"] = data
         context.user_data["mode"] = "media_status_text"
-        await say("✍️ Now what <b>text should be on the status</b>? (1-3 lines)\n<i>example: Happy Birthday Rahul 🎂</i>", parse_mode=HTML)
+        await say("✍️ Ab <b>status par kya likhna hai</b>? (1-3 line)\n<i>jaise: Happy Birthday Rahul 🎂</i>", parse_mode=HTML)
         return True
 
     return False
@@ -5332,7 +4787,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         thumb_id = update.message.photo[-1].file_id
         save_cloner_config(uid, thumbnail_file_id=thumb_id)
         context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ <b>Custom Thumbnail Saved!</b> From now this thumbnail is used on all forwarded videos/documents.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        await update.message.reply_text("✅ <b>Thumbnail save ho gaya!</b> Ab se saare forwarded video/document par ye hi thumbnail lagega.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     # ---------- v38: STATUS VIDEO (photo) ----------
@@ -5343,8 +4798,8 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["media_status_photo"] = buf.getvalue()
         context.user_data["mode"] = "media_status_audio"
         await update.message.reply_text(
-            "🎵 Now <b>send the song</b> (MP3/audio file for the status).\n"
-            "<i>If you want a song from YouTube, first make it with 🎵 YouTube → MP3, then send it here.</i>", parse_mode=HTML)
+            "🎵 Ab <b>gaana bhejo</b> (status ke liye MP3/audio file).\n"
+            "<i>YouTube se gaana chahiye to pehle 🎵 YouTube → MP3 se banao, phir yahan bhejo.</i>", parse_mode=HTML)
         return
 
     # ---------- PAYMENT: screenshot aane par strict verify ----------
@@ -5494,8 +4949,7 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v38: naye tools ke files (PDF / audio / video / image) ----------
     _our_modes = ("bankpdf", "bankpdf_pass", "media_ringtone", "media_ringtone_start",
                   "media_karaoke", "media_8d", "media_bass", "media_voice_wait", "media_v2mp3",
-                  "media_trim_wait", "media_compress_wait", "media_status_audio",
-                  "clips", "clips_wait", "clips_mode")
+                  "media_trim_wait", "media_compress_wait", "media_status_audio")
     if mode in _our_modes:
         kind, att, fname, mime = None, None, "", ""
         if msg.document:
@@ -5626,6 +5080,7 @@ async def _post_init(app: Application):
         BotCommand("refer", "Refer Friends = Free VIP"),
         BotCommand("account", "My Account Status"),
         BotCommand("cancel", "Cancel current action"),
+        BotCommand("refresh", "Menu / keyboard refresh karo"),
     ]
     await app.bot.set_my_commands(commands)
     log.info("Commands set successfully!")
@@ -5677,14 +5132,13 @@ def main():
     app.add_handler(CommandHandler("start", cmd_start))
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
+    app.add_handler(CommandHandler(["refresh", "newmenu"], cmd_refresh))
     app.add_handler(CommandHandler("help", cmd_tutorial))
     app.add_handler(CommandHandler(["tutorial", "madad", "guide"], cmd_tutorial))
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
-    app.add_handler(CommandHandler(["clipstatus", "clipapi"], cmd_clipstatus))
-    app.add_handler(CommandHandler(["aistatus", "aiapi"], cmd_aistatus))
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))

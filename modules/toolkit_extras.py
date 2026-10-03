@@ -274,7 +274,7 @@ def check_link_safety(raw_url: str) -> dict:
     # --- A) redirect chain (shorteners chhupate hain asli destination) ---
     if exp.get("is_shortener"):
         risk += 18
-        reasons.append("🔀 This is a shortened/redirect link — the real destination was hidden (now opened).")
+        reasons.append("🔀 Ye shortened/redirect link hai — asli destination chhupi thi (ab khol di).")
     if exp.get("hops", 0) >= 3:
         risk += 12
         reasons.append(f"🔁 {exp['hops']} times (signs of multi-hop cloaking).")
@@ -285,10 +285,10 @@ def check_link_safety(raw_url: str) -> dict:
         reasons.append("🧮 A raw IP address instead of a domain — 95% of phishing comes this way.")
     if "xn--" in host_no_port:
         risk += 25
-        reasons.append("🔤 Punycode (xn--) domain — lookalike foreign characters can be used to trick you.")
+        reasons.append("🔤 Punycode (xn--) domain — milte-julte foreign characters se dhokha diya ja sakta hai.")
     if "@" in target.split("://", 1)[-1].split("/")[0]:
         risk += 35
-        reasons.append("🎭 The '@' trick in the URL — the real site is after the '@', so this is a trick.")
+        reasons.append("🎭 URL me '@' ka jhol — asli site '@' ke baad hai, ye dhokha hai.")
     labels = host_no_port.split(".")
     if len(labels) >= 5:
         risk += 15
@@ -304,7 +304,7 @@ def check_link_safety(raw_url: str) -> dict:
     # --- C) HTTPS + port ---
     if p.scheme != "https":
         risk += 12
-        reasons.append("🔓 The connection is 'http' (not secure) — never enter a form or OTP.")
+        reasons.append("🔓 Connection 'http' hai (secure nahi) — kabhi form ya OTP na dalo.")
     if ":" in host and not host.endswith((":443", ":80")):
         risk += 15
         reasons.append(f"🚪 Unusual port ({host.split(':')[-1]}) — normal websites do not use this.")
@@ -327,14 +327,14 @@ def check_link_safety(raw_url: str) -> dict:
                                        "firebaseapp.com", "duckdns.org", "myftp.org", "000webhostapp.com",
                                        "github.io", "glitch.me", "repl.co", "blogspot.")) and (hit_words or brand_hit):
         risk += 12
-        reasons.append("🆓 A bank/login style page on a free hosting domain — a popular scam combo.")
+        reasons.append("🆓 Free hosting domain par bank/login jaisa page — scam ka common joda.")
 
     # --- E) OpenPhish live feed ---
     _load_openphish()
     if _PHISH_CACHE["urls"]:
         if target in _PHISH_CACHE["urls"] or any(u.startswith(target) for u in _PHISH_CACHE["urls"] if len(u) > 20):
             risk += 60
-            reasons.append("🚨 This link is in the OpenPhish LIVE phishing feed (definite scam).")
+            reasons.append("🚨 Ye link OpenPhish ke LIVE phishing feed me hai (pakka scam).")
         elif host_no_port in _PHISH_CACHE["hosts"]:
             risk += 50
             reasons.append("🚨 This domain name is in the OpenPhish live phishing feed.")
@@ -344,7 +344,7 @@ def check_link_safety(raw_url: str) -> dict:
     scans = _urlscan_reputation(host_no_port) if host_no_port else -1
     signals["urlscan_scans"] = scans
     if scans == 0:
-        reasons.append("🆕 This domain was never scanned on urlscan.io (new / less known).")
+        reasons.append("🆕 Ye domain urlscan.io par kabhi scan nahi hua (naya / kam jaana-mana).")
 
     # --- G) length / entropy signals ---
     if len(target) > 120:
@@ -356,10 +356,10 @@ def check_link_safety(raw_url: str) -> dict:
 
     risk = max(0, min(100, risk))
     if risk >= 60:
-        verdict, level, advice = "DANGEROUS 🚨", "danger", ("NEVER open this link and never forward it. " 
+        verdict, level, advice = "DANGEROUS 🚨", "danger", ("Ye link KABHI na kholo aur na forward karo. Kisi bhi link par OTP, password ya UPI PIN kabhi na dalo." 
                                                            "Never enter an OTP, password or UPI PIN on any link.")
     elif risk >= 25:
-        verdict, level, advice = "SUSPICIOUS ⚠️", "suspicious", ("Be careful — open it only if you know the site. "
+        verdict, level, advice = "SUSPICIOUS ⚠️", "suspicious", ("Sambhal ke — site pata ho tabhi kholo. Login ya payment details na dalo."
                                                                   "Do not enter login or payment details.")
     elif risk > 0:
         verdict, level, advice = "LOW RISK ✅", "low", "Only minor signals. Normal browsing is fine."

@@ -9,7 +9,7 @@ Kahan se data aata hai (teen engine, sabse best merge hota hai):
   2) /api/vehicle-challan       → challan list (ULIP e-Challan): number, amount, date, offence, court
   3) /api/vehicle-challan-v4    → summary: total challans + total amount (pending vs disposed)
 
-Default base: https://osint-apis-hub.onrender.com/api   (key: apni key env me daalo — HUB_API_KEY; purani Demo key band ho gayi hai)
+Default base: https://osint-api-hub.onrender.com/api   (key: HUB_API_KEY / VEHICLE_API_KEY, default Demo)
 ENV (Render → Environment):
   VEHICLE_API_BASE   = API host + /api   (default upar wala)
   VEHICLE_API_KEY    = apni key          (default: HUB_API_KEY, warna Demo — jo ab invalid hai)
@@ -32,7 +32,7 @@ from html import escape
 
 import requests
 
-DEFAULT_BASE = "https://osint-apis-hub.onrender.com/api"
+DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"   # v49: naya LIVE hub (purana dead tha)
 TIMEOUT = int(os.environ.get("VEHICLE_TIMEOUT", "25"))
 CACHE_TTL = 300          # 5 minute — user dobara check kare to dobara paisa/API call na lage
 _FAIL_TTL = 60
@@ -790,7 +790,7 @@ def render_report(res: dict, max_challans: int = 6) -> str:
     out.append(foot)
     if res.get("api_error"):
         out.append(f"⚠️ <i>Note: {_e(str(res['api_error'])[:110])}</i>")
-    out.append("<i>Confirm once on the official e-Challan / Parivahan site before paying anything.</i>")
+    out.append("<i>Koi bhi paisa dene se pehle official e-Challan / Parivahan site par ek baar confirm kar lo.</i>")
 
     text = "\n".join(out)
     if len(text) > 3900:                      # Telegram limit
