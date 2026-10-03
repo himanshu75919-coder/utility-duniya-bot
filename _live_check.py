@@ -262,7 +262,27 @@ check("Bot: MADAD keyboard video-only hai", lambda: "toolvid:premium" in "".join
 
 # DB: manual VIP log + meta (activate flow ka base)
 check("DB: bot_meta save/read", lambda: (_dbm.meta_set("_live_probe", "1"), _dbm.meta_get("_live_probe"))[1] == "1")
-check("DB: vip_grants log (manual VIP record)", lambda: (lambda before: (_dbm.add_vip_grant(999001, 30, 8607774564, "plan_30", "livecheck") and len(_dbm.list_vip_grants(50)) > before)) (len(_dbm.list_vip_grants(50)))) 
+def _vip_grant_rows(uid: int = 999001) -> int:
+    """v47: LIMIT-based count flaky tha (50+ rows par check fail). Ab seedha COUNT(*)."""
+    import sqlite3 as _sq
+    try:
+        con = _sq.connect(_dbm.DB_PATH)
+        cur = con.cursor()
+        cur.execute("SELECT COUNT(*) FROM vip_grants WHERE user_id=?", (int(uid),))
+        n = int(cur.fetchone()[0])
+        con.close()
+        return n
+    except Exception:
+        return -1
+
+
+def _vip_grant_probe() -> bool:
+    before = _vip_grant_rows()
+    _dbm.add_vip_grant(999001, 30, 8607774564, "plan_30", "livecheck")
+    return _vip_grant_rows() > before
+
+
+check("DB: vip_grants log (manual VIP record)", _vip_grant_probe) 
 check("DB: vip_grants_today counter chalta hai", lambda: _dbm.vip_grants_today() >= 1)
 
 # Asli activate flow (owner ko doosre user par test): grant + notification + log
@@ -412,6 +432,16 @@ check("v46: HUB live — IP/DOMAIN (asli hub, Demo key)",
       lambda: (lambda r: r.get("ok") is True and "hub" in str(r.get("source", ""))
                )(__import__("modules.osint_tools", fromlist=["x"]).lookup_ip_domain("8.8.8.8")),
       timeout=90)
+check("v47: HUB live — YouTube download links (savetube/yt-dlp se)",
+      (lambda: (lambda r: r.get("ok") is True and str(r.get("best_url", "")).startswith("http")
+                and r.get("title"))(__import__("modules.api_hub", fromlist=["x"]).hub_yt_download("https://youtu.be/jNQXAC9IVRw")))
+      if _HUB_LIVE else None,
+      timeout=150)
+check("v47: HUB live — youtube-mp3 (audio link)",
+      (lambda: (lambda r: r.get("ok") is True and str(r.get("audio_url", "")).startswith("http")
+                )(__import__("modules.api_hub", fromlist=["x"]).hub_yt_download("https://youtu.be/jNQXAC9IVRw", kind="audio")))
+      if _HUB_LIVE else None,
+      timeout=150)
 check("v46: HUB live — key-info (plan)",
       lambda: (lambda r: r.get("ok") is True and "ALL" in str(r.get("plan", "")).upper()
                )(__import__("modules.api_hub", fromlist=["x"]).hub_key_info()),
@@ -439,6 +469,17 @@ check("v45: kagaz me GST + PAN buttons",
 check("Bot: /imeistatus handler registered",
       lambda: 'CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus)' in open("bot.py", encoding="utf-8").read())
 
+
+# v47: live-check ke test rows DB se saaf karo (repeat runs baar-baar bhar na karein)
+try:
+    import sqlite3 as _sq
+    _con = _sq.connect(_dbm.DB_PATH)
+    _con.execute("DELETE FROM vip_grants WHERE user_id=999001")
+    _con.execute("DELETE FROM users WHERE user_id=999001")
+    _con.commit()
+    _con.close()
+except Exception:
+    pass
 
 fails2 = [(n, st) for n, st, _ in RESULTS if st not in ("PASS", "SKIP")]
 _skips = [n for n, st, _ in RESULTS if st == "SKIP"]

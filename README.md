@@ -1,9 +1,13 @@
-# ⚡ Utility Duniya Super-Bot — **v46**
+# ⚡ Utility Duniya Super-Bot — **v47**
 
 **Ek bot me 30 kaam:** video download, channel auto-forward, photo/document, sarkari kagaz, bank statement → Excel,
 media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link safety, VIP + payment system.
 
-> **Naya (v46):** 🔌 aapke asli hub se **live key verified** — `HUB_API_KEY` = **`Demo`**
+> **Naya (v47):** 🎬 **YouTube ka pakka ilaaj** — aapke hub me 5 asli bugs mile the (2 undefined
+> variable + galat yt-dlp clients + ordering) aur Render IP YouTube se block hone ka bhi permanent
+> solution laga diya (savetube/loader.to providers → CDN links). Bot ka 🎬 CLIP MAKER aur 📥 VIDEO
+> DOWNLOADER ab YouTube par **hub se hi** kaam karte hain. Guide: **`v47-YOUTUBE-FIX.md`**.
+> **v46:** 🔌 aapke asli hub se **live key verified** — `HUB_API_KEY` = **`Demo`**
 > (lifetime, ALL ENDPOINTS). IFSC/Pincode/IP/YouTube/GST/PAN/Song/Leak-check + **IMEI ab brand+model**
 > dene lage. Number-info & vehicle-report aapke hub par khud **OFF (410)** hain — bot ab saaf message +
 > free RTO card deta hai (credit nahi kata, koi crash nahi). Guide: **`v46-HUB-LIVE.md`**.

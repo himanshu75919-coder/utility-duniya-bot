@@ -479,6 +479,11 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
     if _hubres.get("ok"):
         return _hubres
     url = (url or "").strip()
+    # v47: YouTube ke liye hub ka naya /youtube-download (hub v2.2 — proxy link IP-lock free)
+    if re.search(r"(youtube\.com|youtu\.be)/", url):
+        _hres = _hub_youtube_download(url, max_mb)
+        if _hres.get("ok"):
+            return _hres
 
     # --- Instagram: 3-engine chain ---
     if is_instagram_url(url):
@@ -544,6 +549,40 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
 async def download_instagram_async(url: str) -> dict:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, download_instagram_media, url)
+
+
+def _hub_youtube_download(url: str, max_mb: int) -> dict:
+    """v47: YouTube video user ke hub se (hub v2.2 ke /youtube-download + proxy se)."""
+    try:
+        from modules import api_hub as hub
+    except Exception:
+        return {"ok": False}
+    if not hub.hub_ready():
+        return {"ok": False}
+    info = hub.hub_yt_download(url, kind="video")
+    if not info.get("ok"):
+        return {"ok": False}
+    for cand in (info.get("best_url"), info.get("direct_url")):
+        if not cand:
+            continue
+        try:
+            r = requests.get(cand, timeout=300,
+                             headers={"User-Agent": "Mozilla/5.0 (bot)"}, stream=True)
+            if r.status_code != 200:
+                continue
+            data = b""
+            for chunk in r.iter_content(262144):
+                data += chunk
+                if len(data) > max_mb * 1048576:
+                    break
+            if len(data) > 10_000:
+                return {"ok": True, "type": "video", "platform": "YouTube",
+                        "title": info.get("title") or "", "bytes": data, "size_mb": _size_mb(data),
+                        "duration": info.get("duration") or 0,
+                        "engine": f"hub ({info.get('source', 'youtube-download')})"}
+        except Exception:                                  # noqa: BLE001
+            continue
+    return {"ok": False}
 
 
 def _hub_twitter_download(url: str, max_mb: int) -> dict:

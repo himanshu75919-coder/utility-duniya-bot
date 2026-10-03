@@ -385,6 +385,9 @@ async def flows():
     ok("dobara video par naya src mila", os.path.exists(ctx3.user_data.get("clip_src") or ""), ctx3.user_data.get("clip_src"))
 
     # YouTube link (yt-dlp off) → saaf message
+    # v47: hub ab YouTube deta hai — is test ko hermetic rakhne ke liye hub band karte hain
+    _hub_env = os.environ.get("HUB_ENABLED")
+    os.environ["HUB_ENABLED"] = "off"
     ctx4 = Ctx()
     ctx4.user_data["mode"] = "clips"
     m5 = FakeMsg("https://youtu.be/dQw4w9WgXcQ", uid=USER)
@@ -394,6 +397,10 @@ async def flows():
     ok("YouTube link par saaf message (yt-dlp off)", "not available" in m5.all_text().lower()
        or "video file" in m5.all_text().lower(), m5.all_text()[:200])
     ok("YouTube fail par credit nahi kata", dbm.get_credits(USER) == 5, dbm.get_credits(USER))
+    if _hub_env is None:
+        os.environ.pop("HUB_ENABLED", None)
+    else:
+        os.environ["HUB_ENABLED"] = _hub_env
 
     # kachra text → help card
     ctx5 = Ctx()
