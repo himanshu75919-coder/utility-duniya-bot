@@ -419,6 +419,60 @@ def _cache_put(plate, res, ttl=CACHE_TTL):
         _CACHE[plate] = (res, time.time(), ttl)
 
 
+def _report_from_hub_full(plate_c: str, vr: dict) -> dict:
+    """Hub ka /vehicle-report (vehicle/owner/rto/rc/insurance/puc/challans) → hamara shape."""
+    veh, own, rto = vr.get("vehicle") or {}, vr.get("owner") or {}, vr.get("rto") or {}
+    rc, ins, puc = vr.get("rc") or {}, vr.get("insurance") or {}, vr.get("puc") or {}
+    ch = vr.get("challans") or {}
+
+    def g(d, *ks, default=""):
+        for k in ks:
+            if isinstance(d, dict) and d.get(k) not in (None, "", [], {}):
+                return d[k]
+        return default
+
+    rc_norm = {
+        "maker": str(g(veh, "maker", "maker_model", "makerModel")),
+        "model": str(g(veh, "model", "maker_model", "makerModel")),
+        "vehicle_class": str(g(veh, "class", "vehicle_class", "vehicleClass")),
+        "fuel": str(g(veh, "fuel", "fuel_type", "fuelNorms")),
+        "cc": str(g(veh, "cubic_capacity", "cc", "cubicCapacity", "engine_cc")),
+        "seating": str(g(veh, "seating", "seating_capacity", "seatingCapacity")),
+        "emission": str(g(veh, "emission", "emission_norms", "norms", "fuelNorms")),
+        "owner": str(g(own, "name", "owner", "owner_name")),
+        "owner_masked": bool(g(own, "masked", default=True)),
+        "reg_date": str(g(rc, "registration", "reg_date", "registration_date", "regDate")),
+        "fitness_upto": str(g(rc, "fitness", "fitness_upto", "fitnessUpto")),
+        "tax_upto": str(g(rc, "tax", "tax_upto", "taxUpto")),
+        "age": str(g(rc, "age", "vehicle_age")),
+        "finance": str(g(rc, "finance", "financer", "hypothecation")),
+        "insurance_company": str(g(ins, "company", "insurance_company", "insurer")),
+        "insurance_upto": str(g(ins, "valid_upto", "upto", "insurance_upto")),
+        "insurance_status": str(g(ins, "status", default="")),
+        "puc_upto": str(g(puc, "valid_upto", "upto", "puc_upto")),
+        "puc_status": str(g(puc, "status", default="")),
+        "rto_code": str(g(rto, "code", "rto_code")),
+        "rto_name": str(g(rto, "name", "rto", "rto_name")),
+        "rto_city": str(g(rto, "city", default="")),
+        "rto_state": str(g(rto, "state", default="")),
+        "rto_phone": str(g(rto, "phone", default="")),
+        "rto_site": str(g(rto, "site", "website", default="")),
+    }
+    lst = []
+    for c in (ch.get("list") or [])[:20]:
+        if isinstance(c, dict):
+            lst.append({k: v for k, v in c.items()})
+    challans = find_challans({"challans": lst}) if lst else []
+    summary = {"count": int(g(ch, "count", default=len(challans)) or len(challans)),
+               "pending_count": int(g(ch, "pending_count", default=0) or 0),
+               "pending_amount": g(ch, "pending_amount", default=0),
+               "total_amount": g(ch, "total_amount", default=0)}
+    if not rc_norm.get("maker") and not rc_norm.get("model") and not challans:
+        return {"ok": False, "error": "Hub report khaali thi", "fallback": True}
+    return {"ok": True, "plate": plate_c, "rc": rc_norm, "challans": challans, "summary": summary,
+            "sources": ["vehicle-report"], "cached": False, "raw": vr.get("raw")}
+
+
 def fetch_vehicle_report(plate: str) -> dict:
     """
     Hub ke 3 engine + (agar set ho) custom API → sab merge karke ek report.
@@ -434,6 +488,23 @@ def fetch_vehicle_report(plate: str) -> dict:
         if hit.get("ok"):
             return {**hit, "cached": True}
         return hit
+
+    # v46: pehle hub ka full report (ek hi call) — disabled mile to turant fallback
+    try:
+        from modules import api_hub as _hub
+        vr = _hub.hub_vehicle_report_new(plate_c)
+        if vr.get("ok"):
+            rep = _report_from_hub_full(plate_c, vr)
+            if rep.get("ok"):
+                _cache_put(plate_c, rep)
+                return rep
+        elif vr.get("disabled_by_hub"):
+            fast = {"ok": False, "fallback": True, "hub_disabled": True,
+                    "error": vr.get("error") or "Live vehicle lookup is turned off on the data provider."}
+            _cache_put(plate_c, fast)
+            return fast
+    except Exception:
+        pass
 
     base, key = api_base(), api_key()
     rc_res = ch_res = sm_res = None

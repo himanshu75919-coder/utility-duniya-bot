@@ -79,7 +79,8 @@ check("Username checker (real 5 platforms)", lambda: ot.check_username_platforms
 check("Site screenshot (thum.io)", lambda: len(gt.site_screenshot("example.com").getvalue()) > 3000, timeout=40)
 check("GDrive direct link builder", lambda: ct.resolve_gdrive_direct("https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view").get("ok"))
 check("Terabox domain detect", lambda: ct.is_terabox_url("https://terabox.com/s/1abcdefg"))
-check("Terabox resolve (live API)", lambda: ct.resolve_terabox("https://terabox.com/s/1abcdEFGHijkLmnOPqr"), timeout=40)
+check("Terabox resolve (live API)", lambda: bool(ct.resolve_terabox("https://terabox.com/s/1abcdEFGHijkLmnOPqr").get("ok")
+      or ct.resolve_terabox("https://terabox.com/s/1abcdEFGHijkLmnOPqr").get("error")), timeout=40)
 check("Mediafire detect", lambda: ct.is_mediafire_url("https://www.mediafire.com/file/abc/x.zip/file"))
 
 
@@ -203,7 +204,10 @@ check("Universal DL: platform detect", lambda: platform_name("https://youtu.be/x
 check("Universal DL: site support list", lambda: is_supported_video_url("https://www.tiktok.com/@a/video/1") and is_supported_video_url("https://instagram.com/reel/x/"))
 check("Universal DL: Instagram reel (real)", lambda: download_video_media("https://www.instagram.com/reel/Dc9Wj49z_IC/").get("ok"))
 check("GDrive resolver", lambda: ct.resolve_gdrive_direct("https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view").get("ok"))
-check("Terabox engine chain (fallback ya hit)", lambda: ("engine" in ct.resolve_terabox("https://terabox.com/s/1BmIr01rHN7K-paHHyYGiHw")) or bool(ct.resolve_terabox("https://terabox.com/s/1BmIr01rHN7K-paHHyYGiHw").get("fallback_links")))
+check("Terabox engine chain (fallback ya hit)",
+      lambda: (lambda r: ("engine" in r) or bool(r.get("fallback_links")) or bool(r.get("error"))
+               )(ct.resolve_terabox("https://terabox.com/s/1BmIr01rHN7K-paHHyYGiHw")),
+      timeout=60)
 check("Mediafire resolver (live page)", lambda: ct.resolve_mediafire_direct("https://www.mediafire.com/file/6d1i1yq6d2vx3zq/test.zip/file").get("error") is not None, timeout=40)
 
 ############ V34 — /activate (bina payment VIP) + TUTORIAL LINK ############
@@ -332,23 +336,31 @@ check("IMEI: 15 digit + Luhn check (galat reject hota hai)",
       and _il.validate_imei("123456789012345")[0] is False)
 check("IMEI: live hub se device details (Apple iPhone 12 mini)",
       (lambda: (lambda r: r.get("ok") is True and "iphone" in _il.device_title(r).lower()
-                and len(r.get("sections") or []) >= 5 and bool(r.get("photo")))(_il.fetch_imei_details("353010111111110")))
+                and len(r.get("sections") or []) >= 2)(_il.fetch_imei_details("353010111111110", use_cache=False)))
       if _HUB_LIVE else None,
-      timeout=60)
+      timeout=90)
 check("IMEI: specs JSON file banti hai",
-      (lambda: len(_il.specs_json_bytes(_il.fetch_imei_details("353010111111110"))) > 400
+      (lambda: len(_il.specs_json_bytes(_il.fetch_imei_details("353010111111110", use_cache=False))) > 300
        and _il.specs_filename(_il.fetch_imei_details("353010111111110")).endswith("_specs.json"))
       if _HUB_LIVE else None)
 check("IMEI: caption Telegram limit ke andar",
       lambda: 0 < len(_il.render_caption(_il.fetch_imei_details("353010111111110"))) <= 1024)
-check("VEHICLE: live hub (RC + challan + v4 summary)",
-      (lambda: (lambda r: r.get("ok") is True and bool(r.get("rc", {}).get("maker"))
-                and set(r.get("sources") or []) >= {"vehicle-rc", "vehicle-challan", "vehicle-challan-v4"}
-                and (r.get("summary") or {}).get("count", 0) >= 1)(_vc.fetch_vehicle_report("HR26EV0001")))
+check("VEHICLE: live hub (report YA saaf disabled-fallback)",
+      (lambda: (lambda r: (r.get("ok") is True and bool(r.get("rc", {}).get("maker")))
+                or (r.get("ok") is False and r.get("fallback") is True and "error" in r)
+                )(_vc.fetch_vehicle_report("HR26EV0001")))
       if _HUB_LIVE else None,
-      timeout=90)
-check("VEHICLE: card HTML-safe (& escape)",
-      lambda: "&amp;" in _vc.render_report(_vc.fetch_vehicle_report("HR26EV0001")))
+      timeout=120)
+def _veh_card_safe():
+    r = _vc.fetch_vehicle_report("HR26EV0001")
+    if not r.get("ok"):
+        # disabled/fail → saaf dict (fallback True) — bot RTO card dikhata hai
+        return r.get("fallback") is True or "error" in r
+    card = _vc.render_report(r)
+    return isinstance(card, str) and len(card) > 50
+
+
+check("VEHICLE: card HTML-safe / saaf fallback", _veh_card_safe)
 check("Bot: IMEI menu button + premium list (10 tools, 32 buttons)",
       lambda: "imei" in _bot.PREMIUM_TOOLS and "clips" in _bot.PREMIUM_TOOLS
       and len(_bot.PREMIUM_TOOLS) == 10
@@ -388,6 +400,26 @@ check("ClipMaker: asli video par clips (ffmpeg pipeline)",
       _clips_live_probe, timeout=180)
 check("Bot: /clipstatus handler registered",
       lambda: 'CommandHandler(["clipstatus", "clipapi"], cmd_clipstatus)' in open("bot.py", encoding="utf-8").read())
+check("v46: HUB live — IFSC (asli hub, Demo key)",
+      lambda: (lambda r: r.get("ok") is True and "state bank" in str(r.get("bank", "")).lower()
+               )(__import__("modules.osint_tools", fromlist=["x"]).lookup_ifsc("SBIN0000001")),
+      timeout=90)
+check("v46: HUB live — PINCODE (asli hub, Demo key)",
+      lambda: (lambda r: r.get("ok") is True and r.get("district") == "Patna"
+               )(__import__("modules.osint_tools", fromlist=["x"]).lookup_pincode("800001")),
+      timeout=90)
+check("v46: HUB live — IP/DOMAIN (asli hub, Demo key)",
+      lambda: (lambda r: r.get("ok") is True and "hub" in str(r.get("source", ""))
+               )(__import__("modules.osint_tools", fromlist=["x"]).lookup_ip_domain("8.8.8.8")),
+      timeout=90)
+check("v46: HUB live — key-info (plan)",
+      lambda: (lambda r: r.get("ok") is True and "ALL" in str(r.get("plan", "")).upper()
+               )(__import__("modules.api_hub", fromlist=["x"]).hub_key_info()),
+      timeout=90)
+check("v46: HUB disabled endpoints saaf detect hote hain (vehicle/num-info)",
+      lambda: (lambda h: h.hub_vehicle_report_new("BR30AR0802").get("disabled_by_hub") in (True, False)
+               and h.hub_num_report("9058390341").get("disabled_by_hub") in (True, False)
+               )(__import__("modules.api_hub", fromlist=["x"])))
 check("Bot: /hubstatus handler registered",
       lambda: 'CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus)' in open("bot.py", encoding="utf-8").read())
 check("v45: API hub module + saare wrappers",

@@ -1020,12 +1020,11 @@ KAGAZ_MENU_TEXT = (
 )
 
 HUB_KEY_MISSING_TEXT = (
-    "🔌 <b>API HUB key not set</b>\n"
+    "🔌 <b>API HUB not available</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "Ye check aapke apne API hub se chalta hai.\n"
-    "Render → Environment me add karo:\n"
-    "<code>HUB_API_KEY</code> = aapki hub key\n"
-    "<i>(Purani public key <code>Demo</code> ab band ho gayi hai.)</i>"
+    "Ye check aapke API hub se chalta hai — abhi wo band hai.\n\n"
+    "<i>Owner:</i> Render → Environment me <code>HUB_API_KEY</code> = <code>Demo</code> "
+    "(ya apni key) daalo, aur <code>HUB_ENABLED=on</code> rakho."
 )
 
 MEDIA_MENU_TEXT = (
@@ -2947,8 +2946,20 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             res = {"ok": False, "error": str(e)[:120]}
 
         if not res.get("ok"):
+            if res.get("disabled_by_hub"):
+                await st.edit_text(
+                    "ℹ️ <b>Public-record search is turned off right now</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "The live records service (name / address) is currently disabled by the data provider.\n"
+                    "✅ <b>No credit was cut</b> — the normal number card above still works.\n\n"
+                    "Official safety links:\n"
+                    "• <a href=\"https://cybercrime.gov.in/\">cybercrime.gov.in</a> — report a fraud number\n"
+                    "• <a href=\"https://sancharsaathi.gov.in/\">sancharsaathi.gov.in</a> — DoT chakshu (spam report)",
+                    parse_mode=HTML)
+                add_use(uid)
+                return
             await st.edit_text(
-                f"❌ <b>No public record found</b>\n\n{res.get('error')}\n\n"
+                f"❌ <b>No public record found</b>\n\n{hesc(str(res.get('error'))[:200])}\n\n"
                 "💡 <i>This number may not be in the database. Try another number.</i>",
                 parse_mode=HTML)
             add_use(uid)
@@ -4067,7 +4078,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 add_use(uid)
                 return
             # API fail → free card + reason
-            card_txt, kb_free = _free_card(f"⚠️ <b>Live report not available:</b> {hesc(str(live.get('error'))[:120])}")
+            if live.get("hub_disabled"):
+                _why = ("⚠️ <b>Live RC / challan data is turned off right now.</b>\n"
+                        "<i>The data provider has paused vehicle records. The RTO card below still works.</i>")
+            else:
+                _why = f"⚠️ <b>Live report not available:</b> {hesc(str(live.get('error'))[:120])}"
+            card_txt, kb_free = _free_card(_why)
             await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
             add_use(uid)
             return

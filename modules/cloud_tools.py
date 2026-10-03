@@ -365,8 +365,14 @@ def _tb_custom_provider(url):
 # =====================================================================================
 # MAIN TERABOX RESOLVER — engine chain
 # =====================================================================================
+_TB_HUB_COOLDOWN = [0.0]          # hub fail hone par kuch der skip (live test slow na ho)
+
+
 def _tb_hub(url):
-    """v45: user ke API hub se terabox (primary engine)."""
+    """v46: user ke API hub se terabox (primary engine) — fail par 5 min cooldown."""
+    import time as _t
+    if _t.time() < _TB_HUB_COOLDOWN[0]:
+        return [], ""
     try:
         from modules import api_hub as hub
     except Exception:
@@ -374,6 +380,9 @@ def _tb_hub(url):
     if not hub.hub_ready():
         return [], ""
     res = hub.hub_terabox(url)
+    if not res.get("ok"):
+        _TB_HUB_COOLDOWN[0] = _t.time() + 300      # 5 min tak skip
+        return [], ""
     if not res.get("ok"):
         return [], ""
     files = []
