@@ -50,3 +50,23 @@ Bas. Is ek key se ye sab aapke hub (`osint-api-hub.onrender.com/api`) se chalne 
   screenshot me na dikhao, GitHub par commit na karo.
 - Sirf Render ke Environment tab me daalo.
 - Galti se leak ho jaye to: BotFather se bot token **Revoke** karo, aur hub dashboard se nayi key banao.
+
+---
+
+## 🔑 v49.6 — Aapki API (vehicle + number info) kahan lagani hai
+
+**Sabse aasan tarika:** API/key **hub** par lagao, bot ko chhedne ki zarurat nahi.
+
+1. Render → **osint-api-hub** service → **Environment** → Add Environment Variable:
+   - `VEHICLE_PROVIDER_URL` = aapki vehicle API ka endpoint
+   - `VEHICLE_PROVIDER_KEY` = us API ki key
+   - `NUMINFO_PROVIDER_URL` = aapki number/carrier API ka endpoint
+   - `NUMINFO_PROVIDER_KEY` = us API ki key
+2. Save → service khud restart hogi (~1 minute).
+3. Bot me 🚗 **VEHICLE INFO + CHALLAN** aur 📱 **NUMBER INFO** kholo — **live data** aayega.
+
+> Provider ka JSON ka shape kuch bhi ho — hub khud samajh leta hai
+> (`reg_no`, `registration_number`, `rc_number`, `vehicle_number`… sab chalta hai).
+
+**Bot par direct lagana ho** (hub ke bajaye): usi service ke Environment me
+`VEHICLE_PROVIDER_URL/KEY` + `NUMINFO_PROVIDER_URL/KEY` daal do — bas.
