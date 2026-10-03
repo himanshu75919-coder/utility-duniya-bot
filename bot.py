@@ -5261,11 +5261,13 @@ _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 
 
 def _keepalive_pinger():
-    """Har ~10 min me peers (hub) ko ping karo — Render free plan par bot+hub 24/7 ON."""
+    """Pehli ping 90 sec me, phir har ~10 min — Render free plan par bot+hub 24/7 ON."""
     import time as _t
     import urllib.request
+    _first = True
     while True:
-        _t.sleep(max(120.0, _KEEPALIVE_MINUTES * 60))
+        _t.sleep(90.0 if _first else max(120.0, _KEEPALIVE_MINUTES * 60))
+        _first = False
         for url in list(_KEEPALIVE_PEERS):
             try:
                 req = urllib.request.Request(url, headers={"User-Agent": "utility-duniya-bot/keepalive"})
