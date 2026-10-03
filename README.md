@@ -1,15 +1,15 @@
 ---
-## 🆕 v45 — Aapka apna OSINT HUB jud gaya (Number / Vehicle / Aadhaar Family)
+## 🔒 Privacy-safe lookup status
 
-| Tool | Kya badla |
+| Tool | Abhi kya available hai |
 |---|---|
-| 📱 **Number Info** | Ab naam, father, address, linked numbers, ID — **ek hi card** me (apne hub se) |
-| 🚗 **Vehicle + Challan** | Ab **ek hi API call** `/api/vehicle-report` — RC + insurance + PUC + challan (~1-4s) |
-| 🆔 **Aadhaar Family** | **NAYA TOOL** — 12 digit Aadhaar se family card (members, district, masked) |
+| 📱 **Number Info** | Local carrier/type/circle/validity metadata + official safety links; naam, family, address ya ID lookup disabled hai. |
+| 🚗 **Vehicle + Challan** | Free RTO/state parsing + official VAHAN/e-Challan links; live owner/RC/challan data tabhi jab authorized provider set ho. |
+| 🆔 **Aadhaar Official Portals** | Aadhaar ko bot/hub me bhejne ke bajay UIDAI/NFSA ke official, consent-based portals use karein. |
 
-- Admin: `/hubstatus` — teeno API ka live test
-- **Credit sirf tab katta hai jab record mile** (nahi to free)
-- Poora detail: **[v45-OSINT-HUB.md](v45-OSINT-HUB.md)**
+- Admin `/hubstatus` sirf hub health check karta hai; koi phone, plate ya Aadhaar test nahi hota.
+- IMEI input locally validate hota hai; network par sirf pehle 8-digit TAC bheja jata hai.
+- Poora privacy/setup detail: **[v41-API-HUB.md](v41-API-HUB.md)**
 
 # ⚡ Utility Duniya Super-Bot — **v44**
 
@@ -22,7 +22,7 @@ media studio (MP3/status/karaoke), info tools (IFSC/pincode/ID/IP/RTO), QR, link
 > YouTube ka gandha error), menu dobara sajaya, aur **26 tools ka deep audit**. Guide: **`v44-AI-CLIPS.md`** ·
 > Audit report: **`v44-TOOLS-AUDIT.md`**.
 > **v43:** 🎬 CLIP MAKER (`v43-CLIP-MAKER.md`).
-> **v42:** ✂️ chhote prompts · **v41:** 📲 IMEI + 🚗 vehicle asli API hub se.
+> **v42:** ✂️ chhote prompts · **v41:** 📲 IMEI TAC-only device hint + 🚗 safe RTO/official links; private lookup disabled.
 >
 > **v39:** 8 tools **poori tarah hata diye** (Actors Voice Studio, EMI Calc, Age Calculator, Password Generator,
 > Web Search, UPI QR, Photo Info + Fake Detect, Rahu Kaal/Panchang) aur **saara bot text ab SIMPLE ENGLISH** me hai.
@@ -78,7 +78,7 @@ admin verify karke activate kar dega. **Direct VIP (bina payment):** `/admin` �
 🗣️ Voice change (kid / heavy / robot / ghost / gadget / echo) · ✂️ Trim · 🗜️ Compress · 🎼 Video→MP3
 
 **Info**
-🚗 Vehicle Info + Challan (full RC + challan report) · 📲 IMEI / Phone Details (device + full spec sheet + .json) · 📱 Number Info (operator/circle/type + 6 links) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
+🚗 Vehicle Info + Challan (RTO details + official VAHAN/e-Challan links; live report ke liye authorized provider zaroori) · 📲 IMEI / Device Model (TAC match; catalog me available specs + .json) · 📱 Number Info (sirf operator/circle/type + safety links; personal records nahi) · 🏦 IFSC branch · 📮 Pincode + post offices (area se bhi) ·
 🆔 ID & Username Finder (me / forward / @username → 5 platforms + 9 links) · 🌐 IP/Domain · 🚗 RTO vehicle info ·
 📦 App Finder (8 trust stores)
 
@@ -111,7 +111,7 @@ modules/
   general_tools.py  — QR, vCard, WiFi QR, image→PDF, screenshot, app store links
   media_downloader.py — yt-dlp/parth engine (20+ sites)
   osint_tools.py    — RTO (plate parse), phone info, IFSC, pincode, IP, username finder
-  vehicle_challan.py— live vehicle RC + challan report (API-based, flexible parser)
+  vehicle_challan.py— legacy RC/challan parser; live lookup default me disabled
   payguard.py       — payment proof check (UTR format + duplicate + screenshot analysis)
   sarkari_hub.py    — government portals + student exam hub
   toolkit_extras.py — URL shortener, link bypass, link safety scanner, interest engine
@@ -123,7 +123,7 @@ v44-AI-CLIPS.md — 🧠 AI brain (Gemini/Groq) + crash fixes + STUNDET EXAM HUB
 v44-TOOLS-AUDIT.md — 26 tools ka deep audit (217 checks, sab pass)
 v43-CLIP-MAKER.md — clip maker (video → 4-7 clips) setup, limits, best-moment logic
 v42-CHHOTE-PROMPTS.md — chhote prompts (pehle vs ab, har tool ka example)
-v41-API-HUB.md — IMEI tool + vehicle hub (3 endpoint) setup, env vars, credit rules
+v41-API-HUB.md — TAC-only IMEI setup + authorized vehicle-provider safety notes
 v40-VEHICLE-CHALLAN.md — purana single-endpoint vehicle setup (optional) + privacy notes
 EARNING-TOOLS-V39.md— 12 naye earning-tool ideas (no AI)
 TUTORIAL.md         — text tutorial (fallback link)
@@ -138,15 +138,16 @@ _audit_tools_v39.py — tool-by-tool audit script (68 engines — chala kar dekh
 python3 _audit_tools_v39.py     # 68 engines: PDF, ffmpeg, QR, link safety, land, kagaz — sab
 ```
 
-Aur bot me: `/start` → menu → koi bhi tool kholo → prompt saaf English me aayega + aakhir me "Now send ..." line.
-Admin commands: **`/vehstatus`** (vehicle API live test) · `/activate <id> [days]` · `/credits <id> [n]` · `/tutrefresh`.
+Aur bot me: `/start` → menu → tool kholo → prompt Hinglish (Hindi Latin script) me aayega.
+Admin commands: **`/vehstatus`** (safe config check; real plate query nahi) · `/hubstatus` (sirf health check) · `/activate <id> [days]` · `/credits <id> [n]` · `/tutrefresh`.
 
 ---
 
 ## ⚠️ Zaroori baatein
 
 - **Koi AI tool nahi** — sab kuch offline/deterministic (server pe koi AI model nahi, Render 512MB me aaram se chalega).
-- **Legal:** Number info = live carrier/type + links (kisi ki niji jaankari nahi). Public-records feature
-  **owner ki marzi se off** rakhi ja sakti hai: `NUM_LEAK_ENABLED=off`.
+- **Privacy:** Number Info sirf carrier/type/circle jaise safe metadata dikhata hai. Leaked personal records — naam, family/linked numbers, address, government-ID — retrieve nahi hote; `NUM_LEAK_ENABLED` hamesha off hai.
+- **IMEI privacy:** full IMEI locally validate hota hai; API ko sirf pehle 8-digit TAC bheja jata hai. Serial/owner/blacklist lookup nahi hota.
+- **Vehicle:** live RC/challan sirf authorized provider se; default me official Parivahan/e-Challan links hi dikhte hain.
 - **Copyright:** downloader sirf public links ke liye — kisi ka paid content dobara bechna galat hai.
 - Payment proof sakhti se check hota hai: UTR format + duplicate + screenshot asli hai ya photo.

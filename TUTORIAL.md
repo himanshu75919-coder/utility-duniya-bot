@@ -43,10 +43,10 @@ Private or age-restricted posts do not work. Some sites rate-limit — try again
 
 ## 5. Information tools
 
-> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
-> • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
+> • 🚗 VEHICLE + CHALLAN — free me sirf number-plate ka RTO/state format aur official VAHAN/e-Challan links milte hain. Live RC/owner/challan tabhi jab documented authorized provider configured ho; default me disabled.
+> • 📲 IMEI / DEVICE MODEL — apne ya authorized device ka IMEI locally validate hota hai; network par sirf pehle 8 digits (TAC) jaate hain. Catalog me brand/model hint mil sakta hai; full specs/photo ki guarantee nahi.
 > • 🎬 CLIP MAKER — send a video (file, direct .mp4 link, or YouTube) → 4-7 short clips (25-60 sec). 🧠 Smart AI + loud/action moments (Best Moments) or Equal Parts, 16:9 or 9:16. Limit 15 min. VIP feature.
-> • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
+> • 📱 NUMBER INFO — local carrier/type/region/timezone metadata aur official safety links. Leaked naam, family/linked numbers, address ya ID lookup nahi hota.
 > • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
 > • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
 > • 🌐 IP / DOMAIN INFO — IP or website → location, ISP, VPN/proxy check.
@@ -198,15 +198,15 @@ YouTube→MP3, status video, ringtone, karaoke, 8D, voice change, trim, compress
 
 ## 🚗 VEHICLE INFO + CHALLAN
 
-Full RC record + all challans (pending/paid, amount, offence).
-📌 Example: `BR30AR0802`
-🔢 **Now send the number plate:**
+Free me number-plate ka RTO/state format aur official VAHAN/e-Challan links milte hain. Live RC/owner/challan lookup default me disabled hai; sirf documented authorized provider configure hone par hi consider hoga.
+📌 Format example: `XX00XX0000` (dummy)
+🔢 **Number plate bhejein:**
 
-## 📲 IMEI / PHONE DETAILS
+## 📲 IMEI / DEVICE MODEL
 
-Brand, model, device photo + full spec sheet + `.json` copy file.
-📍 IMEI: dial `*#06#` · 📌 Example: `353010111111110`
-🔢 **Now send the 15 digit IMEI:**
+Apne ya authorized device ka 15-digit IMEI locally validate hota hai; network par sirf pehle 8 digits (TAC) jate hain. Catalog me brand/model hint mil sakta hai; full spec/photo har model ke liye guaranteed nahi.
+📍 IMEI ke liye phone par `*#06#` dial karein; public tutorial me koi full sample IMEI nahi diya gaya.
+🔢 **Authorized device ka IMEI bhejein:**
 
 ## 🎬 CLIP MAKER
 
@@ -217,9 +217,9 @@ Video → 4-7 short clips (25-60 sec). Best moments = loud + action parts.
 
 ## 📱 NUMBER INFO
 
-Operator, circle (region), number type + 6 useful links.
-📌 Example: `9876543210`
-🔢 **Now send the 10 digit mobile number:**
+Local carrier/operator, circle/region, number type, validity aur timezone metadata milta hai; result MNP ke baad inaccurate ho sakta hai.
+Official Sanchar Saathi/Chakshu aur Cyber Crime reporting links diye jate hain. Leaked personal records se naam, family, linked numbers, address ya government ID nahi dikhte.
+🔢 **Apne ya authorized number ka input bhejein:**
 
 ## 🏦 IFSC BANK BRANCH
 

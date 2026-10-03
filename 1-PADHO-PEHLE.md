@@ -1,15 +1,12 @@
 ---
-## 🆕 v45 — Aapka apna OSINT HUB jud gaya (Number / Vehicle / Aadhaar Family)
+## 🔒 Privacy-safe lookup status
 
-| Tool | Kya badla |
-|---|---|
-| 📱 **Number Info** | Ab naam, father, address, linked numbers, ID — **ek hi card** me (apne hub se) |
-| 🚗 **Vehicle + Challan** | Ab **ek hi API call** `/api/vehicle-report` — RC + insurance + PUC + challan (~1-4s) |
-| 🆔 **Aadhaar Family** | **NAYA TOOL** — 12 digit Aadhaar se family card (members, district, masked) |
-
-- Admin: `/hubstatus` — teeno API ka live test
-- **Credit sirf tab katta hai jab record mile** (nahi to free)
-- Poora detail: **[v45-OSINT-HUB.md](v45-OSINT-HUB.md)**
+- **Number Info:** local carrier/type/circle/validity metadata aur official safety links hi; leaked naam, family, linked numbers, address ya government ID nahi.
+- **Vehicle + Challan:** free RTO/state parsing aur official VAHAN/e-Challan links; live owner/RC/challan tabhi jab authorized provider configure ho.
+- **Aadhaar:** bot/hub me number mat bhejein; apne records ke liye UIDAI/NFSA ke official, consent-based portal use karein.
+- **IMEI:** full IMEI local validation ke baad network par sirf pehle 8-digit TAC jata hai.
+- Admin `/hubstatus` sirf `/health` check karta hai; koi phone, plate, Aadhaar query nahi hota.
+- Setup detail: **[v41-API-HUB.md](v41-API-HUB.md)**
 
 # 📖 1-PADHO-PEHLE.md — v44 (5 minute me poora samajh)
 
@@ -56,30 +53,13 @@ Video bhejo → **4-7 short clips (25-60 sec)**. Mode: 🎯 Best Moments (awaaz 
 `.mp4` link (YouTube optional — kabhi block hota hai). 1 credit, VIP unlimited.
 Poora guide: **`v43-CLIP-MAKER.md`**.
 
-## 0️⃣ (purana) v42 — CHHOTE PROMPTS (kam instructions)
+## 🔒 Number, IMEI, Vehicle aur Aadhaar — abhi ka status
 
-Har tool khulne par ab sirf ye dikhta hai: **TITLE → 1 line → 📌 Example → "Now send …"**.
-Lambi bullet list hata di (tutorial video har tool ke neeche hai). Terabox par **ad-free** likha hai +
-"server reject kare to link dobara bhejo". Number Info me example `9876543210` set hai.
-Poora before/after: **`v42-CHHOTE-PROMPTS.md`**.
-
-## 0️⃣ (purana) v41 — IMEI / PHONE DETAILS + asli VEHICLE hub
-
-**📲 IMEI / PHONE DETAILS:** 15 digit IMEI bhejo (phone me `*#06#`) → brand, model, **device photo** +
-poori **spec sheet** (display, chipset, camera, battery, network) + **`.json` copy file**.
-Galat IMEI / na mila / API band = **credit nahi katta**. Guide: **`v41-API-HUB.md`**.
-
-**🚗 VEHICLE INFO + CHALLAN:** ab aapke **asli API hub** se — `vehicle-rc` + `vehicle-challan` + `vehicle-challan-v4`
-teeno merge hote hain (challan list + total amount summary). Khaali plate par credit nahi katta.
-Key Render me daalni hai (`VEHICLE_API_KEY` / `IMEI_API_KEY`) — **default abhi `Demo` hai**.
-
-## 0️⃣ (purana) v40 — VEHICLE INFO + CHALLAN
-
-Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount, date, offence) — jaise aapne example dikhaya.
-- **API lagani hai:** Render → Environment me `VEHICLE_API_URL` + `VEHICLE_API_KEY` (+ `VEHICLE_API_PARAM` agar naam alag ho) →
-  phir `/vehstatus` se test karo. Poora guide: **`v40-VEHICLE-CHALLAN.md`**.
-- **1 credit** per report · VIP = unlimited · API band ho to purana free RTO card chalta rehta hai.
-- Owner mobile / chassis / engine **masked** (privacy) — chaho to env se poora on kar sakte ho.
+- **Number Info:** sirf local carrier/type/circle/validity metadata aur official safety links. Leaked naam, family links, alternate numbers, address ya government ID nahi dikhte.
+- **IMEI:** full 15-digit input locally validate hota hai; API ko sirf pehle 8 digits ka TAC bheja jata hai. Catalog me brand/model hint mil sakta hai, lekin full specs/photo har model ke liye guaranteed nahi. Serial/owner/blacklist lookup nahi hota.
+- **Vehicle + Challan:** default me live lookup disabled hai. Bot sirf RTO/state format info aur official VAHAN/e-Challan links deta hai. Provider ko tabhi configure karein jab use aur display ki written authorization ho.
+- **Aadhaar:** Aadhaar number bot/hub me mat bhejein. Apne record ke liye UIDAI/NFSA ke official, consent-based portal use karein.
+- `/vehstatus` real plate query nahi karta; `/hubstatus` sirf `/health` check karta hai. Setup detail: **`v41-API-HUB.md`**.
 
 ---
 
@@ -88,10 +68,10 @@ Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount
 | Kaam | Detail |
 |---|---|
 | **8 tools poore hata diye** | 🎙️ Actors Voice Studio · 🧮 EMI Calc · 🎂 Age Calculator · 🔐 Password Generator · 🔎 Web Search · 💰 UPI QR · 🕵️ Photo Info + Fake Detect · 🪔 Rahu Kaal/Panchang — **menu, button, code, tutorial: sab se gayab** |
-| **Text simple English** | Pehle Hindi me tha ("Ab number bhejein", "CREDITS KHATAM") — ab **simple English** ("Now send the number:", "ALL CREDITS USED"). Lambe instructions bhi chhote kar diye |
-| **v40 tool** | 🚗 Vehicle Info + Challan (RC + challan report, live API) — premium tool #8 |
-| **v41 naya tool** | 📲 IMEI / Phone Details (device + full spec sheet + .json) — premium tool #9 · vehicle ab asli hub API par |
-| **v42** | ✂️ Chhote prompts — har tool me TITLE + 1 line + 📌 Example + "Now send…" |
+| **Bot language** | User-facing prompts Hinglish (Hindi Latin script) me rakhe gaye hain. |
+| **Number / Vehicle** | Number Info me sirf safe metadata; live owner/challan lookup default me disabled, official links available. |
+| **IMEI** | Local validation ke baad sirf pehle 8 TAC digits API ko jaate hain; full specs ki guarantee nahi. |
+| **v42** | ✂️ Chhote prompts ka historical update; current user-facing copy Hinglish me hai. |
 | **v43 naya tool** | 🎬 Clip Maker (video → 4-7 clips) — premium tool #10 |
 | **Bug fix** | tutorial me "voice" video ka button (tool hi nahi tha) · admin plan select par double line · purane imports |
 | **Test** | sab suites green: 51/51 flows, 54/54 admin, 46/46 video, 81/81 credits, 80/80 naye tools, 93/93 live checks, 68 engines audit |
@@ -100,16 +80,12 @@ Number plate bhejo → poora **RC record + saare challan** (pending/paid, amount
 
 ---
 
-## 2️⃣ Deploy (Render) — 4 step
+## 2️⃣ Deploy (Render) — safe steps
 
-1. **Push karo:**
-   ```bash
-   GITHUB_TOKEN=ghp_<REDACTED> bash /home/user/push_v39_ready.sh
-   ```
-   (Token GitHub → Settings → Developer settings → Tokens me banao; **ek token sirf ek baar** — jo purane use ho chuke hain unhe **revoke** kar dena.)
-2. **Render → apni service → Manual Deploy → "Clear build cache & deploy"** dabao.
-3. 2-3 minute ruko. Log me `Bot running...` dikhe to chalu ho gaya.
-4. Telegram me `/start` → naya menu. `/premium` → VIP plans. `/admin` → admin panel.
+1. Sahi GitHub repo me code ka push authorized maintainer/agent karega. **GitHub token chat, README ya terminal me paste mat karein**; pehle share hue tokens ko revoke karein.
+2. **Render → `utility-duniya-bot` service → Manual Deploy → `Clear build cache & deploy`** dabayein.
+3. Deploy ke baad `/health` par JSON me `service: utility-duniya-bot` verify karein. Sirf static HTML ka HTTP 200 Telegram bot chalu hone ka proof nahi.
+4. Telegram me `/start` aur actual bot feature test karein; live verify hone tak deploy ko complete na maanein.
 
 **Render par ye Environment Variables** (Environment tab):
 ```
@@ -118,7 +94,7 @@ ADMIN_ID    = tumhari Telegram user ID (owner — unlimited)
 UPI_ID      = tumhara@upi
 UPI_NAME    = Utility Duniya
 ```
-(Baaki optional: `FORCE_CHANNEL`, `FORCE_CHANNEL_LINK`, `REFER_NEED=5`, `FREE_CREDITS=25`, `TUTORIAL_URL`, `NUM_LEAK_ENABLED=off`.)
+(Baaki optional: `FORCE_CHANNEL`, `FORCE_CHANNEL_LINK`, `REFER_NEED=5`, `FREE_CREDITS=25`, `TUTORIAL_URL`. Personal leaked-record lookup permanently disabled hai; vehicle live lookup ke liye authorized provider flag alag se zaroori hai.)
 
 ---
 
@@ -129,8 +105,8 @@ Telegram me ye 6 cheezein check karo:
 | # | Karo | Kya hona chahiye |
 |---|---|---|
 | 1 | `/start` | Menu aaye — **EMI/Age/Password/Web Search/UPI QR/Voice/Panchang ke button NAHI** |
-| 2 | 📱 NUMBER INFO kholo | Prompt **English** me: "Now send the 10 digit number" + credits line |
-| 3 | 🏦 BANK STATEMENT PDF → EXCEL | PDF bhejo → Excel/CSV file + summary (English) |
+| 2 | 📱 NUMBER INFO kholo | Prompt Hinglish me aaye; sirf carrier/circle/type metadata dikhaye, personal records nahi |
+| 3 | 🏦 BANK STATEMENT PDF → EXCEL | PDF bhejo → Excel/CSV file + summary aaye |
 | 4 | ⚡ MEDIA STUDIO → 🎬 Status Video | photo → song → text → 9:16 video ban ke aaye |
 | 5 | 📜 DOCUMENT SUITE → kirayanama | ek-ek field poochhe (**House owner name**, **Rent (₹ per month)** — English) → PDF |
 | 6 | 💎 `/premium` | plan chuno → UTR maange → screenshot maange (3 step) |
@@ -175,4 +151,4 @@ Iske baad: 📊 Labour Wage Bill · 🏫 Coaching Pack · 🏦 Vehicle/Challan G
 
 1. **Koi AI tool nahi** — jo bhi bana hai, sab offline/deterministic hai (Render 512MB me chalega).
 2. **Copyright:** downloader public links ke liye hai — kisi ka paid content bechna galat hai.
-3. **Legal line:** sarkar ka public data ✅ · kisi ki niji jaankari ❌ (public-records feature `NUM_LEAK_ENABLED=off` se band).
+3. **Privacy:** number holder ka leaked naam, family, linked numbers, address ya ID search/return nahi hota; sirf safe phone metadata dikhte hain. Vehicle/live challan ke liye authorized source chahiye.

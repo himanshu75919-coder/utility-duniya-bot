@@ -5,10 +5,9 @@ Smart OSINT & Digital Investigation Hub — v32 PRO
 Vehicle RTO, Phone Carrier/Circle, IFSC Bank Branch, Pincode (+ area-name search), Domain/IP Lookup,
 and REAL Username Existence Checker (GitHub / YouTube / TikTok / Steam / Telegram verified).
 
-NOTE (safety): Default me sirf PUBLIC / lawful sources use hote hain (telecom carrier+circle, bank branch,
-pin code, IP geo). "Public records" lookup (naam/address wala) ek OPTIONAL feature hai jo bot owner ne
-khud enable kiya hai — env NUM_LEAK_ENABLED=off karke ise kabhi bhi band kiya ja sakta hai.
-Iska misuse (kisi ko pareshan karna / blackmail / fraud) India me CRIME hai (IT Act + DPDP Act).
+NOTE (privacy): Phone tool sirf non-sensitive metadata dikhata hai (carrier/circle, number type,
+validity aur safety links). Leaked/private records — jaise naam, family links, ID ya ghar ka pata —
+is bot se retrieve nahi kiye jate.
 """
 
 import os
@@ -166,12 +165,9 @@ def lookup_phone_info(number_str: str) -> dict:
         "type": ntype,
         "series_note": series_note,
         "links": [
-            ("💬 WhatsApp Check", f"https://wa.me/{digits}"),
-            ("✈️ Telegram Check", f"https://t.me/+{digits}"),
-            ("🔍 Truecaller Search", f"https://www.truecaller.com/search/in/{digits}"),
-            ("🌐 Google Search", f"https://www.google.com/search?q=%22{digits}%22"),
-            ("🚨 Chakshu (Spam Report - TRAI)", "https://sancharsaathi.gov.in/sfc/"),
-            ("🚔 Cyber Crime Helpline 1930", "https://cybercrime.gov.in/"),
+            ("🚨 Chakshu — spam/fraud report (Sanchar Saathi)", "https://sancharsaathi.gov.in/sfc/"),
+            ("🚔 Cyber Crime report / helpline 1930", "https://cybercrime.gov.in/"),
+            ("📡 Sanchar Saathi official portal", "https://sancharsaathi.gov.in/"),
         ],
         "note": "Carrier/circle can change if the number was ported (MNP).",
     }
@@ -320,68 +316,28 @@ def lookup_ip_domain(target: str) -> dict:
 
 
 # =====================================================================================
-# PUBLIC-RECORDS LOOKUP (OPTIONAL — bot owner ne enable kiya; env se off ho sakta hai)
+# PERSONAL-RECORD LOOKUP — RETIRED (no network requests are made)
 # =====================================================================================
-NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-apis-hub.onrender.com").rstrip("/")
-NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
-NUM_LEAK_ENABLED = lambda: os.environ.get("NUM_LEAK_ENABLED", "on").strip().lower() not in ("off", "0", "false", "no")
+# Legacy env names kept only for backwards-compatible imports; they are not used.
+NUM_INFO_API_BASE = lambda: ""
+NUM_INFO_API_KEY = lambda: ""
+# Privacy guard: leaked-personal-record lookups are intentionally disabled in every environment.
+NUM_LEAK_ENABLED = lambda: False
 
 PUBLIC_RECORD_WARNING = (
-    "⚠️ <b>IMPORTANT:</b>\n"
-    "This is <b>public/leaked record</b> information (it may contain someone's personal details).\n"
-    "• Using it to <b>harass, blackmail or defraud</b> anyone is a <b>CRIME</b> in India "
-    "(IT Act + DPDP Act — jail/fine possible)\n"
-    "• Look up only <b>your own</b> information, or for <b>legal</b> work (example: complaint about a fraud number)\n"
-    "• The bot owner can switch this feature off any time (NUM_LEAK_ENABLED=off)"
+    "🔒 <b>Privacy:</b> leaked databases se kisi vyakti ka naam, ghar ka pata, family links, "
+    "linked numbers ya government-ID yahan search/return nahi hote.\n"
+    "📱 Is tool me sirf non-sensitive number metadata aur official safety links milte hain."
 )
 
 
 def lookup_public_records(number: str) -> dict:
-    """
-    OPTIONAL: user ke diye hue API se public-records (naam / address / father-name) nikalta hai.
-    Env se band: NUM_LEAK_ENABLED=off | API badalni ho: NUM_INFO_API_BASE / NUM_INFO_API_KEY
-    """
-    if not NUM_LEAK_ENABLED():
-        return {"ok": False, "disabled": True,
-                "error": "The owner has disabled this feature (NUM_LEAK_ENABLED=off)."}
-
-    digits = re.sub(r"\D", "", number or "")
-    if len(digits) == 10:
-        digits = "91" + digits
-    if len(digits) != 12:
-        return {"ok": False, "error": "Send a 10 digit mobile number (example 9876543210)"}
-
-    try:
-        r = requests.get(f"{NUM_INFO_API_BASE()}/api/num-info",
-                         params={"key": NUM_INFO_API_KEY(), "q": digits},
-                         headers=UA_HEADERS, timeout=45)
-        if r.status_code != 200:
-            return {"ok": False, "error": f"API did not answer (HTTP {r.status_code})"}
-        j = r.json()
-    except Exception as e:
-        return {"ok": False, "error": f"Could not reach the API: {str(e)[:90]}"}
-
-    if not j.get("status"):
-        return {"ok": False, "error": j.get("error") or "No record found for this number"}
-
-    data = j.get("data") or {}
-    raw = list(data.get("main_records") or []) + list(data.get("alternative_records") or [])
-    records = []
-    for rec in raw[:5]:
-        records.append({
-            "name": (rec.get("full_name") or rec.get("name") or "—").strip(),
-            "father": (rec.get("the_name_of_the_father") or "").strip(),
-            "address": (rec.get("address") or "").strip(),
-            "phone": (rec.get("phone") or "").strip(),
-            "doc": (rec.get("document_number") or "").strip(),
-            "region": (rec.get("region") or "").strip(),
-        })
-
-    if not records:
-        return {"ok": False, "error": "Record found but it is empty. Try another number."}
-
-    return {"ok": True, "number": digits, "records": records, "count": len(records),
-            "record_count": j.get("record_count", len(records)), "warning": PUBLIC_RECORD_WARNING}
+    """Retired for privacy; intentionally makes no network request and stores no result."""
+    return {
+        "ok": False,
+        "disabled": True,
+        "error": "Privacy ke liye leaked personal-record lookup supported nahi hai. Sirf safe phone metadata available hai.",
+    }
 
 
 # =====================================================================================

@@ -2,19 +2,21 @@
 """
 IMEI / Phone Details (v41)
 ==========================
-Ek IMEI number → poora device details: brand, model, photo + spec sections
-(Network, Launch, Body, Display, Platform, Memory, Camera, Sound, Comms,
-Features, Battery, Misc) + ek `.json` spec file (copy-code style).
+IMEI locally validate hota hai; network par sirf pehle 8 digits (TAC) bheje jate hain.
+Hub ke local catalog se limited brand/model hint aa sakta hai; full specifications,
+photo ya har model ki coverage guaranteed nahi. Serial, owner, blacklist ya tracking lookup nahi hota.
 
 Kahan se data aata hai:
-  /api/imei?key=...&imei=15-digit     → { imei, result: { header:{brand,model,photo,imei},
-                                                         items:[{role,title,content}] } }
+  /api/imei?key=...&imei=8-digit-TAC → TAC-based local device hint (flat ya safe legacy response)
 
-Default base: https://osint-apis-hub.onrender.com/api   (key: Demo — apni key env me daal do)
+Default base: https://osint-api-hub.onrender.com/api (canonical hub)
 ENV (Render → Environment):
-  IMEI_API_BASE     = API host + /api   (khaali ho to VEHICLE_API_BASE / default)
-  IMEI_API_KEY      = apni key          (khaali ho to VEHICLE_API_KEY / Demo)
+  IMEI_API_BASE     = API host + /api   (default upar wala)
+  IMEI_API_KEY      = apni key          (default: Demo)
   IMEI_TIMEOUT      = seconds (default 25)
+
+Privacy: bot IMEI ko locally validate karta hai; response me sirf device/TAC details dikhata hai.
+Full serial/blacklist/owner data is endpoint se nahi liya jata.
 
 IMEI check: 15 digit + Luhn. Galat IMEI par paisa/API call waste nahi hota.
 """
@@ -30,9 +32,9 @@ from datetime import datetime
 
 import requests
 
-DEFAULT_BASE = "https://osint-apis-hub.onrender.com/api"
+DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"
 TIMEOUT = int(os.environ.get("IMEI_TIMEOUT", "25"))
-CACHE_TTL = 600          # 10 minute — same IMEI dobara check ho to API call na lage
+CACHE_TTL = 600          # 10 minute — same TAC dobara check ho to API call na lage
 _FAIL_TTL = 60
 
 _CACHE: dict = {}
@@ -45,15 +47,20 @@ _EMPTY = ("", "-", "none", "na", "n/a", "null", "unknown", "not available")
 
 # ---------------------------------------------------------------- config
 def api_base() -> str:
-    b = (os.environ.get("IMEI_API_BASE") or os.environ.get("VEHICLE_API_BASE") or "").strip()
-    if b:
-        return b.rstrip("/")
-    return DEFAULT_BASE
+    """IMEI config ko canonical hub par rakho; Vehicle credentials alag rehte hain."""
+    b = (os.environ.get("IMEI_API_BASE") or os.environ.get("OSINT_API_BASE") or DEFAULT_BASE).strip()
+    b = b.rstrip("/")
+    if b.lower().endswith("/imei"):
+        b = b[:-5].rstrip("/")
+    if not b.lower().endswith("/api"):
+        b += "/api"
+    return b
 
 
 def api_key() -> str:
-    return (os.environ.get("IMEI_API_KEY") or os.environ.get("VEHICLE_API_KEY")
-            or os.environ.get("IMEI_API_TOKEN") or "Demo").strip()
+    # IMEI key alag rakhein; Vehicle API ki key galti se bhejne se HTTP 401 aa sakta hai.
+    return (os.environ.get("IMEI_API_KEY") or os.environ.get("OSINT_API_KEY")
+            or os.environ.get("IMEI_API_TOKEN") or "Demo").strip() or "Demo"
 
 
 def is_configured() -> bool:
@@ -147,26 +154,56 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     sections = [ {"title": "Display", "rows": [("Display type", "OLED"), ...]}, ... ]
     links    = [ ("Tutorials", "https://..."), ... ]
     """
+    safe_tac = clean_imei(imei)[:8]
     if not isinstance(payload, dict):
-        return {"ok": False, "error": "Bad API response.", "imei": imei}
+        return {"ok": False, "error": "Bad API response.", "imei": safe_tac, "tac": safe_tac}
 
     api_err = _err_of(payload)
     if api_err:
         low = api_err.lower()
         if "invalid" in low and "imei" in low:
-            return {"ok": False, "error": "This IMEI is not in the database (not a valid device IMEI).",
-                    "imei": imei, "not_found": True}
-        return {"ok": False, "error": api_err, "imei": imei}
+            return {"ok": False, "error": "This IMEI is not in the device catalog.",
+                    "imei": safe_tac, "tac": safe_tac, "not_found": True}
+        return {"ok": False, "error": api_err, "imei": safe_tac, "tac": safe_tac}
 
     res = payload.get("result")
     if isinstance(res, str):                       # {"result": "Invalid IMEI"}
         low = res.lower()
         if "invalid" in low:
-            return {"ok": False, "error": "This IMEI is not in the database (not a valid device IMEI).",
-                    "imei": imei, "not_found": True}
-        return {"ok": False, "error": res[:120], "imei": imei}
+            return {"ok": False, "error": "Yeh IMEI device catalog me nahi mila.",
+                    "imei": clean_imei(imei)[:8], "not_found": True}
+        return {"ok": False, "error": res[:120], "imei": clean_imei(imei)[:8]}
+
+    # Canonical ToolVault hub ka native jawab flat hota hai: brand/model/tac.
+    # Purana provider `result.header/items` bhejta tha; dono formats accept hote hain.
     if not isinstance(res, dict):
-        return {"ok": False, "error": "No device details found for this IMEI.", "imei": imei, "not_found": True}
+        flat = payload.get("local_analysis") if isinstance(payload.get("local_analysis"), dict) else payload
+        brand = _clean_val(flat.get("brand"))
+        model = _clean_val(flat.get("model"))
+        tac = clean_imei(flat.get("tac") or imei)[:8]
+        if not (brand or model):
+            return {"ok": False, "error": "Is TAC ke liye device model catalog me nahi mila.",
+                    "imei": tac, "tac": tac, "not_found": True}
+        rows = [("TAC (first 8 digits)", tac)]
+        if brand:
+            rows.append(("Brand", brand))
+        if model:
+            rows.append(("Model", model))
+        if flat.get("reporting_body"):
+            rows.append(("Reporting body", _clean_val(flat.get("reporting_body"))))
+        if flat.get("luhn_check"):
+            rows.append(("Check", "Valid format; device identity matched by TAC"))
+        if flat.get("note"):
+            rows.append(("Catalog note", _clean_val(flat.get("note"))))
+        meta = payload.get("_meta") if isinstance(payload.get("_meta"), dict) else {}
+        return {
+            "ok": True, "imei": tac, "tac": tac,
+            "brand": brand, "model": model, "photo": "", "url": "",
+            "sections": [{"title": "Device match (TAC)", "rows": rows}],
+            "links": [], "checked_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
+            "_source": str(meta.get("source") or "local TAC catalog"),
+            "spec_level": "model-match-only",
+        }
 
     head = res.get("header") or {}
     items = res.get("items") or []
@@ -179,7 +216,10 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
 
     def _add_row(title, content):
         t, c = _clean_val(title), _clean_val(content)
-        if not t or not c:
+        low_title = t.lower().replace("_", " ").strip()
+        # IMEI serial, SNR aur IMEI2 ko report/JSON me repeat nahi karte.
+        if (not t or not c or low_title in {"imei", "imei number", "imei2", "serial", "serial number", "snr"}
+                or "serial number" in low_title):
             return
         nonlocal cur
         if cur is None:
@@ -221,25 +261,33 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
 
     sections = [s for s in sections if s["rows"]]
 
-    brand = _clean_val(head.get("brand"))
-    model = _clean_val(head.get("model"))
-    photo = str(head.get("photo") or "").strip()
-    clean = clean_imei(payload.get("imei") or imei)
+    brand = _clean_val(head.get("brand") or res.get("brand"))
+    model = _clean_val(head.get("model") or res.get("model"))
+    photo = str(head.get("photo") or res.get("photo") or "").strip()
+    if not photo.lower().startswith(("https://", "http://")):
+        photo = ""
+    page_url = str(head.get("url") or res.get("url") or "").strip()
+    if not page_url.lower().startswith(("https://", "http://")):
+        page_url = ""
+    tac = clean_imei(payload.get("tac") or imei)[:8]
 
     if not (brand or model) and not sections:
-        return {"ok": False, "error": "No device details found for this IMEI.",
-                "imei": clean, "not_found": True}
+        return {"ok": False, "error": "Is TAC ke liye device details catalog me nahi mile.",
+                "imei": tac, "tac": tac, "not_found": True}
 
+    meta = payload.get("_meta") if isinstance(payload.get("_meta"), dict) else {}
     return {
         "ok": True,
-        "imei": clean,
+        "imei": tac,             # backward-compatible field; ab isme sirf TAC rahega
+        "tac": tac,
         "brand": brand,
         "model": model,
         "photo": photo,
+        "url": page_url,
         "sections": sections,
         "links": links[:6],
         "checked_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
-        "_source": "imei",
+        "_source": str(meta.get("source") or "device catalog"),
     }
 
 
@@ -248,26 +296,28 @@ def fetch_imei_details(imei: str, use_cache: bool = True) -> dict:
     """IMEI → device details (cache ke saath). Wrong/unknown IMEI par clear error."""
     ok, clean, err = validate_imei(imei)
     if not ok:
-        return {"ok": False, "error": err, "imei": clean}
+        return {"ok": False, "error": err, "tac": clean[:8]}
     clean = clean or clean_imei(imei)
+    tac = clean[:8]
 
     now = time.time()
     if use_cache:
         with _LOCK:
-            hit = _CACHE.get(clean)
+            hit = _CACHE.get(tac)
         if hit and (now - hit[0]) < (CACHE_TTL if hit[1].get("ok") else _FAIL_TTL):
             out = dict(hit[1])
             out["cached"] = True
             return out
 
-    payload, net_err = _get(f"{api_base()}/imei", {"key": api_key(), "imei": clean})
+    # Full IMEI locally validate hota hai; network par sirf TAC (first 8 digits) jata hai.
+    payload, net_err = _get(f"{api_base()}/imei", {"key": api_key(), "imei": tac})
     if payload is None:
-        out = {"ok": False, "error": net_err or "API is not reachable right now.", "imei": clean}
+        out = {"ok": False, "error": net_err or "API is not reachable right now.", "imei": tac, "tac": tac}
     else:
-        out = parse_imei_payload(payload, clean)
+        out = parse_imei_payload(payload, tac)
 
     with _LOCK:
-        _CACHE[clean] = (now, out)
+        _CACHE[tac] = (now, out)
         if len(_CACHE) > 300:
             for k in sorted(_CACHE, key=lambda x: _CACHE[x][0])[:100]:
                 _CACHE.pop(k, None)
@@ -313,7 +363,7 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
     lines = [f"📲 <b>{device_title(res)}</b>"]
     if res.get("brand"):
         lines.append(f"🏷️ <b>Brand:</b> {res['brand']}")
-    lines.append(f"🔢 <b>IMEI:</b> <code>{res.get('imei') or '—'}</code>")
+    lines.append(f"🔎 <b>TAC:</b> <code>{res.get('tac') or res.get('imei') or '—'}</code>")
     # top 5 sections ke 2-2 key points
     shown = 0
     for s in res.get("sections") or []:
@@ -331,7 +381,7 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
             break
         lines.append(block)
         shown += 1
-    lines.append("👇 <i>Full specification in the next message.</i>")
+    lines.append("👇 <i>Catalog me available device details neeche hain; full spec har model ke liye guaranteed nahi.</i>")
     out = "\n".join(lines)
     return out[:1024]
 
@@ -344,7 +394,7 @@ def render_text(res: dict, max_len: int = 3600) -> str:
         f"📲 <b>{device_title(res)}</b>",
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"🏷️ <b>Brand:</b> {res.get('brand') or '—'}",
-        f"🔢 <b>IMEI:</b> <code>{res.get('imei') or '—'}</code>",
+        f"🔎 <b>TAC:</b> <code>{res.get('tac') or res.get('imei') or '—'}</code>",
     ]
     for s in res.get("sections") or []:
         out.append("━━━━━━━━━━━━━━━━━━━━━━")
@@ -358,7 +408,7 @@ def render_text(res: dict, max_len: int = 3600) -> str:
             out.append("<i>…spec list is long (full copy in the .json file below)</i>")
             break
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
-    out.append("<i>Data: imei.info device database · confirm on the official brand site before buying/selling.</i>")
+    out.append("<i>Source: local TAC/device catalog. Serial number, owner, blacklist ya live-network status check nahi hota.</i>")
     txt = "\n".join(out)
     return txt[:4000]
 
@@ -374,13 +424,15 @@ def specs_dict(res: dict) -> dict:
     for s in res.get("sections") or []:
         specs[s["title"]] = {k: v for k, v in s["rows"]}
     return {
-        "device": device_title(res),
+        "device_name": device_title(res),
+        "image_url": res.get("photo") or "",
+        "url": res.get("url") or "",
         "brand": res.get("brand") or "",
         "model": res.get("model") or "",
-        "imei": res.get("imei") or "",
+        "tac": res.get("tac") or res.get("imei") or "",
         "checked_at": res.get("checked_at") or datetime.now().strftime("%d-%m-%Y %H:%M"),
         "specifications": specs,
-        "source": "osint-apis-hub / imei.info",
+        "source": res.get("_source") or "local TAC catalog",
     }
 
 
@@ -397,11 +449,10 @@ def specs_filename(res: dict) -> str:
 
 
 def fallback_links(imei: str = "") -> list:
-    """API down ho to user khud check kar sake."""
-    c = clean_imei(imei)
+    """Generic help links only; full IMEI ko kisi third-party URL me nahi bhejte."""
     return [
-        ("🌐 Check on imei.info", f"https://www.imei.info/?imei={c}" if c else "https://www.imei.info/"),
-        ("📱 How to find IMEI (dial *#06#)", "https://www.imei.info/faq-where-find-imei/"),
+        ("📱 Device specifications (GSMArena)", "https://www.gsmarena.com/"),
+        ("ℹ️ IMEI/TAC kya hota hai?", "https://en.wikipedia.org/wiki/Type_Allocation_Code"),
     ]
 
 
@@ -411,9 +462,9 @@ def help_card(error: str = "", imei: str = "") -> str:
         head += f"\n⚠️ <b>{error}</b>"
     return (
         head + "\n"
-        "Send the <b>15 digit IMEI</b> of the phone.\n"
-        "📍 Where to find it: dial <code>*#06#</code> on the phone, or see the box / bill.\n"
-        "✅ You get: brand, model, device photo + full spec sheet (display, chipset, camera, "
-        "battery, network) + a <code>.json</code> copy file.\n"
-        "<i>Works for any phone/tablet. For legal use only (checking your own or a device you are buying).</i>"
+        "Apne ya authorized device ka <b>15 digit IMEI</b> bhejein.\n"
+        "📍 IMEI dekhne ke liye phone par <code>*#06#</code> dial karein.\n"
+        "🔒 IMEI yahin locally validate hota hai; API ko sirf pehle 8 digit TAC bheja jata hai.\n"
+        "✅ Catalog me available brand/model aur specifications + <code>.json</code> copy file milegi.\n"
+        "ℹ️ Har model ki full specs/photo catalog me guaranteed nahi; owner, blacklist ya tracking data nahi liya jata."
     )
