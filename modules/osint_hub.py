@@ -4,10 +4,10 @@ OSINT HUB CLIENT (v45)
 ======================
 Utility Duniya Bot → aapka apna OSINT API Hub (https://osint-api-hub.onrender.com)
 
-Ek hi jagah se 3 bade tools chalte hain:
-  📱 NUMBER INFO       →  /api/num-info        (naam, father, address, alt numbers, IDs)
-  🚗 VEHICLE + CHALLAN →  /api/vehicle-report  (RC + insurance + PUC + challan)
-  🆔 AADHAAR FAMILY    →  /api/aadhaar-family  (family members + district, masked Aadhaar)
+Safe lookup scope:
+  📱 NUMBER INFO       →  sirf non-sensitive carrier/circle metadata (personal records disabled)
+  🚗 VEHICLE + CHALLAN →  official links by default; live data only with an authorized provider
+  🆔 AADHAAR FAMILY    →  consent/authorized source required; koi leaked data query nahi hota
 
 ENV (Render → Environment):
   OSINT_API_BASE   = https://osint-api-hub.onrender.com/api   (default)
@@ -55,8 +55,19 @@ def api_key() -> str:
     return (os.environ.get("OSINT_API_KEY") or "Demo").strip() or "Demo"
 
 
+def vehicle_api_base() -> str:
+    b = (os.environ.get("VEHICLE_API_BASE") or "").strip().rstrip("/")
+    if not b:
+        return ""
+    if not b.lower().endswith("/api"):
+        b += "/api"
+    return b
+
+
 def is_configured() -> bool:
-    return bool(api_base())
+    """Live vehicle data is off unless an authorized provider is explicitly configured."""
+    authorized = os.environ.get("VEHICLE_PROVIDER_AUTHORIZED", "0").strip().lower()
+    return authorized in ("1", "true", "yes") and bool(vehicle_api_base())
 
 
 # ------------------------------------------------------------------ cache
@@ -82,11 +93,13 @@ def cache_clear():
 
 
 # ------------------------------------------------------------------ http
-def hub_get(path: str, params: dict, tmo: int | None = None, tries: int = 2):
-    """Hub ko call karo → (json|None, error|None). Kabhi exception nahi phenkta."""
-    url = f"{api_base()}/{path.lstrip('/')}"
+def hub_get(path: str, params: dict, tmo: int | None = None, tries: int = 2,
+            base_override: str | None = None, key_override: str | None = None):
+    """Configured API ko call karo → (json|None, error|None)."""
+    base = (base_override or api_base()).rstrip("/")
+    url = f"{base}/{path.lstrip('/')}"
     p = dict(params or {})
-    p.setdefault("key", api_key())
+    p.setdefault("key", key_override or api_key())
     last_err = "The API did not answer."
     for attempt in range(max(1, tries)):
         try:
@@ -137,65 +150,13 @@ def _clean(v) -> str:
 #  1) NUMBER INFO
 # ===================================================================
 def num_info_report(number: str) -> dict:
-    """
-    /api/num-info → saaf dict.
-    {"ok":True, "has_data":True, "people":[{name, father_name, phones[], alt_phones[],
-      govt_ids[], emails[], addresses[], region}], "record_count":n, "sources":[], "cached":bool}
-    Fail: {"ok":False, "error":..., "has_data":False}
-    """
-    digits = re.sub(r"\D", "", str(number or ""))
-    if len(digits) < 8:
-        return {"ok": False, "has_data": False, "error": "Please send a valid 10 digit mobile number."}
-    q = digits[-10:] if len(digits) >= 10 else digits
-
-    ck = f"num:{q}"
-    hit = _cache_get(ck)
-    if hit is not None:
-        return {**hit, "cached": True}
-
-    payload, err = hub_get("num-info", {"q": q, "format": "json"})
-    if err:
-        res = {"ok": False, "has_data": False, "error": err}
-        _cache_put(ck, res, _FAIL_TTL)
-        return res
-    if not isinstance(payload, dict) or not payload.get("success", True):
-        res = {"ok": False, "has_data": False, "error": _err_of(payload) or "No record found."}
-        _cache_put(ck, res, _FAIL_TTL)
-        return res
-
-    people = []
-    for p in (payload.get("people") or []):
-        if not isinstance(p, dict):
-            continue
-        phones = [x for x in (_clean(y) for y in (p.get("phones") or [])) if x]
-        alts = [x for x in (_clean(y) for y in (p.get("alt_phones") or [])) if x]
-        for a in alts:
-            if a not in phones:
-                phones.append(a)
-        ids = [x for x in (_clean(y) for y in (p.get("govt_ids") or [])) if x]
-        mails = [x for x in (_clean(y) for y in (p.get("emails") or [])) if x]
-        addrs = [x for x in (_clean(y) for y in (p.get("addresses") or [])) if x]
-        name = _clean(p.get("name"))
-        father = _clean(p.get("father_name"))
-        if not name and not father and not addrs and not phones:
-            continue
-        people.append({
-            "name": name, "father_name": father,
-            "phones": phones, "alt_phones": alts,
-            "govt_ids": ids, "emails": mails, "addresses": addrs,
-            "region": _clean(p.get("region")),
-            "sources": [str(s) for s in (p.get("sources") or [])],
-            "record_count": int(p.get("record_count") or 0),
-        })
-
-    has_data = any(p.get("name") or p.get("addresses") or len(p.get("phones") or []) > 1
-                   or p.get("govt_ids") for p in people)
-    res = {"ok": True, "has_data": has_data, "people": people,
-           "record_count": int(payload.get("record_count") or len(people)),
-           "query": q, "sources": [str(s) for s in (payload.get("sources_used") or [])],
-           "cached": False, "error": ""}
-    _cache_put(ck, res)
-    return res
+    """Personal-record lookup retired; no number is sent to the OSINT hub."""
+    return {
+        "ok": False,
+        "has_data": False,
+        "disabled": True,
+        "error": "Privacy ke liye leaked personal records retrieve nahi hote. Sirf safe phone metadata available hai.",
+    }
 
 
 # ===================================================================
@@ -254,14 +215,21 @@ def vehicle_report_v2(plate: str) -> dict:
     """
     plate_c = re.sub(r"[^A-Za-z0-9]", "", str(plate or "")).upper()
     if not plate_c:
-        return {"ok": False, "error": "No number plate given.", "fallback": True}
+        return {"ok": False, "error": "Number plate nahi mila.", "fallback": True}
+    if not is_configured():
+        return {"ok": False, "has_data": False, "fallback": True,
+                "error": "Authorized vehicle/challan provider configured nahi hai. Official Parivahan/e-Challan portal use karein."}
 
     ck = f"veh2:{plate_c}"
     hit = _cache_get(ck)
     if hit is not None:
         return {**hit, "cached": True}
 
-    payload, err = hub_get("vehicle-report", {"q": plate_c, "format": "json"})
+    payload, err = hub_get(
+        "vehicle-report", {"q": plate_c, "format": "json"},
+        base_override=vehicle_api_base(),
+        key_override=(os.environ.get("VEHICLE_API_KEY") or "Demo").strip(),
+    )
     if err:
         res = {"ok": False, "error": err, "fallback": True}
         _cache_put(ck, res, _FAIL_TTL)
@@ -307,104 +275,57 @@ def vehicle_report_v2(plate: str) -> dict:
 #  3) AADHAAR FAMILY
 # ===================================================================
 def aadhaar_family_report(aadhaar: str) -> dict:
-    """
-    /api/aadhaar-family → saaf dict.
-    {"ok":True, "has_data":True, "aadhaar_masked":…, "valid":bool, "primary":{…},
-     "members":[{name, aadhaar_masked, relation, father_name, phones[], address}],
-     "member_count":n, "location":{district,state,pincode}, "ration_card":…, "fps_id":…}
-    """
-    digits = re.sub(r"\D", "", str(aadhaar or ""))
-    if len(digits) != 12:
-        return {"ok": False, "has_data": False,
-                "error": "Aadhaar number must be exactly 12 digits."}
-
-    ck = f"aadhaar:{digits}"
-    hit = _cache_get(ck)
-    if hit is not None:
-        return {**hit, "cached": True}
-
-    payload, err = hub_get("aadhaar-family", {"aadhaar": digits, "format": "json"})
-    if err:
-        res = {"ok": False, "has_data": False, "error": err}
-        _cache_put(ck, res, _FAIL_TTL)
-        return res
-    if not isinstance(payload, dict) or not payload.get("success", True):
-        res = {"ok": False, "has_data": False, "error": _err_of(payload) or "No record found."}
-        _cache_put(ck, res, _FAIL_TTL)
-        return res
-
-    members = []
-    for m in (payload.get("members") or []):
-        if not isinstance(m, dict):
-            continue
-        phones = [x for x in (_clean(y) for y in (m.get("phones") or [])) if x]
-        members.append({
-            "name": _clean(m.get("name")),
-            "aadhaar_masked": _clean(m.get("aadhaar_masked")),
-            "relation": _clean(m.get("relation")),
-            "father_name": _clean(m.get("father_name")),
-            "phones": phones,
-            "address": _clean(m.get("address")),
-        })
-    if not members:
-        prim = payload.get("primary") or {}
-        if isinstance(prim, dict) and _clean(prim.get("name")):
-            members = [{
-                "name": _clean(prim.get("name")),
-                "aadhaar_masked": _clean(payload.get("aadhaar_masked")),
-                "relation": "searched Aadhaar holder",
-                "father_name": _clean(prim.get("father_name")),
-                "phones": [x for x in (_clean(y) for y in (prim.get("phones") or [])) if x],
-                "address": _clean((prim.get("addresses") or [""])[0]) if isinstance(prim.get("addresses"), list) else "",
-            }]
-
-    loc = payload.get("location") or {}
-    res = {
-        "ok": True,
-        "has_data": bool(members),
-        "aadhaar_masked": _clean(payload.get("aadhaar_masked")),
-        "valid": bool(payload.get("aadhaar_valid_checksum")),
-        "primary": payload.get("primary") or {},
-        "members": members,
-        "member_count": int(payload.get("member_count") or len(members)),
-        "location": {
-            "district": _clean(loc.get("district")),
-            "state": _clean(loc.get("state")),
-            "pincode": _clean(loc.get("pincode")),
-        },
-        "ration_card": _clean(payload.get("ration_card_number")),
-        "fps_id": _clean(payload.get("fps_id")),
-        "sources": [str(s) for s in (payload.get("sources_used") or [])],
-        "note": _clean(payload.get("note")),
-        "cached": False, "error": "",
+    """Retired: Aadhaar/family information is not queried from leaked datasets."""
+    return {
+        "ok": False,
+        "has_data": False,
+        "disabled": True,
+        "error": "Aadhaar-family lookup yahan supported nahi. Apne records ke liye UIDAI/NFSA ke official, consent-based portal ka use karein.",
     }
-    _cache_put(ck, res)
-    return res
 
 
 # ===================================================================
-#  ADMIN: /hubstatus — teeno API ka live test
+#  ADMIN: /hubstatus — health endpoint only; no personal-ID test
 # ===================================================================
-def hub_status(sample_plate: str = "BR30AR0802", sample_number: str = "9058390341") -> str:
+def hub_status(sample_plate: str = "", sample_number: str = "") -> str:
+    """Hub health check only; it never submits a phone, vehicle plate or Aadhaar."""
     from html import escape as _e
-    lines = ["🔌 <b>OSINT HUB STATUS</b>", "━━━━━━━━━━━━━━━━━━━━━━",
-             f"🌐 <b>Base:</b> <code>{_e(api_base())}</code>",
-             f"🔑 <b>Key:</b> <code>{_e(api_key()[:6] + '…' + api_key()[-3:] if len(api_key()) > 10 else api_key())}</code>",
-             f"⏱️ <b>Timeout:</b> {TIMEOUT}s", ""]
-    t0 = time.time()
-    p, err = hub_get("num-info", {"q": sample_number, "format": "json"}, tmo=min(TIMEOUT, 40))
-    lines.append(f"📱 <b>num-info:</b> {'✅ OK' if p else '❌ ' + _e(err or 'fail')}"
-                 + (f" — {len((p or {}).get('people') or [])} person" if p else ""))
-    p2, err2 = hub_get("vehicle-report", {"q": sample_plate, "format": "json"}, tmo=min(TIMEOUT, 40))
-    lines.append(f"🚗 <b>vehicle-report:</b> {'✅ OK' if p2 else '❌ ' + _e(err2 or 'fail')}"
-                 + (f" — {(((p2 or {}).get('challans') or {}).get('count'))} challan" if p2 else ""))
-    p3, err3 = hub_get("aadhaar-family", {"aadhaar": "861313813129", "format": "json"},
-                       tmo=min(TIMEOUT, 40), tries=1)
-    lines.append(f"🆔 <b>aadhaar-family:</b> {'✅ OK' if p3 else '❌ ' + _e(err3 or 'fail')}"
-                 + (f" — {(p3 or {}).get('member_count')} members" if p3 else ""))
-    lines.append("")
-    lines.append(f"⏱️ <b>Total time:</b> {round(time.time() - t0, 1)}s")
-    lines.append(f"⚡ <i>Powered by {_e(os.environ.get('BRAND_TAG', '@Supermannn_x'))}</i>")
+
+    base = api_base().rstrip("/")
+    root = base[:-4] if base.lower().endswith("/api") else base
+    health_url = f"{root}/health"
+    status_line = "❌ Hub health endpoint se contact nahi ho paya."
+    version = ""
+    try:
+        response = requests.get(health_url, headers=UA_HEADERS, timeout=min(TIMEOUT, 20))
+        if response.status_code == 200:
+            try:
+                data = response.json()
+            except Exception:
+                data = {}
+            status_line = "✅ Hub health: HTTP 200"
+            version = str(data.get("version") or "")
+        else:
+            status_line = f"❌ Hub health: HTTP {response.status_code}"
+    except Exception as exc:
+        status_line = f"❌ {_e(str(exc)[:100])}"
+
+    lines = [
+        "🔌 <b>OSINT HUB STATUS</b>",
+        "━━━━━━━━━━━━━━━━━━━━━━",
+        f"🌐 <b>Health URL:</b> <code>{_e(health_url)}</code>",
+        status_line,
+    ]
+    if version:
+        lines.append(f"📦 <b>Version:</b> {_e(version)}")
+    lines.extend([
+        "",
+        "📱 Number personal-record lookup: <b>disabled</b> (koi number query nahi hua)",
+        "🚗 Vehicle/challan lookup: <b>not tested</b> (authorized provider zaroori)",
+        "🆔 Aadhaar lookup: <b>not tested</b> (consent/authorized source zaroori)",
+        "",
+        f"⚡ <i>Powered by {_e(os.environ.get('BRAND_TAG', '@Supermannn_x'))}</i>",
+    ])
     return "\n".join(lines)
 
 

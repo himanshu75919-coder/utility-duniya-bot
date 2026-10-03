@@ -1,174 +1,34 @@
-# v45 — 🤝 AAPKA APNA OSINT HUB BOT ME LAGA
+# v45 OSINT Hub — purana leaked-data flow retire kiya gaya
 
-Bot ab **apne hi API hub** (https://osint-api-hub.onrender.com) se data laata hai.
-Teeno bade tools ek hi jagah se chalte hain — koi third-party paid key nahi chahiye.
+Yeh purani guide ab valid nahi hai. Isme pehle unsafe personal-record aur Aadhaar-family lookup ka zikr tha; woh examples aur lookup claims jaan-bujhkar hata diye gaye hain.
 
-```
-Telegram Bot  →  modules/osint_hub.py  →  https://osint-api-hub.onrender.com/api
-                                            ├── /api/num-info        (📱 Number Info)
-                                            ├── /api/vehicle-report  (🚗 Vehicle + Challan)
-                                            └── /api/aadhaar-family  (🆔 Aadhaar Family)
-```
+## Abhi ka privacy-safe scope
 
----
+- **Number Info:** local carrier/type/region/timezone metadata aur official safety-report links. Leaked naam, family/member names, alternate numbers, address, Aadhaar ya doosre government ID ko search/return nahi kiya jata.
+- **IMEI:** full 15-digit IMEI bot par locally validate hota hai. Hub ko sirf pehle 8 digits ka TAC bheja jata hai. Local catalog me brand/model hint mil sakta hai; full specifications/photo har model ke liye guaranteed nahi. Serial number, owner, blacklist ya tracking lookup nahi hota.
+- **Vehicle / challan:** default me live lookup band hai. Bot sirf local RTO/state-format hint aur official VAHAN/e-Challan links deta hai. Live provider tabhi consider karein jab data use aur display ke liye uski documented authorization ho; result kabhi fabricate nahi hota.
+- **Aadhaar / family:** Aadhaar number bot ya hub me mat bhejein. Apne record ke liye UIDAI/NFSA ke official, consent-based portals ka use karein.
+- **Hub status:** `/hubstatus` sirf `/health` route check karta hai; koi phone number, plate ya Aadhaar sample bheja nahi jata.
 
-## 1) 📱 NUMBER INFO — purana hata, naya laga
+## Bot configuration
 
-**Pehle:** sirf operator + circle (library se), phir alag se "Check Public Records" button
-purane hub (`osint-apis-hub`) par jata tha.
+Render → `utility-duniya-bot` → Environment me:
 
-**Ab (v45):** ek hi card me sab kuch —
-
-```
-📱 NUMBER INFORMATION
-━━━━━━━━━━━━━━━━━━━━━━
-• Number / National / Type / Operator / Circle / Country / Timezone / Valid
-━━━━━━━━━━━━━━━━━━━━━━
-🧾 PUBLIC RECORDS — 1 match
-   👤 Name: Brajesh Kumar
-   👨 Father: Rabendra Singh
-   📞 Numbers: 9058390341, 916395131687
-   🪪 ID: 8613****3129        ← masked (DPDP-safe)
-   🏠 Address: S/O Rabendra Singh, puraiya, JOGAAMainpuri, Uttar Pradesh, 206301
-   📡 Region: JIO UPE UPW; AIRTEL UPW
-━━━━━━━━━━━━━━━━━━━━━━
+```text
+NUM_LEAK_ENABLED=off
+VEHICLE_PROVIDER_AUTHORIZED=0
+IMEI_API_BASE=https://osint-api-hub.onrender.com/api
+IMEI_API_KEY=Demo
+BRAND_TAG=@Supermannn_x
 ```
 
-- Ab **alag "Check Public Records" button ki zaroorat nahi** — data card me hi hai.
-- Purana `numrec:` callback bhi ab naye hub se hi data laata hai.
-- **Aadhaar / doc ID kabhi poora nahi dikhta** (`8613****3129`).
-  Poora dikhana ho to env me `NUM_SHOW_FULL_IDS=1`.
+`VEHICLE_PROVIDER_AUTHORIZED=0` par owner/RC/challan data fetch nahi hota. Kisi provider ke liye written permission aur documented API use-policy verify kiye bina is flag ko enable na karein.
 
-## 2) 🚗 VEHICLE INFO + CHALLAN — sirf API badli
+## Official links
 
-**Pehle:** 3 alag endpoint (`vehicle-rc` + `vehicle-challan` + `vehicle-challan-v4`) → 3 call, dheema.
-**Ab:** **ek hi call** `/api/vehicle-report` → RC + insurance + PUC + challan + RTO, sab ek saath.
-
-- Response time: ~1-4 second (pehle 5-20s)
-- Card/format wahi purana (tested renderer) — user ko koi farq nahi padta
-- Purani API ke imports bot se hata diye
-- **Naya fairness fix:** "🔄 Check again" dabane par agar result 5-min cache se aaye to
-  **credit NAHI katta** (pehle kat jata tha — bug tha)
-
-## 3) 🆔 AADHAAR FAMILY — BILKUL NAYA TOOL (33va button)
-
-```
-🆔 AADHAAR FAMILY CARD
-━━━━━━━━━━━━━━━━━━━━━━
-🎫 Aadhaar: XXXXXXXX3129  ✅ valid
-🪪 Ration Card: … (agar available ho)
-━━━━━━━━━━━━━━━━━━━━━━
-📍 LOCATION
-   🏙️ District: JOGAAMAINPURI
-   🗺️ State: UTTAR PRADESH
-   📮 PIN: 206301
-━━━━━━━━━━━━━━━━━━━━━━
-👨‍👩‍👧‍👦 MEMBERS — 13
-1. 👤 Brajesh Kumar
-   🎫 XXXXXXXX3129 · searched Aadhaar holder
-   👨 Father: Rabendra Singh
-   📞 916395131687
-   🏠 S/O Rabendra Singh, puraiya…
-…
-━━━━━━━━━━━━━━━━━━━━━━
-🔒 Aadhaar numbers hamesha masked
-⚡ Powered by @Supermannn_x
-```
-
-- Menu me naya button: **🆔 AADHAAR FAMILY** (row 17)
-- Premium tool: **1 credit** — par **sirf jab record mile**
-- 12 digit check + 0/1 se shuru hone par reject
-- Tutorial video: `numinfo` wali (closest)
-
----
-
-## 🧠 CREDIT POLICY (sabse important)
-
-| Situation | Credit |
-|---|---|
-| Record mil gaya (naam/address/alt number) | ✅ 1 credit |
-| Number valid par koi record nahi | ❌ **0 credit** — "koi credit nahi kata" likha aata hai |
-| API down / timeout | ❌ **0 credit** |
-| Cached result (5 min ke andar dobara) | ❌ **0 credit** |
-| Galat input (12 digit nahi, galat plate) | ❌ **0 credit** |
-
-Ye pehle se likha hua rule tha ("device na mile to credit nahi katta"), ab **Number Info aur
-Aadhaar Family par bhi lagu** ho gaya hai.
-
----
-
-## ⚙️ ENV (Render → Environment)
-
-```env
-OSINT_API_BASE=https://osint-api-hub.onrender.com/api
-OSINT_API_KEY=Demo
-OSINT_TIMEOUT=45
-OSINT_CACHE_TTL=300
-NUM_SHOW_FULL_IDS=0      # 1 = Number Info me ID poora dikhega (default masked)
-```
-
-Default pehle se set hai — **kuch karne ki zaroorat nahi**, bas deploy karo.
-
-## 🛠️ ADMIN COMMAND
-
-```
-/hubstatus            → teeno API ka live test (base, key, timeout, 3 endpoint)
-/hubstatus BR30AR0802 9058390341   → apna sample plate/number
-```
-
-Jawab:
-```
-🔌 OSINT HUB STATUS
-━━━━━━━━━━━━━━━━━━━━━━
-🌐 Base: https://osint-api-hub.onrender.com/api
-🔑 Key: Demo…
-⏱️ Timeout: 45s
-
-📱 num-info: ✅ OK — 1 person
-🚗 vehicle-report: ✅ OK — 1 challan
-🆔 aadhaar-family: ✅ OK — 13 members
-```
-
----
-
-## 📁 NAYI / BADLI FILES
-
-| File | Kya hua |
-|---|---|
-| `modules/osint_hub.py` | **NAYA** — hub client (timeout, retry, cache, saaf error) |
-| `bot.py` | numinfo/aadhaar/vehicle handlers + menu + premium + `/hubstatus` |
-| `modules/tutorial_hub.py` | aadhaar → video mapping |
-| `.env.example` | `OSINT_API_*` vars |
-| `_selftest_v45_hub.py` | **NAYA** — 89 test (offline mock + live smoke) |
-
----
-
-## 🐛 BUGS FIXED (v45)
-
-1. **Payment approve par user ko adhura message** — "🧾 Payment ID: #" pe khatam ho jata tha,
-   expiry date missing, `new_until` compute hokar bhi unused. Ab poora card: amount, VIP duration,
-   valid till, next steps.
-2. **"🔄 Check again" par double charge** — cached result par bhi credit kat jata tha.
-3. **"🔄 Check again" purani API use karta tha** — ab naye hub se.
-4. **Test scripts crash** — `_selftest_v38_desi.py` (repo me nahi hai) ke wajah se
-   `_selftest_vehicle.py` / `_selftest_imei.py` crash karte the → ab **clean SKIP**.
-5. **Hardcoded paths** — `/home/user/fix`, `/home/user/UPLOAD-KARO` → ab portable (repo ke andar).
-6. Missing screenshot fixture par live_check fail → ab SKIP.
-
----
-
-## ✅ TEST RESULTS (sab green)
-
-| Suite | Result |
-|---|---|
-| `_selftest_v45_hub.py` (naya) | **89 / 0** |
-| `_audit_v44_tools.py` | **225 / 0** (menu 33 buttons, 11 premium tools) |
-| `_selftest_v44.py` | **67 / 0** |
-| `_selftest_vehicle.py` | **58 / 0** |
-| `_selftest_clips.py` | **48 / 0** |
-| `_selftest_imei.py` | **35 / 0** |
-| `_selftest_prompts_v42.py` | **12 / 0** |
-| `_audit_tools_v39.py` | **69 / 0** |
-| `_live_check.py` | **110 pass** (1 SKIP — fixture missing) |
-
-Chalao: `python3 _selftest_v45_hub.py`
+- UIDAI MyAadhaar: https://myaadhaar.uidai.gov.in/
+- NFSA: https://nfsa.gov.in/
+- VAHAN RC status: https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml
+- e-Challan: https://echallan.parivahan.gov.in/
+- Sanchar Saathi / Chakshu: https://sancharsaathi.gov.in/sfc/
+- National Cyber Crime Reporting Portal: https://cybercrime.gov.in/

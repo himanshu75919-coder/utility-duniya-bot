@@ -1,16 +1,13 @@
 # ===================================================================
 #  Utility Duniya Super Bot — Render Blueprint (v46)
 #
-#  Bot ki service delete ho chuki thi, isliye ye file nayi service
-#  khud hi poori tarah configure kar degi.
-#
-#  KAUNSI SERVICE CHALNI CHAHIYE: sirf YE EK (tg-utility-bot).
-#  Agar do bot service ek saath chalengi to Telegram "Conflict:
-#  terminated by other getUpdates request" dega aur bot chup ho jayega.
+#  Existing Render service: utility-duniya-bot.
+#  Sirf isi bot instance ko active rakhein; duplicate polling instances se
+#  Telegram "Conflict: terminated by other getUpdates request" de sakta hai.
 # ===================================================================
 services:
   - type: web
-    name: tg-utility-bot
+    name: utility-duniya-bot
     runtime: python
     region: singapore          # India ke sabse paas — sabse fast
     plan: free
@@ -18,7 +15,7 @@ services:
     autoDeploy: true           # GitHub par push hote hi deploy ho jaye
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
-    healthCheckPath: /         # bot.py ka keepalive server isi par 200 deta hai
+    healthCheckPath: /health   # polling aur webhook dono modes me 200 OK route
 
     envVars:
       # ---------- ZAROORI (Render khud poochhega — yahan mat likho) ----------
@@ -51,6 +48,18 @@ services:
         value: Demo
       - key: OSINT_TIMEOUT
         value: "70"            # hub slow hai; bot beech me progress dikhata hai
+
+      # ---------- DEVICE MODEL LOOKUP (TAC only; no full serial sent) ----------
+      - key: IMEI_API_BASE
+        value: https://osint-api-hub.onrender.com/api
+      - key: IMEI_API_KEY
+        value: Demo
+
+      # ---------- PRIVACY / AUTHORIZED PROVIDERS ----------
+      - key: NUM_LEAK_ENABLED
+        value: "off"            # personal leaked-record search is not supported
+      - key: VEHICLE_PROVIDER_AUTHORIZED
+        value: "0"              # official portal links only unless provider is authorized
 
       # ---------- SETTINGS ----------
       - key: FREE_CREDITS

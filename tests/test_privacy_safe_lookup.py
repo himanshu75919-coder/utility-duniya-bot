@@ -1,0 +1,145 @@
+import asyncio
+import json
+import os
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from modules import imei_lookup
+from modules import osint_hub
+
+try:
+    from modules.osint_tools import lookup_phone_info
+except ImportError:
+    lookup_phone_info = None
+
+
+class ImeiLookupTests(unittest.TestCase):
+    def setUp(self):
+        imei_lookup.clear_cache()
+
+    def test_base_uses_canonical_hub_and_adds_api_path(self):
+        with patch.dict(os.environ, {"IMEI_API_BASE": "https://osint-api-hub.onrender.com"}, clear=False):
+            self.assertEqual(imei_lookup.api_base(), "https://osint-api-hub.onrender.com/api")
+
+    def test_full_imei_is_validated_locally_but_only_tac_is_sent(self):
+        captured = {}
+        original_get = imei_lookup._get
+
+        def fake_get(url, params, tmo=imei_lookup.TIMEOUT):
+            captured["url"] = url
+            captured["params"] = dict(params)
+            return {
+                "tac": "35301011",
+                "brand": "APPLE",
+                "model": "iPhone 12 mini",
+                "reporting_body": "BABT",
+                "note": "Local TAC match",
+            }, None
+
+        imei_lookup._get = fake_get
+        try:
+            result = imei_lookup.fetch_imei_details("353010111111110", use_cache=False)
+        finally:
+            imei_lookup._get = original_get
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(captured["params"]["imei"], "35301011")
+        self.assertNotIn("353010111111110", json.dumps(result))
+        self.assertEqual(result["tac"], "35301011")
+        self.assertEqual(imei_lookup.specs_dict(result)["device_name"], "Apple iPhone 12 mini")
+        self.assertNotIn("imei", json.dumps(imei_lookup.specs_dict(result)).lower())
+
+    def test_provider_error_never_echoes_a_full_imei(self):
+        full_imei = "353010111111110"
+        result = imei_lookup.parse_imei_payload({"error": "temporary provider error"}, full_imei)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["tac"], full_imei[:8])
+        self.assertNotIn(full_imei, json.dumps(result))
+
+    def test_local_validation_error_does_not_echo_full_imei(self):
+        full_imei = "12345678901234"  # invalid length: validation must stop before any network request
+        result = imei_lookup.fetch_imei_details(full_imei, use_cache=False)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["tac"], full_imei[:8])
+        self.assertNotIn(full_imei, json.dumps(result))
+
+    def test_legacy_provider_schema_does_not_return_serial_fields(self):
+        payload = {
+            "result": {
+                "header": {
+                    "brand": "SAMSUNG",
+                    "model": "Galaxy Tab A9+",
+                    "photo": "https://example.test/device.jpg",
+                    "url": "https://example.test/specs",
+                },
+                "items": [
+                    {"role": "header", "title": "Display"},
+                    {"role": "item", "title": "Size", "content": "11 inches"},
+                    {"role": "item", "title": "IMEI", "content": "123456789012345"},
+                    {"role": "item", "title": "Serial Number", "content": "ABC123"},
+                ],
+            }
+        }
+        result = imei_lookup.parse_imei_payload(payload, "35301011")
+        self.assertTrue(result["ok"])
+        output = json.dumps(imei_lookup.specs_dict(result))
+        self.assertNotIn("123456789012345", output)
+        self.assertNotIn("ABC123", output)
+        self.assertEqual(imei_lookup.specs_dict(result)["url"], "https://example.test/specs")
+
+    def test_private_lookups_are_disabled_without_network_calls(self):
+        self.assertTrue(osint_hub.num_info_report("9876543210")["disabled"])
+        self.assertTrue(osint_hub.aadhaar_family_report("123456789012")["disabled"])
+        with patch.dict(os.environ, {"VEHICLE_PROVIDER_AUTHORIZED": "0", "VEHICLE_API_BASE": ""}, clear=False):
+            self.assertFalse(osint_hub.is_configured())
+            self.assertTrue(osint_hub.vehicle_report_v2("BR00XX0000")["fallback"])
+
+
+class SafePhoneInfoTests(unittest.TestCase):
+    @unittest.skipIf(lookup_phone_info is None, "phonenumbers dependency is not installed")
+    def test_phone_tool_only_shows_local_metadata_and_official_safety_links(self):
+        result = lookup_phone_info("+12025550123")
+        self.assertTrue(result["ok"])
+        urls = [url for _, url in result["links"]]
+        self.assertTrue(urls)
+        self.assertTrue(all("sancharsaathi.gov.in" in url or "cybercrime.gov.in" in url for url in urls))
+        self.assertFalse(any("wa.me" in url or "t.me/" in url or "truecaller" in url or "google.com/search" in url
+                             for url in urls))
+        self.assertNotIn("2025550123", " ".join(urls))
+
+
+try:
+    from tornado.testing import AsyncHTTPTestCase
+    import telegram.ext._updater as updater_module
+    from modules.render_health import install_webhook_health_routes
+
+    class WebhookHealthTests(AsyncHTTPTestCase):
+        @classmethod
+        def setUpClass(cls):
+            install_webhook_health_routes()
+            super().setUpClass()
+
+        def get_app(self):
+            return updater_module.WebhookAppClass("/webhook/test-secret", None, asyncio.Queue(), None)
+
+        def test_render_paths_return_200(self):
+            for path in ("/", "/health", "/health/"):
+                response = self.fetch(path)
+                self.assertEqual(response.code, 200, path)
+                self.assertIn(b'"status": "ok"', response.body)
+            self.assertEqual(self.fetch("/health", method="HEAD").code, 200)
+except ImportError:  # local minimal test environments may omit webhook extras
+    WebhookHealthTests = None
+
+
+if __name__ == "__main__":
+    suite = unittest.TestSuite()
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(ImeiLookupTests))
+    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(SafePhoneInfoTests))
+    if WebhookHealthTests is not None:
+        suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(WebhookHealthTests))
+    unittest.TextTestRunner(verbosity=2).run(suite)
