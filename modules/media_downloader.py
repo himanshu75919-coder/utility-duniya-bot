@@ -475,6 +475,9 @@ def download_instagram_media(url: str) -> dict:
 # UNIVERSAL DOWNLOADER (Instagram + YouTube + FB + X + TikTok + ...)
 # =====================================================================================
 def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
+    _hubres = __download(url, max_mb)
+    if _hubres.get("ok"):
+        return _hubres
     url = (url or "").strip()
 
     # --- Instagram: 3-engine chain ---
@@ -541,6 +544,37 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
 async def download_instagram_async(url: str) -> dict:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, download_instagram_media, url)
+
+
+def __download(url: str, max_mb: int) -> dict:
+    """v45: X/Twitter video user ke hub se (fallback purana engine)."""
+    try:
+        from modules import api_hub as hub
+    except Exception:
+        return {"ok": False}
+    if not hub.hub_ready() or not re.search(r"(twitter\.com|x\.com)/", url or ""):
+        return {"ok": False}
+    res = hub._video(url)
+    if not res.get("ok"):
+        return {"ok": False}
+    try:
+        r = requests.get(res["url"], headers=DESKTOP_UA, timeout=90, stream=True)
+        if r.status_code != 200:
+            return {"ok": False}
+        buf = io.BytesIO()
+        for chunk in r.iter_content(262144):
+            buf.write(chunk)
+            if buf.tell() > max_mb * 1048576 * 1.05:
+                break
+        data = buf.getvalue()
+        if len(data) < 50_000:
+            return {"ok": False}
+        return {"ok": True, "type": "video", "bytes": data,
+                "size_mb": round(len(data) / 1048576, 2),
+                "engine": res.get("source", "hub-video"),
+                "title": res.get("title") or "", "duration": 0}
+    except Exception:
+        return {"ok": False}
 
 
 async def download_video_async(url: str, max_mb: int = MAX_TG_MB) -> dict:

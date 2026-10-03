@@ -365,8 +365,35 @@ def _tb_custom_provider(url):
 # =====================================================================================
 # MAIN TERABOX RESOLVER — engine chain
 # =====================================================================================
+def _tb_hub(url):
+    """v45: user ke API hub se terabox (primary engine)."""
+    try:
+        from modules import api_hub as hub
+    except Exception:
+        return [], ""
+    if not hub.hub_ready():
+        return [], ""
+    res = hub.hub_terabox(url)
+    if not res.get("ok"):
+        return [], ""
+    files = []
+    for f in res.get("files", [])[:10]:
+        link = f.get("link") or ""
+        if not link:
+            continue
+        files.append({
+            "name": f.get("name") or "file",
+            "size": int(f.get("size") or 0),
+            "size_h": f.get("size_h") or _size_h(f.get("size") or 0),
+            "dlink": link, "stream": link,
+            "thumb": f.get("thumb") or "",
+        })
+    return files, f"API Hub ({res.get('endpoint', 'terabox')})"
+
+
 def resolve_terabox(url: str) -> dict:
     engines = [
+        ("API Hub", _tb_hub),                       # v45: user ka hub pehle
         ("Public Worker (Robin)", _tb_robin),
         ("Public Worker (HNN)", _tb_hnn),
         ("Public Worker (QTCloud)", _tb_qtcloud),
