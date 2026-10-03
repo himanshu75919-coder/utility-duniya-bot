@@ -12,12 +12,9 @@ Engines that make the older tools professional:
 5.  file_size_human()    -> bytes to MB/GB.
 """
 
-import base64
 import re
 import time
-from datetime import datetime
-from html import escape as hesc
-from urllib.parse import quote, unquote, urlparse, parse_qs, urlunparse
+from urllib.parse import quote, urlparse, parse_qs, urlunparse
 
 import requests
 

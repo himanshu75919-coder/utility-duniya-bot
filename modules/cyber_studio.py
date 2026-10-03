@@ -6,7 +6,6 @@ Passport Photo with Name & Date Stamp, Printable Sheet, Signature Cleaner, and P
 
 import io
 import os
-import glob
 from PIL import Image, ImageDraw, ImageFont, ImageEnhance, ImageOps
 import img2pdf
 

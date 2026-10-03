@@ -5,18 +5,10 @@ QR code, Image-to-PDF, URL Shortener, EMI & Interest, Age, Password, Multi-Sourc
 """
 
 import io
-import math
-from concurrent.futures import ThreadPoolExecutor
-import random
-import re
-import string
-from datetime import date, datetime
-from html import escape as hesc
-from urllib.parse import quote, unquote
+from urllib.parse import quote
 import qrcode
 import requests
-from bs4 import BeautifulSoup
-from PIL import Image, ImageEnhance
+from PIL import Image
 import img2pdf
 
 UA = {

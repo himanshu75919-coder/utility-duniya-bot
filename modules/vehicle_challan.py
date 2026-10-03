@@ -32,7 +32,7 @@ from html import escape
 
 import requests
 
-DEFAULT_BASE = "https://osint-apis-hub.onrender.com/api"
+DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"
 TIMEOUT = int(os.environ.get("VEHICLE_TIMEOUT", "25"))
 CACHE_TTL = 300          # 5 minute — user dobara check kare to dobara paisa/API call na lage
 _FAIL_TTL = 60

@@ -12,8 +12,6 @@ Iska misuse (kisi ko pareshan karna / blackmail / fraud) India me CRIME hai (IT 
 """
 
 import os
-
-import json
 import re
 import requests
 
@@ -351,7 +349,7 @@ def lookup_ip_domain(target: str) -> dict:
 # =====================================================================================
 # PUBLIC-RECORDS LOOKUP (OPTIONAL — bot owner ne enable kiya; env se off ho sakta hai)
 # =====================================================================================
-NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-apis-hub.onrender.com").rstrip("/")
+NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-api-hub.onrender.com").rstrip("/")
 NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
 NUM_LEAK_ENABLED = lambda: os.environ.get("NUM_LEAK_ENABLED", "on").strip().lower() not in ("off", "0", "false", "no")
 

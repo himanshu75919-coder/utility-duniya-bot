@@ -32,7 +32,7 @@ from telegram import (
 )
 from telegram.error import RetryAfter, BadRequest
 
-from database import get_cloner_config, save_cloner_config
+from database import get_cloner_config
 
 log = logging.getLogger(__name__)
 

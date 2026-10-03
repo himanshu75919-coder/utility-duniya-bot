@@ -272,8 +272,115 @@ print("\n--- 3) BOT FLOW (Telegram) ---")
 _PRE_PASS, _PRE_FAIL = list(PASS), list(FAIL)   # exec naye lists banata hai — purane bacha lo
 PASS, FAIL = [], []
 sys.argv = ["x"]
-exec(open("_selftest_v38_desi.py", encoding="utf-8").read().split(
-    "# ======================================================================\nasync def t1_menu()")[0])
+if os.path.exists("_selftest_v38_desi.py"):
+    exec(open("_selftest_v38_desi.py", encoding="utf-8").read().split(
+        "# ======================================================================\nasync def t1_menu()")[0])
+else:
+    import re
+    import unicodedata
+    from telegram import Chat, Update, User
+    from telegram.constants import ChatType
+
+    OWNER = int(os.environ.get("ADMIN_ID", "8607774564"))
+
+    def kb_label(action):
+        for row in bot.KB_BTNS:
+            for b in row:
+                k = re.sub(r"^[^\w\s]+\s*", "", bot.unbold(b).strip().upper()).strip()
+                if bot.BTN_MODE_MAP.get(k) == action:
+                    return b
+        return ""
+
+    def fresh(uid, credits=5, vip=False):
+        dbm.get_user(uid, "Tester")
+        if vip:
+            dbm.grant_premium(uid, 30)
+        else:
+            dbm.revoke_premium(uid)
+        dbm.set_credits(uid, credits)
+
+    class FakeSent:
+        def __init__(self, owner):
+            self.owner = owner
+
+        async def edit_text(self, text, **kw):
+            self.owner.replies.append(("edit", text, kw, None))
+            return self
+
+        async def delete(self):
+            return True
+
+    class FakeMsg:
+        def __init__(self, text="", uid=8607774565):
+            self.text = text
+            self.caption = None
+            self.photo = self.video = self.document = self.audio = self.voice = self.animation = None
+            self.replies = []
+            self.chat = Chat(id=uid, type=ChatType.PRIVATE)
+            self.from_user = User(id=uid, first_name="Test", is_bot=False)
+            self.message_id = 1
+
+        async def reply_text(self, text, **kw):
+            self.replies.append(("text", text, kw, None))
+            return FakeSent(self)
+
+        async def reply_photo(self, photo=None, caption="", **kw):
+            self.replies.append(("photo", caption, kw, photo))
+            return FakeSent(self)
+
+        async def reply_document(self, document=None, **kw):
+            self.replies.append(("document", kw.get("caption", ""), kw, document))
+            return FakeSent(self)
+
+        def kinds(self):
+            return [k for k, *_ in self.replies]
+
+        def all_text(self):
+            parts = []
+            for _k, t, kw, _ in self.replies:
+                parts.append(t if isinstance(t, str) else "")
+                kb = (kw or {}).get("reply_markup")
+                if kb is not None and getattr(kb, "inline_keyboard", None):
+                    for row in kb.inline_keyboard:
+                        parts.append(" | ".join(b.text for b in row))
+            return unicodedata.normalize("NFKC", "\n".join(parts))
+
+        def cb_data(self):
+            out = []
+            for _k, _t, kw, _ in self.replies:
+                kb = (kw or {}).get("reply_markup")
+                if kb is not None and getattr(kb, "inline_keyboard", None):
+                    out += [b.callback_data for row in kb.inline_keyboard for b in row if getattr(b, "callback_data", None)]
+            return out
+
+    class FakeQuery:
+        def __init__(self, data, uid=8607774565):
+            self.data = data
+            self.from_user = User(id=uid, first_name="Test", is_bot=False)
+            self.message = FakeMsg("", uid=uid)
+            self.answers = []
+
+        async def answer(self, text=None, show_alert=False):
+            self.answers.append(text)
+
+    class Ctx:
+        def __init__(self):
+            self.user_data = {}
+            self.args = []
+            self.bot = type("B", (), {"id": 999})()
+
+    async def send_text(text, ctx, uid=8607774565):
+        m = FakeMsg(text, uid=uid)
+        upd = Update(update_id=1, message=m)
+        upd.message.from_user = User(id=uid, first_name="Test", is_bot=False)
+        await bot.on_text(upd, ctx)
+        return m
+
+    async def click(data, ctx, uid=8607774565):
+        q = FakeQuery(data, uid=uid)
+        upd = Update(update_id=2, callback_query=q)
+        await bot.on_cb(upd, ctx)
+        return q
 
 USER = 8607774565
 
@@ -312,7 +419,7 @@ async def flows():
     ok("'credit used' line aayi", "credit used" in t2.lower(), t2[-200:])
     ok("official buttons aaye", any("echallan" in str(u or "") for u in _urls(m2)), _urls(m2))
 
-    q = await click(f"vehagain:HR26EV0001", ctx, uid=USER)
+    q = await click("vehagain:HR26EV0001", ctx, uid=USER)
     ok("'Check again' callback chala", "FORTUNER LEGENDER" in q.message.all_text(), q.message.all_text()[:200])
 
     # galat plate → saaf error (free card)

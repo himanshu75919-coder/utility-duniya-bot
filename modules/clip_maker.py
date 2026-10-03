@@ -22,7 +22,6 @@ import re
 import shutil
 import subprocess
 import tempfile
-import time
 
 try:
     from modules.desi_tools import ffmpeg_path, ffprobe_duration
@@ -271,7 +270,7 @@ def make_clip(src: str, out: str, start: float, dur: float, vertical: bool = Fal
               has_audio: bool = True, quality: str = "normal") -> dict:
     """Ek clip kaato (re-encode — accurate cut + Telegram-friendly size)."""
     vf = (f"scale=-2:{VERT_H},crop={VERT_W}:{VERT_H}"
-          if vertical else f"scale='min(1280,iw)':-2")
+          if vertical else "scale='min(1280,iw)':-2")
     if quality == "small":
         vf = (f"scale=-2:{int(VERT_H * 0.6)},crop={int(VERT_W * 0.6)}:{int(VERT_H * 0.6)}"
               if vertical else "scale='min(854,iw)':-2")
@@ -421,8 +420,8 @@ def ytdlp_available() -> bool:
     if os.environ.get("CLIP_YTDLP", "1") == "0":
         return False
     try:
-        import yt_dlp  # noqa: F401
-        return True
+        import importlib.util
+        return importlib.util.find_spec("yt_dlp") is not None or shutil.which("yt-dlp") is not None
     except Exception:
         return shutil.which("yt-dlp") is not None
 

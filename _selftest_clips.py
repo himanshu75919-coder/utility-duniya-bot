@@ -14,7 +14,7 @@ os.environ["DB_PATH"] = "/tmp/_clips43.db"
 os.environ["BOT_TOKEN"] = "123456789:AAHtesttoken_testtoken_testtoken_testtok"
 os.environ["ADMIN_ID"] = "8607774564"
 os.environ["CLIP_YTDLP"] = "0"          # test me YouTube off
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from telegram import Chat, Update, User  # noqa: E402
 from telegram.constants import ChatType  # noqa: E402
@@ -98,7 +98,6 @@ def test_engine():
     ok("clips chronological order me", [c["idx"] for c in best] == [1, 2, 3], [c["idx"] for c in best])
     ok("koi overlap nahi", all(best[i]["start"] + best[i]["dur"] <= best[i + 1]["start"] + 0.05
                                for i in range(len(best) - 1)), best)
-    loud_spots = [(0.5, 30), (30, 45), (45, 60), (60, 75), (75, 90)]
     loud_ranges = [(15, 30), (45, 60), (75, 90)]
     hit = sum(1 for c in best if any(c["start"] < b and a < c["start"] + c["dur"] for a, b in loud_ranges))
     ok("best clips loud hisso par gire (2+ out of 3)", hit >= 2, [c["start"] for c in best])
