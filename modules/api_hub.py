@@ -107,7 +107,7 @@ def hub_get(path: str, params: dict | None = None, timeout: int = 45) -> dict:
             except Exception:
                 pass
             return {"ok": False, "disabled_by_hub": True, "status": 410,
-                    "error": _short(str(j.get("error") or "This endpoint is turned off on the hub")),
+                    "error": _short(str(j.get("error") or "Ye endpoint hub par band hai")),
                     "hint": j.get("hint"), "official_links": j.get("official_links")}
         if r.status_code >= 400:
             return {"ok": False, "status": r.status_code,
@@ -706,7 +706,7 @@ def hub_vehicle_report_new(plate: str) -> dict:
     """Plate → RC + RTO + insurance + PUC + challans (ek hi call me)."""
     pl = re.sub(r"[^A-Za-z0-9]", "", plate or "").upper()
     if len(pl) < 8:
-        return {"ok": False, "error": "Send a correct number plate (example BR30AR0802)"}
+        return {"ok": False, "error": "Sahi number plate bhejo (jaise BR30AR0802)"}
     res = hub_try([("/vehicle-report", {"number": pl}), ("/vehicle-full", {"number": pl}),
                    ("/rc-info", {"rc": pl})], timeout=70)
     if not res.get("ok"):

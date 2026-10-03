@@ -349,7 +349,7 @@ async def clone_messages(bot: Bot, msgs: list, uid: int) -> tuple:
             await send_album(bot, msgs, target, cfg)
         count = len(msgs)
         extra = f" ({count} items album)" if count > 1 else ""
-        return True, f"⚡ <b>Success!</b> Post{extra} sent to the target channel with your branding ✅"
+        return True, f"⚡ <b>Ho gaya!</b> Post{extra} aapki branding ke saath target channel par chala gaya ✅"
     except Exception as e:
         log.error("Clone failed: %s", e)
         return False, (

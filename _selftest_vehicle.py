@@ -236,7 +236,7 @@ card = vc.render_vehicle_report(res)
 for want in ("VEHICLE REPORT — HR26EV0001", "TOYOTA KIRLOSKAR MOTOR PVT LTD", "FORTUNER LEGENDER (AT)",
              "MOTOR CAR(LMV)", "DIESEL", "124.6 cc", "BHARAT STAGE VI", "E****H Y***V",
              "HARYANA HEAD OFFICE CHD", "North Gurgaon", "10-Jun-2022", "26-May-2041", "LTT",
-             "CHOLAMANDALAM", "01-May-2029", "07-Jun-2027", "CHALLANS — 20 found",
+             "CHOLAMANDALAM", "01-May-2029", "07-Jun-2027", "CHALLANS — 20 mile",
              "⏳ Pending: <b>20</b> — ₹45,500", "₹45,500", "CH46894230719122563", "⏳ PENDING",
              "27-DANGEROUS DRIVING", "Chief Judicial Magistrate UT Chandigarh"):
     ok(f"card me '{want}'", want in card, card[:400])
@@ -249,7 +249,7 @@ ok("card par '&' safe (HTML escape)", "&amp;" in card and "& " not in card.repla
 Handler.mode = "no_challan"
 vc._CACHE.clear()
 res2 = vc.fetch_vehicle_report("DL8CAF5031")
-ok("challan nahi → 'No challan found'", "No challan found" in vc.render_vehicle_report(res2),
+ok("challan nahi → saaf message", ("No challan found" in vc.render_vehicle_report(res2) or "koi challan nahi mila" in vc.render_vehicle_report(res2)),
    vc.render_vehicle_report(res2)[-400:])
 Handler.mode = "full"
 

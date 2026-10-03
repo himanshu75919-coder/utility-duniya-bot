@@ -34,104 +34,104 @@ DEFAULT_PAGE_NAME = "utility-duniya-bot-tutorial"
 # 1. POORA TUTORIAL TEXT  (yahi page par embed hota hai)
 # ======================================================================
 TUTORIAL_INTRO = """
-## 1. How this bot works (3 basics)
+## 1. Ye bot kaise chalta hai (3 basic baatein)
 
-This bot does 30+ jobs — download, auto-forward, photo/documents, information, QR, calculations, media.
+Ye bot 30+ kaam karta hai — download, auto-forward, photo/document, information, QR, media.
 
-> 1. Pick a tool from the KEYBOARD below (or send /menu).
-> 2. The tool asks one thing at a time — just send that (link / number / photo).
-> 3. Send /cancel any time to close the tool and return to the menu.
+> 1. Neeche KEYBOARD se koi tool chuno (ya /menu bhejo).
+> 2. Tool ek-ek cheez maangta hai — bas wahi bhej do (link / number / photo).
+> 3. Kabhi bhi /cancel bhejo — tool band ho jayega aur menu wapas aa jayega.
 
-New here? You get free credits for the premium tools. VIP = unlimited, no limits at all.
+Naye ho? Premium tools ke liye free credits milte hain. VIP = unlimited, koi limit nahi.
 
-## 2. Channel Cloner / Auto-Forward (3 steps)
+## 2. Channel Cloner / Auto-Forward (3 step)
 
-Use this to copy posts from one channel to another automatically.
+Isse ek channel ke posts doosre channel me automatic copy hote hain.
 
-> Step 1 — SOURCE: the channel you copy from. For a public channel send the link/username (@mychannel). For a private channel forward any one post to the bot — it will read the ID.
-> Step 2 — TARGET: the channel to send posts to (the bot must be admin there).
-> Step 3 — Turn FULL AUTO ON.
+> Step 1 — SOURCE: jis channel se copy karna hai. Public channel ke liye link/username bhejo (@mychannel). Private channel ke liye us channel ki koi ek post bot ko forward karo — bot ID khud padh lega.
+> Step 2 — TARGET: jis channel me posts bhejne hain (wahan bot admin hona chahiye).
+> Step 3 — FULL AUTO CHALU karo.
 
-After that every new post in the source goes to the target automatically. Tag, caption, watermark, replace-words and thumbnail can all be set in settings.
-For a private channel the bot must be added as admin — the "🔒 PRIVATE CHANNEL SETUP" button explains it.
+Uske baad source ka har naya post automatic target par chala jayega. Tag, caption, watermark, words replace aur thumbnail — sab settings me set kar sakte ho.
+Private channel ke liye bot ko admin banana zaroori hai — "🔒 PRIVATE CHANNEL SETUP" button me poora tarika likha hai.
 
-## 3. Video and file downloader
+## 3. Video aur file downloader
 
-> • 📥 VIDEO DOWNLOADER — send a public post link from Instagram / YouTube / Facebook / X / TikTok / Pinterest / Reddit / Vimeo. Videos up to 48MB come straight in the bot; bigger files give a direct download link.
-> • ⚡ TERABOX & CLOUD — paste a Terabox, Mediafire, Google Drive or Mega link → direct link with no ads and no speed limit.
-> • How to copy a link: in the app tap Share → Copy Link → paste in the bot.
+> • 📥 VIDEO DOWNLOADER — Instagram / YouTube / Facebook / X / TikTok / Pinterest / Reddit / Vimeo ka public post link bhejo. 48MB tak ki video seedha bot me aa jati hai; badi file ke liye direct download link milta hai.
+> • ⚡ TERABOX & CLOUD — Terabox, Mediafire, Google Drive ya Mega link paste karo → bina ads, bina speed limit direct link.
+> • Link kaise copy karein: app me Share → Copy Link → bot me paste karo.
 
-Private or age-restricted posts do not work. Some sites rate-limit — try again after 30-60 seconds.
+Private ya age-restricted posts kaam nahi karte. Kuch sites rate-limit karti hain — 30-60 second baad dobara try karo.
 
-## 4. Photo and document tools
+## 4. Photo aur document tools
 
-> • 📸 PASSPORT PHOTO — send photo → type name → type date → official 3.5 × 4.5 cm photo with name/date stamp (for SSC/Railway/BPSC forms).
-> • 🖨️ 8-IN-1 SHEET — one photo → 8 copies on a 4×6 inch sheet. Print it at any studio for ₹10-20.
-> • 📄 DOCUMENT PDF COMPRESS — send a marksheet/certificate photo → sharp PDF, you choose the size (100KB to 500KB).
-> • 🖼️ IMAGE→PDF — up to 10 photos → one PDF. "A4 PDF" gives the correct size for printing.
-> • 🏦 BANK STATEMENT PDF → EXCEL — send the statement PDF → Excel/CSV table with totals.
-> • 📜 DOCUMENT SUITE — rent agreement, affidavit, legal notice 138, land deal receipt, loan paper, registry total cost, bigha/kattha converter.
-> • 🖼️ SITE SCREENSHOT — send a website URL → HD screenshot (full page also).
+> • 📸 PASSPORT PHOTO — photo bhejo → naam likho → date likho → official 3.5 × 4.5 cm photo with naam/date stamp (SSC/Railway/BPSC forms ke liye).
+> • 🖨️ 8-IN-1 SHEET — ek photo → 4×6 inch sheet par 8 copies. Kisi bhi studio se ₹10-20 me print karwa lo.
+> • 📄 DOCUMENT PDF COMPRESS — marksheet/certificate ki photo bhejo → sharp PDF, size aap chuno (100KB se 500KB).
+> • 🖼️ IMAGE→PDF — 10 photo tak → ek PDF. "A4 PDF" printing ke liye sahi size deta hai.
+> • 🏦 BANK STATEMENT PDF → EXCEL — statement PDF bhejo → totals ke saath Excel/CSV table.
+> • 📜 DOCUMENT SUITE — kirayanama, affidavit, legal notice 138, bayana receipt, loan paper, registry total cost, bigha/kattha converter.
+> • 🖼️ SITE SCREENSHOT — website ka URL bhejo → HD screenshot (full page bhi).
 
 ## 5. Information tools
 
-> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → full RC report (maker, fuel, insurance, PUC, finance) + all challans (pending / paid) with amount and offence. Live from the VAHAN/e-Challan API. VIP feature.
-> • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (dial *#06#) → brand, model, device photo + full spec sheet (display, chipset, RAM/storage, camera, battery, network) + a .json copy file. VIP feature.
+> • 🚗 VEHICLE INFO + CHALLAN — number plate (BR30AR0802) → poora RC report (maker, fuel, insurance, PUC, finance) + saare challans (pending / paid) amount aur offence ke saath. VAHAN/e-Challan API se live. VIP feature.
+> • 📲 IMEI / PHONE DETAILS — 15 digit IMEI (*#06# dial karo) → brand, model, phone ki photo + poori spec sheet (display, chipset, RAM/storage, camera, battery, network) + .json copy file. VIP feature.
 > • 📱 NUMBER INFO — 10 digit number → operator, circle (region), number type + WhatsApp/Telegram/Truecaller/cyber-helpline links.
-> • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Always check before sending money.
-> • 📮 PINCODE INFO — 6-digit pincode or area name → district/state + all post offices.
-> • 🌐 IP / DOMAIN INFO — IP or website → location, ISP, VPN/proxy check.
-> • 🆔 ID & USERNAME FINDER — send "me" (your ID), or forward any message (their ID), or send @username (checks GitHub/Telegram/YouTube/TikTok/Steam).
-> • 🏛️ SARKARI SEVA PORTALS — direct links to official government portals (caste/income certificate, land records, e-Challan, EPFO).
+> • 🏦 IFSC INFO — IFSC → bank, branch, address, MICR + UPI/NEFT/RTGS support. Paise bhejne se pehle zaroor check karo.
+> • 📮 PINCODE INFO — 6 digit pincode ya area ka naam → district/state + saare post offices.
+> • 🌐 IP / DOMAIN INFO — IP ya website → location, ISP, VPN/proxy check.
+> • 🆔 ID & USERNAME FINDER — "me" bhejo (apni ID), ya koi message forward karo (unki ID), ya @username bhejo (GitHub/Telegram/YouTube/TikTok/Steam check).
+> • 🏛️ SARKARI SEVA PORTALS — official government portals ke direct links (caste/income certificate, land records, e-Challan, EPFO).
 
 ## 6. Media Studio
 
-> • 🎵 YouTube → MP3 — song link → MP3 file.
-> • 🎬 Status Video — photo + song + your text → 9:16 status video.
-> • 🎧 Ringtone cutter — 30 second ringtone from any song or video.
-> • 🎤 Karaoke — removes the vocals, keeps the music.
-> • 🔊 8D / Bass boost — better, deeper sound.
+> • 🎵 YouTube → MP3 — gaane ka link → MP3 file.
+> • 🎬 Status Video — photo + gaana + apna text → 9:16 status video.
+> • 🎧 Ringtone cutter — kisi bhi gaane ya video se 30 second ka ringtone.
+> • 🎤 Karaoke — vocals hata deta hai, music rehta hai.
+> • 🔊 8D / Bass boost — awaaz zyada deep aur mazedaar.
 > • 🗣️ Voice change — kid / heavy / robot / ghost / gadget / echo.
 > • ✂️ Video trim • 🗜️ Video compress (WhatsApp size) • 🎼 Video → MP3.
 
-## 7. Small daily tools
+## 7. Chhote daily tools
 
 > • 📷 QR CODE — link/text, WiFi share, contact card.
-> • 📦 APP FINDER — app name → direct links from 8 trusted stores (do not download APKs from random sites).
+> • 📦 APP FINDER — app ka naam → 8 bharosemand stores se direct links (random site se APK download mat karo).
 > • 🔗 URL SHORT — lamba link chhota karo. 🔍 LINK CHECK — link nakli hai ya safe.
-> • 🧮 REGISTRY TOTAL COST (inside Document Suite) — stamp duty + registration + MVR.
+> • 🧮 REGISTRY TOTAL COST (Document Suite ke andar) — stamp duty + registration + MVR.
 
-## 8. VIP / Premium — what you get
+## 8. VIP / Premium — kya milta hai
 
-> • ♾️ Unlimited usage (no credit limits).
+> • ♾️ Unlimited use (koi credit limit nahi).
 > • 🚀 Video downloader, Number info, Channel cloner, Private channel setup.
 > • 🏦 Bank PDF → Excel, 📜 Document Suite, ⚡ Media Studio.
-> • 📸 All photo and document tools (these are free for everyone).
+> • 📸 Saare photo aur document tools (ye sabke liye free hain).
 
-Plan: send /premium → pick a plan → pay by QR → the bot asks for proof in 3 steps:
+Plan lene ke liye: /premium bhejo → plan chuno → QR se payment karo → bot 3 step me proof maangta hai:
 
-> 1. UTR number — after payment you can see "UTR / Ref No" in PhonePe/GPay/Paytm History or Passbook (12 digits, like 448612394857). Send that to the bot.
-> 2. Screenshot — send the screenshot of that same payment (amount and UTR must be visible).
-> 3. That is all — the admin verifies and turns on VIP, and you get a message. Check the status with /mypay.
+> 1. UTR number — payment ke baad PhonePe/GPay/Paytm ke History ya Passbook me "UTR / Ref No" dikhta hai (12 digit, jaise 448612394857). Wahi bot ko bhejo.
+> 2. Screenshot — usi payment ka screenshot bhejo (amount aur UTR saaf dikhna chahiye).
+> 3. Bas itna hi — admin verify karke VIP chalu kar deta hai, aapko message aa jata hai. Status /mypay se dekh lo.
 
-⚠️ What will not work: your own photo/selfie, a meme, an old screenshot, someone else's UTR, or only the text "I paid". The bot rejects such proof.
+⚠️ Ye nahi chalega: apni photo/selfie, meme, purana screenshot, kisi aur ka UTR, ya sirf "maine paise bheje" likhna. Bot aisa proof reject kar deta hai.
 
 ## 9. Refer & Earn
 
-Send your referral link to a friend → when they join, you get bonus days. The "🎁 REFER & EARN" button shows your link and count.
+Apna referral link dost ko bhejo → wo join kare to aapko bonus days milte hain. "🎁 REFER & EARN" button par aapka link aur count dikhta hai.
 
-## 10. If something goes wrong
+## 10. Kuch galat ho jaye to
 
-> • Tool stuck? → send /cancel.
-> • "All credits used" shown? → get VIP with /premium.
-> • Account banned? → contact the admin.
-> • Need help any time → tap the "❓ HELP / TUTORIAL" button under the keyboard.
+> • Tool atak gaya? → /cancel bhejo.
+> • "Credits khatam" dikha? → /premium se VIP lo.
+> • Account ban ho gaya? → admin se baat karo.
+> • Kabhi bhi madad chahiye → keyboard ke neeche "❓ HELP / TUTORIAL" button dabao.
 
-## 11. One line for every tool
+## 11. Har tool ek line me
 
-Below this, every tool is explained in full detail — keep scrolling.
+Iske neeche har tool poori detail me likha hai — scroll karte raho.
 
-Any question? Message /support or @Supermannn_x.
+Koi sawal? /support par message karo ya @Supermannn_x.
 """.strip()
 
 
@@ -356,19 +356,19 @@ def build_page_content(prompts_map: dict = None, short_list: str = "") -> list:
     nodes += text_to_nodes(TUTORIAL_INTRO)
     if short_list:
         nodes.append({"tag": "hr"})
-        nodes.append({"tag": "h3", "children": ["Every tool in one line"]})
+        nodes.append({"tag": "h3", "children": ["Har tool ek line me"]})
         nodes += text_to_nodes(short_list)
     if prompts_map:
         nodes.append({"tag": "hr"})
-        nodes.append({"tag": "h3", "children": ["Video tutorial (30 second video for every tool)"]})
+        nodes.append({"tag": "h3", "children": ["Video tutorial (har tool ka 30 second video)"]})
         for key in prompts_map:
             if not has_video(key):
                 continue
             title = VIDEO_TITLES.get(video_key(key), key)
             nodes.append({"tag": "p", "children": [
-                {"tag": "a", "attrs": {"href": tutorial_video_url(key)}, "children": [f"🎬 {title} — watch the video"]}]})
+                {"tag": "a", "attrs": {"href": tutorial_video_url(key)}, "children": [f"🎬 {title} — video dekho"]}]})
         nodes.append({"tag": "hr"})
-        nodes.append({"tag": "h3", "children": ["Full details of every tool"]})
+        nodes.append({"tag": "h3", "children": ["Har tool ki poori detail"]})
         for key, text in prompts_map.items():
             title = ""
             for ln in (text or "").split("\n"):

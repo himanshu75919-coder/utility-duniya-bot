@@ -150,7 +150,7 @@ def _clean(v) -> str:
 #  1) NUMBER INFO
 # ===================================================================
 def num_info_report(number: str) -> dict:
-    """Personal-record lookup retired; no number is sent to the OSINT hub."""
+    """Personal-record lookup band kar diya gaya hai; koi number OSINT hub par nahi jata."""
     return {
         "ok": False,
         "has_data": False,
@@ -235,7 +235,7 @@ def vehicle_report_v2(plate: str) -> dict:
         _cache_put(ck, res, _FAIL_TTL)
         return res
     if not isinstance(payload, dict) or not payload.get("success", True):
-        res = {"ok": False, "error": _err_of(payload) or "No record found for this number.",
+        res = {"ok": False, "error": _err_of(payload) or "Is number ka koi record nahi mila.",
                "fallback": True}
         _cache_put(ck, res, _FAIL_TTL)
         return res

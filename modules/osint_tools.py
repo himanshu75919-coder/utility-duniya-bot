@@ -115,7 +115,7 @@ def lookup_phone_info(number_str: str) -> dict:
     """Carrier, circle/region, timezone, number type + safety links (100% public data)."""
     clean = re.sub(r"[^\d+]", "", number_str or "")
     if not clean:
-        return {"ok": False, "error": "Send a number (example <code>9876543210</code> or <code>+919876543210</code>)"}
+        return {"ok": False, "error": "Number bhejo (jaise <code>9876543210</code> ya <code>+919876543210</code>)"}
 
     if not clean.startswith("+"):
         clean = ("+91" + clean) if len(clean) == 10 else ("+" + clean)
@@ -214,9 +214,9 @@ def lookup_ifsc(code: str) -> dict:
                 "upi": bool(d.get("UPI")),
                 "maps_link": f"https://maps.google.com/?q={maps_q}",
             }
-        return {"ok": False, "error": f"'{clean}' not found in the RBI database. Check the spelling."}
+        return {"ok": False, "error": f"'{clean}' RBI database me nahi mila. Spelling check karo."}
     except Exception as e:
-        return {"ok": False, "error": f"API is busy: {str(e)[:80]}"}
+        return {"ok": False, "error": f"API busy hai: {str(e)[:80]}"}
 
 
 # =====================================================================================
@@ -298,7 +298,7 @@ def lookup_ip_domain(target: str) -> dict:
     """IP & Domain geolocation + ISP (ip-api.com)."""
     clean = re.sub(r"^https?://", "", (target or "").strip()).split("/")[0].strip()
     if not clean:
-        return {"ok": False, "error": "Send a domain or IP (example google.com or 8.8.8.8)"}
+        return {"ok": False, "error": "Domain ya IP bhejo (jaise google.com ya 8.8.8.8)"}
     # 🏠 v46: private / LAN IP ka koi public record nahi hota (hub se pehle block)
     _m = re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", clean)
     if _m:
@@ -385,7 +385,7 @@ def lookup_public_records(number: str) -> dict:
     if len(digits) == 10:
         digits = "91" + digits
     if len(digits) != 12:
-        return {"ok": False, "error": "Send a 10 digit mobile number (example 9876543210)"}
+        return {"ok": False, "error": "10 digit ka mobile number bhejo (jaise 9876543210)"}
 
     try:
         r = requests.get(f"{NUM_INFO_API_BASE()}/api/num-info",
@@ -398,7 +398,7 @@ def lookup_public_records(number: str) -> dict:
         return {"ok": False, "error": f"Could not reach the API: {str(e)[:90]}"}
 
     if not j.get("status"):
-        return {"ok": False, "error": j.get("error") or "No record found for this number"}
+        return {"ok": False, "error": j.get("error") or "Is number ka koi record nahi mila"}
 
     data = j.get("data") or {}
     raw = list(data.get("main_records") or []) + list(data.get("alternative_records") or [])
@@ -414,7 +414,7 @@ def lookup_public_records(number: str) -> dict:
         })
 
     if not records:
-        return {"ok": False, "error": "Record found but it is empty. Try another number."}
+        return {"ok": False, "error": "Record mila par khaali hai. Doosra number try karo."}
 
     return {"ok": True, "number": digits, "records": records, "count": len(records),
             "record_count": j.get("record_count", len(records)), "warning": PUBLIC_RECORD_WARNING}
