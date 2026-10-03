@@ -5106,16 +5106,16 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- POST INIT ----------------
 async def _post_init(app: Application):
     commands = [
-        BotCommand("start", "Start the Super Bot"),
-        BotCommand("menu", "Open Tools Grid"),
-        BotCommand("premium", "VIP Subscription Plans"),
-        BotCommand("refer", "Refer Friends = Free VIP"),
-        BotCommand("account", "My Account Status"),
-        BotCommand("cancel", "Cancel current action"),
-        BotCommand("refresh", "Menu / keyboard refresh karo"),
+        BotCommand("start", "Bot chalu karo / menu kholo"),
+        BotCommand("menu", "Saare tools ka menu"),
+        BotCommand("premium", "VIP plan lo (unlimited)"),
+        BotCommand("refer", "Dost ko bulao = free VIP"),
+        BotCommand("account", "Mera account aur credits"),
+        BotCommand("cancel", "Chalu kaam band karo"),
+        BotCommand("refresh", "Menu / keyboard naya karo"),
     ]
     await app.bot.set_my_commands(commands)
-    log.info("Commands set successfully!")
+    log.info("Commands set ho gaye ✅")
 
 
 # ---------------- KEEPALIVE WEB SERVER ON RENDER PORT 10000 ----------------
@@ -5130,7 +5130,7 @@ def _keepalive():
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            self.wfile.write(b"<h1>ToolVault / Utility Duniya Super Bot is Running 24/7! Status: 200 OK</h1>")
+            self.wfile.write("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>".encode("utf-8"))
 
         def do_HEAD(self):
             self.send_response(200)
