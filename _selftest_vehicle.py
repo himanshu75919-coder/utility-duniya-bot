@@ -7,6 +7,8 @@ import asyncio
 import json
 import os
 import sys
+
+os.environ.setdefault("PREMIUM_ONLY", "off")   # tools ka behaviour test karne ke liye
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 

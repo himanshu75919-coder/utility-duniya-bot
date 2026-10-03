@@ -169,7 +169,7 @@ from modules.vehicle_challan import (
     valid_plate as vehicle_plate_ok,
 )
 from modules import api_hub as hubapi
-from modules.render_health import webhook_url_from_env
+from modules.render_health import webhook_url_from_env, webhook_url_usable
 from modules.imei_lookup import (
     device_title as imei_title,
     fallback_links as imei_fallback_links,
@@ -357,6 +357,101 @@ def get_credits_over_text(action: str = "") -> str:
         "• ♾️ Poora bot unlimited\n\n"
         "🎁 <i>VIP free chahiye? {n} dost ko share karo (/refer).</i>"
     ).replace("{n}", str(REFER_NEED))
+
+
+# ======================================================================
+# v49.4: VIP-ONLY MODE — saare tools sirf VIP / premium users ke liye
+# ======================================================================
+# Aapki marzi: "ab se sirf premium users hi use kar sakte hain."
+# PREMIUM_ONLY=off karte hi purana system wapas (free tools + credits).
+PREMIUM_ONLY = str(os.getenv("PREMIUM_ONLY", "on")).strip().lower() in ("on", "1", "yes", "true", "haan", "chalu")
+
+VIP_WALL_TEXT = (
+    "👑 <b>YE TOOL SIRF VIP MEMBERS KE LIYE HAI</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Aapka account <b>free</b> hai — is liye premium tools band hain.\n\n"
+    "💎 <b>VIP lene par aapko milega:</b>\n"
+    "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
+    "• 📱 Number Info + 🚗 Vehicle/Challan + 📲 IMEI full details\n"
+    "• 🔄 Channel Cloner (auto-forward) + 🔒 Private Channel Setup\n"
+    "• 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
+    "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
+    "• ♾️ <b>Sab kuch unlimited</b> — koi credit, koi limit nahi\n"
+    "• ⚡ <b>Sabse fast</b> support + pehle naye tools\n\n"
+    "📌 <b>Jaise:</b> ek baar VIP lo → poora bot khul jata hai, koi rok nahi.\n\n"
+    "🎁 <i>Free VIP chahiye? %d dost ko bulao (/refer).</i>"
+) % REFER_NEED
+
+
+def vip_wall_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("💎 VIP plan lo (💳 UPI / QR)", callback_data="open_vip_menu")],
+        [InlineKeyboardButton("🎁 Refer & Earn — free VIP", callback_data="open_refer_menu")],
+        [InlineKeyboardButton("📖 VIP me kya-kya milta hai?", callback_data="toolvid:premium")],
+        [InlineKeyboardButton("💬 Support @Supermannn_x", url="https://t.me/Supermannn_x")],
+    ])
+
+
+def vip_ok(uid: int) -> bool:
+    """VIP / owner / admin — tool chala sakte hain? (PREMIUM_ONLY=off par sab allowed)."""
+    if not PREMIUM_ONLY:
+        return True
+    if uid and is_admin(uid):
+        return True
+    try:
+        return bool(is_premium(get_user(uid, "")))
+    except Exception:
+        return False
+
+
+# Non-VIP users ke liye ye callbacks khule rehte hain (payment, refer, madad)
+VIP_FREE_CB_EXACT = {
+    "back_home", "cancel", "open_vip_menu", "mypay_list", "open_refer_menu",
+    "pay_utr_help", "premium_plans", "menu_home", "home", "start",
+}
+VIP_FREE_CB_PREFIX = ("buy_plan_", "toolvid:", "adm", "admin", "ugrant:", "urevoke:", "uban:",
+                      "rpay:", "apay:", "askpay:", "vid:", "refer")
+
+
+def vip_free_cb(data: str) -> bool:
+    if data in VIP_FREE_CB_EXACT:
+        return True
+    return any(str(data).startswith(p) for p in VIP_FREE_CB_PREFIX)
+
+
+async def send_vip_wall(update: Update, context: ContextTypes.DEFAULT_TYPE = None):
+    """VIP wall — jahan se bhi call karo, sahi jagah bhej dega."""
+    kb = vip_wall_kb()
+    try:
+        msg = update.effective_message or (update.callback_query.message if update.callback_query else None)
+    except Exception:
+        msg = None
+    if msg is not None:
+        try:
+            await msg.reply_text(VIP_WALL_TEXT, reply_markup=kb, parse_mode=HTML)
+            return
+        except Exception:
+            pass
+    try:
+        tgt = update.effective_chat.id
+    except Exception:
+        return
+    try:
+        await context.bot.send_message(tgt, VIP_WALL_TEXT, reply_markup=kb, parse_mode=HTML)
+    except Exception:
+        pass
+
+
+async def vip_gate(update: Update) -> bool:
+    """True = allowed. False = wall bhej diya (aage kuch mat karo)."""
+    try:
+        uid = update.effective_user.id
+    except Exception:
+        return True
+    if vip_ok(uid):
+        return True
+    await send_vip_wall(update, None)
+    return False
 
 
 def clean_err(text: str, limit: int = 200) -> str:
@@ -1735,6 +1830,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = q.data
     uid = q.from_user.id
 
+    # ---------- v49.4: VIP-ONLY GATE ----------
+    # VIP lene / refer / madad / payment verify wale buttons sabke liye khule hain.
+    if PREMIUM_ONLY and not vip_ok(uid) and not vip_free_cb(data):
+        try:
+            await q.message.edit_text(VIP_WALL_TEXT, reply_markup=vip_wall_kb(), parse_mode=HTML)
+        except Exception:
+            await q.message.reply_text(VIP_WALL_TEXT, reply_markup=vip_wall_kb(), parse_mode=HTML)
+        return
+
     if data == "back_home":
         await q.message.edit_text(WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
         return
@@ -2953,6 +3057,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     norm_text = unbold(raw_text).strip().upper()
     clean_key = re.sub(r"^[^\w\s]+\s*", "", norm_text).strip()
 
+    # ---------- v49.4: VIP-ONLY GATE ----------
+    # Payment proof (pay_*) aur admin flows sabke liye khule rehte hain.
+    _mode_now = str(context.user_data.get("mode") or "")
+    if PREMIUM_ONLY and not vip_ok(uid) and not _mode_now.startswith(("pay_", "adm_")):
+        context.user_data.pop("mode", None)
+        await send_vip_wall(update, context)
+        return
+
     # Match Action
     action = BTN_MODE_MAP.get(clean_key) or BTN_MODE_MAP.get(norm_text)
 
@@ -3469,7 +3581,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["mode"] = f"pay_shot_{plan_key}"
         context.user_data["pay_utr_kind"] = res.get("kind", "")
         await update.message.reply_text(
-            "✅ <b>UTR is correct!</b>\n"
+            "✅ <b>UTR sahi hai!</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🧾 <b>UTR:</b> <code>{hesc(utr)}</code>\n"
             f"📋 <b>Type:</b> {res.get('kind')}\n"
@@ -4806,6 +4918,11 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
 
 async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
+    # v49.4: VIP-only (payment screenshot flow chhod kar)
+    _m = str(context.user_data.get("mode") or "")
+    if PREMIUM_ONLY and not vip_ok(update.effective_user.id) and not _m.startswith(("pay_", "adm_")):
+        await send_vip_wall(update, context)
+        return
     mode = context.user_data.get("mode")
 
     # Cloner Mode Active
@@ -4954,6 +5071,10 @@ async def _flush_album(bot, key, delay: float = 1.4):
 
 async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """VIDEO / FILE / AUDIO / VOICE / GIF / STICKER handler (Manual Forward Mode + ID Finder)."""
+    # v49.4: VIP-only
+    if PREMIUM_ONLY and not vip_ok(update.effective_user.id):
+        await send_vip_wall(update, context)
+        return
     msg = update.message
     if not msg:
         return
@@ -5154,6 +5275,22 @@ def main():
 
     # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
     threading.Thread(target=publish_tutorial_now, daemon=True).start()
+
+    # ---------- MODE DECIDE (crash-proof) ----------
+    # v49.4: webhook tabhi jab WEBHOOK_MODE=on ho AUR URL sach me kaam kare.
+    # Pehle yahi RENDER_EXTERNAL_URL se khud webhook on kar deta tha — Render ke
+    # free plan par deploy ke waqt DNS ready nahi hota tha aur bot
+    # "Bad webhook: failed to resolve host" par CRASH ho jata tha (aapka deploy fail).
+    global WEBHOOK_URL
+    _wh_ok, _wh_why = (False, "polling mode")
+    if WEBHOOK_URL:
+        _wh_ok, _wh_why = webhook_url_usable(WEBHOOK_URL)
+        if not _wh_ok:
+            log.warning("WEBHOOK chalu nahi ho sakta (%s) — ab POLLING par chalega", _wh_why)
+            WEBHOOK_URL = ""
+    if not WEBHOOK_URL:
+        log.warning("MODE = POLLING (safe default) | %s", _wh_why)
+
     # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
     if not WEBHOOK_URL:
         threading.Thread(target=_keepalive, daemon=True).start()
@@ -5188,10 +5325,27 @@ def main():
     app.add_handler(CommandHandler("unban", cmd_unban))
 
     # Specific Tool Commands
-    app.add_handler(CommandHandler("vnum", lambda u, c: send_vnum_card(u, c)))
-    app.add_handler(CommandHandler("terabox", lambda u, c: u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_tutorial_kb("terabox"), parse_mode=HTML)))
-    app.add_handler(CommandHandler("cloner", lambda u, c: u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)))
-    app.add_handler(CommandHandler("sarkari", lambda u, c: u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)))
+    # v49.4: tool commands bhi VIP-only (gate andar hai)
+    async def _cmd_vnum(u, c):
+        if await vip_gate(u):
+            await send_vnum_card(u, c)
+
+    async def _cmd_terabox(u, c):
+        if await vip_gate(u):
+            await u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_tutorial_kb("terabox"), parse_mode=HTML)
+
+    async def _cmd_cloner(u, c):
+        if await vip_gate(u):
+            await u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)
+
+    async def _cmd_sarkari(u, c):
+        if await vip_gate(u):
+            await u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
+
+    app.add_handler(CommandHandler("vnum", _cmd_vnum))
+    app.add_handler(CommandHandler("terabox", _cmd_terabox))
+    app.add_handler(CommandHandler("cloner", _cmd_cloner))
+    app.add_handler(CommandHandler("sarkari", _cmd_sarkari))
 
     # Callbacks
     app.add_handler(CallbackQueryHandler(on_pdf_cb, pattern="^(make_pdf_now|make_pdf_a4)$"))
@@ -5233,20 +5387,47 @@ def main():
         # Secret webhook path ko logs me kabhi print na karein.
         log.warning("WEBHOOK MODE | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
                     socket.gethostname(), os.getpid())
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            url_path=path,
-            webhook_url=full_url,
-            allowed_updates=Update.ALL_TYPES,
-            drop_pending_updates=True,
-            secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
-        )
-        return
+        try:
+            app.run_webhook(
+                listen="0.0.0.0",
+                port=port,
+                url_path=path,
+                webhook_url=full_url,
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True,
+                secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
+            )
+            return
+        except Exception as e:                                  # noqa: BLE001
+            # v49.4: webhook fail (DNS/Telegram error) — bot band NAHI hoga, polling par switch
+            log.error("Webhook fail ho gaya (%s: %s) — ab POLLING par switch kar raha hoon",
+                      type(e).__name__, str(e)[:200])
+            try:
+                app.bot.delete_webhook(drop_pending_updates=True)
+            except Exception:                                   # noqa: BLE001
+                pass
 
     log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
                 socket.gethostname(), os.getpid())
-    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
+    # v49.4: Conflict (do instance ek saath) par crash na ho — thoda ruk kar retry
+    for _try in range(1, 6):
+        try:
+            app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES,
+                            close_loop=False)
+            return
+        except Exception as e:                                  # noqa: BLE001
+            _msg = str(e).lower()
+            log.error("Polling band hui (%s: %s)", type(e).__name__, str(e)[:200])
+            if "conflict" in _msg and _try < 5:
+                wait = 15 * _try
+                log.warning("Do instance ek saath chal rahe hain — %ss baad dobara koshish (%s/5)", wait, _try)
+                time.sleep(wait)
+                continue
+            if _try < 5:
+                log.warning("5 second baad dobara koshish (%s/5)", _try)
+                time.sleep(5)
+                continue
+            raise
 
 
 if __name__ == "__main__":

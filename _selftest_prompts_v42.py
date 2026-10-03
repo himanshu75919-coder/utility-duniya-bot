@@ -7,6 +7,8 @@ import asyncio
 import os
 import re
 import sys
+
+os.environ.setdefault("PREMIUM_ONLY", "off")   # tools ka behaviour test karne ke liye
 import unicodedata
 
 os.environ["DB_PATH"] = "/tmp/_prompts42.db"

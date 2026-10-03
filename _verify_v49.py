@@ -27,6 +27,7 @@ for k in ("HUB_API_BASE", "VEHICLE_API_BASE", "IMEI_API_BASE", "NUM_INFO_API_BAS
 for k in ("HUB_API_KEY", "VEHICLE_API_KEY", "IMEI_API_KEY", "NUM_INFO_API_KEY", "OSINT_API_KEY"):
     os.environ.setdefault(k, "Demo")
 os.environ.setdefault("BOT_TOKEN", "123456:TEST")
+os.environ.setdefault("PREMIUM_ONLY", "off")   # tools ka behaviour test karne ke liye
 os.environ.setdefault("ADMIN_ID", "1")
 
 PASS, FAIL = [], []
