@@ -5247,6 +5247,38 @@ async def _post_init(app: Application):
     log.info("Commands set ho gaye ✅")
 
 
+# ---------------- v49.7 KEEPALIVE PINGER (hub ko ping -> dono 24/7 jaagte hain) ----------------
+# Render free plan 15 min inactivity par service sula deta hai. Bot aur hub ab ek dusre ko
+# ping karte hain, isliye dono hamesha jaagte rehte hain — koi bahar ki service nahi chahiye.
+_KEEPALIVE_PEERS = [u.strip() for u in (
+    os.environ.get("KEEPALIVE_PEERS") or "https://osint-api-hub.onrender.com/health"
+).replace(";", ",").split(",") if u.strip()]
+try:
+    _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 10)
+except Exception:
+    _KEEPALIVE_MINUTES = 10.0
+_KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
+
+
+def _keepalive_pinger():
+    """Har ~10 min me peers (hub) ko ping karo — Render free plan par bot+hub 24/7 ON."""
+    import time as _t
+    import urllib.request
+    while True:
+        _t.sleep(max(120.0, _KEEPALIVE_MINUTES * 60))
+        for url in list(_KEEPALIVE_PEERS):
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": "utility-duniya-bot/keepalive"})
+                with urllib.request.urlopen(req, timeout=90) as r:
+                    _KEEPALIVE_STATE.update({"last_run": time.strftime("%d-%m-%Y %H:%M"),
+                                             "last_ok": r.status < 500,
+                                             "runs": _KEEPALIVE_STATE["runs"] + 1})
+            except Exception as e:
+                _KEEPALIVE_STATE.update({"last_run": time.strftime("%d-%m-%Y %H:%M"),
+                                         "last_ok": False, "last_error": str(e)[:80]})
+                log.debug("keepalive ping fail: %s", e)
+
+
 # ---------------- KEEPALIVE WEB SERVER ON RENDER PORT 10000 ----------------
 def _keepalive():
     import http.server
@@ -5259,7 +5291,12 @@ def _keepalive():
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            self.wfile.write("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>".encode("utf-8"))
+            _ka = (f"keepalive pinger: last {_KEEPALIVE_STATE.get('last_run')} | ok={_KEEPALIVE_STATE.get('last_ok')}"
+                   f" | runs={_KEEPALIVE_STATE.get('runs')}")
+            html = ("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"
+                    f"<p style='font-family:monospace'>{_ka}</p>"
+                    f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
+            self.wfile.write(html.encode("utf-8"))
 
         def do_HEAD(self):
             self.send_response(200)
@@ -5302,6 +5339,11 @@ def main():
     # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
     if not WEBHOOK_URL:
         threading.Thread(target=_keepalive, daemon=True).start()
+
+    # v49.7: bahar ki taraf ping (hub ko) -> Render free plan par bot+hub dono jaagte rehte hain
+    if os.environ.get("KEEPALIVE_ENABLED", "1") != "0" and _KEEPALIVE_PEERS:
+        threading.Thread(target=_keepalive_pinger, daemon=True).start()
+        log.info("Keepalive pinger ON → %s (har %s min)", ", ".join(_KEEPALIVE_PEERS), _KEEPALIVE_MINUTES)
 
     app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
            .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)

@@ -70,3 +70,20 @@ Bas. Is ek key se ye sab aapke hub (`osint-api-hub.onrender.com/api`) se chalne 
 
 **Bot par direct lagana ho** (hub ke bajaye): usi service ke Environment me
 `VEHICLE_PROVIDER_URL/KEY` + `NUMINFO_PROVIDER_URL/KEY` daal do — bas.
+
+---
+
+## 💰 v49.7 — ZERO BUDGET setup (koi paisa nahi chahiye)
+
+| Cheez | Free kaise |
+|---|---|
+| **Bot + Hub 24/7 ON** | Ab bot aur hub **ek dusre ko ping karte hain** (`KEEPALIVE_PEERS`) — Render free plan par bhi dono jaagte rehte hain. Koi UptimeRobot zaroori nahi (chaaho to backup ke liye laga lo) |
+| **Live GST data** | `gstinapi.in` — **100 free lookups/month, no credit card** → hub me `GST_PROVIDER_KEY` lagao |
+| **Carrier/Operator data** | `numverify.com` — **free 100/month, no card** → `NUMINFO_PROVIDER_URL=https://apilayer.net/api/validate` + `KEY` + `AUTH=query` + `KEY_PARAM=access_key` |
+| **Vehicle / Challan** | Free API nahi hai (jhooth nahi bolenge). Bot me **VAHAN + e-Challan ke official free links** hain — user wahan se check kar sakta hai |
+
+### Env vars (optional, sab free)
+```
+KEEPALIVE_PEERS   = https://osint-api-hub.onrender.com/health   (default yahi hai)
+KEEPALIVE_MINUTES = 10
+```
