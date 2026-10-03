@@ -9,16 +9,16 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 # 🏛️ CITIZEN SERVICES
 SARKARI_CITIZEN_TEXT = (
     "🏛️ <b>SARKARI SEVA PORTAL HUB</b> 🏛️\n"
-    "<blockquote>100% verified official government portal — direct link, no fake ads.</blockquote>\n\n"
+    "<blockquote>100% verified sarkari portal — seedha official link, koi fake ad nahi.</blockquote>\n\n"
     "📌 <b>Kaun si service chahiye:</b>\n"
-    "• 💳 <b>Aadhaar:</b> Download, PVC Card, Mobile link & lock\n"
-    "• 🪪 <b>PAN Card:</b> 10-Min Free e-PAN, Link Status & Apply\n"
-    "• 🍚 <b>Ration & Ayushman:</b> NFSA Portal & ABHA Health Card\n"
-    "• 🚗 <b>Parivahan:</b> Driving License, RC & e-Challan\n"
-    "• 🎓 <b>APAAR ID:</b> One Nation One Student ID Portal\n"
-    "• 📜 <b>State Portals:</b> RTPS Bihar, UP e-District, Jharsewa\n"
-    "• 💼 <b>EPFO / PF:</b> UAN Passbook & Online Claim\n\n"
-    "👉 Tap a button below to open the official portal:"
+    "• 💳 <b>Aadhaar:</b> Download, PVC card, mobile link aur lock\n"
+    "• 🪪 <b>PAN Card:</b> 10 minute me free e-PAN, link status aur naya apply\n"
+    "• 🍚 <b>Ration aur Ayushman:</b> NFSA portal aur ABHA health card\n"
+    "• 🚗 <b>Parivahan:</b> Driving licence, RC aur e-Challan\n"
+    "• 🎓 <b>APAAR ID:</b> One Nation One Student ID portal\n"
+    "• 📜 <b>Rajya portals:</b> RTPS Bihar, UP e-District, Jharsewa\n"
+    "• 💼 <b>EPFO / PF:</b> UAN passbook aur online claim\n\n"
+    "👉 Official portal kholne ke liye neeche button par tap karo:"
 )
 
 def get_sarkari_citizen_kb():
@@ -62,7 +62,7 @@ STATE_PORTALS_TEXT = (
     "• <b>Madhya Pradesh:</b> MP e-District / Lok Seva Kendra\n"
     "• <b>Rajasthan:</b> E-Mitra Rajasthan\n"
     "• <b>Maharashtra:</b> Aaple Sarkar Portal\n\n"
-    "👉 Select your state:"
+    "👉 Apna rajya chuno:"
 )
 
 def get_state_portals_kb():

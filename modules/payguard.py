@@ -321,13 +321,15 @@ def user_payment_reply(pay_id: int, plan_name: str, amount: int, analysis: dict)
 
 
 def utr_help_text() -> str:
+    """UTR kahan milega — chhota Hinglish card."""
     return (
-        "🧾 <b>Where do I find the UTR / Transaction ID?</b>\\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\\n"
-        "📱 <b>PhonePe:</b> History → tap that payment → <b>UTR</b> (12 digit)\\n"
-        "📱 <b>GPay:</b> Transaction → <b>UPI transaction ID</b>\\n"
-        "📱 <b>Paytm:</b> Passbook → payment → <b>Order/Txn ID</b>\\n"
-        "🏦 <b>Bank app/SMS:</b> the SMS shows a <b>Ref No / UTR</b> (12 digits or 16-22 chars)\\n\\n"
-        "⚠️ <b>Careful:</b> a mobile number or a random number is not a UTR — send the <b>real</b> number "
-        "you got after the payment. VIP is not given on a wrong UTR."
+        "🧾 <b>UTR / Transaction ID kahan milega?</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "📱 <b>PhonePe:</b> History → us payment par tap → <b>UTR</b> (12 digit)\n"
+        "📱 <b>GPay:</b> Transaction → <b>UPI transaction ID</b>\n"
+        "📱 <b>Paytm:</b> Passbook → payment → <b>Order / Txn ID</b>\n"
+        "🏦 <b>Bank app / SMS:</b> SMS me <b>Ref No / UTR</b> likha hota hai (12 digit ya 16-22 character)\n\n"
+        "⚠️ <b>Dhyan rakho:</b> mobile number ya koi random number UTR nahi hota — "
+        "payment ke baad mila <b>asli</b> number hi bhejo. Galat UTR par VIP nahi milta."
     )
+
