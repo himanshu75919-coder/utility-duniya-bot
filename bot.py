@@ -1028,9 +1028,9 @@ def kagaz_menu_kb():
         [InlineKeyboardButton("🤝 Bayana / Pakki Rasid (zameen)", callback_data="kagaz_bayana"),
          InlineKeyboardButton("📝 Rin Shodh (loan paper)", callback_data="kagaz_loan")],
         [InlineKeyboardButton("🧾 Name/Address/Income Affidavit", callback_data="kagaz_nameaff")],
-        [InlineKeyboardButton("🏢 GST Number Check", callback_data="kagaz_gst"),
+        [InlineKeyboardButton("🏢 GST Number Check karo", callback_data="kagaz_gst"),
          InlineKeyboardButton("🪪 PAN → GST Check", callback_data="kagaz_pan")],
-        [InlineKeyboardButton("🧮 Registry Total Cost", callback_data="kagaz_registry"),
+        [InlineKeyboardButton("🧮 Registry ka total kharcha", callback_data="kagaz_registry"),
          InlineKeyboardButton("📐 Bigha/Kattha Converter", callback_data="kagaz_land")],
         [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:kagaz")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
@@ -1234,7 +1234,7 @@ def activate_plan_kb(uid: int):
         mark = "✅" if key == cur else "🔸"
         rows.append([InlineKeyboardButton(f"{mark} {pl['name']} · ₹{pl['price']}",
                                           callback_data=f"admact_plan:{key}")])
-    rows.append([InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
+    rows.append([InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
                  InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")])
     return InlineKeyboardMarkup(rows)
 
@@ -1323,7 +1323,7 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}"),
              InlineKeyboardButton("🎁 Plan Badlo", callback_data="admact_home")],
-            [InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
+            [InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
              InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
         ]),
         parse_mode=HTML)
@@ -1573,8 +1573,8 @@ async def admin_panel_send(message, context, uid: int):
          InlineKeyboardButton("🔍 User Search / Give VIP", callback_data="admsearch")],
         [InlineKeyboardButton("🚫 Ban / Unban", callback_data="admbanmenu"),
          InlineKeyboardButton("📢 Broadcast", callback_data="admbcmenu")],
-        [InlineKeyboardButton("📜 Manual VIP Log", callback_data="admgiftlist"),
-         InlineKeyboardButton("📖 Text Tutorial Page (admin)", callback_data="admtut")],
+        [InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
+         InlineKeyboardButton("📖 Text tutorial page (admin)", callback_data="admtut")],
         [InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
     ])
     await message.reply_text(text, reply_markup=kb, parse_mode=HTML)
@@ -1615,7 +1615,7 @@ def admin_payment_kb(pid: int):
          InlineKeyboardButton("✅ Approve 120 days", callback_data=f"apay:{pid}:120")],
         [InlineKeyboardButton("👑 Approve LIFETIME", callback_data=f"apay:{pid}:9999"),
          InlineKeyboardButton("❌ Reject", callback_data=f"rpay:{pid}")],
-        [InlineKeyboardButton("📩 Ask the user again", callback_data=f"askpay:{pid}")],
+        [InlineKeyboardButton("📩 User se dobara poocho", callback_data=f"askpay:{pid}")],
     ])
 
 
@@ -1743,7 +1743,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith("toolvid:"):
         key = data.split(":", 1)[1]
         if has_video(key):
-            await q.answer("🎬 Sending the tutorial video (30 sec)...")
+            await q.answer("🎬 Tutorial video bhej raha hoon (30 sec)...")
         await send_tool_video(context.bot, q.message.chat.id, key, answer_cb=q.answer)
         return
 
@@ -2072,12 +2072,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         plate = data.split(":", 1)[1]
         _u = get_user(uid, q.from_user.first_name)
         if not can_use_premium_tool(_u, uid):
-            await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
+            await q.answer("Credits khatam — VIP lo, unlimited checks milenge.", show_alert=True)
             return
         await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
         live = fetch_vehicle_report(plate)
         if live.get("ok") and not _veh_has_rc_data(live):
-            await q.answer("No RC / challan record found for this number — no credit was cut.", show_alert=True)
+            await q.answer("Is number ka RC / challan record nahi mila — koi credit nahi kata.", show_alert=True)
             add_use(uid)
             return
         if live.get("ok"):
@@ -2100,7 +2100,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         imei = re.sub(r"\D", "", data.split(":", 1)[1])[:15]
         _u_ii = get_user(uid, q.from_user.first_name)
         if not can_use_premium_tool(_u_ii, uid):
-            await q.answer("No credits left — get VIP for unlimited checks.", show_alert=True)
+            await q.answer("Credits khatam — VIP lo, unlimited checks milenge.", show_alert=True)
             return
         await q.message.reply_text("🔎 <b>Checking this IMEI again…</b>", parse_mode=HTML)
         res_ii = await asyncio.to_thread(fetch_imei_details, imei, False)
@@ -2611,7 +2611,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "doc_go":
         pages = context.user_data.get("doc_pages", [])
         if not pages:
-            await q.answer("Send the photo first!", show_alert=True)
+            await q.answer("Pehle photo bhejo!", show_alert=True)
             return
         kb_target = context.user_data.get("doc_kb", 300)
         gray = context.user_data.get("doc_gray", False)
@@ -2863,7 +2863,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
             "4️⃣ <b>Screenshot</b> lo → yahan bhejo (amount, success aur UTR saaf dikhna chahiye)\n"
             "⚠️ Selfie, photo ya meme proof nahi mane jayenge.\n"
             "<i>Aapka UTR save hai — bas sahi screenshot bhejo.</i>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ Where do I find the UTR?", callback_data="pay_utr_help")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")]]),
             parse_mode=HTML,
         )
         return
@@ -3057,7 +3057,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action == "shot":
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🖼️ HD Screenshot (top part)", callback_data="shot_hd")],
-                [InlineKeyboardButton("📜 Full Page Screenshot (whole page)", callback_data="shot_full")],
+                [InlineKeyboardButton("📜 Full Page Screenshot (poori page)", callback_data="shot_full")],
                 [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
             ])
             await update.message.reply_text(
@@ -3654,7 +3654,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 mb = res.get("size_mb") or 0
                 rows = [
                     [InlineKeyboardButton("🚀 Direct Download Link", url=res["direct_url"])],
-                    [InlineKeyboardButton("🌐 Open Original Page", url=raw_text)],
+                    [InlineKeyboardButton("🌐 Original page kholo", url=raw_text)],
                 ]
                 await st.edit_text(
                     f"📥 <b>{to_bold('DOWNLOAD LINK READY')}</b>\n\n"
@@ -3795,7 +3795,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                           url="https://echallan.parivahan.gov.in/"),
                      InlineKeyboardButton("📄 VAHAN RC status",
                                           url="https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml")],
-                    [InlineKeyboardButton("🔄 Check this number again", callback_data=f"vehagain:{live['plate']}")],
+                    [InlineKeyboardButton("🔄 Ye number dobara check karo", callback_data=f"vehagain:{live['plate']}")],
                 ]
                 await update.message.reply_text(render_vehicle_report(live),
                                                 reply_markup=InlineKeyboardMarkup(rows_live), parse_mode=HTML)
@@ -3883,7 +3883,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             log.warning("imei json file send fail: %s", e)
         rows_i = [[InlineKeyboardButton(t, url=u)] for t, u in (res_i.get("links") or [])[:3]]
-        rows_i.append([InlineKeyboardButton("🔄 Check another IMEI", callback_data="imei_new")])
+        rows_i.append([InlineKeyboardButton("🔄 Doosra IMEI check karo", callback_data="imei_new")])
         await update.message.reply_text("👇 More:", reply_markup=InlineKeyboardMarkup(rows_i), parse_mode=HTML)
         context.user_data.pop("mode", None)
         add_use(uid)
@@ -3969,7 +3969,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "👇 Links for further checks:"
             )
             if NUM_LEAK_ENABLED():
-                rows.insert(0, [InlineKeyboardButton("🧾 Check Public Records too (name/address)", callback_data=f"numrec:{res['e164']}")])
+                rows.insert(0, [InlineKeyboardButton("🧾 Public records bhi check karo (naam/pata)", callback_data=f"numrec:{res['e164']}")])
             await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
@@ -4540,7 +4540,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🔍 <b>What was found:</b>\n{reasons_txt}\n\n"
             f"💡 <b>What to do:</b> {chk.get('advice')}"
         )
-        kb_rows = [[InlineKeyboardButton("🌐 Open Final Link", url=chk.get("final_url"))]]
+        kb_rows = [[InlineKeyboardButton("🌐 Final link kholo", url=chk.get("final_url"))]]
         await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(kb_rows), parse_mode=HTML)
         add_use(uid)
         return
@@ -4848,7 +4848,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📝 <b>Pehle UTR bhejo</b> (text me), phir screenshot.\n"
             "Payment app kholo → transaction details → <b>UTR / Ref No</b> (12 digit) copy karke yahan bhejo.\n"
             "❓ Samajh nahi aa raha kahan milega? Neeche button par tap karo.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ Where do I find the UTR?", callback_data="pay_utr_help")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")]]),
             parse_mode=HTML)
         return
 
@@ -5079,7 +5079,7 @@ async def on_pdf_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if q.data in ("make_pdf_now", "make_pdf_a4"):
         pages = context.user_data.get("pdf_pages", [])
         if not pages:
-            await q.answer("Send the photo first!", show_alert=True)
+            await q.answer("Pehle photo bhejo!", show_alert=True)
             return
         a4 = (q.data == "make_pdf_a4")
         await q.answer("Making the A4 PDF..." if a4 else "Making the PDF...")
