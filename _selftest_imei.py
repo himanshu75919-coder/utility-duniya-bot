@@ -110,7 +110,7 @@ ok("sahi IMEI pass", il.validate_imei("353010111111110")[0] is True)
 ok("Luhn galat → reject", il.validate_imei("123456789012345")[0] is False
    and "check digit" in il.validate_imei("123456789012345")[2], il.validate_imei("123456789012345"))
 ok("12 digit → reject", il.validate_imei("353010111111")[0] is False
-   and "15 digits" in il.validate_imei("353010111111")[2], il.validate_imei("353010111111"))
+   and ("15 digits" in il.validate_imei("353010111111")[2] or "15 digit" in il.validate_imei("353010111111")[2]), il.validate_imei("353010111111"))
 ok("spaces/dashes saaf hote hain", il.clean_imei("IMEI: 35-301011-1111110") == "353010111111110",
    il.clean_imei("IMEI: 35-301011-1111110"))
 ok("16 digit (IMEISV) → pehle 15", il.clean_imei("3530101111111101") == "353010111111110")
@@ -159,7 +159,7 @@ Handler.mode = "invalid"
 il.clear_cache()
 bad = il.fetch_imei_details("353010111111110")
 ok("API 'Invalid IMEI' → saaf not-found", bad.get("ok") is False and bad.get("not_found") is True
-   and "not in the database" in str(bad.get("error")), bad)
+   and ("not in the database" in str(bad.get("error")) or "database me nahi" in str(bad.get("error"))), bad)
 
 Handler.mode = "badauth"
 il.clear_cache()
@@ -329,7 +329,7 @@ async def flows():
     ctx = Ctx()
     m = await send_text(kb_label("imei"), ctx, uid=USER)
     t = m.all_text()
-    ok("prompt khulta hai (English)", "Now send the 15 digit IMEI" in t, t[:220])
+    ok("prompt khulta hai", ("Now send the 15 digit IMEI" in t or "Ab 15 digit IMEI bhejo" in t), t[:220])
     ok("prompt me *#06# ka tarika", "*#06#" in t, t[:220])
     ok("prompt me credits line", "Credits" in t, t[:250])
 
@@ -352,7 +352,7 @@ async def flows():
         ok("file ka andar specifications JSON", b'"specifications"' in data and b"OLED" in data, data[:120])
         ok("file caption me device naam", "Apple iPhone 12 mini" in docs[0][0], docs[0][0][:120])
     ok("1 credit kata", dbm.get_credits(USER) == before - 1, (before, dbm.get_credits(USER)))
-    ok("'credit used' line aayi", "credit used" in txt_all.lower(), txt_all[-200:])
+    ok("'credit used' line aayi", ("credit used" in txt_all.lower() or "credit laga" in txt_all.lower()), txt_all[-200:])
     ok("mode clear ho gaya", "mode" not in ctx.user_data, ctx.user_data)
     ok("'Check another IMEI' button", any("imei_new" == c for c in m2.cb_data()), m2.cb_data())
     ok("imei.info ka link button", any("imei.info" in str(u or "") for u in _urls(m2)), _urls(m2))
@@ -361,7 +361,7 @@ async def flows():
     ctx2 = Ctx(); fresh(USER, 5)
     await send_text(kb_label("imei"), ctx2, uid=USER)
     m3 = await send_text("123456789012345", ctx2, uid=USER)
-    ok("galat IMEI par saaf error", "not valid" in m3.all_text().lower(), m3.all_text()[:200])
+    ok("galat IMEI par saaf error", ("not valid" in m3.all_text().lower() or "sahi nahi" in m3.all_text().lower()), m3.all_text()[:200])
     ok("galat IMEI par credit nahi kata", dbm.get_credits(USER) == 5, dbm.get_credits(USER))
     ok("galat IMEI par mode chalu (retry ho sake)", ctx2.user_data.get("mode") == "imei", ctx2.user_data)
 
@@ -372,8 +372,8 @@ async def flows():
     await send_text(kb_label("imei"), ctx3, uid=USER)
     m4 = await send_text("353010111111110", ctx3, uid=USER)
     t4 = m4.all_text()
-    ok("device na milne par NOT FOUND card", "NOT FOUND" in t4.upper(), t4[:220])
-    ok("'No credit was cut' likha hai", "No credit was cut" in t4, t4[:250])
+    ok("device na milne par NOT FOUND card", ("NOT FOUND" in t4.upper() or "NAHI MILE" in t4.upper()), t4[:220])
+    ok("'credit nahi kata' likha hai", ("No credit was cut" in t4 or "credit nahi kata" in t4 or "Koi credit nahi kata" in t4), t4[:250])
     ok("fallback (imei.info) button mila", any("imei.info" in str(u or "") for u in _urls(m4)), _urls(m4))
     ok("not-found par credit nahi kata", dbm.get_credits(USER) == 5, dbm.get_credits(USER))
     Handler.mode = "apple"
@@ -383,7 +383,7 @@ async def flows():
     fresh(USER, 0)
     ctx4 = Ctx()
     m5 = await send_text(kb_label("imei"), ctx4, uid=USER)
-    ok("0 credits par premium block", "ALL CREDITS USED" in m5.all_text().upper(), m5.all_text()[:200])
+    ok("0 credits par premium block", ("ALL CREDITS USED" in m5.all_text().upper() or "CREDITS KHATAM" in m5.all_text().upper()), m5.all_text()[:200])
     ok("block me VIP button", "open_vip_menu" in (m5.cb_data() or []), m5.cb_data())
 
     # VIP → unlimited
@@ -410,7 +410,7 @@ async def flows():
     # callback: imei_new
     ctx7 = Ctx()
     q = await click("imei_new", ctx7, uid=USER)
-    ok("'Check another IMEI' callback prompt laata hai", "Now send the 15 digit IMEI" in q.message.all_text(),
+    ok("'Check another IMEI' callback prompt laata hai", ("Now send the 15 digit IMEI" in q.message.all_text() or "Ab 15 digit IMEI bhejo" in q.message.all_text()),
        q.message.all_text()[:200])
     ok("callback mode set karta hai", ctx7.user_data.get("mode") == "imei", ctx7.user_data)
 

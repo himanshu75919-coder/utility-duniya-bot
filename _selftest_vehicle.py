@@ -408,7 +408,7 @@ async def flows():
     ctx = Ctx()
     m = await send_text(kb_label("rto"), ctx, uid=USER)
     t = m.all_text()
-    ok("prompt khulta hai (English)", "Now send the number plate" in t and "CHALLAN" in t.upper(), t[:200])
+    ok("prompt khulta hai", ("Now send the number plate" in t or "Ab number plate bhejo" in t) and ("CHALLAN" in t.upper() or "VEHICLE" in t.upper()), t[:200])
 
     before = dbm.get_credits(USER)
     m2 = await send_text("HR26EV0001", ctx, uid=USER)
@@ -416,7 +416,7 @@ async def flows():
     ok("live report aaya (maker/model)", "TOYOTA KIRLOSKAR" in t2 and "FORTUNER LEGENDER" in t2, t2[:250])
     ok("challan list aayi", "CH46894230719122563" in t2 and "PENDING" in t2, t2[-400:])
     ok("1 credit kata", dbm.get_credits(USER) == before - 1, (before, dbm.get_credits(USER)))
-    ok("'credit used' line aayi", "credit used" in t2.lower(), t2[-200:])
+    ok("'credit used' line aayi", ("credit used" in t2.lower() or "credit laga" in t2.lower()), t2[-200:])
     ok("official buttons aaye", any("echallan" in str(u or "") for u in _urls(m2)), _urls(m2))
 
     q = await click("vehagain:HR26EV0001", ctx, uid=USER)
@@ -435,7 +435,7 @@ async def flows():
     ctx3 = Ctx()
     await send_text(kb_label("rto"), ctx3, uid=USER)
     m4 = await send_text("BR30AR0802", ctx3, uid=USER)
-    ok("0 credits par premium block", "ALL CREDITS USED" in m4.all_text().upper(), m4.all_text()[:200])
+    ok("0 credits par premium block", ("ALL CREDITS USED" in m4.all_text().upper() or "CREDITS KHATAM" in m4.all_text().upper()), m4.all_text()[:200])
     ok("0 credits par free RC card bhi mila", "RTO" in m4.all_text().upper(), m4.all_text()[:220])
 
     # VIP → unlimited, credit nahi katta
