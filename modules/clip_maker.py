@@ -447,24 +447,29 @@ def _yt_friendly(err: str) -> str:
 
 
 def hub_youtube_download(url: str, dest_dir: str, max_mb: float = 400.0) -> dict:
-    """v45: YouTube link user ke hub se — direct mp4 link milta hai, yt-dlp ki zaroorat nahi.
-    (Yeh 'bot-check' wali problem ka permanent ilaaj hai.)"""
+    """v47: YouTube link user ke hub se — hub v2.2 ka /youtube-download asli links deta hai
+    (proxy_url = IP-lock free stream, direct link se pehle wahi). Local yt-dlp uske baad."""
     try:
         from modules import api_hub as hub
     except Exception:
         return {"ok": False, "reason": "hub module nahi mila"}
     if not hub.hub_ready():
         return {"ok": False, "reason": "hub key nahi lagi"}
-    info = hub.hub_youtube(url)
-    if not info.get("ok") or not info.get("video"):
+    info = hub.hub_yt_download(url, kind="video")
+    if not info.get("ok"):
         return {"ok": False, "reason": info.get("error") or "hub se link nahi mila"}
-    dest = os.path.join(dest_dir, "src_hub.mp4")
-    res = download_direct(info["video"], dest, max_mb=max_mb, timeout=300)
-    if not res.get("ok"):
-        return {"ok": False, "reason": res.get("error") or "hub link se download fail"}
-    return {"ok": True, "path": res.get("path", dest), "size_mb": res.get("size_mb"),
-            "engine": f"hub{info.get('source', '')}", "title": info.get("title") or "",
-            "duration": info.get("duration") or 0}
+    last = ""
+    for cand in (info.get("best_url"), info.get("direct_url")):
+        if not cand:
+            continue
+        dest = os.path.join(dest_dir, "src_hub.mp4")
+        res = download_direct(cand, dest, max_mb=max_mb, timeout=300)
+        if res.get("ok"):
+            return {"ok": True, "path": res.get("path", dest), "size_mb": res.get("size_mb"),
+                    "engine": f"hub ({info.get('source', 'youtube-download')})",
+                    "title": info.get("title") or "", "duration": info.get("duration") or 0}
+        last = res.get("error") or ""
+    return {"ok": False, "reason": last or "hub link se download fail"}
 
 
 def youtube_download(url: str, dest_dir: str, max_minutes: float = MAX_MINUTES,
@@ -500,7 +505,10 @@ def youtube_download(url: str, dest_dir: str, max_minutes: float = MAX_MINUTES,
     env_client = (os.environ.get("YTDLP_CLIENT") or "").strip()
     if env_client:
         clients.append([c.strip() for c in env_client.split(",") if c.strip()])
-    clients += [["android_vr"], ["tv"], ["ios"], ["web_safari"], ["android"], []]
+    # v47: PEHLE default clients (in se best quality/formats milte hain), phir android_vr/android
+    # (combined single file — kam quality par har jagah chalte hain), [tv/web_safari/ios] fail hote
+    # hain to sirf aakhir me.
+    clients += [[], ["android_vr"], ["android"], ["web"], ["ios"], ["tv"], ["web_safari"]]
     seen, tried = set(), []
     last_err = ""
     for cl in clients:

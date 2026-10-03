@@ -356,6 +356,57 @@ def _size_h(n) -> str:
 # =====================================================================
 # ▶️ YOUTUBE  →  /youtube-all → /youtube-info
 # =====================================================================
+def hub_yt_download(url: str, kind: str = "video", quality: str = "") -> dict:
+    """v47: hub ka NAYA /youtube-download (hub v2.2) — asli video+audio links.
+
+    Hub v2.2 me 2 bug fix hue the (NameError + galat yt-dlp clients) — ab hub 1-3s me
+    links deta hai aur har link ke saath **proxy_url** (IP-lock free) aata hai.
+
+    Returns {"ok", "title", "duration", "best_url", "direct_url", "audio_url", "links", "source"}.
+    best_url = proxy link (jahan hub se stream hota hai) — pehle isi ko use karo, direct
+    link sirf fallback (wo IP-locked ho sakta hai).
+    """
+    params = {"url": url}
+    if kind == "audio":
+        params["type"] = "audio"
+    if quality:
+        params["quality"] = str(quality)
+    pairs = [("/youtube-download", dict(params)), ("/ytdl", dict(params))]
+    if kind == "audio":
+        pairs.append(("/youtube-mp3", {"url": url}))
+    res = hub_try(pairs, timeout=75)
+    if not res.get("ok"):
+        out = {"ok": False, "error": res.get("error") or "Hub se download link nahi mila"}
+        if res.get("disabled_by_hub"):
+            out["disabled_by_hub"] = True
+        return out
+    d = res["data"] if isinstance(res.get("data"), dict) else {}
+    links = [l for l in (d.get("links") or []) if isinstance(l, dict)]
+
+    def _by_type(t: str) -> dict:
+        for l in links:
+            if str(l.get("type")) == t:
+                return l
+        return {}
+
+    chosen = _by_type("video") or _by_type("audio") or (links[0] if links else {})
+    best = (chosen.get("proxy_url") or chosen.get("url")
+            or d.get("proxy_download_url") or d.get("download_url") or "")
+    audio = _by_type("audio")
+    return {
+        "ok": bool(best),
+        "source": str(res.get("endpoint") or "hub"),
+        "title": d.get("title") or "",
+        "duration": d.get("duration") or 0,
+        "best_url": str(best or ""),
+        "direct_url": str(chosen.get("url") or d.get("download_url") or ""),
+        "audio_url": str(audio.get("proxy_url") or audio.get("url")
+                         or d.get("proxy_audio_url") or d.get("audio_url") or ""),
+        "links": links,
+        "endpoint": res.get("endpoint"),
+    }
+
+
 def hub_youtube(url: str) -> dict:
     """YouTube link → video ke direct mp4/audio links (clip maker + downloader ke liye)."""
     res = hub_try([("/youtube-all", {"url": url}), ("/youtube-info", {"url": url})], timeout=60)

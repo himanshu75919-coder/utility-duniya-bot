@@ -103,6 +103,16 @@ class HubHandler(BaseHTTPRequestHandler):
         if path in ("/youtube-all", "/youtube-info"):
             return self._json(200, {"title": "Test Video", "duration": 120,
                                     "hd": f"http://127.0.0.1:{PORT}/dl/yt.mp4"})
+        if path in ("/youtube-download", "/ytdl", "/youtube-mp3"):
+            _dl = f"http://127.0.0.1:{PORT}/dl/yt.mp4"
+            _au = f"http://127.0.0.1:{PORT}/dl/yt.m4a"
+            return self._json(200, {"success": True, "title": "Test Video", "duration": 120,
+                                    "links": [{"type": "video", "quality": "720p", "ext": "mp4",
+                                               "url": _dl, "proxy_url": _dl},
+                                              {"type": "audio", "quality": "128kbps", "ext": "m4a",
+                                               "url": _au, "proxy_url": _au}],
+                                    "download_url": _dl, "audio_url": _au,
+                                    "proxy_download_url": _dl, "proxy_audio_url": _au})
         if path.startswith("-video") or path == "-hd-video":
             return self._json(200, {"hd": f"http://127.0.0.1:{PORT}/dl/tw.mp4", "title": "Tweet video"})
         if path == "/instagram-profile":
@@ -196,6 +206,10 @@ def test_client():
     tb = hub.hub_terabox("https://1024terabox.com/s/1ahJz-qdH7h_9One0lXxDoA")
     ok("TERABOX files mile", tb.get("ok") and tb["files"][0]["name"] == "movie.mp4"
        and tb["files"][0]["size_h"].endswith("MB"), tb)
+
+    ytd = hub.hub_yt_download("https://youtu.be/X8X-XyK4CYE")
+    ok("hub_yt_download → video+audio links (v47)", ytd.get("ok") and "dl/yt.mp4" in ytd.get("best_url", "")
+       and "dl/yt.m4a" in ytd.get("audio_url", ""), {k: v for k, v in ytd.items() if k != "links"})
 
     yt = hub.hub_youtube("https://youtu.be/X8X-XyK4CYE")
     ok("YouTube direct link mila", yt.get("ok") and yt["video"].endswith("yt.mp4"), yt)
