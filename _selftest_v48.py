@@ -11,6 +11,8 @@ Kya test hota hai:
 import json
 import os
 import sys
+
+os.environ.setdefault("PREMIUM_ONLY", "off")   # tools ka behaviour test karne ke liye
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs

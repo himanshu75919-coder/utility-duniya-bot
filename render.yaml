@@ -35,8 +35,14 @@ services:
         sync: false            # payment ke liye: yourname@upi
       - key: TUTORIAL_URL
         sync: false            # apna tutorial link (khali = bot khud banayega)
+      # ---------- MODE (v49.4) ----------
+      # Default POLLING hai — sabse safe. Render ke free plan par deploy ke waqt DNS
+      # ready nahi hota tha, isliye webhook "failed to resolve host" deta tha aur bot
+      # crash ho jata tha. Webhook chahiye to WEBHOOK_MODE=on + WEBHOOK_URL do.
+      - key: WEBHOOK_MODE
+        value: polling         # polling | on  (on karne par webhook URL bhi dena hoga)
       - key: WEBHOOK_URL
-        value: https://utility-duniya-bot.onrender.com  # Render par polling Conflict se bachne ke liye webhook default
+        sync: false            # khali rakho = polling. Webhook ke liye service ka pura URL
       - key: WEBHOOK_SECRET
         sync: false            # webhook path ka optional secret (khali = token ka hissa)
 

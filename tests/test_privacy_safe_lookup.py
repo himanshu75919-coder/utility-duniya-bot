@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules import imei_lookup
 from modules import osint_hub
-from modules.render_health import webhook_url_from_env
+from modules.render_health import webhook_url_from_env, webhook_url_usable
 
 try:
     from modules.osint_tools import lookup_phone_info
@@ -100,27 +100,47 @@ class ImeiLookupTests(unittest.TestCase):
 
 
 class RenderWebhookConfigTests(unittest.TestCase):
+    """v49.4: default POLLING hai — webhook sirf WEBHOOK_MODE=on par.
+
+    Pehle bot RENDER_EXTERNAL_URL se khud webhook on kar deta tha. Render ke free
+    plan par deploy ke waqt DNS ready nahi hota tha, isliye Telegram
+    "Bad webhook: failed to resolve host" deta tha aur bot crash ho jata tha.
+    """
+
+    def test_default_mode_is_polling(self):
+        self.assertEqual(webhook_url_from_env({"WEBHOOK_URL": "https://x.onrender.com"}), "")
+
     def test_explicit_webhook_url_wins_and_is_normalized(self):
         self.assertEqual(
             webhook_url_from_env({
+                "WEBHOOK_MODE": "on",
                 "WEBHOOK_URL": "https://utility-duniya-bot.onrender.com/",
                 "RENDER_EXTERNAL_URL": "https://fallback.onrender.com",
             }),
             "https://utility-duniya-bot.onrender.com",
         )
 
-    def test_render_external_url_is_webhook_fallback(self):
+    def test_render_external_url_is_webhook_fallback_in_on_mode(self):
         self.assertEqual(
-            webhook_url_from_env({"WEBHOOK_URL": "", "RENDER_EXTERNAL_URL": "https://bot.onrender.com/"}),
+            webhook_url_from_env({"WEBHOOK_MODE": "on", "WEBHOOK_URL": "",
+                                  "RENDER_EXTERNAL_URL": "https://bot.onrender.com/"}),
             "https://bot.onrender.com",
         )
 
-    def test_render_blueprint_sets_webhook_by_default(self):
-        render_yaml = Path(__file__).resolve().parents[1] / "render.yaml"
-        self.assertIn(
-            "- key: WEBHOOK_URL\n        value: https://utility-duniya-bot.onrender.com",
-            render_yaml.read_text(encoding="utf-8"),
-        )
+    def test_render_blueprint_keeps_polling_default(self):
+        render_yaml = (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
+        self.assertIn("- key: WEBHOOK_MODE\n        value: polling", render_yaml)
+        # WEBHOOK_URL me hard-coded value nahi honi chahiye (warna deploy crash)
+        self.assertNotIn("- key: WEBHOOK_URL\n        value: https://utility-duniya-bot.onrender.com", render_yaml)
+
+    def test_webhook_url_usable_rejects_bad_hosts(self):
+        ok, _why = webhook_url_usable("")
+        self.assertFalse(ok)
+        ok2, why2 = webhook_url_usable("https://bad_host.onrender.com")
+        self.assertFalse(ok2)
+        self.assertIn("underscore", why2)
+        ok3, _why3 = webhook_url_usable("https://utility-duniya-bot.onrender.com")
+        self.assertTrue(ok3)
 
 
 class SafePhoneInfoTests(unittest.TestCase):

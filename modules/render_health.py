@@ -12,9 +12,49 @@ import os
 
 
 def webhook_url_from_env(env=None) -> str:
-    """Render service URL explicit ho to use karo; warna Render ka auto URL lo."""
+    """Webhook URL — sirf jab WEBHOOK_MODE on ho (default: POLLING, sabse safe).
+
+    Pehle yahi RENDER_EXTERNAL_URL se apne aap webhook on kar deta tha. Render ke
+    free plan par deploy ke waqt DNS kabhi kabhi ready nahi hota -> Telegram
+    "Bad webhook: failed to resolve host" deta hai aur bot crash ho jata tha.
+    Ab: WEBHOOK_MODE=on + WEBHOOK_URL (ya RENDER_EXTERNAL_URL) ho to hi webhook.
+    """
     values = os.environ if env is None else env
+    mode = str(values.get("WEBHOOK_MODE") or "polling").strip().lower()
+    if mode in ("off", "polling", "0", "false", "no"):
+        return ""
     return str(values.get("WEBHOOK_URL") or values.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+
+
+def webhook_url_usable(url: str) -> tuple:
+    """URL sach me chalega ya nahi — DNS + hostname check (crash se pehle pakdo).
+
+    Returns (ok: bool, reason: str)
+    """
+    import socket as _socket
+    from urllib.parse import urlparse
+
+    u = str(url or "").strip()
+    if not u:
+        return False, "khaali URL"
+    try:
+        pr = urlparse(u)
+    except Exception as e:                                   # noqa: BLE001
+        return False, f"URL parse nahi hua ({e})"
+    if pr.scheme not in ("http", "https"):
+        return False, f"scheme '{pr.scheme}' — http/https hona chahiye"
+    host = pr.hostname or ""
+    if not host:
+        return False, "hostname nahi mila"
+    if "_" in host:
+        return False, f"hostname me underscore hai ({host}) — DNS isse nahi samajhta"
+    if "." not in host:
+        return False, f"hostname adhoora lagta hai ({host})"
+    try:
+        _socket.getaddrinfo(host, 443 if pr.scheme == "https" else 80)
+    except Exception as e:                                   # noqa: BLE001
+        return False, f"DNS resolve nahi hua ({host}) — {e}"
+    return True, ""
 
 
 def install_webhook_health_routes() -> None:

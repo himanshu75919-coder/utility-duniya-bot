@@ -5,6 +5,8 @@ Mock = asli hub ka /api/imei jawab (Apple iPhone 12 mini sample, jaisa user ne b
 import json
 import os
 import sys
+
+os.environ.setdefault("PREMIUM_ONLY", "off")   # tools ka behaviour test karne ke liye
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
