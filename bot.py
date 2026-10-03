@@ -4055,6 +4055,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             return
         res = lookup_phone_info(raw_text)
+        # v49.6: aapke hub ka LEGAL carrier lookup (operator/circle live) — provider ho to
+        _car = {}
+        try:
+            _car = await asyncio.to_thread(hubapi.hub_carrier_info, raw_text)
+        except Exception:
+            _car = {}
         if res.get("ok"):
             await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
             rows = []
@@ -4071,10 +4077,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• <b>Number:</b> <code>{res['international']}</code>\n"
                 f"• <b>National:</b> {res['national']}\n"
                 f"• <b>Type:</b> {res['type']} {res['series_note']}\n"
-                f"• <b>Operator:</b> {res['operator']}\n"
-                f"• <b>Circle/Region:</b> {res['circle']}\n"
-                f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
-                f"• <b>Timezone:</b> {res['timezones']}\n"
+                f"• <b>Operator:</b> {(_car.get('operator') or res['operator'])}\n"
+                f"• <b>Circle/Region:</b> {(_car.get('circle') or res['circle'])}\n"
+                + (f"• <b>Number Type (live):</b> {hesc(str(_car.get('type')))}\n" if _car.get("type") else "")
+                + (f"• <b>Ported (MNP):</b> {hesc(str(_car.get('ported')))}\n" if _car.get("ported") not in (None, "", False) else "")
+                + f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
+                + f"• <b>Timezone:</b> {res['timezones']}\n"
                 f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"ℹ️ <i>{res['note']}</i>\n\n"

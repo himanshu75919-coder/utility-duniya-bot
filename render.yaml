@@ -63,6 +63,17 @@ services:
       # ---------- PRIVACY / AUTHORIZED PROVIDERS ----------
       - key: NUM_LEAK_ENABLED
         value: "off"            # personal leaked-record search is not supported
+      # ---------- AAPKI LICENSED API (v49.6) ----------
+      # Hub (osint-api-hub) par apni API lagane ke baad yahan kuch nahi chahiye.
+      # Ye sirf tab bharo jab DIREct bot me provider lagana ho (aam taur par nahi).
+      - key: VEHICLE_PROVIDER_URL
+        sync: false            # aapki vehicle API ka endpoint (hub par lagayi hai to khali)
+      - key: VEHICLE_PROVIDER_KEY
+        sync: false            # us API ki key
+      - key: NUMINFO_PROVIDER_URL
+        sync: false            # aapki number/carrier API (hub par lagayi hai to khali)
+      - key: NUMINFO_PROVIDER_KEY
+        sync: false            # us API ki key
       - key: VEHICLE_PROVIDER_AUTHORIZED
         value: "0"              # official portal links only unless provider is authorized
 
