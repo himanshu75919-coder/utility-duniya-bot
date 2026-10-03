@@ -229,10 +229,8 @@ def analyze_screenshot(img_bytes: bytes, expected_amount=None) -> dict:
 
     # --- g) amount check (agar amount pata ho) ---
     if expected_amount and ocr_ran:
-        amt_variants = {f"{expected_amount}", f"{expected_amount}.00", f"₹{expected_amount}", f"rs.{expected_amount}"}
-        if any(v in (ocr_found or []) for v in []) or False:
-            pass
         # (poora OCR text yahan available nahi rakhte — keyword level par hi rehte hain)
+        pass
 
     score = int(max(0, min(100, score)))
     if score >= SHOT_GOOD:

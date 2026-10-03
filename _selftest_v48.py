@@ -8,10 +8,8 @@ Kya test hota hai:
      quality, dono bade → "link" (truncated video kabhi nahi)
   5. _remote_size: Content-Range / Content-Length parsing
 """
-import io
 import json
 import os
-import re
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -26,7 +24,7 @@ if os.path.exists("/tmp/_v48.db"):
 PORT = 8901
 os.environ["HUB_API_BASE"] = f"http://127.0.0.1:{PORT}/api"
 os.environ["HUB_API_KEY"] = "testkey123"
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from modules import api_hub as hub                     # noqa: E402
 from modules import imei_lookup as il                  # noqa: E402

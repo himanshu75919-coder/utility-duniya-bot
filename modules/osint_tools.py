@@ -12,8 +12,6 @@ Iska misuse (kisi ko pareshan karna / blackmail / fraud) India me CRIME hai (IT 
 """
 
 import os
-
-import json
 import re
 import requests
 

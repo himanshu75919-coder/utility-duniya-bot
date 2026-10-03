@@ -27,6 +27,7 @@ import re
 import threading
 import time
 from datetime import datetime
+from html import escape as _hesc
 
 import requests
 
@@ -47,7 +48,12 @@ _EMPTY = ("", "-", "none", "na", "n/a", "null", "unknown", "not available")
 def api_base() -> str:
     b = (os.environ.get("IMEI_API_BASE") or os.environ.get("VEHICLE_API_BASE") or "").strip()
     if b:
-        return b.rstrip("/")
+        b = b.rstrip("/")
+        if b.lower().endswith("/imei"):
+            b = b[:-5].rstrip("/")
+        if not b.lower().endswith("/api"):
+            b += "/api"
+        return b
     try:
         from modules import api_hub as _hub
         if _hub.hub_key():
@@ -159,20 +165,20 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     sections = [ {"title": "Display", "rows": [("Display type", "OLED"), ...]}, ... ]
     links    = [ ("Tutorials", "https://..."), ... ]
     """
+    safe_tac = clean_imei(imei)[:8]
     if not isinstance(payload, dict):
-        return {"ok": False, "error": "API ka jawab kharab aaya.", "imei": imei}
+        return {"ok": False, "error": "API ka jawab kharab aaya.", "imei": safe_tac, "tac": safe_tac}
 
     api_err = _err_of(payload)
     if api_err:
         low = api_err.lower()
         if "invalid" in low and "imei" in low:
-            return {"ok": False, "error": "Ye IMEI database me nahi hai (valid device IMEI nahi hai).",
-                    "imei": imei, "not_found": True}
+            return {"ok": False, "error": "Ye IMEI database me nahi hai (valid device IMEI nahi hai).", "imei": safe_tac, "tac": safe_tac, "not_found": True}
         if "disabled" in low or "not supported" in low:
-            return {"ok": False, "imei": imei, "hub_disabled": True, "error": api_err}
-        return {"ok": False, "error": api_err, "imei": imei}
+            return {"ok": False, "imei": safe_tac, "tac": safe_tac, "hub_disabled": True, "error": api_err}
+        return {"ok": False, "error": api_err, "imei": safe_tac, "tac": safe_tac}
 
-    # 🆕 v48: user ke hub v2.4 ka POORA response (255k TAC database + nanoreview specs + photo):
+    # 🆕 v48: user ke hub v2.4/v2.5 ka POORA response (255k TAC database + nanoreview specs + photo):
     # {"success":true,"tac":"35635642","brand":"SAMSUNG","device":"SAMSUNG GALAXY TAB A9+",
     #  "extra":"","model_codes":[...],"released":"2023","image":"https://nanoreview.net/...",
     #  "specs":{"name":..., "url":..., "image":..., "row_count":122,
@@ -180,10 +186,12 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     #  "links":{"gsmarena":..., "nanoreview":..., "imei_info":...},
     #  "source":"tac-db (248364 rows)","specs_source":"nanoreview.net"}
     _sp = payload.get("specs") if isinstance(payload.get("specs"), dict) else {}
-    if payload.get("success") and (payload.get("device") or _sp or payload.get("tac")):
+    if payload.get("success") is not False and (
+        payload.get("device") or _sp or payload.get("tac") or payload.get("brand") or payload.get("model")
+    ) and "result" not in payload:
         brand = _clean_val(payload.get("brand"))
         model = _clean_val(payload.get("device") or payload.get("model"))
-        tac = _clean_val(payload.get("tac"))
+        tac = _clean_val(payload.get("tac")) or safe_tac
         extra = _clean_val(payload.get("extra"))
         released = _clean_val(payload.get("released"))
         codes = [str(c) for c in (payload.get("model_codes") or []) if str(c).strip()]
@@ -230,6 +238,11 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
             links.append(("📱 Search on GSMArena", str(lk["gsmarena"])))
         if lk.get("imei_info"):
             links.append(("🌐 Check on imei.info", str(lk["imei_info"])))
+        if not lk and (brand or model):
+            q = "+".join(x for x in (brand, model) if x).replace(" ", "+")
+            links.append(("📱 Full specs (GSMArena)", f"https://www.gsmarena.com/res.php3?sSearch={q}"))
+            links.append(("🔎 Search this device", f"https://www.google.com/search?q={q}+specifications"))
+            links.append(("📲 Check on imei.info", f"https://www.imei.info/?imei={tac or safe_tac}"))
         links.append(("📲 How to find IMEI (dial *#06#)", "https://www.imei.info/faq-where-find-imei/"))
 
         src_note = "TAC database"
@@ -239,7 +252,7 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
             src_note += f" ({int(_rows.group(1)):,} TACs)"
         if payload.get("specs_source"):
             src_note += f" + {_clean_val(payload.get('specs_source'))}"
-        got_specs = len(sections) > 1
+        got_specs = bool(_sp.get("sections"))
         return {
             "ok": True,
             "imei": clean_imei(payload.get("imei") or imei) or imei,
@@ -250,7 +263,9 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
             "photo_hd": photo_hd,
             "specs_name": _clean_val(_sp.get("name")),
             "specs_url": nr_url,
+            "url": nr_url,
             "specs_rows": int(_sp.get("row_count") or 0),
+            "specs_pending": bool(payload.get("specs_pending") or not got_specs),
             "sections": sections,
             "links": links[:6],
             "checked_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
@@ -287,11 +302,7 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     if isinstance(res, str):                       # {"result": "Invalid IMEI"}
         low = res.lower()
         if "invalid" in low:
-            return {"ok": False, "error": "Ye IMEI database me nahi hai (valid device IMEI nahi hai).",
-                    "imei": imei, "not_found": True}
-        return {"ok": False, "error": res[:120], "imei": imei}
-    if not isinstance(res, dict):
-        return {"ok": False, "error": "Is IMEI ki device details nahi mili.", "imei": imei, "not_found": True}
+            return {"ok": False, "error": "Ye IMEI database me nahi hai (valid device IMEI nahi hai).", "imei": safe_tac, "tac": safe_tac, "not_found": True}
 
     head = res.get("header") or {}
     items = res.get("items") or []
@@ -305,6 +316,8 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     def _add_row(title, content):
         t, c = _clean_val(title), _clean_val(content)
         if not t or not c:
+            return
+        if t.lower() in ("imei", "imei2", "serial", "serial number", "sn", "meid"):
             return
         nonlocal cur
         if cur is None:
@@ -349,18 +362,23 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     brand = _clean_val(head.get("brand"))
     model = _clean_val(head.get("model"))
     photo = str(head.get("photo") or "").strip()
+    head_url = str(head.get("url") or "").strip()
     clean = clean_imei(payload.get("imei") or imei)
+    tac_val = clean[:8] or safe_tac
 
     if not (brand or model) and not sections:
         return {"ok": False, "error": "No device details found for this IMEI.",
-                "imei": clean, "not_found": True}
+                "imei": safe_tac, "tac": safe_tac, "not_found": True}
 
     return {
         "ok": True,
         "imei": clean,
+        "tac": tac_val,
         "brand": brand,
         "model": model,
         "photo": photo,
+        "url": head_url,
+        "specs_url": head_url,
         "sections": sections,
         "links": links[:6],
         "checked_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
@@ -372,8 +390,9 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
 def fetch_imei_details(imei: str, use_cache: bool = True) -> dict:
     """IMEI → device details (cache ke saath). Wrong/unknown IMEI par clear error."""
     ok, clean, err = validate_imei(imei)
+    safe_tac = (clean or clean_imei(imei))[:8]
     if not ok:
-        return {"ok": False, "error": err, "imei": clean}
+        return {"ok": False, "error": err, "imei": safe_tac, "tac": safe_tac}
     clean = clean or clean_imei(imei)
 
     now = time.time()
@@ -387,7 +406,8 @@ def fetch_imei_details(imei: str, use_cache: bool = True) -> dict:
 
     payload, net_err = _get(f"{api_base()}/imei", {"key": api_key(), "imei": clean})
     if payload is None:
-        out = {"ok": False, "error": net_err or "API is not reachable right now.", "imei": clean}
+        out = {"ok": False, "error": net_err or "API is not reachable right now.",
+               "imei": safe_tac, "tac": safe_tac}
     else:
         out = parse_imei_payload(payload, clean)
 
@@ -463,10 +483,10 @@ def _sec_icon(title: str) -> str:
 
 def render_caption(res: dict, max_len: int = 1000) -> str:
     """Photo ke saath chhota caption (Telegram limit 1024 — isliye chhota)."""
-    lines = [f"📲 <b>{device_title(res)}</b>"]
+    lines = [f"📲 <b>{_hesc(device_title(res))}</b>"]
     if res.get("brand"):
-        lines.append(f"🏷️ <b>Brand:</b> {res['brand']}")
-    lines.append(f"🔢 <b>IMEI:</b> <code>{res.get('imei') or '—'}</code>")
+        lines.append(f"🏷️ <b>Brand:</b> {_hesc(str(res['brand']))}")
+    lines.append(f"🔢 <b>IMEI:</b> <code>{_hesc(str(res.get('imei') or '—'))}</code>")
     # top 5 sections ke 2-2 key points
     shown = 0
     for s in res.get("sections") or []:
@@ -474,13 +494,13 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
             break
         if str(s.get("title") or "").strip().lower() in ("device", "basic", "general") and res.get("brand"):
             continue                    # brand/model upar already dikh rahe hain
-        head = f"{_sec_icon(s['title'])} <b>{s['title']}</b>"
+        head = f"{_sec_icon(s['title'])} <b>{_hesc(str(s['title']))}</b>"
         rows = []
         for k, v in s["rows"][:2]:
             txt = f"• {k}: {v}"
             if len(txt) > 70:
                 txt = txt[:69] + "…"
-            rows.append(txt)
+            rows.append(_hesc(txt))
         block = head + "\n" + "\n".join(rows)
         if len("\n".join(lines)) + len(block) + 60 > max_len:
             break
@@ -498,28 +518,28 @@ def render_text(res: dict, max_len: int = 3600) -> str:
     if not res.get("ok"):
         return ""
     out = [
-        f"📲 <b>{device_title(res)}</b>",
+        f"📲 <b>{_hesc(device_title(res))}</b>",
         "━━━━━━━━━━━━━━━━━━━━━━",
-        f"🏷️ <b>Brand:</b> {res.get('brand') or '—'}",
-        f"🔢 <b>IMEI:</b> <code>{res.get('imei') or '—'}</code>",
+        f"🏷️ <b>Brand:</b> {_hesc(str(res.get('brand') or '—'))}",
+        f"🔢 <b>IMEI:</b> <code>{_hesc(str(res.get('imei') or '—'))}</code>",
     ]
     for s in res.get("sections") or []:
         out.append("━━━━━━━━━━━━━━━━━━━━━━")
-        out.append(f"{_sec_icon(s['title'])} <b>{s['title']}</b>")
+        out.append(f"{_sec_icon(s['title'])} <b>{_hesc(str(s['title']))}</b>")
         for k, v in s["rows"]:
-            txt = f"• <b>{k}:</b> {v}"
-            if len(txt) > 120:
-                txt = txt[:119] + "…"
-            out.append(txt)
+            vv = str(v)
+            if len(str(k)) + len(vv) + 6 > 120:
+                vv = vv[:max(20, 114 - len(str(k)))] + "…"
+            out.append(f"• <b>{_hesc(str(k))}:</b> {_hesc(vv)}")
         if len("\n".join(out)) > max_len:
             out.append("<i>…spec list lambi hai (poori copy neeche .json file me hai)</i>")
             break
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
     if res.get("tac"):
-        out.append(f"🔢 <b>TAC:</b> <code>{res['tac']}</code>")
+        out.append(f"🔢 <b>TAC:</b> <code>{_hesc(str(res['tac']))}</code>")
     if res.get("specs_url"):
-        out.append(f"🔎 <b>Specs page:</b> {res['specs_url']}")
-    out.append(f"<i>Data: {res.get('source_note') or 'TAC database + nanoreview.net'}"
+        out.append(f"🔎 <b>Specs page:</b> {_hesc(str(res['specs_url']))}")
+    out.append(f"<i>Data: {_hesc(str(res.get('source_note') or 'TAC database + nanoreview.net'))}"
                " · confirm on the official brand site before buying/selling.</i>")
     txt = "\n".join(out)
     return txt[:4000]
@@ -535,12 +555,16 @@ def specs_dict(res: dict) -> dict:
     specs = {}
     for s in res.get("sections") or []:
         specs[s["title"]] = {k: v for k, v in s["rows"]}
+    dev_name = res.get("specs_name") or device_title(res)
+    spec_url = res.get("specs_url") or res.get("url") or ""
     out = {
-        "device": res.get("specs_name") or device_title(res),
+        "device": dev_name,
+        "device_name": dev_name,
         "brand": res.get("brand") or "",
         "model": res.get("model") or "",
         "imei": res.get("imei") or "",
         "tac": res.get("tac") or "",
+        "url": spec_url,
         "checked_at": res.get("checked_at") or datetime.now().strftime("%d-%m-%Y %H:%M"),
         "specifications": specs,
         "source": res.get("source_note") or "TAC database + nanoreview.net",
@@ -548,8 +572,8 @@ def specs_dict(res: dict) -> dict:
     }
     if res.get("photo"):
         out["device_image"] = res["photo"]
-    if res.get("specs_url"):
-        out["specs_page"] = res["specs_url"]
+    if spec_url:
+        out["specs_page"] = spec_url
     if res.get("specs_rows"):
         out["total_specs"] = res["specs_rows"]
     return out

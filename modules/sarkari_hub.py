@@ -10,8 +10,8 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 SARKARI_CITIZEN_TEXT = (
     "🏛️ <b>SARKARI SEVA PORTAL HUB</b> 🏛️\n"
     "<blockquote>100% verified official government portal — direct link, no fake ads.</blockquote>\n\n"
-    "📌 <b>Available Services:</b>\n"
-    "• 💳 <b>Aadhaar:</b> Download, PVC Card, Mobile Link & Lock\n"
+    "📌 <b>Kaun si service chahiye:</b>\n"
+    "• 💳 <b>Aadhaar:</b> Download, PVC Card, Mobile link & lock\n"
     "• 🪪 <b>PAN Card:</b> 10-Min Free e-PAN, Link Status & Apply\n"
     "• 🍚 <b>Ration & Ayushman:</b> NFSA Portal & ABHA Health Card\n"
     "• 🚗 <b>Parivahan:</b> Driving License, RC & e-Challan\n"

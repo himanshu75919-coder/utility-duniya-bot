@@ -12,7 +12,7 @@ import unicodedata
 os.environ["DB_PATH"] = "/tmp/_prompts42.db"
 os.environ["BOT_TOKEN"] = "123456789:AAHtesttoken_testtoken_testtoken_testtok"
 os.environ["ADMIN_ID"] = "8607774564"
-sys.path.insert(0, "/home/user/fix")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from telegram import Chat, Update, User  # noqa: E402
 from telegram.constants import ChatType  # noqa: E402
