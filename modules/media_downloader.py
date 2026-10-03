@@ -551,8 +551,35 @@ async def download_instagram_async(url: str) -> dict:
     return await loop.run_in_executor(None, download_instagram_media, url)
 
 
+def _remote_size(url: str, ua: str = "Mozilla/5.0 (bot)") -> int:
+    """File ka size bina poora download kiye (Range request + Content-Length/-Range)."""
+    try:
+        r = requests.get(url, headers={"User-Agent": ua, "Range": "bytes=0-1048575"},
+                         timeout=25, stream=True)
+        try:
+            cr = r.headers.get("Content-Range") or ""
+            m = re.search(r"/(\d+)\s*$", cr)
+            if m:
+                return int(m.group(1))
+            cl = r.headers.get("Content-Length")
+            if cl and str(r.status_code) == "200":
+                return int(cl)
+            if cl and str(r.status_code) == "206" and "/" not in cr:
+                return int(cl)
+            return 0
+        except Exception:  # noqa: BLE001
+            return 0
+        finally:
+            r.close()
+    except Exception:  # noqa: BLE001
+        return 0
+
+
 def _hub_youtube_download(url: str, max_mb: int) -> dict:
-    """v47: YouTube video user ke hub se (hub v2.2 ke /youtube-download + proxy se)."""
+    """v48: YouTube best (1080p FHD) quality — hub v2.4 ke loader.to 1080p links se.
+
+    Order: 1080p → 480p backup → direct link (bada file). Truncated video kabhi nahi bhejte.
+    """
     try:
         from modules import api_hub as hub
     except Exception:
@@ -562,26 +589,61 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
     info = hub.hub_yt_download(url, kind="video")
     if not info.get("ok"):
         return {"ok": False}
-    for cand in (info.get("best_url"), info.get("direct_url")):
-        if not cand:
-            continue
+    q = str(info.get("quality") or "").strip()
+    hd = bool(info.get("hd"))
+    eng = f"hub ({info.get('source', 'youtube-download')}" + (f" • {q}" if q else "") + ")"
+    cap = int(max_mb * 1048576)
+
+    cands = []
+    for _u, _ql in ((info.get("best_url"), q),
+                    (info.get("direct_url"), q),
+                    (info.get("backup_url"), info.get("backup_quality") or "")):
+        if _u and _u not in [c[0] for c in cands]:
+            cands.append((_u, _ql))
+
+    for cand, ql in cands:
         try:
-            r = requests.get(cand, timeout=300,
-                             headers={"User-Agent": "Mozilla/5.0 (bot)"}, stream=True)
+            size = _remote_size(cand)
+            if size and size > cap:                     # 1080p > 48MB → agla (chhota) link try karo
+                continue
+            r = requests.get(cand, timeout=600,
+                             headers={"User-Agent": "Mozilla/5.0 (bot)",
+                                      "Referer": "https://loader.to/"}, stream=True)
             if r.status_code != 200:
                 continue
             data = b""
+            too_big = False
             for chunk in r.iter_content(262144):
                 data += chunk
-                if len(data) > max_mb * 1048576:
+                if len(data) > cap:                     # limit cross → truncated file NAHI bhejenge
+                    too_big = True
                     break
-            if len(data) > 10_000:
-                return {"ok": True, "type": "video", "platform": "YouTube",
-                        "title": info.get("title") or "", "bytes": data, "size_mb": _size_mb(data),
-                        "duration": info.get("duration") or 0,
-                        "engine": f"hub ({info.get('source', 'youtube-download')})"}
+            try:
+                r.close()
+            except Exception:  # noqa: BLE001
+                pass
+            if too_big or len(data) <= 10_000:
+                continue
+            return {"ok": True, "type": "video", "platform": "YouTube",
+                    "title": info.get("title") or "", "bytes": data, "size_mb": _size_mb(data),
+                    "duration": info.get("duration") or 0,
+                    "quality": ql or ("1080p" if hd else ""),
+                    "engine": eng}
         except Exception:                                  # noqa: BLE001
             continue
+
+    # Sab links limit se bade → direct link (user browser/IDM se poora 1080p lega)
+    big = info.get("best_url") or info.get("direct_url") or ""
+    if big:
+        sz = _remote_size(big)
+        mb = round(sz / 1048576, 2) if sz else 0
+        return {"ok": True, "type": "link", "platform": "YouTube",
+                "title": info.get("title") or "", "direct_url": big, "size_mb": mb,
+                "quality": q, "engine": eng,
+                "note": (f"Video {q or 'HD'} quality me ready hai — file {mb} MB ki hai "
+                         f"(Telegram upload limit {max_mb} MB). Neeche wale direct link se "
+                         "poora video 1080p me download ho jayega.") if mb else
+                        "Video ready hai — direct link se poori quality me download karein."}
     return {"ok": False}
 
 
