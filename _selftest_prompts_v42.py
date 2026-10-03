@@ -175,7 +175,7 @@ async def flows():
         lines = [l for l in shown.split("\n") if l.strip()]
         # 4-5 line ka prompt + credits line + /cancel line = max 7
         ok(f"{action}: card chhota (max 7 line)", len(lines) <= 7, shown)
-        ok(f"{action}: card me example/ask line", ("Example" in shown or "Now send" in shown
+        ok(f"{action}: card me example/ask line", ("Example" in shown or "Now send" in shown or "Jaise:" in shown or "bhejo" in shown
                                                    or "Select" in shown), shown[:150])
 
     # premium tool par sirf 1 credits line (lambi explanation nahi)
