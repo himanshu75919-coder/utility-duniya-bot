@@ -159,6 +159,7 @@ from modules.media_downloader import (
 )
 from modules.toolkit_extras import (
     check_link_safety,
+    expand_url,
     shorten_url,
 )
 from modules.vehicle_challan import (
@@ -867,7 +868,7 @@ async def send_tool_video(bot_obj, chat_id, key: str, answer_cb=None):
     """Tool ka tutorial video bhejta hai (CDN → raw → document → link fallback)."""
     if not has_video(key):
         if answer_cb:
-            await answer_cb("The video for this tool is coming soon!", True)
+            await answer_cb("Is tool ka video jald aa raha hai!", True)
         return False
     urls = video_urls(key)
     sent = False
@@ -896,9 +897,9 @@ async def send_tool_video(bot_obj, chat_id, key: str, answer_cb=None):
         try:
             await bot_obj.send_message(
                 chat_id=chat_id,
-                text=("⚠️ Could not send the video. You can watch it here:\n"
+                text=("⚠️ Video send nahi ho paya. Aap yahan se dekh sakte ho:\n"
                       f'🎬 <a href="{urls[0]}">Tutorial Video (30 sec)</a>\n\n'
-                      "<i>Tip: the video may take 2-3 seconds to start.</i>"),
+                      "<i>Tip: video start hone me 2-3 second lag sakte hain.</i>"),
                 parse_mode=HTML)
         except Exception:
             pass
@@ -1285,10 +1286,10 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 target = None
     if not target:
         await update.message.reply_text(
-            f"❌ <b>User not found:</b> <code>{hesc(raw_key)}</code>\n\n"
-            "• <b>User ID</b> (example <code>8607774564</code>) — the person must have started the bot once\n"
-            "• Or the same <b>@username</b> the person set in the bot\n\n"
-            "➡️ Type it like this: <code>/activate 123456789</code>",
+            f"❌ <b>User nahi mila:</b> <code>{hesc(raw_key)}</code>\n\n"
+            "• <b>User ID</b> (jaise <code>8607774564</code>) — us bande ne bot kabhi start kiya ho\n"
+            "• Ya wahi <b>@username</b> jo usne bot me set kiya hai\n\n"
+            "➡️ Aise bhejo: <code>/activate 123456789</code>",
             parse_mode=HTML)
         return
 
@@ -1334,8 +1335,8 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"👑 <b>{dur}</b> activated!\n"
             f"📅 Valid till: {exp}\n\n"
-            "All tools are now <b>unlimited</b> 🚀\n"
-            "(The admin gave you this VIP — no payment needed.)",
+            "Ab saare tools <b>unlimited</b> hain 🚀\n"
+            "(Ye VIP admin ne diya hai — koi payment nahi lagti.)",
             parse_mode=HTML)
     except Exception:
         pass
@@ -1502,12 +1503,12 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_admin(update.effective_user.id):
         st = payment_stats()
         await update.message.reply_text(
-            "👑 <b>You are the OWNER / ADMIN of this bot</b>\n"
+            "👑 <b>Aap is bot ke OWNER / ADMIN ho</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "✅ Everything is <b>unlimited</b> for you — no daily limit, no VIP payment.\n"
-            "You never need to buy premium 😄\n"
+            "✅ Aapke liye sab kuch <b>unlimited</b> hai — na daily limit, na VIP payment.\n"
+            "Aapko premium khareedne ki zaroorat kabhi nahi 😄\n"
             f"💳 <b>Pending payments (to verify):</b> {st['pending']}\n"
-            "👉 To verify payments open <b>/payments</b> or <b>/admin</b>.",
+            "👉 Payments verify karne ke liye <b>/payments</b> ya <b>/admin</b> kholo.",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"💳 Pending Payments ({st['pending']})", callback_data="admpay_list")],
                 [InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
@@ -1560,9 +1561,9 @@ async def admin_panel_send(message, context, uid: int):
         f"✅ <b>Approved Total:</b> {ps['approved']}   |   ❌ <b>Rejected:</b> {ps['rejected']}\n"
         f"💰 <b>Total Revenue:</b> ₹{ps['revenue']:,}\n"
         f"🎁 <b>Manual VIP given today:</b> {vip_grants_today()}\n"
-        f"🎟️ <b>Users with credits:</b> {credits_stats()['with_credits']} · <b>finished:</b> {credits_stats()['out_of_credits']}\n"
+        f"🎟️ <b>Credits wale users:</b> {credits_stats()['with_credits']} · <b>khatam:</b> {credits_stats()['out_of_credits']}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "👇 Pick anything from the menu below:"
+        "👇 Neeche menu se koi bhi option chuno:"
     )
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton(f"💳 Pending Payments ({pend})", callback_data="admpay_list"),
@@ -1881,7 +1882,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pid, days = int(pid_s), int(days_s)
         pay = get_payment(pid)
         if not pay:
-            await q.answer("Payment record not found.", show_alert=True)
+            await q.answer("❌ Ye payment record nahi mila.", show_alert=True)
             return
         if pay.get("status") == "approved":
             await q.answer("✅ This payment is already approved!", show_alert=True)
@@ -1934,7 +1935,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pid = int(data.split(":")[1])
         pay = get_payment(pid)
         if not pay:
-            await q.answer("Record not found.", show_alert=True)
+            await q.answer("❌ Record nahi mila.", show_alert=True)
             return
         if pay.get("status") == "approved":
             await q.answer("This payment is approved — it cannot be rejected.", show_alert=True)
@@ -1943,7 +1944,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _edit_admin_msg(
             f"❌ <b>REJECTED — Payment #{pid}</b>\n\n"
             f"👤 User: <code>{pay.get('user_id')}</code>\n💰 ₹{pay.get('amount')}\n🧾 UTR: <code>{pay.get('utr_ref')}</code>\n\n"
-            "<i>The user got a message with the reason.</i>",
+            "<i>User ko reason ke saath message chala gaya.</i>",
             kb=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]))
         await q.answer("Rejected")
         try:
@@ -1967,7 +1968,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pid = int(data.split(":")[1])
         pay = get_payment(pid)
         if not pay:
-            await q.answer("Record not found.", show_alert=True)
+            await q.answer("❌ Record nahi mila.", show_alert=True)
             return
         await q.answer("User notified")
         try:
@@ -2000,7 +2001,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text("✅ <b>No pending payments!</b>", parse_mode=HTML)
             return
         await q.message.reply_text(
-            f"💳 <b>Pending Payments ({len(pend)})</b>\nTap to see the full proof + approve/reject 👇",
+            f"💳 <b>Pending Payments ({len(pend)})</b>\nPoora proof dekhne + approve/reject karne ke liye tap karo 👇",
             reply_markup=admin_pending_kb(pend), parse_mode=HTML)
         return
 
@@ -2131,7 +2132,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pid = int(data.split(":")[1])
         pay = get_payment(pid)
         if not pay:
-            await q.answer("Record not found.", show_alert=True)
+            await q.answer("❌ Record nahi mila.", show_alert=True)
             return
         card = admin_payment_card(pay, user_row=get_user_row(int(pay["user_id"])),
                                   history=user_payment_history(int(pay["user_id"])))
@@ -2321,19 +2322,19 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             "🚀 <b>AUTO FORWARD SETUP — only 3 steps</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "<b>Step 1:</b> Set SOURCE channel (posts come from here)\n"
-            "<b>Step 2:</b> Set TARGET channel (posts go here)\n"
-            "<b>Step 3:</b> Turn FULL AUTO ON\n"
+            "<b>Step 1:</b> SOURCE channel set karo (posts yahan se aayenge)\n"
+            "<b>Step 2:</b> TARGET channel set karo (posts yahan jayenge)\n"
+            "<b>Step 3:</b> FULL AUTO CHALU karo\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📡 Source: <code>{cfg.get('source_chat_id') or '— not set'}</code>\n"
-            f"📑 Target: <code>{cfg.get('target_chat_id') or '— not set'}</code>\n\n"
-            "⚠️ <b>Remember:</b> Make the bot <b>Admin</b> in both channels.",
+            f"📡 Source: <code>{cfg.get('source_chat_id') or '— set nahi'}</code>\n"
+            f"📑 Target: <code>{cfg.get('target_chat_id') or '— set nahi'}</code>\n\n"
+            "⚠️ <b>Yaad rakho:</b> Bot ko dono channels me <b>Admin</b> banao.",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"{src_ok} Set Source", callback_data="cloner_set_source")],
-                [InlineKeyboardButton(f"{tgt_ok} Set Target", callback_data="cloner_set_target")],
-                [InlineKeyboardButton("🤖 FULL AUTO ON/OFF", callback_data="cloner_toggle_auto")],
-                [InlineKeyboardButton("🧪 Send Test Post", callback_data="cloner_test")],
-                [InlineKeyboardButton("📘 Read Guide", callback_data="cloner_guide")],
+                [InlineKeyboardButton(f"{src_ok} Source set karo", callback_data="cloner_set_source")],
+                [InlineKeyboardButton(f"{tgt_ok} Target set karo", callback_data="cloner_set_target")],
+                [InlineKeyboardButton("🤖 FULL AUTO CHALU/BAND", callback_data="cloner_toggle_auto")],
+                [InlineKeyboardButton("🧪 Test Post Bhejo", callback_data="cloner_test")],
+                [InlineKeyboardButton("📘 Guide Padho", callback_data="cloner_guide")],
             ]),
             parse_mode=HTML,
         )
@@ -2355,7 +2356,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cfg = get_cloner_config(uid)
         tgt = cfg.get("target_chat_id")
         if not tgt:
-            await q.answer("Set the Target channel first!", show_alert=True)
+            await q.answer("Pehle Target channel set karo!", show_alert=True)
             return
         src = cfg.get("source_chat_id")
         lines = []
@@ -2369,8 +2370,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             admin_ok = me2.status in ("administrator", "creator")
             lines.append(f"📑 <b>Target:</b> {ch2.title or tgt} — bot admin: {'✅' if admin_ok else '❌ Not an ADMIN there'}")
             if admin_ok:
-                test_msg = await context.bot.send_message(tgt, "🧪 <b>TEST POST</b>\n\nThis message was sent by the ToolVault bot.\nIf you can see it → your <b>target channel works fine ✅</b>\n\n<i>This test message is deleted in 5 seconds.</i>", parse_mode=HTML)
-                lines.append("\n✅ <b>Test post sent to target</b> — check your channel!")
+                test_msg = await context.bot.send_message(tgt, "🧪 <b>TEST POST</b>\n\nYe message ToolVault bot ne bheja hai.\nAgar aapko dikh raha hai → aapka <b>target channel sahi chal raha hai ✅</b>\n\n<i>Ye test message 5 second me delete ho jayega.</i>", parse_mode=HTML)
+                lines.append("\n✅ <b>Test post target par chala gaya</b> — apna channel check karo!")
                 import asyncio as _aio
                 async def _del_later():
                     await _aio.sleep(5)
@@ -2380,9 +2381,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         pass
                 _aio.create_task(_del_later())
             else:
-                lines.append("\n⚠️ Make the bot <b>Admin</b> in the target channel (Post Messages permission) — then test again.")
+                lines.append("\n⚠️ Bot ko target channel me <b>Admin</b> banao (Post Messages permission ke saath) — phir dobara test karo.")
         except Exception as e:
-            lines.append(f"\n❌ Problem: <code>{hesc(str(e))}</code>\n💡 Check: are the source/target usernames correct? Is the bot admin in both?")
+            lines.append(f"\n❌ Dikkat: <code>{hesc(str(e))}</code>\n💡 Check karo: source/target username sahi hain? Bot dono me admin hai?")
         await q.message.reply_text("🧪 <b>TEST RESULT</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines), parse_mode=HTML)
         return
 
@@ -2397,7 +2398,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "   <i>(Bas itna hi 'login' hai — bot ko channel ke andar hona chahiye. Ek baar karna hai.)</i>\n"
             "2️⃣ Us channel se <b>koi ek post forward karo</b> (video/PDF/photo) is bot ko\n"
             "   → bot khud channel ID pakad lega\n"
-            "3️⃣ Bot ek button dega: <b>📡 Make this SOURCE</b> — dabao, source set ho jayega\n"
+            "3️⃣ Bot ek button dega — <b>📡 Ye SOURCE banao</b> — dabao, source set ho jayega\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "Uske baad <b>Target</b> set karo aur <b>FULL AUTO</b> ON karo. Bas! 🎉\n"
             "⚠️ Copy-protection wale channel se Telegram forward nahi karta — us case me bot khud post uthata hai (auto mode) kyunki wo wahan <b>admin</b> hai."
@@ -2415,14 +2416,14 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chat = await context.bot.get_chat(int(cid))
             title = chat.title or str(cid)
         except Exception:
-            await q.answer("Add the bot to that channel as admin, then try again", show_alert=True)
+            await q.answer("Bot ko us channel me admin banao, phir dobara try karo", show_alert=True)
             return
         save_cloner_config(uid, source_chat_id=cid)
         context.user_data["mode"] = "cloner_target"
         await q.message.reply_text(
             f"✅ <b>Source set:</b> {hesc(str(title))}\n🆔 <code>{cid}</code>\n\n"
-            "👉 Now send the <b>TARGET channel</b> (where posts go):\n"
-            "(example <code>@MyChannel</code> or <code>-1001234567890</code>)",
+            "👉 Ab <b>TARGET channel</b> bhejo (posts yahan jayenge):\n"
+            "(jaise <code>@MyChannel</code> ya <code>-1001234567890</code>)",
             parse_mode=HTML)
         return
 
@@ -2433,10 +2434,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ready = bool(cfg_now.get("source_chat_id"))
         await q.message.reply_text(
             f"✅ <b>Target set:</b> <code>{cid}</code>\n\n"
-            + ("🎉 Both are set — now tap <b>FULL AUTO ON</b>!" if ready else "👉 Now set the <b>SOURCE</b> channel.")
+            + ("🎉 Dono set ho gaye — ab <b>FULL AUTO CHALU karo</b>!" if ready else "👉 Ab <b>SOURCE</b> channel set karo.")
             ,
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🤖 Turn FULL AUTO ON", callback_data="cloner_toggle_auto")],
+                [InlineKeyboardButton("🤖 FULL AUTO CHALU karo", callback_data="cloner_toggle_auto")],
                 [InlineKeyboardButton("⚙️ Saari Settings", callback_data="cloner_status")],
             ]),
             parse_mode=HTML)
@@ -2519,7 +2520,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "🔤 <b>Now send the 10 character PAN:</b>", parse_mode=HTML)
             return
         if kind not in KAGAZ_FIELDS:
-            await q.message.reply_text("❌ This document was not found.", parse_mode=HTML)
+            await q.message.reply_text("❌ Ye document nahi mila.", parse_mode=HTML)
             return
         context.user_data["mode"] = f"kagaz_fill_{kind}"
         context.user_data["kagaz_step"] = 0
@@ -2536,7 +2537,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return
         ask = {
-            "ytmp3": ("🎵 <b>YOUTUBE → MP3</b>\n\nNow send the <b>YouTube link of the song</b>:\n<i>(example https://youtu.be/xxxx)</i>", "media_ytmp3"),
+            "ytmp3": ("🎵 <b>YOUTUBE → MP3</b>\n\nAb <b>gaane ka YouTube link</b> bhejo:\n<i>(jaise https://youtu.be/xxxx)</i>", "media_ytmp3"),
             "status": ("🎬 <b>STATUS VIDEO MAKER</b>\n\n1️⃣ First <b>send a photo</b> (the status is made on it)", "media_status_photo"),
             "ringtone": ("🎧 <b>RINGTONE CUTTER</b>\n\nSend a song (MP3) or video — I make a 30 second ringtone from it.", "media_ringtone"),
             "karaoke": ("🎤 <b>KARAOKE MAKER</b>\n\nGaana (MP3) ya video bhejo — awaaz hata kar sirf music rakh dunga.", "media_karaoke"),
@@ -2548,7 +2549,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "compress": ("🗜️ <b>VIDEO COMPRESS</b>\n\nVideo bhejo (max 2 minute) — size chhota kar dunga (WhatsApp par bhejne layak).", "media_compress_wait"),
         }.get(kind)
         if not ask:
-            await q.message.reply_text("❌ Option not found.", parse_mode=HTML)
+            await q.message.reply_text("❌ Ye option nahi mila.", parse_mode=HTML)
             return
         text, mode = ask
         context.user_data["mode"] = mode
@@ -2624,7 +2625,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=(f"📄 <b>{to_bold('COMPRESSED PDF READY')}</b>\n"
                          f"• {len(pages)} page • {size_kb:.0f} KB • {kb_target} KB limit me ✅\n"
                          f"• Mode: {'⚫ Black & White' if gray else '🌈 Colour'}\n\n"
-                         "You can upload it on the government portal."),
+                         "Ye file government portal par upload kar sakte ho."),
                 parse_mode=HTML)
         except Exception as e:
             await q.message.reply_text(f"❌ Could not make the PDF: <code>{hesc(str(e))}</code>", parse_mode=HTML)
@@ -2663,7 +2664,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             await st.edit_text(
                 f"❌ <b>No public record found</b>\n\n{hesc(str(res.get('error'))[:200])}\n\n"
-                "💡 <i>This number may not be in the database. Try another number.</i>",
+                "💡 <i>Ye number database me nahi hai. Doosra number try karo.</i>",
                 parse_mode=HTML)
             add_use(uid)
             return
@@ -2779,7 +2780,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "cloner_set_remove":
         context.user_data["mode"] = "cloner_remove"
-        await q.message.reply_text("🗑️ <b>Remove Words / Promo Links:</b>\nSend the words/links to delete from posts (comma or new line):\n(example: <code>@spam_bot, join now, https://t.me/fake</code>)", parse_mode=HTML)
+        await q.message.reply_text("🗑️ <b>Words / Promo Links Hatana:</b>\nWo words/links bhejo jo posts se delete karne hain (comma ya new line se):\n(jaise: <code>@spam_bot, join now, https://t.me/fake</code>)", parse_mode=HTML)
         return
 
     if data == "cloner_set_thumb":
@@ -2918,7 +2919,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
                 continue
 
     if not sent_any:
-        await st.edit_text(f"⚠️ Proof saved (ID #{pid}) but could not send it to the admin. Tell Support: @Supermannn_x")
+        await st.edit_text(f"⚠️ Proof save ho gaya (ID #{pid}) par admin ko bhej nahi paya. Support ko batao: @Supermannn_x")
         return
 
     context.user_data.pop("mode", None)
@@ -2993,21 +2994,21 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action == "cloner":
             _cfg = get_cloner_config(uid)
             _u_cl = get_user(uid, user.first_name)
-            _auto = "🟢 ON" if _cfg.get("auto_status") == "on" else "🔴 OFF"
+            _auto = "🟢 CHALU" if _cfg.get("auto_status") == "on" else "🔴 BAND"
             _cl_note = ""
             if not can_use_premium_tool(_u_cl, uid):
-                _cl_note = ("\n⚠️ <b>All credits used</b> — FULL AUTO ON and Fast-Forward are locked.\n"
-                            "👑 With VIP both work unlimited (/premium).\n")
+                _cl_note = ("\n⚠️ <b>Credits khatam</b> — FULL AUTO CHALU aur Fast-Forward band hain.\n"
+                            "👑 VIP me dono unlimited chalte hain (/premium).\n")
             await update.message.reply_text(
                 f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Not Set'}</code>\n"
-                f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Not Set'}</code>\n"
+                f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Set nahi'}</code>\n"
+                f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Set nahi'}</code>\n"
                 f"🤖 FULL AUTO: <b>{_auto}</b>\n"
                 f"{credits_line(_u_cl, uid)}\n"
-                "<i>(FULL AUTO ON and Fast-Forward ON use 1 credit each)</i>\n"
+                "<i>(FULL AUTO CHALU aur Fast-Forward CHALU — dono 1-1 credit lete hain)</i>\n"
                 f"{_cl_note}\n"
-                "Customize settings for your files 👇",
+                "Apne posts ke liye settings badlo 👇",
                 reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
             )
@@ -3056,8 +3057,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
             await update.message.reply_text(
                 f"🖼️ <b>{to_bold('SITE SCREENSHOT')}</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                "🖼️ <b>HD</b> — top part of the website, fast\n"
-                "📜 <b>Full Page</b> — the whole long page, a bit slow\n\n"
+                "🖼️ <b>HD</b> — website ka upar wala hissa, fast\n"
+                "📜 <b>Full Page</b> — poori lambi page, thoda slow\n\n"
                 "Send the URL first, the screenshot is made for you.",
                 reply_markup=kb, parse_mode=HTML)
             return
@@ -3122,15 +3123,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             await update.message.reply_text(
 
-                "🔒 <b>COPY POSTS FROM A PRIVATE CHANNEL?</b>\n"
-                "No login, no password — just 3 things:\n"
-                "1️⃣ Make this bot <b>@utility_duniya_bot</b> an <b>Admin</b> in your private channel\n"
-                "2️⃣ <b>Forward any one post</b> (video/PDF) from that channel here\n"
-                "3️⃣ The bot gives a button — tap <b>📡 Make this SOURCE</b> ✅\n"
-                "Then set the Target and turn FULL AUTO ON. Done!",
+                "🔒 <b>PRIVATE CHANNEL SE POSTS COPY KARNE HAIN?</b>\n"
+                "Na login, na password — bas 3 kaam:\n"
+                "1️⃣ Is bot <b>@utility_duniya_bot</b> ko apne private channel me <b>Admin</b> banao\n"
+                "2️⃣ Us channel ki <b>koi ek post forward karo</b> (video/PDF) yahan\n"
+                "3️⃣ Bot ek button dega — <b>📡 Ye SOURCE banao</b> par tap karo ✅\n"
+                "Phir Target set karo aur FULL AUTO CHALU. Bas ho gaya!",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📘 Full Guide", callback_data="cloner_private")],
-                    [InlineKeyboardButton("🚀 Open Setup", callback_data="cloner_setup")],
+                    [InlineKeyboardButton("📘 Poori Guide", callback_data="cloner_private")],
+                    [InlineKeyboardButton("🚀 Setup Kholo", callback_data="cloner_setup")],
                 ]),
                 parse_mode=HTML)
             return
@@ -3173,20 +3174,20 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             try:
                 mem = await context.bot.get_chat_member(chat_id=chat.id, user_id=context.bot.id)
                 if mem.status not in ("administrator", "creator"):
-                    warn = "\n\n⚠️ <b>The bot is not ADMIN there!</b> Open that channel and make the bot Admin (with Post Messages permission), otherwise posting will fail."
+                    warn = "\n\n⚠️ <b>Bot wahan ADMIN nahi hai!</b> Us channel me jao aur bot ko Admin banao (Post Messages permission ke saath), warna posting fail hogi."
             except Exception:
-                warn = "\n\n⚠️ <i>Admin check failed. Please confirm the bot is admin there.</i>"
+                warn = "\n\n⚠️ <i>Admin check fail ho gaya. Ek baar confirm kar lo ki bot wahan admin hai.</i>"
         except Exception:
-            warn = "\n\n<i>(Username could not be resolved — the value is saved as it is. A numeric ID (-100...) is safer.)</i>"
+            warn = "\n\n<i>(Username resolve nahi ho paya — value jaisi hai waisi save kar di. Numeric ID (-100...) zyada safe hai.)</i>"
 
         save_cloner_config(uid, target=resolved)
         context.user_data.pop("mode", None)
         cfg_now = get_cloner_config(uid)
         ready = bool(cfg_now.get("source_chat_id")) and bool(cfg_now.get("target_chat_id"))
         kb_done = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🤖 Turn FULL AUTO ON (Step 3)", callback_data="cloner_toggle_auto")],
-            [InlineKeyboardButton("🧪 Send Test Post", callback_data="cloner_test")],
-            [InlineKeyboardButton("📘 Read Guide", callback_data="cloner_guide")],
+            [InlineKeyboardButton("🤖 FULL AUTO CHALU karo (Step 3)", callback_data="cloner_toggle_auto")],
+            [InlineKeyboardButton("🧪 Test Post Bhejo", callback_data="cloner_test")],
+            [InlineKeyboardButton("📘 Guide Padho", callback_data="cloner_guide")],
             [InlineKeyboardButton("⚙️ Saari Settings", callback_data="cloner_status")],
         ])
         await update.message.reply_text(
@@ -3194,8 +3195,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + ("🎉 <b>Both channels are set!</b>\n\n"
                "👉 <b>Step 3:</b> tap <b>FULL AUTO ON</b> below — after that every new post (video, PDF, photo, album) goes to the target automatically."
                if ready else
-               "👉 Also do <b>Step 1</b>: send the <b>📡 SOURCE</b> channel (posts come from there).")
-            + "\n\n<i>The bot must be Admin in both channels.</i>",
+               "👉 <b>Step 1</b> bhi karo: <b>📡 SOURCE</b> channel bhejo (posts wahan se aayenge).")
+            + "\n\n<i>Bot dono channels me Admin hona chahiye.</i>",
             reply_markup=kb_done,
             parse_mode=HTML,
         )
@@ -3236,9 +3237,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(txt, reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         except Exception as e:
             await update.message.reply_text(
-                f"❌ Channel not found: <code>{hesc(raw_val)}</code>\n<i>{hesc(str(e))[:120]}</i>\n\n"
-                "For a private channel send the numeric ID (example <code>-1001234567890</code>).\n"
-                "💡 Easy way to get the ID: forward any <b>TEXT post</b> from that channel to this bot — the bot will tell you the ID.",
+                f"❌ Channel nahi mila: <code>{hesc(raw_val)}</code>\n<i>{hesc(str(e))[:120]}</i>\n\n"
+                "Private channel ke liye numeric ID bhejo (jaise <code>-1001234567890</code>).\n"
+                "💡 ID nikalne ka aasan tarika: us channel ki koi ek <b>TEXT post</b> is bot ko forward karo — bot ID bata dega.",
                 reply_markup=get_cloner_settings_kb(uid),
                 parse_mode=HTML,
             )
@@ -3287,8 +3288,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 target = found[0]
         if not target:
             await update.message.reply_text(
-                "❌ User not found. Send the numeric ID (example <code>8607774564</code>) "
-                "or the same @username the user set in the bot.", parse_mode=HTML)
+                "❌ User nahi mila. Numeric ID bhejo (jaise <code>8607774564</code>) "
+                "ya wahi @username jo user ne bot me set kiya hai.", parse_mode=HTML)
             return
         u = get_user(target)
         row = get_user_row(target) or {}
@@ -3364,8 +3365,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 target = found[0]
         if not target:
             await update.message.reply_text(
-                "❌ User not found. Send the numeric ID (example <code>8607774564</code>) "
-                "or the same @username the user set in the bot.", parse_mode=HTML)
+                "❌ User nahi mila. Numeric ID bhejo (jaise <code>8607774564</code>) "
+                "ya wahi @username jo user ne bot me set kiya hai.", parse_mode=HTML)
             return
         u = get_user(target)
         row = get_user_row(target)
@@ -3433,14 +3434,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tries = context.user_data.get("pay_utr_tries", 0) + 1
             context.user_data["pay_utr_tries"] = tries
             await update.message.reply_text(
-                f"❌ <b>This UTR is not valid!</b>\n"
+                f"❌ <b>Ye UTR sahi nahi hai!</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"📝 <b>You sent:</b> <code>{hesc(raw_text[:40])}</code>\n"
                 f"⚠️ <b>Reason:</b> {res.get('reason')}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 + utr_help_text() +
-                f"\n\n🔁 <b>Now send the correct UTR</b> ({tries}/5 try)",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Open the plan again", callback_data=f"buy_plan_{plan_key}")]]),
+                f"\n\n🔁 <b>Ab sahi UTR bhejo</b> ({tries}/5 try)",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
                 parse_mode=HTML,
             )
             if tries >= 5:
@@ -3470,11 +3471,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💎 <b>Plan:</b> {plan['name']} (₹{plan['price']})\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
 
-            "📸 <b>Step 3:</b> Now send the payment <b>screenshot</b>\n"
-            "⚠️ <b>Please note:</b>\n"
-            "• The screenshot must show payment <b>success</b> (amount + UTR)\n"
-            "• Selfies, photos or random images are <b>rejected</b>\n"
-            "• Send the screenshot <b>soon</b>, otherwise the flow resets",
+            "📸 <b>Step 3:</b> Ab payment ka <b>screenshot</b> bhejo\n"
+            "⚠️ <b>Dhyan rakho:</b>\n"
+            "• Screenshot me payment <b>success</b> dikhna chahiye (amount + UTR)\n"
+            "• Selfie, normal photo ya random image <b>reject</b> ho jayegi\n"
+            "• Screenshot <b>jaldi</b> bhejo, warna flow reset ho jata hai",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan badlo", callback_data="open_vip_menu")]]),
             parse_mode=HTML,
         )
@@ -3488,7 +3489,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "📸 <b>Yahan screenshot chahiye (text nahi)!</b>\n"
             "Phone me payment app kholo → us payment ka <b>screenshot</b> lo → yahan bhejo.\n"
             "⚠️ Screenshot me dikhna chahiye: <b>amount, success/paid, aur UTR</b>.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Open the plan again", callback_data=f"buy_plan_{plan_key}")]]),
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
             parse_mode=HTML)
         return
 
@@ -3514,7 +3515,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 cap = (
                     f"⚡ <b>{to_bold(str(res.get('provider', 'Cloud Direct')))}</b>\n\n"
                     f"📂 <b>{len(files)} file(s) found:</b>\n" + "\n".join(lines) +
-                    "\n\n👇 Download any file with the buttons below:"
+                    "\n\n👇 Neeche buttons se koi bhi file download karo:"
                 )
                 rows = [[InlineKeyboardButton(f"⬇️ {str(f.get('name'))[:32]}", url=f["dlink"])] for f in files[:5]]
             else:
@@ -3657,7 +3658,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     + (f"📊 <b>Size:</b> {mb} MB\n" if mb else "")
                     + f"⚙️ Engine: {engine}\n\n"
                     + hesc(str(res.get("note") or ""))
-                    + "\n\n👇 Tap the button below to download:",
+                    + "\n\n👇 Download karne ke liye neeche button par tap karo:",
                     reply_markup=InlineKeyboardMarkup(rows),
                     parse_mode=HTML,
                 )
@@ -4023,7 +4024,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"❌ {p_res.get('error')}", parse_mode=HTML)
         else:
             # Area / post-office ke naam se pincode dhoondo
-            st = await update.message.reply_text("🔍 Finding the pincode from the area name...")
+            st = await update.message.reply_text("🔍 Area ke naam se pincode dhoondh raha hoon...")
             a_res = search_by_area_name(raw_text)
             if a_res.get("ok"):
                 lines = []
@@ -4034,11 +4035,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await st.edit_text(
                     f"📮 <b>{to_bold('AREA SEARCH')}: {hesc(a_res['query'])}</b>\n"
                     f"({a_res['total']} post offices mili)\n\n" + "\n".join(lines) +
-                    "\n\n💡 Tap the button below to copy the pincode:",
+                    "\n\n💡 Pincode copy karne ke liye neeche button par tap karo:",
                     reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
                 )
             else:
-                await st.edit_text(f"❌ {a_res.get('error')}\n\n💡 Or send a 6-digit pincode (example <code>800001</code>)", parse_mode=HTML)
+                await st.edit_text(f"❌ {a_res.get('error')}\n\n💡 Ya 6-digit pincode bhejo (jaise <code>800001</code>)", parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4102,7 +4103,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + "\n".join(lines) + id_line +
                 (("\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(prof_lines)) if prof_lines else "") +
                 "\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                "👇 Direct links to open the other platforms:",
+                "👇 Doosre platforms kholne ke direct links:",
                 reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
             )
             add_use(uid)
@@ -4213,7 +4214,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             rate = 0
         if rate <= 0:
-            await update.message.reply_text("❌ Could not read the rate. Type only the number (example <code>3000</code>).", parse_mode=HTML)
+            await update.message.reply_text("❌ Rate padh nahi paya. Sirf number type karo (jaise <code>3000</code>).", parse_mode=HTML)
             return
         context.user_data["mode"] = "kagaz_registry_buyer"
         context.user_data["kagaz_reg_rate"] = rate
@@ -4334,7 +4335,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "media_menu":
-        await update.message.reply_text("👆 Pick an option from the buttons above.", parse_mode=HTML)
+        await update.message.reply_text("👆 Upar wale buttons se option chuno.", parse_mode=HTML)
         return
 
     if mode == "media_ytmp3":
@@ -4404,7 +4405,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         img = context.user_data.get("media_status_photo")
         aud = context.user_data.get("media_status_audio")
         if not (img and aud):
-            await update.message.reply_text("⚠️ Send both the photo and the song first.", parse_mode=HTML)
+            await update.message.reply_text("⚠️ Pehle photo aur gaana dono bhejo.", parse_mode=HTML)
             context.user_data["mode"] = "media_status_photo"
             return
         await update.message.reply_text("🎬 Making the status video... (20-90 seconds)")
@@ -4413,8 +4414,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
             return
         await update.message.reply_video(video=res["bytes"], filename="status.mp4", supports_streaming=True,
-                                         caption=("🎬 <b>STATUS VIDEO READY ✅</b> (9:16 — WhatsApp/Instagram status)\n"
-                                                  "📥 Download it and put it straight on your status.\n\n"
+                                         caption=("🎬 <b>STATUS VIDEO TAIYAR ✅</b> (9:16 — WhatsApp/Instagram status)\n"
+                                                  "📥 Download karke seedha apne status par lagao.\n\n"
                                                   + spend_credit_msg(uid, "mediastudio")), parse_mode=HTML)
         for k in ("media_status_photo", "media_status_audio", "mode"):
             context.user_data.pop(k, None)
@@ -4427,8 +4428,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "📶 <b>WiFi QR — Step 2/2</b>\n\n"
             f"WiFi Name (SSID): <code>{hesc(raw_text)}</code>\n\n"
-            "Now send the <b>WiFi password</b>:\n"
-            "(if it is open WiFi, send <code>none</code>)", parse_mode=HTML)
+            "Ab <b>WiFi password</b> bhejo:\n"
+            "(agar open WiFi hai to <code>none</code> bhejo)", parse_mode=HTML)
         return
 
     if mode == "qr_wifi_pass":
@@ -4454,7 +4455,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "👤 <b>Contact Card — Step 2/2</b>\n\n"
             f"Name: <b>{hesc(raw_text)}</b>\n\n"
-            "Now send the <b>phone number</b> (example <code>9876543210</code>):", parse_mode=HTML)
+            "Ab <b>phone number</b> bhejo (jaise <code>9876543210</code>):", parse_mode=HTML)
         return
 
     if mode == "qr_vcard_phone":
@@ -4565,9 +4566,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"🆔 <b>Channel found:</b> {hesc(str(f_chat.title or ''))}\n"
                 f"🆔 <b>ID:</b> <code>{f_chat.id}</code>\n\n"
-                "👇 What should this channel become?",
+                "👇 Ye channel kya banega?",
                 reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📡 Make this SOURCE (posts come from here)", callback_data=f"fc_src:{f_chat.id}")],
+                    [InlineKeyboardButton("📡 Ye SOURCE banao (posts yahan se aayenge)", callback_data=f"fc_src:{f_chat.id}")],
                     [InlineKeyboardButton("📑 Make this TARGET (posts go here)", callback_data=f"fc_tgt:{f_chat.id}")],
                 ]),
                 parse_mode=HTML,
@@ -4591,7 +4592,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "upar likhe steps ke hisaab se dobara bhejo, ya /cancel karke naya tool kholo.",
                 parse_mode=HTML)
             return
-    await update.message.reply_text("👇 Pick a tool from the grid menu below:", reply_markup=kb_for(uid))
+    await update.message.reply_text("👇 Neeche grid menu se tool chuno:", reply_markup=kb_for(uid))
 
 
 # ---------------- PHOTO / DOCUMENT HANDLERS ----------------
@@ -4817,9 +4818,9 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         plan_key = mode.replace("pay_utr_", "")
         await update.message.reply_text(
 
-            "📝 <b>First send the UTR</b> (as text), then the screenshot.\n"
-            "Open the payment app → transaction details → copy the <b>UTR / Ref No</b> (12 digit) and send it here.\n"
-            "❓ Not sure where to find it? Tap the button below.",
+            "📝 <b>Pehle UTR bhejo</b> (text me), phir screenshot.\n"
+            "Payment app kholo → transaction details → <b>UTR / Ref No</b> (12 digit) copy karke yahan bhejo.\n"
+            "❓ Samajh nahi aa raha kahan milega? Neeche button par tap karo.",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ Where do I find the UTR?", callback_data="pay_utr_help")]]),
             parse_mode=HTML)
         return
@@ -4895,7 +4896,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton(f"✅ Normal PDF ({len(pages)} photos)", callback_data="make_pdf_now"),
              InlineKeyboardButton("📄 A4 Print PDF", callback_data="make_pdf_a4")],
         ])
-        await update.message.reply_text(f"📸 {len(pages)} photo(s) added! Send more or tap the button 👇", reply_markup=kb)
+        await update.message.reply_text(f"📸 {len(pages)} photo add ho gayi! Aur bhejo ya neeche button par tap karo 👇", reply_markup=kb)
         return
 
 

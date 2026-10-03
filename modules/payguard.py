@@ -64,7 +64,7 @@ def validate_utr(raw: str) -> dict:
     """
     text = (raw or "").strip()
     if not text:
-        return {"ok": False, "utr": "", "reason": "Empty — type the UTR number and send it."}
+        return {"ok": False, "utr": "", "reason": "Khaali hai — UTR number type karke bhejo."}
 
     cleaned = _UTR_LABELS.sub(" ", text)                    # "UTR: 123456789012" → "123456789012"
     cleaned = re.sub(r"[\s\-\.,#/:]+", "", cleaned).strip()
@@ -100,8 +100,8 @@ def validate_utr(raw: str) -> dict:
         return {"ok": False, "utr": cleaned, "reason": "A UTR must contain numbers — not only letters."}
     if re.fullmatch(r"\d{11}|\d{13,15}", cleaned):
         return {"ok": False, "utr": cleaned,
-                "reason": f"{len(cleaned)} digit number is not a valid UTR. Copy the <b>full 12 digit UTR</b> from the UPI app "
-                          "(or the 16-22 character reference from the bank app)."}
+                "reason": f"{len(cleaned)} digit ka number valid UTR nahi hai. UPI app se <b>poora 12 digit UTR</b> copy karo "
+                          "(ya bank app se 16-22 character ka reference)."}
     return {"ok": False, "utr": cleaned,
             "reason": "Ye UTR nahi lag raha. Payment app kholo → transaction details → wahan se <b>UTR / Ref No</b> copy karo."}
 

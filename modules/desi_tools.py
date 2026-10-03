@@ -314,7 +314,7 @@ def statement_summary_text(res: dict) -> str:
         f"🟢 <b>Total credit (in):</b> ₹{s['total_credit']:,.2f}\n"
         f"📂 <b>Opening:</b> ₹{s['opening']:,.2f}   →   <b>Closing:</b> ₹{s['closing']:,.2f}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "⬇️ Excel/CSV file is below — open it in Google Sheets or Excel and the table is ready."
+        "⬇️ Excel/CSV file neeche hai — Google Sheets ya Excel me kholo, table ready hai."
     )
 
 
@@ -712,7 +712,7 @@ KAGAZ_FIELDS = {
                   ("date", "Date", "example: 15-11-2026")],
     "notice138": [("from_name", "Your name (sender)", "example: Suresh Kumar"),
                   ("from_addr", "Your address", "village/area"),
-                  ("to_name", "Person to send the notice to", "example: Mahesh Yadav"),
+                  ("to_name", "Notice kis ko bhejna hai (naam)", "jaise: Mahesh Yadav"),
                   ("to_addr", "His/her address", "village/area"),
                   ("amount", "Cheque amount ₹", "example: 50000"),
                   ("cheque_no", "Cheque number", "example: 456789"),
@@ -944,7 +944,7 @@ def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_
         # agar pehle se hi target se chhoti hai to dobara kyun
         if len(data) <= target_mb * 1048576:
             return {"ok": True, "bytes": data, "size_mb": round(len(data) / 1048576, 2),
-                    "note": "The file was already smaller than the target — sending it as it is.", "duration": round(dur, 1)}
+                    "note": "File pehle se hi target se chhoti thi — jaisi hai waisi bhej di.", "duration": round(dur, 1)}
         vf = "scale='min(1280,iw)':-2"
         for crf in (26, 30, 33, 36):
             cp = _ff(["-i", pin, "-vf", vf, "-c:v", "libx264", "-preset", "ultrafast",

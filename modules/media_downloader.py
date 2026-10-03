@@ -539,9 +539,9 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
         mb = round((size or 0) / (1024 * 1024), 2) if size else 0
         return {"ok": True, "type": "link", "platform": plat, "title": title or "",
                 "direct_url": link, "size_mb": mb,
-                "note": (f"File is {mb} MB (Telegram upload limit {max_mb} MB). "
-                         "Download it with the direct link below in a browser or IDM.") if mb else
-                        "Direct link is ready — it downloads at once in a browser or IDM."}
+                "note": (f"File {mb} MB ki hai (Telegram upload limit {max_mb} MB). "
+                         "Neeche wale direct link se browser ya IDM me download kar lo.") if mb else
+                        "Direct link taiyar hai — browser ya IDM me turant download ho jayegi."}
     return {"ok": False, "error": "Download failed. The site blocked it or the link is private."}
 
 

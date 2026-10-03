@@ -36,7 +36,7 @@ import database as dbm                                       # noqa: E402
 from modules import api_hub as hub                           # noqa: E402
 from modules import osint_tools as ost                       # noqa: E402
 from modules import cloud_tools as ct                        # noqa: E402
-from modules import clip_maker as cm                         # noqa: E402
+from modules import media_downloader as md                   # noqa: E402
 
 PASS, FAIL = [], []
 OWNER, USER = 8607774564, 880000555
@@ -299,14 +299,10 @@ def test_tools_hub():
     ok("ID finder profiles bhi deta hai", un.get("ok") and "instagram" in (un.get("profiles") or {}),
        list((un.get("profiles") or {}).keys()))
 
-    # clip maker: hub youtube path (mock hub se mp4 download)
-    import tempfile
-    d = tempfile.mkdtemp(prefix="v45yt_")
-    res = cm.hub_youtube_download("https://youtu.be/X8X-XyK4CYE", d)
-    ok("YouTube hub se download (mp4 file bani)", res.get("ok") is True
-       and os.path.exists(res.get("path", "")) and os.path.getsize(res["path"]) > 100_000, res)
+    # v49: YouTube hub path (clip maker hata diya — ab media_downloader ka engine)
+    res = md._hub_youtube_download("https://youtu.be/X8X-XyK4CYE", 48)
+    ok("YouTube hub se video/link mila", res.get("ok") is True, res.get("engine") or res)
     ok("engine me hub likha", "hub" in str(res.get("engine", "")), res.get("engine"))
-    cm.cleanup(d)
 
 
 def test_fallback():
@@ -322,8 +318,8 @@ def test_fallback():
         ok("Pincode tool fallback", isinstance(ost.lookup_pincode("800001"), dict))
         tb = ct.resolve_terabox("https://1024terabox.com/s/1ahJz-qdH7h_9One0lXxDoA")
         ok("TERABOX fallback crash nahi karta", isinstance(tb, dict) and "ok" in tb, tb.get("error"))
-        res = cm.hub_youtube_download("https://youtu.be/x", "/tmp")
-        ok("AI/hub youtube path band hub par saaf mana karta hai", res.get("ok") is False, res)
+        res = md._hub_youtube_download("https://youtu.be/x", 48)
+        ok("Hub youtube path band hub par saaf mana karta hai", res.get("ok") is False, res)
     finally:
         os.environ["HUB_API_KEY"] = saved
         os.environ.pop("HUB_ENABLED", None)

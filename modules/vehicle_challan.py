@@ -149,7 +149,7 @@ def _err_of(payload) -> str:
         if isinstance(v, str) and v.strip():
             return v.strip()[:120]
     if payload.get("success") is False and not payload.get("data"):
-        return "No record found for this number."
+        return "Is number ka koi record nahi mila."
     return ""
 
 
@@ -576,7 +576,7 @@ def fetch_vehicle_report(plate: str) -> dict:
             api_error = api_error or _err_of(payload)
 
     if not norm and not challans and not summary:
-        msg = api_error or (errors[0] if errors else "No record found for this number.")
+        msg = api_error or (errors[0] if errors else "Is number ka koi record nahi mila.")
         res = {"ok": False, "error": msg, "fallback": True}
         _cache_put(plate_c, res, _FAIL_TTL)
         return res
@@ -739,10 +739,10 @@ def render_report(res: dict, max_challans: int = 6) -> str:
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
     if cnt == 0 and not challans:
         out.append("🚨 <b>CHALLANS</b>")
-        out.append("✅ <b>No challan found</b> for this vehicle right now.")
-        out.append("<i>(A paid challan can stay on the portal for 24-48 hours.)</i>")
+        out.append("✅ Abhi is vehicle ka <b>koi challan nahi mila</b>.")
+        out.append("<i>(Paid challan portal par 24-48 ghante tak dikh sakta hai.)</i>")
     else:
-        head = [f"🚨 <b>CHALLANS — {cnt} found</b>"]
+        head = [f"🚨 <b>CHALLANS — {cnt} mile</b>"]
         if pend or pend_amt:
             head.append(f"• ⏳ Pending: <b>{pend}</b>" + (f" — {_inr(pend_amt)}" if pend_amt else ""))
         if paid:
