@@ -499,7 +499,7 @@ def fetch_vehicle_report(plate: str) -> dict:
                 _cache_put(plate_c, rep)
                 return rep
         elif vr.get("disabled_by_hub"):
-            fast = {"ok": False, "fallback": True, "hub_disabled": True,
+            fast = {"ok": False, "fallback": True, "hub_disabled": True, "plate": plate_c,
                     "error": vr.get("error") or "Live vehicle lookup is turned off on the data provider."}
             _cache_put(plate_c, fast)
             return fast
@@ -577,7 +577,7 @@ def fetch_vehicle_report(plate: str) -> dict:
 
     if not norm and not challans and not summary:
         msg = api_error or (errors[0] if errors else "Is number ka koi record nahi mila.")
-        res = {"ok": False, "error": msg, "fallback": True}
+        res = {"ok": False, "error": msg, "fallback": True, "plate": norm}
         _cache_put(plate_c, res, _FAIL_TTL)
         return res
 
@@ -634,14 +634,73 @@ def _e(v) -> str:
     return escape(str(v if v is not None else ""), quote=False)
 
 
+# Plate ke pehle 2 letter → state (official RTO codes)
+_STATE_BY_CODE = {
+    "AN": "Andaman & Nicobar", "AP": "Andhra Pradesh", "AR": "Arunachal Pradesh", "AS": "Assam",
+    "BR": "Bihar", "CH": "Chandigarh", "CG": "Chhattisgarh", "DD": "Daman & Diu", "DL": "Delhi",
+    "DN": "Dadra & Nagar Haveli", "GA": "Goa", "GJ": "Gujarat", "HR": "Haryana",
+    "HP": "Himachal Pradesh", "JK": "Jammu & Kashmir", "JH": "Jharkhand", "KA": "Karnataka",
+    "KL": "Kerala", "LA": "Ladakh", "LD": "Lakshadweep", "MP": "Madhya Pradesh",
+    "MH": "Maharashtra", "MN": "Manipur", "ML": "Meghalaya", "MZ": "Mizoram", "NL": "Nagaland",
+    "OD": "Odisha", "PY": "Puducherry", "PB": "Punjab", "RJ": "Rajasthan", "SK": "Sikkim",
+    "TN": "Tamil Nadu", "TS": "Telangana", "TR": "Tripura", "UP": "Uttar Pradesh",
+    "UK": "Uttarakhand", "WB": "West Bengal", "BH": "Bharat Series (naya)",
+}
+
+
+def plate_breakdown(plate: str) -> dict:
+    """BR30AR0802 → state Bihar, district/RTO code 30, series AR, number 0802."""
+    pl = clean_plate(plate)
+    m = re.match(r"^([A-Z]{2})(\d{1,2})([A-Z]{0,3})(\d{1,4})$", pl)
+    if not m:
+        return {"ok": False, "plate": pl}
+    st, dist, series, num = m.groups()
+    return {"ok": True, "plate": pl, "state_code": st,
+            "state": _STATE_BY_CODE.get(st, "—"),
+            "district_code": dist, "series": series, "number": num}
+
+
+def render_unavailable(res: dict) -> str:
+    """Live API band hone par IMANDAAR card — official portal ke direct links."""
+    plate = res.get("plate") or ""
+    bd = plate_breakdown(plate) if plate else {"ok": False}
+    out = ["🚗 <b>VEHICLE / RTO INFO</b>"]
+    if bd.get("ok"):
+        pretty = f"{bd['state_code']} {bd['district_code']} {bd['series']} {bd['number']}".strip()
+        out.append(f"🔖 <b>Number Plate:</b> <code>{_e(pretty)}</code>")
+        out.append(f"🗺️ <b>State:</b> {_e(bd['state'])} ({_e(bd['state_code'])})")
+        out.append(f"🏢 <b>RTO / District code:</b> {_e(bd['state_code'])}{_e(bd['district_code'])}")
+    out.append("━━━━━━━━━━━━━━━━━━━━━━")
+    out.append("⚠️ <b>Live RC / challan data abhi available nahi hai.</b>")
+    out.append("<i>(Data provider side se ye records band hain — bot aapko jhooti "
+               "&quot;koi challan nahi&quot; line nahi dikhayega.)</i>")
+    out.append("")
+    out.append("✅ <b>Koi credit nahi kata.</b>")
+    out.append("")
+    out.append("👇 Official site par khud check karo (free hai):")
+    out.append("• 🎫 <b>e-Challan status</b> — echallan.parivahan.gov.in")
+    out.append("• 📄 <b>VAHAN RC status</b> — vahan.parivahan.gov.in")
+    out.append("• 📲 <b>mParivahan app</b> — Play Store par official app")
+    out.append("")
+    out.append("<i>Tip: e-Challan par plate number daalo (kuch jagah last 5 chassis digit bhi "
+               "maangta hai — wo aapke RC paper par likha hota hai).</i>")
+    return "\n".join(out)
+
+
 def render_report(res: dict, max_challans: int = 6) -> str:
     rc = res.get("rc") or {}
     challans = res.get("challans") or []
     summary = res.get("summary") or {}
     plate = res.get("plate") or rc.get("plate") or ""
 
+    # v49.4: API band/fail hone par "koi challan nahi mila" bolna GALAT hai —
+    # us case me official portal card hi dikhao (ye kabhi jhoot nahi bolega).
+    if not rc and not challans and (res.get("hub_disabled") or res.get("disabled_by_hub")
+                                    or res.get("api_disabled") or res.get("no_data")):
+        return render_unavailable(res)
+
     maker_model = " ".join([x for x in (rc.get("maker", ""), rc.get("model", "")) if x]).strip() or "—"
-    out = [f"🚘 <b>VEHICLE REPORT — {_e(plate)}</b>", "━━━━━━━━━━━━━━━━━━━━━━"]
+    out = [f"🚘 <b>VEHICLE REPORT{' — ' + _e(plate) if plate else ''}</b>", "━━━━━━━━━━━━━━━━━━━━━━"]
 
     # vehicle
     line = ["🚗 <b>VEHICLE</b>", f"• <b>Maker / Model:</b> {_e(maker_model)}"]
@@ -680,7 +739,7 @@ def render_report(res: dict, max_challans: int = 6) -> str:
     if rc.get("mob"):
         line.append(f"• <b>Owner Mobile:</b> <code>{_e(mask_mobile(rc['mob']))}</code>")
     if len(line) == 1:
-        line.append("• not given by API")
+        line.append("• API se nahi mila")
     out += line
 
     # dates & papers
@@ -703,7 +762,7 @@ def render_report(res: dict, max_challans: int = 6) -> str:
     if rc.get("noc"):
         line.append(f"• <b>NOC:</b> {_e(rc['noc'])}")
     if len(line) == 1:
-        line.append("• not given by API")
+        line.append("• API se nahi mila")
     out += line
 
     # insurance + puc
@@ -726,7 +785,7 @@ def render_report(res: dict, max_challans: int = 6) -> str:
     if rc.get("puc_no"):
         line.append(f"• <b>PUC No:</b> <code>{_e(mask_id(rc['puc_no']))}</code>")
     if len(line) == 1:
-        line.append("• not given by API")
+        line.append("• API se nahi mila")
     out += line
 
     # challans
