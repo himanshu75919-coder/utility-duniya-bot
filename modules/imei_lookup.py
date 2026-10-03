@@ -172,6 +172,93 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
             return {"ok": False, "imei": imei, "hub_disabled": True, "error": api_err}
         return {"ok": False, "error": api_err, "imei": imei}
 
+    # 🆕 v48: user ke hub v2.4 ka POORA response (255k TAC database + nanoreview specs + photo):
+    # {"success":true,"tac":"35635642","brand":"SAMSUNG","device":"SAMSUNG GALAXY TAB A9+",
+    #  "extra":"","model_codes":[...],"released":"2023","image":"https://nanoreview.net/...",
+    #  "specs":{"name":..., "url":..., "image":..., "row_count":122,
+    #           "sections":[{"title":"Display","rows":[["Type","TFT LCD"], ...]}]},
+    #  "links":{"gsmarena":..., "nanoreview":..., "imei_info":...},
+    #  "source":"tac-db (248364 rows)","specs_source":"nanoreview.net"}
+    _sp = payload.get("specs") if isinstance(payload.get("specs"), dict) else {}
+    if payload.get("success") and (payload.get("device") or _sp or payload.get("tac")):
+        brand = _clean_val(payload.get("brand"))
+        model = _clean_val(payload.get("device") or payload.get("model"))
+        tac = _clean_val(payload.get("tac"))
+        extra = _clean_val(payload.get("extra"))
+        released = _clean_val(payload.get("released"))
+        codes = [str(c) for c in (payload.get("model_codes") or []) if str(c).strip()]
+        photo = str(payload.get("image") or _sp.get("image") or "").strip()
+        photo_hd = str(payload.get("image_hd") or "").strip()
+
+        rows = []
+        for k, v in (("Brand", brand), ("Model", model), ("TAC (first 8 digits)", tac),
+                     ("Variant / extra", extra), ("Released", released)):
+            if v:
+                rows.append((k, v))
+        if codes:
+            rows.append(("Model codes", ", ".join(codes[:8])))
+        sections = [{"title": "Device", "rows": rows}] if rows else []
+        body = _clean_val(payload.get("reporting_body"))
+        if body:
+            sections.append({"title": "Reporting body", "rows": [("GSMA reporting body", body)]})
+        note_txt = _clean_val(payload.get("note"))
+        if note_txt:
+            sections.append({"title": "Note", "rows": [("Info", note_txt)]})
+
+        for sec in (_sp.get("sections") or []):
+            if not isinstance(sec, dict):
+                continue
+            t = _clean_val(sec.get("title")) or "Specs"
+            rr = []
+            for kr in (sec.get("rows") or []):
+                try:
+                    k, v = kr[0], kr[1]
+                except Exception:  # noqa: BLE001
+                    continue
+                k2, v2 = _clean_val(k), _clean_val(v)
+                if k2 and v2:
+                    rr.append((k2, v2))
+            if rr:
+                sections.append({"title": t, "rows": rr})
+
+        links = []
+        lk = payload.get("links") if isinstance(payload.get("links"), dict) else {}
+        nr_url = str(_sp.get("url") or lk.get("nanoreview") or "").strip()
+        if nr_url:
+            links.append(("🔎 Full specs page (nanoreview)", nr_url))
+        if lk.get("gsmarena"):
+            links.append(("📱 Search on GSMArena", str(lk["gsmarena"])))
+        if lk.get("imei_info"):
+            links.append(("🌐 Check on imei.info", str(lk["imei_info"])))
+        links.append(("📲 How to find IMEI (dial *#06#)", "https://www.imei.info/faq-where-find-imei/"))
+
+        src_note = "TAC database"
+        _src = _clean_val(payload.get("source"))
+        _rows = re.search(r"(\d{3,7})", _src)
+        if _rows:
+            src_note += f" ({int(_rows.group(1)):,} TACs)"
+        if payload.get("specs_source"):
+            src_note += f" + {_clean_val(payload.get('specs_source'))}"
+        got_specs = len(sections) > 1
+        return {
+            "ok": True,
+            "imei": clean_imei(payload.get("imei") or imei) or imei,
+            "brand": brand,
+            "model": model,
+            "tac": tac,
+            "photo": photo,
+            "photo_hd": photo_hd,
+            "specs_name": _clean_val(_sp.get("name")),
+            "specs_url": nr_url,
+            "specs_rows": int(_sp.get("row_count") or 0),
+            "sections": sections,
+            "links": links[:6],
+            "checked_at": datetime.now().strftime("%d-%m-%Y %H:%M"),
+            "source_note": src_note,
+            "basic": not got_specs,
+            "_source": "hub v2.4",
+        }
+
     # 🆕 v46: user ke hub ka TAC (local match) response:
     # {"success":true,"tac":"35301011","brand":"APPLE","model":"iPhone 12 mini","reporting_body":"BABT (UK)"}
     if payload.get("success") and (payload.get("brand") or payload.get("model") or payload.get("tac")):
@@ -318,17 +405,45 @@ def clear_cache() -> None:
 
 
 # ---------------------------------------------------------------- render
+_NAME_FIXES = (
+    ("Iphone", "iPhone"), ("Ipad", "iPad"), ("Ipod", "iPod"), ("Macbook", "MacBook"),
+    ("Samsung", "Samsung"), ("Redmi", "Redmi"), ("Oneplus", "OnePlus"), ("Realme", "Realme"),
+    ("Htc", "HTC"), ("Lg", "LG"), ("Asus", "Asus"), ("Lenovo", "Lenovo"), ("Oppo", "OPPO"),
+    ("Vivo", "Vivo"), ("Xiaomi", "Xiaomi"), ("Poco", "POCO"), ("Nokia", "Nokia"),
+    ("Huawei", "Huawei"), ("Honor", "Honor"), ("Infinix", "Infinix"), ("Tecno", "Tecno"),
+    ("Mi ", "Mi "), ("4g", "4G"), ("5g", "5G"), ("Lte", "LTE"), ("Nfc", "NFC"),
+)
+
+
+def pretty_name(name: str) -> str:
+    """'SAMSUNG GALAXY TAB A9+' → 'Samsung Galaxy Tab A9+' (DB me naam capital me hota hai)."""
+    n = re.sub(r"\s+", " ", str(name or "")).strip()
+    if not n:
+        return ""
+    letters = [c for c in n if c.isalpha()]
+    if letters and sum(1 for c in letters if c.isupper()) / max(1, len(letters)) > 0.7:
+        n = n.title()
+    for a, b in _NAME_FIXES:
+        n = n.replace(a, b)
+    return n
+
+
 def device_title(res: dict) -> str:
     b = _clean_val(res.get("brand"))
     m = _clean_val(res.get("model"))
     if b and m and b.lower() not in m.lower():
-        return f"{b.title()} {m}"
-    return (m or b or "Unknown device")
+        return f"{pretty_name(b)} {m}".strip()
+    return pretty_name(m or b or res.get("specs_name") or "Unknown device")
 
 
 def _sec_icon(title: str) -> str:
     t = str(title or "").lower()
     for keys, icon in (
+        (("device",), "📋"),
+        (("design", "build", "dimension"), "📐"),
+        (("software", "os", "android", "ios"), "🤖"),
+        (("other", "misc"), "✨"),
+        (("performance", "benchmark"), "⚙️"),
         (("network", "comms", "connect"), "📶"),
         (("launch", "release", "date"), "📅"),
         (("body", "dimension", "weight"), "📐"),
@@ -357,6 +472,8 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
     for s in res.get("sections") or []:
         if shown >= 5:
             break
+        if str(s.get("title") or "").strip().lower() in ("device", "basic", "general") and res.get("brand"):
+            continue                    # brand/model upar already dikh rahe hain
         head = f"{_sec_icon(s['title'])} <b>{s['title']}</b>"
         rows = []
         for k, v in s["rows"][:2]:
@@ -369,6 +486,8 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
             break
         lines.append(block)
         shown += 1
+    if res.get("specs_rows"):
+        lines.append(f"📊 <b>{res['specs_rows']} specification points found</b>")
     lines.append("👇 <i>Full specification in the next message.</i>")
     out = "\n".join(lines)
     return out[:1024]
@@ -396,7 +515,12 @@ def render_text(res: dict, max_len: int = 3600) -> str:
             out.append("<i>…spec list is long (full copy in the .json file below)</i>")
             break
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
-    out.append("<i>Data: imei.info device database · confirm on the official brand site before buying/selling.</i>")
+    if res.get("tac"):
+        out.append(f"🔢 <b>TAC:</b> <code>{res['tac']}</code>")
+    if res.get("specs_url"):
+        out.append(f"🔎 <b>Specs page:</b> {res['specs_url']}")
+    out.append(f"<i>Data: {res.get('source_note') or 'TAC database + nanoreview.net'}"
+               " · confirm on the official brand site before buying/selling.</i>")
     txt = "\n".join(out)
     return txt[:4000]
 
@@ -411,15 +535,24 @@ def specs_dict(res: dict) -> dict:
     specs = {}
     for s in res.get("sections") or []:
         specs[s["title"]] = {k: v for k, v in s["rows"]}
-    return {
-        "device": device_title(res),
+    out = {
+        "device": res.get("specs_name") or device_title(res),
         "brand": res.get("brand") or "",
         "model": res.get("model") or "",
         "imei": res.get("imei") or "",
+        "tac": res.get("tac") or "",
         "checked_at": res.get("checked_at") or datetime.now().strftime("%d-%m-%Y %H:%M"),
         "specifications": specs,
-        "source": "osint-apis-hub / imei.info",
+        "source": res.get("source_note") or "TAC database + nanoreview.net",
+        "powered_by": "@Supermannn_x",
     }
+    if res.get("photo"):
+        out["device_image"] = res["photo"]
+    if res.get("specs_url"):
+        out["specs_page"] = res["specs_url"]
+    if res.get("specs_rows"):
+        out["total_specs"] = res["specs_rows"]
+    return out
 
 
 def specs_json_bytes(res: dict) -> bytes:
@@ -451,7 +584,7 @@ def help_card(error: str = "", imei: str = "") -> str:
         head + "\n"
         "Send the <b>15 digit IMEI</b> of the phone.\n"
         "📍 Where to find it: dial <code>*#06#</code> on the phone, or see the box / bill.\n"
-        "✅ You get: brand, model, device photo + full spec sheet (display, chipset, camera, "
-        "battery, network) + a <code>.json</code> copy file.\n"
+        "✅ You get: brand, model, <b>device photo</b> + <b>full spec sheet</b> (display, chipset, "
+        "camera, battery, network and more) + a <b><code>.json</code> copy file</b>.\n"
         "<i>Works for any phone/tablet. For legal use only (checking your own or a device you are buying).</i>"
     )

@@ -389,16 +389,38 @@ def hub_yt_download(url: str, kind: str = "video", quality: str = "") -> dict:
                 return l
         return {}
 
-    chosen = _by_type("video") or _by_type("audio") or (links[0] if links else {})
+    # v48: VIDEO links ko quality ke hisaab se sort karo — 1080p sabse pehle
+    def _qnum(l: dict) -> int:
+        m = re.search(r"(\d{3,4})", str(l.get("quality") or ""))
+        try:
+            return int(m.group(1)) if m else 0
+        except Exception:  # noqa: BLE001
+            return 0
+
+    videos = sorted([l for l in links if str(l.get("type")) == "video"],
+                    key=_qnum, reverse=True)
+    audio = _by_type("audio")
+    chosen = videos[0] if videos else (audio or (links[0] if links else {}))
     best = (chosen.get("proxy_url") or chosen.get("url")
             or d.get("proxy_download_url") or d.get("download_url") or "")
-    audio = _by_type("audio")
+    # 480p/backup link — 1080p file Telegram limit se badi ho to ye kaam aayega
+    backup = {}
+    for l in videos[1:]:
+        if l.get("url") and str(l.get("url")) != str(chosen.get("url")):
+            backup = l
+            break
+    if not backup and chosen is audio and videos:
+        backup = videos[-1]
     return {
         "ok": bool(best),
         "source": str(res.get("endpoint") or "hub"),
         "title": d.get("title") or "",
         "duration": d.get("duration") or 0,
         "best_url": str(best or ""),
+        "quality": str(chosen.get("quality") or ""),
+        "hd": bool(chosen.get("hd")) or _qnum(chosen) >= 1080,
+        "backup_url": str(backup.get("url") or ""),
+        "backup_quality": str(backup.get("quality") or ""),
         "direct_url": str(chosen.get("url") or d.get("download_url") or ""),
         "audio_url": str(audio.get("proxy_url") or audio.get("url")
                          or d.get("proxy_audio_url") or d.get("audio_url") or ""),

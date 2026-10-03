@@ -3898,8 +3898,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
                         f"{title_line}{dur_line}"
                         f"• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
-                        f"• 🔊 <b>Audio:</b> Original ✅\n"
-                        f"• ⚙️ Engine: {engine}"
+                        + (f"• 🎞️ <b>Quality:</b> {hesc(str(res.get('quality')))} (FHD)\n"
+                           if res.get("quality") else "")
+                        + f"• 🔊 <b>Audio:</b> Original ✅\n"
+                          f"• ⚙️ Engine: {engine}"
                     ),
                     parse_mode=HTML,
                     supports_streaming=True,
