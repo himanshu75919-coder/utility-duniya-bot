@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v51.2 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v51.3 Premium Earning (5 minute me poora samajh)
 
 ## 🆕 v51.2 me naya tool — 🗣️ TEXT → HINDI VOICE
 
@@ -33,7 +33,7 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 | 💰 **AB SAARE tools PREMIUM** | Naye user ko **25 free credits** (1 use = 1 credit). Credits khatam → VIP lo. **VIP = poora bot unlimited** |
 | 👑 **VIP plans** | 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199 |
 |  **Vehicle key fix** | Vehicle ab premium gate se sahi pass hota hai (pehle key mismatch thi) |
-| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **100** + `_verify_v49.py` **128** = **334 checks, sab green**  |
+| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **104** + `_verify_v49.py` **128** = **338 checks, sab green**   |
 
 ### v50 (purana, context ke liye)
 | Kya | Detail |

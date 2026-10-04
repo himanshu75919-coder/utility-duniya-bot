@@ -1,4 +1,12 @@
-# ⚡ Utility Duniya Super-Bot — **v51.2 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v51.3 Premium Earning**
+
+## 🆕 v51.3 me kya badla
+
+| Kya | Detail |
+|---|---|
+| 🛡️ **Deploy "Conflict" error ab friendly** | Deploy ke dauran purana + naya instance ~30 sec ek saath chalte hain → Telegram "Conflict" deta tha → log me scary red ERROR aata tha. Ab: ek saaf **NOTE** log hota hai (auto-heal message), user ko koi "ghatna" message nahi, duplicate spam nahi. Bot khud 1-2 min me theek ho jata tha — wo behavior wahi, bas log ab saaf. |
+| 🏷️ **Log me asli version** | Purana hardcode "v30 Ultra" banner the — ab startup line me **asli BOT_VERSION** dikhta hai (kaunsa version chala, turant pata) |
+| ✅ **Tests** | 3 suites, **338 checks sab green** (4 naye conflict-handling checks) |
 
 ## 🆕 v51.2 me kya badla
 
@@ -41,10 +49,10 @@ padhe samajh jaye.
 |  **Vehicle key fix** | Ab `rto` action premium gate se sahi pass hota hai (pehle key mismatch thi). |
 | 🛡️ **Credit spend** | Har tool ke result par 1 credit deduct (fail hone par credit nahi jata). |
 
-### 🧪 Tests (3 suites, 334 checks — sab green)
+### 🧪 Tests (3 suites, 338 checks — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 100 checks — tools + 6-tool deletion + TTS + DB/credits
+python3 _selftest_v50.py           # 104 checks — tools + 6-tool deletion + TTS + conflict-fix + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -96,7 +104,7 @@ NET_MAX_MB=150
 
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 100 checks — tools + 6-tool deletion + TTS + DB/credits
+python3 _selftest_v50.py           # 104 checks — tools + 6-tool deletion + TTS + conflict-fix + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -127,7 +135,7 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 | 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
 | 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
 
-✅ **Test suite:** `_selftest_v50.py` = **100 checks** (tools, 6-tool deletion, TTS, live API checks, DB/credits)
+✅ **Test suite:** `_selftest_v50.py` = **104 checks** (tools, 6-tool deletion, TTS, conflict-fix, live API checks, DB/credits)
 
 ---
 

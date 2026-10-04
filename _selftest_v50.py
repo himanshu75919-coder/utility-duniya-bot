@@ -260,7 +260,11 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v51.2 version", "v51.2 Premium Earning" in bot_src),
+    ("v51.3 version", "v51.3 Premium Earning" in bot_src),
+    ("conflict friendly handler", "isinstance(err, Conflict)" in bot_src),
+    ("conflict import", "from telegram.error import RetryAfter, Conflict" in bot_src),
+    ("conflict user msg nahi", "_CONFLICT_NOTE" in bot_src),
+    ("banner asli version", 'print(f"🚀 Starting ToolVault / Utility Duniya Super Bot ({BOT_VERSION})...")' in bot_src),
     ("weather button menu se gayab", "🌦️ {to_bold('WEATHER / MAUSAM')}" not in bot_src),
     ("weather prompt gayab", '"weather": (' not in bot_src),
     ("weather handler gayab", 'if mode == "weather":' not in bot_src),

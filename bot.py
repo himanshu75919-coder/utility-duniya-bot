@@ -44,7 +44,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     Update,
 )
-from telegram.error import RetryAfter
+from telegram.error import RetryAfter, Conflict
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -284,7 +284,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v51.2 Premium Earning"  # v51.2: 🗣️ TEXT → HINDI VOICE (edge-tts free neural, desi awaaz) + weather delete
+BOT_VERSION = "v51.3 Premium Earning"  # v51.3: deploy Conflict ka friendly auto-heal handling + log me asli version dikhta hai
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -5208,8 +5208,29 @@ async def on_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- ERROR HANDLER ----------------
+# v51.3: Conflict warning ko spam na hone de — 2 minute me max 1 baar log
+_CONFLICT_NOTE = {"t": 0.0}
+
+
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
-    log.error("Exception handling update: %s", context.error)
+    err = context.error
+    # ---------- v51.3: CONFLICT (deploy me purana + naya instance ek saath) ----------
+    # Ye SERVER-SIDE transient cheez hai: Render deploy ke dauran ~30 second tak
+    # purana instance bhi chalta hai, dono getUpdates karte hain. Ye KHUD theek
+    # ho jata hai (purana instance band hote hi). User ne koi galti nahi ki —
+    # isliye user ko "ghatna" message NAHI dikhate, sirf ek saaf NOTE log hota hai.
+    if isinstance(err, Conflict):
+        _now = time.time()
+        if _now - _CONFLICT_NOTE["t"] > 120:
+            _CONFLICT_NOTE["t"] = _now
+            log.warning(
+                "CONFLICT (auto-fix hoga): deploy ke dauran purana + naya instance "
+                "ek saath chalu the — ye 1-2 minute me khud theek ho jata hai. "
+                "Bot band NAHI hua. Agar deploy ke 10 minute baad bhi bar-bar aaye, "
+                "to Render me check karo ki koi doosra purana service same token "
+                "par nahi chal raha.")
+        return
+    log.error("Exception handling update: %s", err)
     # v50: user bhi jaane ki koi chhota ghatna hua — chup-chaap na mile
     try:
         msg = getattr(update, "effective_message", None)
@@ -5415,7 +5436,8 @@ def main():
 
     app.add_error_handler(on_error)
 
-    print("🚀 Starting ToolVault / Utility Duniya Super Bot (v30 Ultra)...")
+    # v51.3: purana "v30 Ultra" hardcode text the — ab asli version dikhta hai logs me
+    print(f"🚀 Starting ToolVault / Utility Duniya Super Bot ({BOT_VERSION})...")
     # ---------- v47+: WEBHOOK MODE (Render par sabse safe) ----------
     # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
     # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
