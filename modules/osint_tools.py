@@ -17,8 +17,37 @@ try:
     from modules import api_hub as hub
 except Exception:            # pragma: no cover
     hub = None
+
+# v50: shared cache — IFSC/pincode/IP/area ka data din bhar same rehta hai,
+# baar-baar API call karne se API quota + time dono bachte hain.
+try:
+    from modules.core.cache import TTLCache as _TTLCache
+    _INFO = _TTLCache(maxsize=4096, default_ttl=1800)
+    _CACHED = True
+except Exception:            # pragma: no cover - core na ho to bina cache chalega
+    _INFO = None
+    _CACHED = False
+
 import phonenumbers
 from phonenumbers import geocoder, carrier, timezone, number_type, PhoneNumberType
+
+
+def _cget(key):
+    """Cache se lao; cache na ho ya miss ho to None."""
+    if not _CACHED:
+        return None
+    return _INFO.get(key)
+
+
+def _cput(key, val, ttl=None):
+    """Cache me daalo (sirf successful results lambe TTL ke saath)."""
+    if not _CACHED:
+        return
+    _INFO.put(key, val, ttl)
+
+
+def _ok(res):
+    return isinstance(res, dict) and res.get("ok")
 
 UA_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -185,16 +214,25 @@ def lookup_ifsc(code: str) -> dict:
     clean = re.sub(r"[^A-Za-z0-9]", "", code or "").upper()
     if len(clean) != 11:
         return {"ok": False, "error": "IFSC is 11 characters (example SBIN0000001, HDFC0001234)"}
+    if not re.match(r"^[A-Z]{4}0[A-Z0-9]{6}$", clean):
+        return {"ok": False,
+                "error": ("IFSC format galat hai. Sahi format: <b>4 letter + 0 + 6 digit/letter</b>\n"
+                          f"📌 Jaise: <code>SBIN0000001</code> · <code>HDFC0001234</code>\n"
+                          f"Aapne bheja: <code>{clean}</code>")}
+    hit = _cget("ifsc:" + clean)
+    if hit is not None:
+        return {**hit, "cached": True}
     if hub is not None and hub.hub_ready():
         res = hub.hub_ifsc(clean)
         if res.get("ok"):
+            _cput("ifsc:" + clean, res, 86400)
             return res
     try:
         r = requests.get(f"https://ifsc.razorpay.com/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             d = r.json()
             maps_q = requests.utils.quote(f"{d.get('BANK')} {d.get('BRANCH')} {d.get('ADDRESS')}")
-            return {
+            out = {
                 "ok": True,
                 "ifsc": clean,
                 "bank": d.get("BANK", "Bank"),
@@ -211,7 +249,13 @@ def lookup_ifsc(code: str) -> dict:
                 "upi": bool(d.get("UPI")),
                 "maps_link": f"https://maps.google.com/?q={maps_q}",
             }
-        return {"ok": False, "error": f"'{clean}' RBI database me nahi mila. Spelling check karo."}
+            _cput("ifsc:" + clean, out, 86400)   # IFSC data bahut stable — 24 ghante
+            return out
+        if r.status_code == 404:
+            return {"ok": False, "error": f"'{clean}' RBI database me nahi mila. Spelling check karo."}
+        return {"ok": False, "error": f"IFSC server busy hai (HTTP {r.status_code}). Thodi der baad try karo."}
+    except requests.Timeout:
+        return {"ok": False, "error": "IFSC server ne jawab dene me time laga diya. Thodi der baad try karo."}
     except Exception as e:
         return {"ok": False, "error": f"API busy hai: {str(e)[:80]}"}
 
@@ -224,9 +268,19 @@ def lookup_pincode(pincode: str) -> dict:
     clean = re.sub(r"[^\d]", "", pincode or "")
     if len(clean) != 6:
         return {"ok": False, "error": "Pincode is 6 digits (example 800001)"}
+    # India ke real pincode 1-9 se start hote hain (0 se koi pincode nahi)
+    if clean[0] == "0":
+        return {"ok": False,
+                "error": ("Ye pincode valid nahi lagta — India ka pincode <b>0 se start nahi hota</b>.\n"
+                          f"📌 Jaise: <code>800001</code> (Patna) · <code>110001</code> (Delhi)\n"
+                          f"Aapne bheja: <code>{clean}</code>")}
+    hit = _cget("pin:" + clean)
+    if hit is not None:
+        return {**hit, "cached": True}
     if hub is not None and hub.hub_ready():
         res = hub.hub_pincode(clean)
         if res.get("ok"):
+            _cput("pin:" + clean, res, 604800)
             return res
     try:
         r = requests.get(f"https://api.postalpincode.in/pincode/{clean}", headers=UA_HEADERS, timeout=8)
@@ -236,7 +290,7 @@ def lookup_pincode(pincode: str) -> dict:
                 po_list = data[0].get("PostOffice", [])
                 primary = po_list[0] if po_list else {}
                 names = [p.get("Name") for p in po_list[:10]]
-                return {
+                out = {
                     "ok": True,
                     "pincode": clean,
                     "district": primary.get("District", ""),
@@ -251,41 +305,143 @@ def lookup_pincode(pincode: str) -> dict:
                     "total_offices": len(po_list),
                     "maps_link": f"https://maps.google.com/?q={requests.utils.quote(primary.get('District', '') + ' ' + primary.get('State', ''))}",
                 }
-        return {"ok": False, "error": "Pincode not found. Send a correct 6-digit pincode."}
+                _cput("pin:" + clean, out, 604800)   # pincode data saal bhar same — 7 din
+                return out
+        return {"ok": False,
+                "error": (f"Pincode <code>{clean}</code> India Post database me nahi mila.\n"
+                          "📌 Sahi 6-digit pincode bhejo, jaise <code>800001</code> (Patna GPO)")}
+    except requests.Timeout:
+        return {"ok": False, "error": "India Post server slow hai. Thodi der baad try karo."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
+
+
+# v50: India Post ka /postoffice endpoint sirf lagbhag-exact naam par chalta hai aur
+# fuzzy match par poore India ke results deta hai (pehle Patna ke liye Telangana ke
+# post office aate the). Isliye: (a) suffix strip karke dobara try karte hain,
+# (b) results ko score karke sort karte hain taaki sahi district upar aaye.
+_PO_SUFFIXES = ("GPO", "H.O.", "HO", "S.O.", "SO", "B.O.", "BO",
+                "POST OFFICE", "POSTOFFICE", "SUB OFFICE", "BRANCH OFFICE",
+                "HEAD OFFICE", "CANTT")
+
+
+def _area_variants(name: str):
+    """Search karne layak naam ke variants — (variant, kitna-andaza) ke saath."""
+    n = re.sub(r"\s+", " ", name.strip())
+    up = n.upper()
+    out = [(n, False)]
+    for s in sorted(_PO_SUFFIXES, key=len, reverse=True):
+        if up.endswith(" " + s):
+            stripped = n[: -(len(s) + 1)].strip()
+            if stripped:
+                out.append((stripped, True))
+    if " " in n:
+        first = n.split()[0]
+        if len(first) >= 3:
+            out.append((first, True))
+    seen, res = set(), []
+    for v, approx in out:
+        k = v.lower()
+        if k not in seen:
+            seen.add(k)
+            res.append((v, approx))
+    return res[:4]
+
+
+def _po_score(p: dict, core: str) -> int:
+    """Kitna close hai ye post office user ke sawaal ke — zyada = upar."""
+    nm = (p.get("Name") or "").strip().lower()
+    di = (p.get("District") or "").lower()
+    st = (p.get("State") or "").lower()
+    ql = core.lower()
+    s = 0
+    if nm == ql:
+        s += 100
+    elif nm.startswith(ql):
+        s += 60
+    elif ql in nm:
+        s += 40
+    if di == ql:
+        s += 50
+    elif di.startswith(ql):
+        s += 30
+    if ql in st:
+        s += 10
+    if f"({ql})" in nm:
+        s += 25
+    return s
 
 
 def search_by_area_name(area: str) -> dict:
-    """Area/post-office ke naam se pincode dhoondhta hai (India Post API)."""
+    """Area/post-office ke naam se pincode dhoondhta hai (India Post API).
+
+    v50: suffix-stripping + score-based ranking + honest "approximate" flag.
+    """
     q = re.sub(r"[^A-Za-z\s.]", "", area or "").strip()
     if len(q) < 3:
-        return {"ok": False, "error": "Kam se kam 3 letter ka area name bhejo (jaise: Patna GPO, Kankarbagh)"}
-    try:
-        r = requests.get(f"https://api.postalpincode.in/postoffice/{requests.utils.quote(q)}", headers=UA_HEADERS, timeout=8)
-        if r.status_code == 200:
+        return {"ok": False, "error": "Kam se kam 3 letter ka area name bhejo (jaise: <code>Patna GPO</code>, <code>Gaya</code>)"}
+    if len(q) > 60:
+        return {"ok": False, "error": "Area ka naam bahut lamba hai — sirf area/post-office ka naam bhejo."}
+    _k = "area:" + q.lower()
+    hit = _cget(_k)
+    if hit is not None:
+        return {**hit, "cached": True}
+
+    # query ka "core" — district match karne ke liye (GPO/SO jaise suffix hata kar)
+    core = re.sub(r"\s+(GPO|SO|HO|BO|CANTT|POST OFFICE)$", "", q, flags=re.I).strip() or q
+
+    last_err = ""
+    for variant, approx in _area_variants(q):
+        try:
+            r = requests.get(
+                f"https://api.postalpincode.in/postoffice/{requests.utils.quote(variant)}",
+                headers=UA_HEADERS, timeout=8)
+        except requests.Timeout:
+            last_err = "India Post server slow hai. Thodi der baad try karo."
+            continue
+        except Exception as e:                     # noqa: BLE001
+            last_err = str(e)[:100]
+            continue
+        if r.status_code != 200:
+            last_err = f"India Post server busy hai (HTTP {r.status_code})."
+            continue
+        try:
             data = r.json()
-            if data and data[0].get("Status") == "Success":
-                pos = data[0].get("PostOffice", [])[:10]
-                return {
-                    "ok": True,
-                    "query": q,
-                    "results": [
-                        {
-                            "name": p.get("Name", ""),
-                            "pincode": p.get("Pincode", ""),
-                            "district": p.get("District", ""),
-                            "state": p.get("State", ""),
-                            "taluk": p.get("Taluk", ""),
-                        }
-                        for p in pos
-                    ],
-                    "total": len(data[0].get("PostOffice", [])),
+        except ValueError:
+            last_err = "India Post ne sahi jawab nahi bheja."
+            continue
+        if not (data and data[0].get("Status") == "Success"):
+            continue
+        pos = data[0].get("PostOffice") or []
+        if not pos:
+            continue
+        ranked = sorted(pos, key=lambda p: -_po_score(p, core))
+        out = {
+            "ok": True,
+            "query": q,
+            "matched_via": variant,
+            "approximate": approx or (variant.lower() != q.lower()),
+            "results": [
+                {
+                    "name": p.get("Name", ""),
+                    "pincode": p.get("Pincode", ""),
+                    "district": p.get("District", ""),
+                    "state": p.get("State", ""),
+                    "taluk": p.get("Taluk", ""),
                 }
-        return {"ok": False, "error": ("No post office found with this name. Send the <b>real name</b> "
-                                       "(example <code>Rajendra Nagar</code>, <code>Patna GPO</code>, <code>Boring Road SO</code>).")}
-    except Exception as e:
-        return {"ok": False, "error": str(e)[:100]}
+                for p in ranked[:10]
+            ],
+            "total": len(pos),
+        }
+        _cput(_k, out, 604800)
+        return out
+
+    return {"ok": False, "error": last_err or (
+        f"'{q}' naam ka koi post office India Post database me nahi mila.\n\n"
+        "💡 <b>Ye try karo:</b>\n"
+        "• Poora naam bhejo — jaise <code>Danapur Cantt</code>, <code>Civil Lines</code>\n"
+        "• Ya seedha <b>6-digit pincode</b> bhejo (jaise <code>800001</code>) — wo 100% chalta hai"
+    )}
 
 
 # =====================================================================================
@@ -296,6 +452,13 @@ def lookup_ip_domain(target: str) -> dict:
     clean = re.sub(r"^https?://", "", (target or "").strip()).split("/")[0].strip()
     if not clean:
         return {"ok": False, "error": "Domain ya IP bhejo (jaise google.com ya 8.8.8.8)"}
+    # v50: protocol/path/userinfo hata do — "https://user:pass@site.com/x" jaisa input safe nahi
+    clean = clean.split("@")[-1].strip().lower()
+    if not re.match(r"^[a-z0-9.\-:]{3,253}$", clean):
+        return {"ok": False,
+                "error": ("Ye valid website ya IP nahi lagta.\n"
+                          "📌 Jaise: <code>google.com</code> ya <code>8.8.8.8</code>\n"
+                          f"Aapne bheja: <code>{clean[:40]}</code>")}
     # 🏠 v46: private / LAN IP ka koi public record nahi hota (hub se pehle block)
     _m = re.match(r"^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$", clean)
     if _m:
@@ -308,9 +471,14 @@ def lookup_ip_domain(target: str) -> dict:
                     "error": "Ye private / LAN IP hai (ghar ka router ya local network). Iski public info nahi hoti. Public IP ya website ka naam bhejo."
                              "No public info exists for it. Send a public IP or a domain instead."}
     # 🌐 v45: pehle user ka API hub, phir purana ip-api
+    _ik = "ip:" + clean
+    hit = _cget(_ik)
+    if hit is not None:
+        return {**hit, "cached": True}
     if hub is not None and hub.hub_ready():
         res = hub.hub_ip(clean)
         if res.get("ok"):
+            _cput(_ik, res, 3600)
             return res
     try:
         r = requests.get(f"http://ip-api.com/json/{clean}", params={"fields": "status,message,query,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting"},
@@ -318,7 +486,7 @@ def lookup_ip_domain(target: str) -> dict:
         if r.status_code == 200:
             d = r.json()
             if d.get("status") == "success":
-                return {
+                out = {
                     "ok": True,
                     "query": clean,
                     "ip": d.get("query", clean),
@@ -337,8 +505,20 @@ def lookup_ip_domain(target: str) -> dict:
                     "is_hosting": bool(d.get("hosting")),
                     "maps_link": f"https://maps.google.com/?q={d.get('lat')},{d.get('lon')}" if d.get("lat") else "",
                 }
-            return {"ok": False, "error": d.get("message", "No info found")}
+                _cput(_ik, out, 3600)   # IP geo badal sakta hai — 1 ghanta
+                return out
+            msg = d.get("message") or ""
+            if "private" in msg.lower() or "reserved" in msg.lower():
+                return {"ok": False, "private_ip": True,
+                        "error": "Ye private / reserved IP hai — iski public info nahi hoti."}
+            return {"ok": False,
+                    "error": f"'{clean}' ka koi public record nahi mila. Domain ki spelling check karo."}
+        if r.status_code == 429:
+            return {"ok": False,
+                    "error": "IP lookup server ki limit poori ho gayi. 1 minute baad try karo."}
         return {"ok": False, "error": f"API status {r.status_code}"}
+    except requests.Timeout:
+        return {"ok": False, "error": "IP server ne jawab dene me time laga diya. Thodi der baad try karo."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
 

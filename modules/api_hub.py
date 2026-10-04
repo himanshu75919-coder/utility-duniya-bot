@@ -26,7 +26,59 @@ from typing import Any
 
 import requests
 
+# v50: shared cache — GST/PAN jaise stable lookups par hub ko baar-baar
+# hit na karna pade (hub ka timeout 60s hai, to har repeat call mehnga hai).
+try:
+    from modules.core.cache import TTLCache as _TTLCache
+    _HUBC = _TTLCache(maxsize=2048, default_ttl=3600)
+    _HUBCACHED = True
+except Exception:            # pragma: no cover
+    _HUBC = None
+    _HUBCACHED = False
+
 UA = {"User-Agent": "UtilityDuniya-Bot/1.0 (+hub)"}
+
+
+def _hget(key):
+    return _HUBC.get(key) if _HUBCACHED else None
+
+
+def _hput(key, val, ttl=3600):
+    if _HUBCACHED:
+        _HUBC.put(key, val, ttl)
+
+
+# --------------------------------------------------------------- local validators
+# Ye pehle bot me nahi the: galat GSTIN/PAN par bhi 60-second wala hub call
+# chala jata tha. Ab galat format turant, bina network ke, pakda jata hai.
+_GSTIN_RE = re.compile(r"^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$")
+_PAN_RE = re.compile(r"^[A-Z]{5}[0-9]{4}[A-Z]$")
+
+# India ke valid GST state codes: 01-38 (states/UTs) + 97 (Other Territory)
+# + 99 (Other Country). "00" ya 39-96 valid NAHI hain.
+_GST_STATE_CODES = frozenset(
+    {f"{i:02d}" for i in range(1, 39)} | {"97", "99"}
+)
+
+
+def gstin_format_ok(g: str) -> bool:
+    """15-char GSTIN: 2 state code + 10 PAN + 1 entity + 'Z' + 1 checksum."""
+    g = g or ""
+    if not _GSTIN_RE.match(g):
+        return False
+    return g[:2] in _GST_STATE_CODES
+
+
+def pan_format_ok(p: str) -> bool:
+    """10-char PAN: 5 letter + 4 digit + 1 letter.
+
+    4th character PAN ki category batata hai — valid letters:
+    C P M F A T H B L J G (Company, Person, ... etc.).
+    """
+    p = p or ""
+    if not _PAN_RE.match(p):
+        return False
+    return p[3] in "CPMFATLHBGJ"
 
 # khaali / dummy values — inhe "key nahi hai" maano (Demo ab VALID key hai)
 PLACEHOLDER_KEYS = {"", "demo_key", "your_api_key", "key", "none", "null", "changeme",
@@ -637,6 +689,17 @@ def hub_gst(gstin: str) -> dict:
     g = re.sub(r"\s+", "", (gstin or "")).upper()
     if len(g) != 15:
         return {"ok": False, "error": "GSTIN 15 character ka hota hai (jaise 19BOKPS7056D1ZI)"}
+    # v50: pehle local format check — galat GSTIN par 60s wala hub call na jaye
+    if not gstin_format_ok(g):
+        return {"ok": False, "gstin": g, "valid_format": False,
+                "error": ("Ye GSTIN format me galat hai. Sahi format:\n"
+                          "<b>2 state code + 10 PAN + 1 entity + Z + 1 checksum</b>\n"
+                          f"📌 Jaise: <code>19BOKPS7056D1ZI</code>\n"
+                          f"Aapne bheja: <code>{g}</code>")}
+    _k = "gst:" + g
+    _hit = _hget(_k)
+    if _hit is not None:
+        return {**_hit, "cached": True}
     res = hub_try([("/gst-search", {"gstin": g}), ("/gst-info", {"gst": g}),
                    ("/gst-direct", {"gstin": g}), ("/gst-info-v2", {"gst": g})], timeout=60)
     if not res.get("ok"):
@@ -652,7 +715,7 @@ def hub_gst(gstin: str) -> dict:
                 "error": ("Ye GSTIN format me galat hai. Sahi format: 2 state code + 10 PAN + "
                           "1 entity + Z + 1 checksum (jaise 19BOKPS7056D1ZI).")
                          if vf is False or "not a valid" in _note.lower() or not _note else _note}
-    return {
+    _out = {
         "ok": True, "source": f"hub{res.get('endpoint')}", "gstin": g,
         "valid_format": bool(vf) if vf is not None else None,
         "state_code": str(_pick(d, "state_code", "statecode", default="") or ""),
@@ -671,12 +734,25 @@ def hub_gst(gstin: str) -> dict:
         "pan": str(_pick(d, "pan", "pan_no", default="") or ""),
         "raw": {k: v for k, v in list(d.items())[:25]} if isinstance(d, dict) else {},
     }
+    _hput(_k, _out, 86400)      # GST details din bhar same — 24 ghante cache
+    return _out
 
 
 def hub_pan(pan: str) -> dict:
     p = re.sub(r"[^A-Za-z0-9]", "", (pan or "")).upper()
     if len(p) != 10:
         return {"ok": False, "error": "PAN 10 character ka hota hai (jaise AAYFK4129N)"}
+    # v50: local format check — bina network ke galat PAN pakdo (hub call 60s leta hai)
+    if not pan_format_ok(p):
+        return {"ok": False, "pan": p, "valid_format": False,
+                "error": ("Ye PAN format me galat hai. Sahi format: "
+                          "<b>5 letter + 4 digit + 1 letter</b>\n"
+                          f"📌 Jaise: <code>AAYFK4129N</code>\n"
+                          f"Aapne bheja: <code>{p}</code>")}
+    _k = "pan:" + p
+    _hit = _hget(_k)
+    if _hit is not None:
+        return {**_hit, "cached": True}
     res = hub_try([("/pan-to-gst-v4", {"pan": p}), ("/pan-to-gst-v3", {"pan": p}),
                    ("/pan-to-gst-v2", {"pan": p}), ("/pan-to-gst", {"pan": p}),
                    ("/pan-info", {"pan": p})], timeout=60)
@@ -704,7 +780,7 @@ def hub_pan(pan: str) -> dict:
         return {"ok": False, "pan": p,
                 "error": "Ye PAN format me galat hai (10 character: 5 letter + 4 digit + 1 letter)."}
     has_analysis = bool(vf) or bool(d.get("holder_type") or d.get("alphabetic_series") or d.get("local_analysis"))
-    return {"ok": bool(out) or has_analysis or bool(_pick(d, "status", "name")),
+    _out = {"ok": bool(out) or has_analysis or bool(_pick(d, "status", "name")),
             "source": f"hub{res.get('endpoint')}",
             "pan": p, "gstins": out, "count": len(out),
             "valid_format": bool(vf) if vf is not None else None,
@@ -713,6 +789,8 @@ def hub_pan(pan: str) -> dict:
             "analysis_note": str(_pick(d, "note", "gstin_note", default="") or ""),
             "status": str(_pick(d, "status", "panstatus", default="") or ""),
             "name": str(_pick(d, "name", "legalname", default="") or "")}
+    _hput(_k, _out, 86400)
+    return _out
 
 
 # =====================================================================

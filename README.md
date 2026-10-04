@@ -1,4 +1,4 @@
-# ⚡ Utility Duniya Super-Bot — **v50 Premium Pro**
+# ⚡ Utility Duniya Super-Bot — **v50.4 Premium Pro**
 
 **Ek hi bot me 32+ kaam:** video download, channel auto-forward, photo/document banane wale tools,
 sarkari kagaz, bank statement → Excel, media studio (MP3 / status video / karaoke), info tools
@@ -7,6 +7,61 @@ link safety, aur VIP + payment system.
 
 Poora bot ka **text Hinglish** me hai — short prompt + example ke saath, taaki naya user bhi bina
 padhe samajh jaye.
+
+> 📖 **Non-technical ho?** [`V50-KYA-BADLA.md`](V50-KYA-BADLA.md) padho — v50 me kya badla,
+> aasaan bhasha me, bina jargon.
+
+---
+
+## 🆕 v50 Core Layer me kya badla (v50.1–v50.3)
+
+| Kya | Detail |
+|---|---|
+| 🚨 **Bot freeze fix** | 9 tools (IP / IFSC / Pincode / Area / Vehicle / URL-short / Screenshot) blocking HTTP call kar rahe the — jab tak wo chalte, **poora bot sab users ke liye dead** tha. Ab sab `asyncio.to_thread` me. Screenshot par 30s tak freeze hota tha. |
+| 🔒 **SSRF guard** | `expand_url` user ka link seedha fetch karta tha — `http://169.254.169.254/` (cloud metadata) ya `127.0.0.1` se server ke secrets nikal sakte the. Ab input **+ har redirect hop** validate hota hai. |
+| ⚡ **Caching** | IFSC / pincode / IP / area / GST / PAN ab cached. Repeat query **instant**, API quota bachti hai. |
+| 🛡️ **Rate limiting** | Har tool par per-user limit (central gate, `bot.on_text` me ek jagah). Pehle koi bhi spam karke API quota kha / upstream IP block karwa sakta tha. Admin + VIP bypass. |
+| 🐛 **Area Search fix** | Bot ka apna help `Patna GPO` / `Kankarbagh` / `Boring Road SO` suggest karta tha — **teeno API par fail hote the**, aur jo milta tha wo galat state ka hota tha. Ab suffix-stripping + score-based ranking. `Patna GPO` → **800001 Bihar** ✅ |
+| 🎯 **GST/PAN validation** | Galat format ab **bina network** pakda jata hai (pehle 60s hub call jata tha). State-code aur PAN holder-category bhi check hote hain. |
+| 📡 **`/sys` command** | Admin ke liye live health: uptime, RAM, cache hit-rate, rate-limiter counters, mode. |
+| 🧪 **107 naye tests** | `tests/test_v50_core.py` — asli `on_text` ko mocked Update ke saath chala kar rate-limit gate, SSRF, caching, validators verify karta hai. |
+
+### Naya: `modules/core/`
+
+Bot ka professional foundation layer — koi naya third-party dependency nahi, Render par kuch
+install nahi karna padega.
+
+| Module | Kaam |
+|---|---|
+| `core/net.py` | Ek hi HTTP layer: shared connection pool, **har request par default timeout**, backoff retry, 429/`Retry-After` handling, response size cap, `is_safe_url()` SSRF guard |
+| `core/cache.py` | Bounded thread-safe TTL cache + `cached_call()` — LRU eviction, negative-result short TTL, hit-rate stats |
+| `core/limiter.py` | Per-`(user, action)` sliding-window rate limiter, bypass support, auto-cleanup (memory leak nahi), env se configurable |
+
+> ⚠️ **Gotcha:** `net.py` me transport-level retry **jaan-boojh kar OFF** hai. urllib3 ka
+> retry `timeout` ko multiply kar deta tha (`timeout=2` → 6 second wait). Retry ka ek hi
+> malik hai: `_request()` ka apna loop.
+
+### Env (optional — sab ke sensible defaults hain)
+
+```bash
+# Rate limits: RATE_LIMIT_<MODE>="limit:window"
+RATE_LIMIT_IFSC=15:60
+RATE_LIMIT_SHOT=4:120
+# Cache
+INFO_CACHE_SIZE=4096
+INFO_CACHE_TTL=1800
+# HTTP
+NET_TIMEOUT=20
+NET_MAX_MB=150
+```
+
+### Tests
+
+```bash
+python3 tests/test_v50_core.py     # 107 checks — core layer (SSRF/cache/rate-limit) + live APIs
+python3 _selftest_v50.py           # 99 checks — 2 naye tools + 9 bug fixes + DB/credits
+python3 _verify_v49.py             # 124 checks — purana regression suite
+```
 
 ---
 

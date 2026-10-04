@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v50 Premium Pro (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v50.4 Premium Pro (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -18,7 +18,8 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 | 🧮 **NAYA EMI/VYAAJ calculator** | 🧮 Bank EMI (amount + rate + months → EMI, total interest, milestones) + 🪔 gaon-wala chakravritti vyaaj hisaab |
 | 🐛 **9 bug fixes** | ID Finder forward · 8-in-1 sheet EXACT 3.5×4.5cm · passport photo 20-50KB · toll-free numbers · admin button crash · PDF 10-photo limit · broadcast fallback · DB lock · dead code |
 | ⚡ **4x FAST** | URL shortener 6 providers parallel (~1 sec) · ID finder parallel (~5-10s) · link check + domain-age signal · bank PDF auto-unlock |
-| ✅ **Test suite** | `_selftest_v50.py` = **99 checks** — sab green |
+| 🚨 **CORE LAYER (v50.1–v50.3)** | Bot freeze fix (blocking calls → async) · SSRF guard (internal address block) · caching (IFSC/PIN/IP/GST/PAN) · rate limiting (per-user) · `/sys` admin health |
+| ✅ **Test suites** | `tests/test_v50_core.py` **107** + `_selftest_v50.py` **99** + `_verify_v49.py` **125** = **331 checks, sab green** |
 
 ### v49 (purana, context ke liye)
 | Kya | Detail |

@@ -54,7 +54,9 @@ src = io.open(os.path.join(HERE, "bot.py"), encoding="utf-8").read()
 
 ok("Menu me 🎬 CLIP MAKER button nahi", "CLIP MAKER')" not in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
 ok("Menu me 🔓 LINK BYPASS button nahi", "LINK BYPASS')" not in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
-ok("Menu me 📈 INTEREST CALC button nahi", "INTEREST CALC')" not in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
+# NOTE v50: INTEREST CALC ab naye PRO roop ("EMI / INTEREST CALC") me wapas hai —
+# v49 me ye simple tool hataya gaya tha, v50 me EMI + vyaaj calculator ke saath upgrade karke laaya.
+ok("v50: 🧮 EMI / INTEREST CALC button hai (naya pro tool)", "EMI / INTEREST CALC" in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
 ok("BTN_MODE_MAP me clips mapping nahi", '"clips":' not in re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1))
 ok("BTN_MODE_MAP me linkbypass mapping nahi", '"linkbypass":' not in re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1))
 ok("BTN_MODE_MAP me interest mapping nahi", '"interest":' not in re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1))
@@ -65,7 +67,8 @@ ok("clip_maker import hataya", "import clip_maker" not in src)
 ok("ai_brain import hataya", "import ai_brain" not in src)
 ok("cmd_clipstatus function nahi", not hasattr(bot, "cmd_clipstatus"))
 ok("cmd_aistatus function nahi", not hasattr(bot, "cmd_aistatus"))
-ok("village_compound_interest import nahi", "village_compound_interest" not in src)
+# NOTE v50: ab vyaaj (chakravritti) tool isay use karta hai — import wapas hona chahiye
+ok("v50: village_compound_interest import hai (vyaaj tool ke liye)", "village_compound_interest" in src)
 ok("/clipstatus command registered nahi", 'CommandHandler(["clipstatus"' not in src)
 
 # ======================================================================
@@ -77,7 +80,8 @@ mmap = re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1)
 keys = set(re.findall(r'"([^"]+)":\s*"[a-z_0-9]+"', mmap))
 unmapped = [b for b in btns if b not in keys]
 ok(f"Saare {len(btns)} menu buttons mapped", not unmapped, unmapped)
-ok("Menu me 29 buttons hain", len(btns) == 29, len(btns))
+# NOTE v50: +WEATHER, +EMI/INTEREST CALC = 2 naye buttons (29 → 31)
+ok("Menu me 31 buttons hain (v50: +WEATHER +EMI)", len(btns) == 31, len(btns))
 ok("Koi duplicate button nahi", len(btns) == len(set(btns)))
 ok("Menu rows sahi (har row 1-2 button)", all(1 <= len(r) <= 2 for r in [[1, 2]] ))
 
@@ -87,8 +91,10 @@ modal = re.findall(r'mode in \(([^)]*)\)', src)
 for grp in modal:
     modes |= set(re.findall(r'"([^"]+)"', grp))
 vals = set(re.findall(r':\s*"([a-z_0-9]+)"', mmap))
+# NOTE v50: "emi" action-driven hai — `if action == "emi"` do-choice menu dikhata hai,
+# phir emi_calc/emi_vyaaj callbacks se emi_ask_*/vyaaj_ask_* modes chalte hain. Isliye special me.
 special = {"vnum", "cloner", "premium", "refer", "account", "tutorial", "admin", "owner",
-           "sarkari", "kagaz", "mediastudio", "bankpdf", "cloner_private_help"}
+           "sarkari", "kagaz", "mediastudio", "bankpdf", "cloner_private_help", "emi"}
 missing = sorted(v for v in vals if v not in modes and v not in special)
 ok("Har mapped tool ka mode-handler hai", not missing, missing)
 
@@ -211,11 +217,13 @@ section("6) TOOL TEXT / KEYBOARD (bot objects)")
 # ======================================================================
 kb = bot.kb_for(999000111)
 n_btn = sum(len(row) for row in kb.keyboard)
-ok(f"Reply keyboard me {n_btn} button (29 hone chahiye)", n_btn == 29, n_btn)
+ok(f"Reply keyboard me {n_btn} button (31 hone chahiye — v50 +WEATHER +EMI)", n_btn == 31, n_btn)
 labels = [bot.unbold(b.text) for row in kb.keyboard for b in row]
 ok("Keyboard me CLIP MAKER nahi", not any("CLIP MAKER" in bot.unbold(l) for l in labels))
 ok("Keyboard me LINK BYPASS nahi", not any("LINK BYPASS" in bot.unbold(l) for l in labels))
-ok("Keyboard me INTEREST nahi", not any("INTEREST" in bot.unbold(l) for l in labels))
+# NOTE v50: purana standalone "INTEREST CALC" nahi, par naya "EMI / INTEREST CALC" hai
+ok("v50: Keyboard me 🧮 EMI / INTEREST CALC hai", any("EMI / INTEREST CALC" in bot.unbold(l) for l in labels))
+ok("v50: Keyboard me 🌦️ WEATHER hai", any("WEATHER / MAUSAM" in bot.unbold(l) for l in labels))
 ok("Keyboard me IMEI hai", any("IMEI" in bot.unbold(l) for l in labels))
 
 for act in ("imei", "rto", "ifsc", "pin", "ip", "numinfo", "terabox", "insta_dl", "qr", "short", "linkcheck"):

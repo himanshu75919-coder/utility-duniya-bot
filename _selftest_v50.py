@@ -326,7 +326,7 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static)")
 bot_src = open("bot.py").read()
 checks = [
-    ("v50 version", "v50.0 Premium Pro" in bot_src),
+    ("v50 version", any(f"v50.{i}" in bot_src for i in range(0, 9))),
     ("weather button menu me", "WEATHER / MAUSAM" in bot_src),
     ("emi button menu me", "EMI / INTEREST CALC" in bot_src),
     ("weather prompt", '"weather": (' in bot_src),
