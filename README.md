@@ -1,4 +1,43 @@
-# ⚡ Utility Duniya Super-Bot — **v51.3 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v52.0 Premium Earning**
+
+## 🆕 v52.0 me kya badla
+
+### 🏛️ NAYA: GOVT SERVICES (4 government information tools — 100% legal)
+| Tool | Kya karta hai | Cost |
+|---|---|---|
+| ⚖️ **Court Case Status** | 16-digit **CNR number** bhejo → poora case history (parties, judge, next hearing date, saari sunwai). eCourts data API (eCourtsIndia) se. **Token chahiye** (free signup, ₹200 credits, koi card nahi) | 1 credit/use |
+| 📋 **Sarkari Result Center** | Latest results + admit cards (official links ke saath) — exam ka naam bhejo → filter | Free |
+| 🪪 **Govt ID Status** | PAN/Voter/Aadhaar/Passport ke **CAPTCHA-free official SMS + helpline** — bot exact SMS ready karke deta hai | Free |
+| 🏛️ **Govt Job Tracker** | Latest notifications + application last dates — state/qualification se filter (`UP`, `12th`, `ssc` bhejo) | Free |
+
+> ⚖️ **Legal design rule:** koi bhi cheez jo govt portal me LOGIN/CAPTCHA/OTP maangta hai, bot me
+> automated **nahi** hota (IT Act 43/66 + DPDP). Sirf public data + official CAPTCHA-free tareeke.
+
+### 🎞️ NAYA: YOUTUBE QUALITY SELECTOR (Video Downloader)
+YouTube link bhejo → **1080p / 720p / 480p / 360p buttons** aayenge → jo dabao wahi quality milegi.
+Pipeline: pehle direct download (agar YouTube server IP allow kare), warna hub 1080p + **bot-side
+ffmpeg downscale** (360p waghera). 1080p = original (koi re-encode nahi).
+
+### 🚀 SPEED FIXES (premium feel)
+| Kya | Detail |
+|---|---|
+| ⚡ **Self-ping keepalive** | Bot ab apna hi public `/health` ping karta hai (Render LB ke through) → 15-min sleep **nahi** hota → **cold start sirf pehli baar**, baad me bot ~instant respond |
+| 🖼️ **Welcome photo cache** | `/start` par welcome photo ab file_id (CDN) se turant aati hai — har baar dobara upload nahi |
+
+### 🧪 Tests (3 suites, **377 checks** — sab green)
+```bash
+python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
+python3 _selftest_v50.py           # 143 checks — tools + 6-tool deletion + TTS + GOVT + YT quality
+python3 _verify_v49.py             # 128 checks — purana regression suite
+```
+
+### ⚙️ Naye env vars (Render me)
+| Var | Value | Kyu |
+|---|---|---|
+| `BOT_SELF_URL` | `https://utility-duniya-bot.onrender.com` | Self-ping speed fix |
+| `ECOURTS_API_KEY` | (free token — `eci_live_...`) | Court Case Status tool ke liye (optional) |
+
+---
 
 ## 🆕 v51.3 me kya badla
 
@@ -49,10 +88,10 @@ padhe samajh jaye.
 |  **Vehicle key fix** | Ab `rto` action premium gate se sahi pass hota hai (pehle key mismatch thi). |
 | 🛡️ **Credit spend** | Har tool ke result par 1 credit deduct (fail hone par credit nahi jata). |
 
-### 🧪 Tests (3 suites, 338 checks — sab green)
+### 🧪 Tests (3 suites, 377 checks — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 104 checks — tools + 6-tool deletion + TTS + conflict-fix + DB/credits
+python3 _selftest_v50.py           # 143 checks — tools + 6-tool deletion + TTS + GOVT + YT quality + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -104,7 +143,7 @@ NET_MAX_MB=150
 
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 104 checks — tools + 6-tool deletion + TTS + conflict-fix + DB/credits
+python3 _selftest_v50.py           # 143 checks — tools + 6-tool deletion + TTS + GOVT + YT quality + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -135,7 +174,7 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 | 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
 | 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
 
-✅ **Test suite:** `_selftest_v50.py` = **104 checks** (tools, 6-tool deletion, TTS, conflict-fix, live API checks, DB/credits)
+✅ **Test suite:** `_selftest_v50.py` = **143 checks** (tools, 6-tool deletion, TTS, GOVT, YT quality, conflict-fix, DB/credits)
 
 ---
 

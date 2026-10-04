@@ -122,6 +122,7 @@ from modules.cyber_studio import (
 )
 from modules.cloud_tools import resolve_cloud_url
 from modules import desi_tools as desi
+from modules import govt_tools as govt   # v52: GOVT SERVICES (court/result/idguide/jobs)
 from modules.desi_tools import (
     KAGAZ_FIELDS,
     KAGAZ_MAKERS,
@@ -157,6 +158,8 @@ from modules.media_downloader import (
 
     is_supported_video_url,
     platform_name,
+    yt_available_qualities,
+    _yt_quality_download,
 )
 from modules.toolkit_extras import (
     analyze_link,
@@ -242,6 +245,10 @@ TOOL_RATE_LIMITS = {
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
     "media_ytmp3": (5,  120, "YouTube → MP3"),
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
+    "yt_q":        (8,  120, "YouTube Quality"),
+    "govt_case":   (10, 60,  "Court Case Status"),
+    "govt_result": (15, 60,  "Sarkari Result"),
+    "govt_jobs":   (15, 60,  "Govt Job Tracker"),
     # normal info tools
     "ip":          (15, 60,  "IP / Domain Info"),
     "ifsc":        (15, 60,  "IFSC Info"),
@@ -284,7 +291,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v51.3 Premium Earning"  # v51.3: deploy Conflict ka friendly auto-heal handling + log me asli version dikhta hai
+BOT_VERSION = "v52.0 Premium Earning"  # v52.0: 🏛️ GOVT SERVICES (4 tools) + 🎞️ YouTube quality selector (360/480/720/1080) + 🚀 self-ping speed fix
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -342,6 +349,7 @@ PREMIUM_TOOLS = {
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
     "appfind",             # 📦 APP FINDER
+    "govt_case",           # ⚖️ COURT CASE STATUS (CNR) — v52
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -366,6 +374,7 @@ PREMIUM_TOOL_NAMES = {
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
     "appfind": "📦 App Finder",
+    "govt_case": "⚖️ Court Case Status (CNR)",
 }
 
 
@@ -747,7 +756,7 @@ KB_BTNS = [
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
-    [f"❓ {to_bold('HELP / TUTORIAL')}"],
+    [f"🏛️ {to_bold('GOVT SERVICES')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
 
 
@@ -809,6 +818,10 @@ BTN_MODE_MAP = {
     "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
+    "GOVT SERVICES": "govt",
+    "GOVT": "govt",
+    "GOVERNMENT": "govt",
+    "GOVT SERVICE": "govt",
     "VIP PREMIUM": "premium",
     "REFER & EARN": "refer",
     "MY ACCOUNT": "account",
@@ -947,6 +960,7 @@ TUTORIAL_TEXT = (
     "━━━━━━━━━━━━━━━━━━━━━━\n"
     "📥 <b>Download:</b>\n"
     "• 📥 VIDEO DOWNLOADER → Insta/YT/FB/X ka link bhejo → video mil jayega\n"
+    "   (YouTube par <b>quality chuno</b>: 1080p/720p/480p/360p — jo chaho wahi milegi)\n"
     "• ⚡ TERABOX / CLOUD → Terabox/Drive/MediaFire link bhejo → direct link mil jayega\n"
     "• 🔄 CHANNEL CLONER → Source + Target set karo, FULL AUTO ON karo, posts khud copy honge\n"
     "\n"
@@ -964,6 +978,12 @@ TUTORIAL_TEXT = (
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
+    "\n"
+    "🏛️ <b>Govt Services (naya):</b>\n"
+    "• ⚖️ COURT CASE STATUS → 16-digit CNR bhejo → poora case history (aage ki hearing date tak)\n"
+    "• 📋 SARKARI RESULT → latest results/admit cards (official links ke saath)\n"
+    "• 🪪 GOVT ID STATUS → PAN/Voter/Aadhaar ka CAPTCHA-free official SMS + helpline\n"
+    "• 🏛️ GOVT JOB TRACKER → latest notifications + application last dates\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
     "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
@@ -1190,6 +1210,33 @@ def media_menu_kb():
     return InlineKeyboardMarkup(rows)
 
 
+# ---------------- v52: GOVT SERVICES ----------------
+GOVT_MENU_TEXT = (
+    f"🏛️ <b>{to_bold('GOVT SERVICES')}</b>\n"
+    "Government-related information — sab official/public data se, 100% legal.\n"
+    "Na login, na OTP, na aapka koi password — sirf information.\n"
+    "👇 <b>Option chuno:</b>"
+)
+
+
+def govt_menu_kb():
+    rows = [
+        [InlineKeyboardButton("⚖️ Court Case Status (CNR se)", callback_data="govt_case")],
+        [InlineKeyboardButton("📋 Sarkari Result Center", callback_data="govt_result")],
+        [InlineKeyboardButton("🪪 Govt ID Status (PAN/Voter/Aadhaar)", callback_data="govt_id")],
+        [InlineKeyboardButton("🏛️ Govt Job + Exam Tracker", callback_data="govt_jobs")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ]
+    return InlineKeyboardMarkup(rows)
+
+
+def govt_id_kb():
+    rows = [[InlineKeyboardButton(v["name"], callback_data=f"govt_idsvc:{k}")]
+            for k, v in govt.GOVT_ID_SERVICES.items()]
+    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
 def voice_preset_kb():
     rows = [[InlineKeyboardButton(lbl, callback_data=f"mvoicepk:{k}")] for k, (lbl, _f) in VOICE_PRESETS.items()]
     rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
@@ -1249,6 +1296,11 @@ WELCOME_TEXT = (
 
 
 # ---------------- COMMANDS ----------------
+# v52 speed: welcome photo ka file_id cache — pehli baar upload hota hai, baad me
+# Telegram CDN se turant serve hota hai (har /start par dobara upload NAHI = fast).
+_WELCOME_FID = None
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     get_user(user.id, user.first_name or "")
@@ -1273,12 +1325,26 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
+    global _WELCOME_FID
+    # v52 speed: cache file_id use karo (CDN serve = instant, no re-upload)
+    if _WELCOME_FID:
+        try:
+            await update.message.reply_photo(photo=_WELCOME_FID, caption=WELCOME_TEXT,
+                                             reply_markup=kb_for(user.id), parse_mode=HTML)
+            return
+        except Exception:
+            _WELCOME_FID = None
     banner_path = os.path.join(os.path.dirname(__file__), "welcome_banner.jpg")
     if os.path.exists(banner_path):
         try:
             with open(banner_path, "rb") as f:
-                await update.message.reply_photo(photo=f, caption=WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
-                return
+                _m = await update.message.reply_photo(photo=f, caption=WELCOME_TEXT,
+                                                      reply_markup=kb_for(user.id), parse_mode=HTML)
+            try:
+                _WELCOME_FID = _m.photo.file_id   # agli baar CDN se turant
+            except Exception:
+                pass
+            return
         except Exception:
             pass
     await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
@@ -2774,6 +2840,115 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(text, parse_mode=HTML)
         return
 
+    # ---------- v52: 🏛️ GOVT SERVICES callbacks ----------
+    if data == "govt_case":
+        _u_g = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_g, uid):
+            await q.answer("Credits finished!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("govt_case"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        context.user_data["mode"] = "govt_case"
+        await q.message.reply_text(
+            "⚖️ <b>COURT CASE STATUS</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Ab <b>16-digit CNR number bhejo</b> (4 letters + 12 digits).\n"
+            "📌 Jaise: <code>DLHC010351552024</code>, <code>BIPT010012342023</code>\n"
+            "📍 Ye number aapki case filing receipt / pehli court order me hota hai.\n"
+            "⏱️ 1 credit jayega (API se live case data aata hai).",
+            parse_mode=HTML)
+        return
+
+    if data == "govt_result":
+        context.user_data["mode"] = "govt_result"
+        await q.message.reply_text(govt.results_text(), parse_mode=HTML)
+        return
+
+    if data == "govt_jobs":
+        context.user_data["mode"] = "govt_jobs"
+        await q.message.reply_text(govt.jobs_text(), parse_mode=HTML)
+        return
+
+    if data == "govt_id":
+        await q.message.reply_text(
+            "🪪 <b>GOVT ID STATUS</b> — kaunsa document? (button dabao)",
+            reply_markup=govt_id_kb(), parse_mode=HTML)
+        return
+
+    if data.startswith("govt_idsvc:"):
+        key = data.split(":", 1)[1]
+        await q.message.reply_text(govt.idguide_card(key), parse_mode=HTML)
+        return
+
+    # ---------- v52: 🎞️ YOUTUBE QUALITY PICKER ----------
+    if data.startswith("ytq:"):
+        hstr = data.split(":", 1)[1]
+        try:
+            h = int(hstr)
+        except ValueError:
+            h = 1080
+        if h == 0:  # ❌ Cancel (free)
+            context.user_data.pop("yt_url", None)
+            context.user_data.pop("mode", None)
+            await q.message.edit_text("❌ Cancel ho gaya. Jab zaroorat ho to naya YouTube link bhejo. 👇")
+            return
+        url = context.user_data.pop("yt_url", None)
+        context.user_data.pop("mode", None)
+        _u_y = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_y, uid):
+            await q.answer("Credits finished!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("insta_dl"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        if not url:
+            await q.answer("Pehle YouTube link bhejo (📥 Video Downloader)", show_alert=True)
+            return
+        st = await q.message.reply_text(
+            f"📥 <b>{h}p</b> video download ho rahi hai...\n"
+            "<i>(30 second - 2 minute, video ki length par depend)</i>", parse_mode=HTML)
+        res = await asyncio.to_thread(_yt_quality_download, url, h)
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("YOUTUBE DOWNLOAD FAILED", str(res.get("error", ""))),
+                               parse_mode=HTML)
+            return
+        if res.get("type") == "link" and res.get("direct_url"):
+            mb = res.get("size_mb") or 0
+            await st.edit_text(
+                f" <b>VIDEO ({h}p)</b> — file badi hai ({mb} MB, Telegram limit 48MB).\n"
+                "Neeche ke direct link se browser/IDM me poora video download ho jayega:\n"
+                f"<code>{res['direct_url']}</code>\n\n"
+                + (res.get("note") or ""),
+                parse_mode=HTML)
+            add_use(uid)
+            await q.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+            return
+        if res.get("type") != "video" or not res.get("bytes"):
+            await st.edit_text(fail_msg("VIDEO READY NAHI HUI", "Dobara try karo (link public hai kya?)"),
+                               parse_mode=HTML)
+            return
+        media_buf = io.BytesIO(res["bytes"])
+        media_buf.name = "youtube_video.mp4"
+        dur = res.get("duration") or 0
+        dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
+        qnote = res.get("note_quality") or ""
+        await q.message.reply_video(
+            video=media_buf,
+            caption=(
+                f"📥 <b>YOUTUBE VIDEO — {h}p</b>\n"
+                f"• 📝 {hesc(str(res.get('title') or '')[:60])}\n"
+                f"{dur_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
+                f"• 🎞️ <b>Quality:</b> {h}p\n"
+                f"• ⚙️ Engine: {hesc(str(res.get('engine') or ''))}\n"
+                + (f"⚠️ {qnote}\n" if qnote else "")
+            ),
+            parse_mode=HTML,
+            supports_streaming=True,
+        )
+        await st.delete()
+        add_use(uid)
+        await q.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+        return
+
     if data.startswith("mvoicepk:"):
         preset = data.split(":", 1)[1]
         raw = context.user_data.pop("media_audio", None)
@@ -3290,6 +3465,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
             return
 
+        # 3d. v52: GOVT SERVICES (menu — info free, CNR case lookup 1 credit)
+        if action == "govt":
+            context.user_data["mode"] = "govt_menu"
+            await update.message.reply_text(GOVT_MENU_TEXT, reply_markup=govt_menu_kb(), parse_mode=HTML)
+            return
+
         # 4. Sarkari Portals (v51: premium — 1 credit per use)
         if action == "sarkari":
             _u_s = get_user(uid, user.first_name)
@@ -3751,6 +3932,24 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             return
         st = await update.message.reply_text(f"📥 {plat} — fetching the media (best quality + full audio)...")
+        # v52: YouTube link → user khud quality chunta hai (360/480/720/1080)
+        if re.search(r"(youtube\.com|youtu\.be)/", raw_text):
+            heights = await asyncio.to_thread(yt_available_qualities, raw_text)
+            opts = heights if heights else [1080]
+            rows = []
+            for i in range(0, len(opts), 2):
+                rows.append([InlineKeyboardButton(f"🎞️ {h}p" + (" ⭐" if h == opts[0] else ""),
+                                                  callback_data=f"ytq:{h}") for h in opts[i:i + 2]])
+            rows.append([InlineKeyboardButton("❌ Cancel", callback_data="ytq:0")])
+            context.user_data["yt_url"] = raw_text
+            context.user_data["mode"] = "yt_q"
+            await st.edit_text(
+                f"🎞️ <b>{to_bold('YOUTUBE QUALITY CHUNO')}</b>\n"
+                "Video kon si quality me chahiye? <b>Jo dabao, wahi milegi.</b>\n"
+                "⭐ = is video ki available best quality\n"
+                "💳 1 credit jayega (video ready hone par)",
+                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            return
         res = await download_video_async(raw_text)
 
         if not res.get("ok"):
@@ -4706,6 +4905,42 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ---------- v52: 🏛️ GOVT SERVICES (text modes) ----------
+    if mode == "govt_menu":
+        await update.message.reply_text("👆 Upar wale buttons se govt service chuno.", parse_mode=HTML)
+        return
+
+    if mode == "govt_case":
+        cnr = raw_text.strip().upper()
+        _u_c = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_c, uid):
+            context.user_data.pop("mode", None)
+            await update.message.reply_text(get_credits_over_text("govt_case"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        res = await asyncio.to_thread(govt.ecourts_case_status, cnr)
+        if not res.get("ok"):
+            context.user_data.pop("mode", None)
+            msg = ("⏳ " + res["error"]) if res.get("setup") else ("❌ " + res["error"])
+            await update.message.reply_text(msg, parse_mode=HTML)
+            return
+        card = govt.ecourts_card(res)
+        await update.message.reply_text(card + "\n\n" + spend_credit_msg(uid, "govt_case"), parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return
+
+    if mode == "govt_result":
+        await update.message.reply_text(govt.result_search(raw_text), parse_mode=HTML)
+        return
+
+    if mode == "govt_jobs":
+        kw = raw_text.strip()
+        region = kw.lower() if kw.lower() in govt._REGION_MAP else ""
+        await update.message.reply_text(
+            govt.jobs_text(region=region, keyword="" if region else kw), parse_mode=HTML)
+        return
+
     # Forwarded message for ID Finder + Auto-Forward channel pakadna
     if hasattr(update.message, "forward_origin") and update.message.forward_origin:
         orig = update.message.forward_origin
@@ -5264,6 +5499,17 @@ async def _post_init(app: Application):
 _KEEPALIVE_PEERS = [u.strip() for u in (
     os.environ.get("KEEPALIVE_PEERS") or "https://osint-api-hub.onrender.com/health"
 ).replace(";", ",").split(",") if u.strip()]
+# v52: SELF-PING — bot apna hi public /health URL ping karta hai (Render LB ke through
+# ye INBOUND request banta hai) -> free instance ka 15-min sleep timer reset ho jata hai.
+# Result: cold start sirf pehli baar / deploy par; baad me bot ~24/7 jaagta hai = FAST respond.
+_self_url = (os.environ.get("BOT_SELF_URL") or os.environ.get("RENDER_EXTERNAL_URL")
+             or os.environ.get("RENDER_SERVICE_DNS_NAME") or "").strip()
+if _self_url:
+    if not _self_url.startswith("http"):
+        _self_url = "https://" + _self_url
+    _self_health = _self_url.rstrip("/") + "/health"
+    if _self_health not in _KEEPALIVE_PEERS:
+        _KEEPALIVE_PEERS.append(_self_health)
 try:
     _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 10)
 except Exception:

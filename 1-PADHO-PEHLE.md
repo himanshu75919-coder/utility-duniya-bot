@@ -1,4 +1,14 @@
-# 📖 1-PADHO-PEHLE.md — v51.3 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v52.0 Premium Earning (5 minute me poora samajh)
+
+## 🆕 v52.0 me kya badla
+
+| Kya | Detail |
+|---|---|
+| 🏛️ **GOVT SERVICES (naya menu, 4 tools)** | ⚖️ Court Case Status (CNR se) · 📋 Sarkari Result · 🪪 Govt ID Status (CAPTCHA-free SMS) · 🏛️ Job Tracker — sab 100% legal public data se |
+| 🎞️ **YouTube Quality Selector** | Video Downloader me ab YT link par **1080p/720p/480p/360p buttons** — jo chuno wahi milegi |
+| 🚀 **Speed fix** | Self-ping se bot ab **24/7 jaagta** hai (cold start sirf deploy ke baad) + welcome photo CDN cache |
+| ⚙️ **Naye env vars** | `BOT_SELF_URL` (speed) + `ECOURTS_API_KEY` (court case tool, free token) |
+| ✅ **Tests** | **377 checks sab green** (106 + 143 + 128) |
 
 ## 🆕 v51.2 me naya tool — 🗣️ TEXT → HINDI VOICE
 
@@ -33,7 +43,7 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 | 💰 **AB SAARE tools PREMIUM** | Naye user ko **25 free credits** (1 use = 1 credit). Credits khatam → VIP lo. **VIP = poora bot unlimited** |
 | 👑 **VIP plans** | 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199 |
 |  **Vehicle key fix** | Vehicle ab premium gate se sahi pass hota hai (pehle key mismatch thi) |
-| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **104** + `_verify_v49.py` **128** = **338 checks, sab green**   |
+| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **143** + `_verify_v49.py` **128** = **377 checks, sab green**    |
 
 ### v50 (purana, context ke liye)
 | Kya | Detail |
