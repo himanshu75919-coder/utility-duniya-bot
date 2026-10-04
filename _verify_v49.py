@@ -81,8 +81,8 @@ mmap = re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1)
 keys = set(re.findall(r'"([^"]+)":\s*"[a-z_0-9]+"', mmap))
 unmapped = [b for b in btns if b not in keys]
 ok(f"Saare {len(btns)} menu buttons mapped", not unmapped, unmapped)
-# NOTE v50: +WEATHER, +EMI/INTEREST CALC = 2 naye buttons (29 → 31)
-ok("Menu me 26 buttons hain (v51: 5 tools delete)", len(btns) == 26, len(btns))
+# NOTE v51.1: WEATHER bhi delete → 25 buttons (v51.0 me 26 the)
+ok("Menu me 25 buttons hain (v51.1: 6 tools delete — 5 + weather)", len(btns) == 25, len(btns))
 ok("Koi duplicate button nahi", len(btns) == len(set(btns)))
 ok("Menu rows sahi (har row 1-2 button)", all(1 <= len(r) <= 2 for r in [[1, 2]] ))
 
@@ -215,13 +215,13 @@ section("6) TOOL TEXT / KEYBOARD (bot objects)")
 # ======================================================================
 kb = bot.kb_for(999000111)
 n_btn = sum(len(row) for row in kb.keyboard)
-ok(f"Reply keyboard me {n_btn} button (26 hone chahiye — v51 me 5 tools delete)", n_btn == 26, n_btn)
+ok(f"Reply keyboard me {n_btn} button (25 hone chahiye — v51.1 me 6 tools delete)", n_btn == 25, n_btn)
 labels = [bot.unbold(b.text) for row in kb.keyboard for b in row]
 ok("Keyboard me CLIP MAKER nahi", not any("CLIP MAKER" in bot.unbold(l) for l in labels))
 ok("Keyboard me LINK BYPASS nahi", not any("LINK BYPASS" in bot.unbold(l) for l in labels))
 # NOTE v50: purana standalone "INTEREST CALC" nahi, par naya "EMI / INTEREST CALC" hai
 ok("v51: Keyboard me 🧮 EMI / INTEREST CALC nahi (delete)", not any("EMI / INTEREST CALC" in bot.unbold(l) for l in labels))
-ok("v51: Keyboard me 🌦️ WEATHER hai", any("WEATHER / MAUSAM" in bot.unbold(l) for l in labels))
+ok("v51.1: Keyboard me 🌦️ WEATHER nahi (delete)", not any("WEATHER / MAUSAM" in bot.unbold(l) for l in labels))
 ok("v51: Keyboard me SITE SCREENSHOT nahi (delete)", not any("SITE SCREENSHOT" in bot.unbold(l) for l in labels))
 ok("v51: Keyboard me IMAGE→PDF nahi (delete)", not any("IMAGE→PDF" in bot.unbold(l) for l in labels))
 ok("v51: Keyboard me PRIVATE CHANNEL SETUP nahi (delete)", not any("PRIVATE CHANNEL SETUP" in bot.unbold(l) for l in labels))

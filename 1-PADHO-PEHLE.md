@@ -1,4 +1,4 @@
-# 📖 1-PADHO-PEHLE.md — v51.0 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v51.1 Premium Earning (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -10,20 +10,20 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
 ---
 
-## 1️⃣ v51 me kya badla (short) — PREMIUM EARNING
+## 1️⃣ v51.1 me kya badla (short) — PREMIUM EARNING
 
 | Kya | Detail |
 |---|---|
-| 🗑️ **5 tools PERMANENTLY delete** | 🧮 EMI/Interest Calc · 🖼️ Site Screenshot · 🖼️ Image→PDF · 🔒 Private Channel Setup · 🆔 ID & Username Finder — code + bot + GitHub + tutorial videos, sab se gayab |
+| 🗑️ **6 tools PERMANENTLY delete** | 🧮 EMI/Interest Calc · 🖼️ Site Screenshot · 🖼️ Image→PDF · 🔒 Private Channel Setup · 🆔 ID & Username Finder · 🌦️ **Weather/Mausam (v51.1)** — code + bot + engine + GitHub, sab se gayab |
 | 💰 **AB SAARE tools PREMIUM** | Naye user ko **25 free credits** (1 use = 1 credit). Credits khatam → VIP lo. **VIP = poora bot unlimited** |
 | 👑 **VIP plans** | 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199 |
 |  **Vehicle key fix** | Vehicle ab premium gate se sahi pass hota hai (pehle key mismatch thi) |
-| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **89** + `_verify_v49.py` **128** = **323 checks, sab green** |
+| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **87** + `_verify_v49.py` **128** = **321 checks, sab green** |
 
 ### v50 (purana, context ke liye)
 | Kya | Detail |
 |---|---|
-| 🌦️ **NAYA WEATHER tool** | Shehar ka naam bhejo → abhi ka mausam + 3 din ka forecast (abhi bhi hai, v51 se premium) |
+| 🌦️ **WEATHER tool** | Shehar ka naam bhejo → abhi ka mausam + 3 din ka forecast — **v51.1 me permanently delete ho gaya** |
 | 🐛 **Bug fixes** | 8-in-1 sheet EXACT 3.5×4.5cm · passport photo 20-50KB · toll-free numbers · admin button · broadcast fallback · DB lock · dead code |
 | ⚡ **SPEED** | URL shortener parallel (~1 sec) · link check + domain-age · bank PDF auto-unlock |
 | 🚨 **CORE LAYER (v50.1–v50.3)** | Bot freeze fix · SSRF guard · caching · rate limiting · `/sys` admin health |
