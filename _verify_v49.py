@@ -284,8 +284,8 @@ ok(f"tutorial videos = 24 (mila {_vids})", _vids == 24, _vids)
 
 # ======================================================================
 # v49.13: INFO TOOLS ME KOI BAHAR-WALA LINK BUTTON NAHI HONA CHAHIYE (user ka order)
-# Links sirf inme allowed: download tools, short link / app finder / username / link-safety,
-# sarkari hub menu, safety complaint card, support/share buttons.
+# Links sirf inme allowed: download tools, short link / app finder / username / link check,
+# sarkari hub menu, support/share buttons.
 print("\n" + "=" * 70)
 print("v49.13) LINK GUARD — info tools me koi bahar wala link nahi")
 print("=" * 70)
@@ -304,18 +304,27 @@ for _i, _ln in enumerate(_lines, 1):
     for _b in _forbidden_url_bits:
         if _b in _ln:
             _bad.append(f"line {_i}: {_ln.strip()[:90]}")
-ok("bot.py me info-tool ke bahar wale link buttons nahi (safety card bhi saaf)", not _bad, _bad[:4])
+ok("bot.py me info-tool ke bahar wale link buttons nahi", not _bad, _bad[:4])
 
-# v49.14: safety card me bhi koi link nahi — sirf helpline numbers (plain text)
-from modules.osint_tools import number_safety_info as _nsf
-_sf = _nsf("9876543210")
-ok("SAFETY CARD me koi link nahi (user ka order)", _sf.get("ok") and (_sf.get("links") or []) == [],
-   _sf.get("links"))
-ok("SAFETY CARD me helpline numbers (1930 / 155260) plain text me",
-   any("1930" in a for a in (_sf.get("advice") or [])) and any("155260" in a for a in (_sf.get("advice") or [])),
-   _sf.get("advice"))
-ok("SAFETY CARD me koi URL text me bhi nahi",
-   not any("http" in str(a).lower() or ".gov.in" in str(a).lower() for a in (_sf.get("advice") or [])))
+# v49.15: purana card + "safety" wala sab POORA delete (user ka order) — guard
+import modules.osint_tools as _ost_mod
+ok("osint_tools se leaked-records + purana card code DELETE",
+   not hasattr(_ost_mod, "lookup_public_records") and not hasattr(_ost_mod, "number_safety_info")
+   and not hasattr(_ost_mod, "NUM_LEAK_ENABLED") and not hasattr(_ost_mod, "PUBLIC_RECORD_WARNING"))
+
+# bot.py ke pure code me "SAFETY" shabd kabhi nahi hona chahiye
+ok("bot.py me 'safety' shabd kabhi nahi", "safety" not in _bot_src.lower(),
+   [l.strip()[:80] for l in _lines if "safety" in l.lower()][:3])
+
+# modules ke runtime code me bhi "safety" shabd nahi
+_mod_bad = []
+_mod_dir = os.path.join(HERE, "modules")
+for _f in sorted(os.listdir(_mod_dir)):
+    if _f.endswith(".py"):
+        _txt = open(os.path.join(_mod_dir, _f), encoding="utf-8").read().lower()
+        if "safety" in _txt:
+            _mod_bad.append(_f)
+ok("modules ke saare code me 'safety' shabd kabhi nahi", not _mod_bad, _mod_bad)
 
 # IMEI walon ke liye: bot.py me imei.info ka koi url= button nahi
 ok("bot.py me imei.info url button nahi",

@@ -102,7 +102,7 @@ from database import (
     meta_set,
     vip_grants_today,
 )
-# Full-Auto Channel Cloner helper (safety import)
+# Full-Auto Channel Cloner helper (import guard)
 try:
     from database import get_auto_cloners_for_source
 except ImportError:  # agar purani database.py use ho rahi ho to bot crash na ho
@@ -158,7 +158,7 @@ from modules.media_downloader import (
     platform_name,
 )
 from modules.toolkit_extras import (
-    check_link_safety,
+    analyze_link,
     expand_url,
     shorten_url,
 )
@@ -184,7 +184,6 @@ from modules.imei_lookup import (
 )
 from modules.osint_tools import (
     check_username_platforms,
-    number_safety_info,
     search_by_area_name,
     lookup_ifsc,
     lookup_ip_domain,
@@ -245,7 +244,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v49.14 Ultra"  # v49.14: safety card ke links bhi hataye (sirf helpline numbers)
+BOT_VERSION = "v49.15 Ultra"  # v49.15: card + text poora delete, code bilkul saaf
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -862,7 +861,7 @@ PROMPTS = {
         "🔗 <b>Ab lamba link bhejo:</b>"
     ),
     "linkcheck": (
-        f"🔍 <b>{to_bold('LINK SAFETY CHECK')}</b>\n"
+        f"🔍 <b>{to_bold('LINK CHECK')}</b>\n"
         "Link kholne se pehle check karo — nakli hai ya safe.\n"
         "📌 Jaise: <code>http://sbi-kyc-verify.xyz</code>\n"
         "🔍 <b>Ab link bhejo:</b>"
@@ -2734,54 +2733,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # ============ v49.9: NUMBER SAFETY CARD (legal — leaked records band hai) ============
+    # v49.15: purane messages ke bache buttons (numrec/nsafe) - chup-chaap band, koi card nahi
     if data.startswith("numrec:") or data.startswith("nsafe:"):
-        number = data.split(":", 1)[1]
-        await q.answer("Safety card bana raha hoon...")
-        st = await q.message.reply_text("🛡️ <b>Safety card ban raha hai...</b>", parse_mode=HTML)
-        try:
-            info = await asyncio.to_thread(number_safety_info, number)
-        except Exception:
-            info = {"links": [], "number": number}
-        lines = [
-            "╔═══════════════════════════╗",
-            f"🛡️ <b>{to_bold('NUMBER SAFETY CARD')}</b>",
-            "╚═══════════════════════════╝",
-            "",
-            f"📱 <b>Number:</b> <code>+{hesc(str(info.get('number') or number))}</code>",
-        ]
-        if info.get("operator"):
-            lines.append(f"📡 <b>Operator:</b> {hesc(str(info['operator']))} "
-                         f"{('· ' + hesc(str(info.get('circle')))) if info.get('circle') else ''}")
-        if info.get("type"):
-            lines.append(f"🔢 <b>Type:</b> {hesc(str(info['type']))}")
-        if info.get("ported") not in (None, "", False):
-            lines.append(f"🔁 <b>Ported (MNP):</b> {hesc(str(info['ported']))}")
-        lines += [
-            "",
-            "━━━━━━━━━━━━━━━━━━━━━━",
-            "🔒 <b>Naam / pata / Aadhaar kyun nahi dikhta?</b>",
-            "Ye data <b>leaked (chori ke) databases</b> se aata hai. India me inhe dikhana ya",
-            "bechna <b>kayde se MANA</b> hai (DPDP Act 2023 + Aadhaar Act). Isse bot <b>ban</b>",
-            "ho jata aur <b>FIR</b> ka khatra hota hai — isliye hum ye kabhi nahi dikhate. 🙏",
-            "",
-            "✅ <b>Jo hum KANOONI tarike se dikha sakte hain:</b>",
-            "• Operator, circle, number type (upar dekho)",
-            "• Number valid hai ya nahi",
-            "• Official helpline numbers (neeche)",
-            "",
-            "🛡️ <b>Asli madad — official aur free:</b>",
-        ]
-        # v49.14: koi link button NAHI (user ka order) — sirf helpline numbers plain text me
-        for _a in (info.get("advice") or [
-                "• 📞 <b>Cyber Crime Helpline:</b> 1930 (24x7, free)",
-                "• 📞 <b>Financial fraud:</b> 155260",
-                "• 🚔 <b>Nazdeeki police station / cyber cell</b> me likhit shikayat do"]):
-            lines.append(_a)
-        if info.get("note"):
-            lines += ["", f"<i>{hesc(str(info['note']))}</i>"]
-        await st.edit_text("\n".join(lines), parse_mode=HTML)
-        add_use(uid)
+        await q.answer()
         return
 
     # Copy buttons (pincode / area results)
@@ -3076,7 +3030,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "Ye tool ab bot me nahi hai — iske badle aap ye use kar sakte ho:\n"
             "• 🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>\n"
-            "• 🔓 Link Bypass ki jagah → 🔍 <b>Link Safety Check</b> / 📥 <b>Video Downloader</b>\n"
+            "• 🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>\n"
             "• 📈 Interest Calc ki jagah → 📜 <b>Kagaz Suite</b> (loan paper, registry cost)\n\n"
             "👇 Naya menu neeche hai:",
             reply_markup=kb_for(uid), parse_mode=HTML)
@@ -4046,7 +4000,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _car = {}
         if res.get("ok"):
             await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
-            rows = []   # v49.13: WhatsApp/Truecaller/Google jaise bahar wale links hata diye
             card = (
                 "╔═══════════════════════════╗\n"
                 f"📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
@@ -4063,13 +4016,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + f"• <b>Timezone:</b> {res['timezones']}\n"
                 f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"ℹ️ <i>{res['note']}</i>\n\n"
-                "👇 Fraud/spam shikayat ke liye (official helpline):"
+                f"ℹ️ <i>{res['note']}</i>"
             )
-            # v49.9: leaked "public records" button HATA diya — uski jagah legal safety card
-            rows.insert(0, [InlineKeyboardButton("🛡️ Number Safety Card (helpline)",
-                                                 callback_data=f"nsafe:{res['e164']}")])
-            await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            # v49.15: koi extra button nahi (purana card poora delete)
+            await update.message.reply_text(card, parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
         add_use(uid)
@@ -4622,14 +4572,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "linkcheck":
-        st = await update.message.reply_text("🛡️ Running a 6-layer safety scan on the link...")
-        chk = check_link_safety(raw_text)
+        st = await update.message.reply_text("🔍 Running a 6-layer scan on the link...")
+        chk = analyze_link(raw_text)
         risk = chk.get("risk", 0)
         bar = "█" * max(1, risk // 10) + "░" * (10 - max(1, risk // 10))
         reasons_txt = "\n".join(f"• {r}" for r in chk.get("reasons", [])[:8])
         sig = chk.get("signals", {})
         cap = (
-            f"🛡️ <b>{to_bold('LINK SAFETY REPORT')}</b>\n"
+            f"🛡️ <b>{to_bold('LINK CHECK REPORT')}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"🎯 <b>Verdict:</b> {chk.get('verdict')}\n"
             f"📊 <b>Risk Score:</b> <code>{bar}</code> {risk}/100\n"

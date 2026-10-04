@@ -809,7 +809,7 @@ def status_card() -> str:
               "▶️ YouTube info · 🧮 GST/PAN format check · 🎵 Song search · 🔑 Password breach check",
               "",
               "⛔ <b>Hub par abhi OFF:</b> 🚗 Vehicle RC/challan · 📱 Number records (naam/address)",
-              "<i>Ye hub ke apne switch se band hain (safety). Chalu karne ke liye hub ke",
+              "<i>Ye hub ke apne switch se band hain. Chalu karne ke liye hub ke",
               "dashboard/settings me sensitive endpoints ON karo ya UPSTREAM_KEY set karo.</i>",
               "⛔ <b>Upstream key chahiye:</b> ⚡ TeraBox · 📸 Instagram · 👻 Snapchat"]
     if not ready:

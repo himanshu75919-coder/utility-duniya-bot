@@ -146,23 +146,18 @@ class RenderWebhookConfigTests(unittest.TestCase):
 class SafePhoneInfoTests(unittest.TestCase):
     @unittest.skipIf(lookup_phone_info is None, "phonenumbers dependency is not installed")
     def test_phone_info_card_has_no_external_links(self):
-        # v49.13: user ka order — info tool me koi bahar wala link nahi.
-        # Official safety links alag safety card (number_safety_info) me rehte hain.
+        # v49.13: user ka order — info tool me koi bahar wala link nahi (aur purana card bhi
+        # v49.15 me poora delete ho gaya — code me bhi kuch nahi bacha).
         result = lookup_phone_info("+12025550123")
         self.assertTrue(result["ok"])
         self.assertEqual(result["links"], [])
 
-    def test_safety_card_has_no_links_only_helpline_text(self):
-        # v49.14: user ka order — safety card me bhi koi link nahi, sirf helpline numbers (text)
-        from modules.osint_tools import number_safety_info
-        sf = number_safety_info("+919876543210")
-        self.assertTrue(sf["ok"])
-        self.assertEqual(sf["links"], [])
-        advice = " ".join(sf["advice"])
-        self.assertIn("1930", advice)
-        self.assertIn("155260", advice)
-        self.assertNotIn("http", advice.lower())
-        self.assertNotIn(".gov.in", advice.lower())
+    def test_old_card_code_is_removed(self):
+        # v49.15: purana card + leaked-records code dono poore delete
+        import modules.osint_tools as ost
+        self.assertFalse(hasattr(ost, "lookup_public_records"))
+        self.assertFalse(hasattr(ost, "number_safety_info"))
+        self.assertFalse(hasattr(ost, "NUM_LEAK_ENABLED"))
 
 
 try:

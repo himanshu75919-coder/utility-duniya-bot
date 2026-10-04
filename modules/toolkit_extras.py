@@ -6,7 +6,7 @@ Engines that make the older tools professional:
 
 1.  shorten_url()        -> 6 shortener providers, uses whichever works (is.gd was dead).
 2.  expand_url()         -> Opens the redirect chain + cleans tracking params (LINK BYPASS upgrade).
-3.  check_link_safety()  -> Real multi-signal link safety analyzer (OpenPhish live feed + urlscan.io
+3.  analyze_link()       -> Real multi-signal link checker (OpenPhish live feed + urlscan.io
                             + 15 heuristics).
 4.  rate_from_per_hundred() + village_compound_interest() -> the INTEREST CALC engine.
 5.  file_size_human()    -> bytes to MB/GB.
@@ -189,7 +189,7 @@ def expand_url(url: str, max_hops: int = 6):
 
 
 # =====================================================================================
-# 3) LINK SAFETY CHECKER — real multi-signal analyzer
+# 3) LINK CHECKER — real multi-signal analyzer
 # =====================================================================================
 _PHISH_CACHE = {"ts": 0, "hosts": set(), "urls": set()}
 
@@ -244,9 +244,9 @@ LURE_WORDS = {"login": 12, "verify": 12, "secure": 8, "update": 8, "kyc": 15, "o
               "support": 6, "account": 8, "payment": 8, "reward": 12, "cashback": 10, "offer": 6}
 
 
-def check_link_safety(raw_url: str) -> dict:
+def analyze_link(raw_url: str) -> dict:
     """
-    Professional multi-signal link safety check.
+    Professional multi-signal link check.
     Returns: {ok, verdict, risk(0-100), level, reasons[], advice, signals{}, final_url, chain}
     """
     url = raw_url.strip()

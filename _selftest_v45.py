@@ -291,17 +291,11 @@ def test_tools_hub():
     tb = ct.resolve_terabox("https://1024terabox.com/s/1ahJz-qdH7h_9One0lXxDoA")
     ok("TERABOX tool hub engine se", tb.get("ok") and "API Hub" in str(tb.get("provider", "")), tb.get("provider"))
 
-    # v49.9: leaked personal records (naam/pata/Aadhaar) HAMESHA blocked — kanoon (DPDP/Aadhaar Act)
-    rec = ost.lookup_public_records("9876543210")
-    ok("LEAKED RECORDS BLOCKED (kanooni safety)", rec.get("ok") is False and rec.get("blocked") is True,
-       f"blocked={rec.get('blocked')}")
-
-    sf = ost.number_safety_info("9876543210")
-    ok("SAFETY CARD: koi link nahi (user ka order)", sf.get("ok") and (sf.get("links") or []) == [],
-       sf.get("links"))
-    ok("SAFETY CARD: helpline numbers (advice) milte hain",
-       len(sf.get("advice") or []) >= 3 and any("1930" in a for a in (sf.get("advice") or [])),
-       sf.get("advice"))
+    # v49.15: leaked-records code + purana card POORA delete (user ka order) — dobara na aaye
+    ok("leaked-records function code se delete", not hasattr(ost, "lookup_public_records"), dir(ost))
+    ok("purana card function code se delete", not hasattr(ost, "number_safety_info"), dir(ost))
+    ok("NUM_LEAK flag + purana warning bhi gaye",
+       not hasattr(ost, "NUM_LEAK_ENABLED") and not hasattr(ost, "PUBLIC_RECORD_WARNING"))
 
     un = ost.check_username_platforms("sumit_sharma2")
     ok("ID finder profiles bhi deta hai", un.get("ok") and "instagram" in (un.get("profiles") or {}),
@@ -479,22 +473,21 @@ async def test_bot_flows():
     ok("ID finder me Instagram profile dikhi", "INSTAGRAM" in m4.U() and "SUM" in m4.U(), m4.replies_text()[:250])
     ok("ID finder me followers bhi", "12000" in m4.replies_text(), m4.replies_text()[:250])
 
-    # v49.14: NUMBER SAFETY CARD — koi link nahi, sirf helpline numbers (user ka order)
+    # v49.15: purana card DELETE — numinfo card me ab koi extra button bhi nahi
     ctx_s = Ctx()
     ctx_s.user_data["mode"] = "numinfo"
     m_s = FakeMsg("9876543210", uid=USER)
     dbm.set_credits(USER, 5)
     await bot.on_text(upd(m_s, n=120), ctx_s)
     ok("NUM INFO card bana", "NUMBER INFO REPORT" in m_s.U(), m_s.replies_text()[:200])
-    ok("numinfo card me koi bahar wala link button nahi", not m_s.urls(), m_s.urls())
-    ok("numinfo card me safety card button", any("nsafe" in str(c) for c in m_s.cb_data()), m_s.cb_data()[:6])
+    ok("numinfo card me koi link button nahi", not m_s.urls(), m_s.urls())
+    ok("numinfo card me koi extra button nahi (purana card bhi gaya)", not m_s.cb_data(), m_s.cb_data()[:6])
 
+    # purane message ka button dabaya to chup-chaap band (koi card nahi khulta)
     q_s = FakeQuery("nsafe:919876543210", uid=USER)
     await bot.on_cb(Update(update_id=121, callback_query=q_s), ctx_s)
-    t_s = q_s.message.replies_text()
-    ok("SAFETY CARD khula — helpline numbers (1930 / 155260)", "1930" in t_s and "155260" in t_s, t_s[:320])
-    ok("SAFETY CARD me koi URL text me bhi nahi", "http" not in t_s.lower(), t_s[:320])
-    ok("SAFETY CARD me koi link button nahi", not q_s.message.urls(), q_s.message.urls())
+    ok("purana button ab kuch nahi dikhata", not q_s.message.replies_text().strip(),
+       q_s.message.replies_text()[:120])
 
     # /hubstatus
     ctx5 = Ctx()
