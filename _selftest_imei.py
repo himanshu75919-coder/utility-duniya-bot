@@ -357,7 +357,7 @@ async def flows():
     ok("'credit used' line aayi", ("credit used" in txt_all.lower() or "credit laga" in txt_all.lower()), txt_all[-200:])
     ok("mode clear ho gaya", "mode" not in ctx.user_data, ctx.user_data)
     ok("'Check another IMEI' button", any("imei_new" == c for c in m2.cb_data()), m2.cb_data())
-    ok("imei.info ka link button", any("imei.info" in str(u or "") for u in _urls(m2)), _urls(m2))
+    ok("v49.13: koi bahar wala link button nahi (user ka order)", not _urls(m2), _urls(m2))
 
     # galat IMEI (Luhn) → saaf error, credit nahi kata
     ctx2 = Ctx(); fresh(USER, 5)
@@ -376,7 +376,8 @@ async def flows():
     t4 = m4.all_text()
     ok("device na milne par NOT FOUND card", ("NOT FOUND" in t4.upper() or "NAHI MILE" in t4.upper()), t4[:220])
     ok("'credit nahi kata' likha hai", ("No credit was cut" in t4 or "credit nahi kata" in t4 or "Koi credit nahi kata" in t4), t4[:250])
-    ok("fallback (imei.info) button mila", any("imei.info" in str(u or "") for u in _urls(m4)), _urls(m4))
+    ok("v49.13: not-found par bhi koi link button nahi", not _urls(m4), _urls(m4))
+    ok("not-found card me IMEI dhoondhne ka hint hai", "*#06#" in t4 or "dial" in t4.lower(), t4[-200:])
     ok("not-found par credit nahi kata", dbm.get_credits(USER) == 5, dbm.get_credits(USER))
     Handler.mode = "apple"
     il.clear_cache()

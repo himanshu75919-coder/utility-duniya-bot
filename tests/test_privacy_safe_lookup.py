@@ -145,11 +145,19 @@ class RenderWebhookConfigTests(unittest.TestCase):
 
 class SafePhoneInfoTests(unittest.TestCase):
     @unittest.skipIf(lookup_phone_info is None, "phonenumbers dependency is not installed")
-    def test_phone_tool_only_shows_local_metadata_and_official_safety_links(self):
+    def test_phone_info_card_has_no_external_links(self):
+        # v49.13: user ka order — info tool me koi bahar wala link nahi.
+        # Official safety links alag safety card (number_safety_info) me rehte hain.
         result = lookup_phone_info("+12025550123")
         self.assertTrue(result["ok"])
-        urls = [url for _, url in result["links"]]
-        self.assertTrue(urls)
+        self.assertEqual(result["links"], [])
+
+    @unittest.skipIf(lookup_phone_info is None, "phonenumbers dependency is not installed")
+    def test_safety_card_keeps_official_complaint_links(self):
+        from modules.osint_tools import number_safety_info
+        sf = number_safety_info("+919876543210")
+        self.assertTrue(sf["ok"])
+        urls = [url for _, url in sf["links"]]
         self.assertTrue(any("sancharsaathi.gov.in" in url for url in urls))
         self.assertTrue(any("cybercrime.gov.in" in url for url in urls))
 

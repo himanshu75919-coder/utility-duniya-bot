@@ -164,14 +164,9 @@ def lookup_phone_info(number_str: str) -> dict:
         "timezones": zones,
         "type": ntype,
         "series_note": series_note,
-        "links": [
-            ("💬 WhatsApp Check", f"https://wa.me/{digits}"),
-            ("✈️ Telegram Check", f"https://t.me/+{digits}"),
-            ("🔍 Truecaller Search", f"https://www.truecaller.com/search/in/{digits}"),
-            ("🌐 Google Search", f"https://www.google.com/search?q=%22{digits}%22"),
-            ("🚨 Chakshu (Spam Report - TRAI)", "https://sancharsaathi.gov.in/sfc/"),
-            ("🚔 Cyber Crime Helpline 1930", "https://cybercrime.gov.in/"),
-        ],
+        # v49.13: bahar wale links (WhatsApp/Telegram/Truecaller/Google) hata diye (user ka order).
+        # Shikayat ke official channels alag se number_safety_info() me hain (safety card).
+        "links": [],
         "note": "Number port (MNP) hua ho to carrier/circle badal sakta hai.",
     }
 
