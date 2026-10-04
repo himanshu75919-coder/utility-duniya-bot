@@ -241,6 +241,7 @@ TOOL_RATE_LIMITS = {
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
     "media_ytmp3": (5,  120, "YouTube → MP3"),
+    "media_tts":   (8,  60,  "Text → Hindi Voice"),
     # normal info tools
     "ip":          (15, 60,  "IP / Domain Info"),
     "ifsc":        (15, 60,  "IFSC Info"),
@@ -283,7 +284,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v51.1 Premium Earning"  # v51.1: WEATHER tool bhi permanently delete (total 6) + per-tool removal messages
+BOT_VERSION = "v51.2 Premium Earning"  # v51.2: 🗣️ TEXT → HINDI VOICE (edge-tts free neural, desi awaaz) + weather delete
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -870,7 +871,8 @@ PROMPTS = {
     ),
     "mediastudio": (
         f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-        "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim, compress.\n"
+        "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim, compress,\n"
+        "🗣️ text→Hindi voice (asli desi awaaz).\n"
         "👇 <b>Neeche se option chuno:</b>"
     ),
     "rto": (
@@ -963,7 +965,8 @@ TUTORIAL_TEXT = (
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
     "\n"
-    "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim\n"
+    "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
+    "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
     "\n"
     "🧰 <b>Chhote tools:</b> QR code, URL short, link check, app finder\n"
     "\n"
@@ -1108,7 +1111,7 @@ HUB_KEY_MISSING_TEXT = (
 MEDIA_MENU_TEXT = (
     f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
     "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, "
-    "trim/compress. <b>No watermark.</b>\n"
+    "trim/compress, 🗣️ text→Hindi voice. <b>No watermark.</b>\n"
     "⚡ Har option = <b>1 credit</b>\n"
     "👇 <b>Neeche se chuno:</b>"
 )
@@ -1180,6 +1183,7 @@ def media_menu_kb():
          InlineKeyboardButton("🎼 Video → MP3", callback_data="media_v2mp3")],
         [InlineKeyboardButton("✂️ Video trim", callback_data="media_trim"),
          InlineKeyboardButton("🗜️ Video compress", callback_data="media_compress")],
+        [InlineKeyboardButton("🗣️ Text → Hindi Voice (MP3)", callback_data="media_tts")],
         [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:mediastudio")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
     ]
@@ -2754,6 +2758,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "bass": ("💥 <b>BASS BOOST</b>\n\nGaana bhejo — poori bass, tez awaaz.", "media_bass"),
             "voice": ("🗣️ <b>VOICE CHANGE</b>\n\nVoice note / audio / video bhejo — phir voice chuno.", "media_voice_wait"),
             "v2mp3": ("🎼 <b>VIDEO → MP3</b>\n\nVideo bhejo — uska MP3 bana dunga.", "media_v2mp3"),
+            "tts": ("🗣️ <b>TEXT → HINDI VOICE</b>\n\n"
+                    "Ab apna <b>text bhejo</b> (Hindi me likhna best hai, max 1500 letters) —\n"
+                    "main usse <b>ekdum real desi Hindi awaaz</b> me MP3 bana dunga.\n"
+                    "📌 Jaise: <code>Bhai kaise ho? Aaj ka din bahut accha hai, chalo chai pe chalte hain.</code>\n"
+                    "🎙️ Phir awaaz chunni hai — mard ya aurat.", "media_tts"),
             "trim": ("✂️ <b>VIDEO TRIM</b>\n\nVideo bhejo (max 2 minute) — phir time batao (jaise <code>0:10 to 0:45</code>).", "media_trim_wait"),
             "compress": ("🗜️ <b>VIDEO COMPRESS</b>\n\nVideo bhejo (max 2 minute) — size chhota kar dunga (WhatsApp par bhejne layak).", "media_compress_wait"),
         }.get(kind)
@@ -2782,6 +2791,35 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                     title=f"{lbl} — Utility Duniya", performer="HIMANSHU",
                                     caption=f"🗣️ <b>{lbl}</b> ready!\n{spend_credit_msg(uid, 'mediastudio')}",
                                     parse_mode=HTML)
+        return
+
+    if data.startswith("ttsvoice:"):
+        vkey = data.split(":", 1)[1]
+        _u_t = get_user(uid, q.from_user.first_name)
+        if not can_use_premium_tool(_u_t, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("mediastudio"),
+                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        txt = context.user_data.pop("tts_text", "")
+        context.user_data.pop("mode", None)
+        if not txt:
+            await q.answer("Pehle text bhejo — Media Studio → Text → Hindi Voice", show_alert=True)
+            return
+        st = await q.message.reply_text("🗣️ <b>Hindi awaaz bana raha hoon...</b>\n<i>(5-15 seconds)</i>", parse_mode=HTML)
+        res = await desi.hindi_tts(txt, vkey)
+        if not res.get("ok"):
+            await st.edit_text(fail_msg("HINDI VOICE FAILED", res.get("error", "")), parse_mode=HTML)
+            return
+        await st.delete()
+        await q.message.reply_audio(
+            audio=io.BytesIO(res["bytes"]), filename="hindi-voice.mp3",
+            title="Hindi Voice — Utility Duniya", performer="Utility Duniya",
+            caption=("🗣️ <b>TEXT → HINDI VOICE READY</b>\n"
+                     f"🎙️ Awaaz: {vkey.upper()} · 📦 {res['size_mb']} MB\n\n"
+                     + spend_credit_msg(uid, "mediastudio")),
+            parse_mode=HTML)
+        add_use(uid)
         return
 
     if data == "qr_wifi":
@@ -4448,6 +4486,28 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "media_ytmp3":
         await do_ytmp3(update, context, uid, raw_text.strip())
+        return
+
+    if mode == "media_tts":
+        txt = raw_text.strip()
+        if len(txt) < 5:
+            await update.message.reply_text("❌ Thoda lamba text bhejo (min 5 letters).", parse_mode=HTML)
+            return
+        if len(txt) > 1500:
+            await update.message.reply_text(
+                f"❌ Text bahut lamba hai ({len(txt)} letters) — max 1500. Thoda chhota karke dobara bhejo.",
+                parse_mode=HTML)
+            return
+        context.user_data["tts_text"] = txt
+        context.user_data["mode"] = "media_tts_voice"
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔊 MARD awaaz (Madhur)", callback_data="ttsvoice:male"),
+             InlineKeyboardButton("🔊 AURAT awaaz (Swara)", callback_data="ttsvoice:female")],
+        ])
+        await update.message.reply_text(
+            "✅ Text mil gaya!\n\nAb <b>awaaz chuno</b> (1 credit jayega):\n"
+            "🎙️ <i>Dono awaazein ekdum real desi Hindi me hain.</i>",
+            reply_markup=kb, parse_mode=HTML)
         return
 
     if mode in ("media_ringtone", "media_karaoke", "media_8d", "media_bass", "media_voice_wait",
