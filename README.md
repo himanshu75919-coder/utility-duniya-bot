@@ -1,4 +1,31 @@
-# ⚡ Utility Duniya Super-Bot — **v52.1 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v52.2 Premium Earning**
+
+## 🆕 v52.2 me kya badla
+
+### 🌍 NAYA: DOMAIN OSINT (🌐 IP/DOMAIN tool ka upgrade)
+Domain bhejo → **full public OSINT report**: whois (official RDAP registry), DNS records (A/AAAA/MX/NS/TXT),
+**subdomains** (Certificate Transparency / crt.sh), + primary A-record ki **IP location/ISP/hosting**.
+IP bhejo → wahi purana IP info card. Sab public/official sources — koi private info nahi.
+
+### 🏦 NAYA: UPI VERIFY
+VPA (UPI ID) bhejo → **format valid?** + **kis bank ka handle hai** (NPCI public bank codes se).
+Sirf public info — linked mobile/account/holder naam **kabhi nahi** dikhega (wo publicly exist hi nahi karta).
+
+### 📡 NAYA: TG PUBLIC INFO
+Public `@username` bhejo → **naam + bio + member count** (public channels/groups Bot API `getChat` se,
+user profiles t.me public page se). Sirf public info — private members/phone nahi.
+
+> ⚖️ Teeno **100% legal** — sirf public data + official APIs (RDAP / DNS / Bot API / t.me).
+> Premium hain (1 credit/use) — baaki info tools jaise hi.
+
+### 🧪 Tests (3 suites, **380 checks** — sab green)
+```bash
+python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
+python3 _selftest_v50.py           # 146 checks — tools + deletion + TTS + GOVT-removed + YT quality + v52.2 tools
+python3 _verify_v49.py             # 128 checks — purana regression suite
+```
+
+---
 
 ## 🆕 v52.1 me kya badla
 

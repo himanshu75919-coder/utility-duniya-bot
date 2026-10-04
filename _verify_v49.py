@@ -81,8 +81,8 @@ mmap = re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1)
 keys = set(re.findall(r'"([^"]+)":\s*"[a-z_0-9]+"', mmap))
 unmapped = [b for b in btns if b not in keys]
 ok(f"Saare {len(btns)} menu buttons mapped", not unmapped, unmapped)
-# NOTE v52.1: GOVT SERVICES delete ho gaya → wapas 25 buttons (v52.0 me 26 the)
-ok("Menu me 25 buttons hain (v52.1: GOVT SERVICES delete)", len(btns) == 25, len(btns))
+# NOTE v52.2: +UPI VERIFY, +TG PUBLIC INFO → 27 buttons (v52.1 me 25 the)
+ok("Menu me 27 buttons hain (v52.2: +UPI VERIFY, +TG PUBLIC INFO)", len(btns) == 27, len(btns))
 ok("Koi duplicate button nahi", len(btns) == len(set(btns)))
 ok("Menu rows sahi (har row 1-2 button)", all(1 <= len(r) <= 2 for r in [[1, 2]] ))
 
@@ -215,7 +215,7 @@ section("6) TOOL TEXT / KEYBOARD (bot objects)")
 # ======================================================================
 kb = bot.kb_for(999000111)
 n_btn = sum(len(row) for row in kb.keyboard)
-ok(f"Reply keyboard me {n_btn} button (25 hone chahiye — v52.1 me GOVT SERVICES delete)", n_btn == 25, n_btn)
+ok(f"Reply keyboard me {n_btn} button (27 hone chahiye — v52.2 me +UPI VERIFY +TG PUBLIC INFO)", n_btn == 27, n_btn)
 labels = [bot.unbold(b.text) for row in kb.keyboard for b in row]
 ok("Keyboard me CLIP MAKER nahi", not any("CLIP MAKER" in bot.unbold(l) for l in labels))
 ok("Keyboard me LINK BYPASS nahi", not any("LINK BYPASS" in bot.unbold(l) for l in labels))

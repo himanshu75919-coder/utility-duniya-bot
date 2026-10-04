@@ -522,3 +522,245 @@ def lookup_ip_domain(target: str) -> dict:
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
 
+
+# =====================================================================================
+# v52.2: 🌍 DOMAIN OSINT — whois(RDAP) + DNS(DoH) + subdomains(crt.sh) + IP geo
+# =====================================================================================
+_DOMAIN_RE = re.compile(r"^(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,24}$")
+
+
+def _doh_query(name: str, qtype: str) -> list:
+    """DNS records Google DNS-over-HTTPS (public JSON API) se — koi extra dependency nahi.
+    Sirf public DNS data wapas deta hai (A/AAAA/MX/NS/TXT/SOA/CNAME)."""
+    try:
+        r = requests.get("https://dns.google/resolve",
+                         params={"name": name, "type": qtype},
+                         headers=UA_HEADERS, timeout=8)
+        if r.status_code != 200:
+            return []
+        out = []
+        for ans in r.json().get("Answer", []) or []:
+            data = ans.get("data")
+            if data:
+                out.append(data)
+        return out
+    except Exception:
+        return []
+
+
+def domain_osint(target: str) -> dict:
+    """Domain ka full public OSINT: RDAP whois + DNS records + certificate-transparency
+    subdomains + primary A-record ki IP info. Sab sources public/official hain."""
+    clean = (target or "").strip().lower().rstrip(".")
+    clean = re.sub(r"^https?://", "", clean).split("/")[0]
+    clean = clean.split("@")[-1].strip()
+    if not _DOMAIN_RE.match(clean):
+        return {"ok": False,
+                "error": (f"'{clean[:40]}' valid domain nahi lagta.\n"
+                          "📌 Jaise: <code>google.com</code>, <code>onrender.com</code>, "
+                          "<code>bihar.gov.in</code>\n"
+                          "<b>IP bhi ho sakta hai</b> (jaise <code>8.8.8.8</code>) — "
+                          "wo IP info card milega.")}
+    ck = "dom:" + clean
+    hit = _cget(ck)
+    if hit is not None:
+        return {**hit, "cached": True}
+
+    # 1) DNS: A record pehle (IP info ke liye)
+    a_recs = _doh_query(clean, "A")
+    result = {
+        "ok": True, "domain": clean,
+        "a": a_recs[:4], "aaaa": _doh_query(clean, "AAAA")[:2],
+        "mx": _doh_query(clean, "MX")[:5], "ns": _doh_query(clean, "NS")[:6],
+        "txt": _doh_query(clean, "TXT")[:3],
+        "whois": None, "whois_error": "",
+        "subdomains": [], "subdomains_error": "",
+        "ip_info": None,
+    }
+
+    # 2) RDAP whois (rdap.org redirect karta hai sahi registry pe — free, no key)
+    try:
+        r = requests.get(f"https://rdap.org/domain/{clean}",
+                         headers=UA_HEADERS, timeout=10, allow_redirects=True)
+        if r.status_code == 200:
+            d = r.json()
+            ev = {e.get("eventAction"): (e.get("eventDate") or "")[:10]
+                  for e in d.get("events", []) or []}
+            registrar = ""
+            for ent in d.get("entities", []) or []:
+                if "registrar" in (ent.get("roles") or []):
+                    voc = ent.get("vcardArray")
+                    if isinstance(voc, list) and len(voc) > 1:
+                        for field in voc[1]:
+                            if field and field[0] == "fn":
+                                registrar = str(field[3])
+                    break
+            ns_from_rdap = [n.get("ldhName", "").rstrip(".").lower()
+                            for n in d.get("nameservers", []) or [] if n.get("ldhName")]
+            if ns_from_rdap and not result["ns"]:
+                result["ns"] = ns_from_rdap[:6]
+            result["whois"] = {
+                "registrar": registrar or "N/A",
+                "created": ev.get("registration", "N/A"),
+                "expires": ev.get("expiration", "N/A"),
+                "updated": ev.get("last changed", "N/A"),
+                "status": ", ".join((d.get("status") or [])[:4]) or "N/A",
+            }
+        else:
+            result["whois_error"] = (f"whois data nahi mila (RDAP {r.status_code}) — "
+                                     "kuch domains ki registry RDAP support nahi karti")
+    except Exception:
+        result["whois_error"] = "whois server abhi jawab nahi diya (timeout)"
+
+    # 3) Subdomains — Certificate Transparency (crt.sh public feed, free)
+    try:
+        r = requests.get("https://crt.sh/?q=%25." + clean + "&output=json",
+                         headers=UA_HEADERS, timeout=25)
+        if r.status_code == 200:
+            names = []
+            for row in r.json() or []:
+                nm = (row.get("name_value") or "").strip().lstrip("*.")
+                if nm and nm != clean and nm.endswith("." + clean) and nm not in names:
+                    names.append(nm)
+            result["subdomains"] = sorted(set(names))[:12]
+            result["subdomains_total"] = len(set(names))
+        else:
+            result["subdomains_error"] = "certificate feed abhi jawab nahi di"
+    except Exception:
+        result["subdomains_error"] = "certificate feed timeout — baaki data theek hai"
+
+    # 4) Primary A-record ki IP info (existing engine reuse)
+    if a_recs:
+        geo = lookup_ip_domain(a_recs[0])
+        if geo.get("ok"):
+            result["ip_info"] = geo
+
+    if not result["a"] and not result["whois"] and not result["subdomains"]:
+        return {"ok": False,
+                "error": (f"'{clean}' ka koi public DNS/whois record nahi mila.\n"
+                          "Domain ka spelling check karo, ya ye abhi register nahi hua.")}
+    _cput(ck, result, 21600)   # whois/subdomains 6 ghante tak valid
+    return result
+
+
+# =====================================================================================
+# v52.2: 🏦 UPI VERIFY — VPA format + bank handle (NPCI public bank codes)
+# =====================================================================================
+UPI_BANK_HANDLES = {
+    "sbi": "State Bank of India (SBI)",
+    "esic": "State Bank of India (SBI)",
+    "okaxis": "Axis Bank",
+    "utib": "Axis Bank (pehle UTI Bank)",
+    "yes": "Axis Bank (pehle YES Bank)",
+    "ybl": "Axis Bank (pehle YES Bank)",
+    "okicici": "ICICI Bank",
+    "icici": "ICICI Bank",
+    "hdfcbank": "HDFC Bank",
+    "kotak": "Kotak Mahindra Bank",
+    "pnb": "Punjab National Bank",
+    "bara": "Bank of Baroda",
+    "bof": "Bank of India",
+    "canara": "Canara Bank",
+    "indusind": "IndusInd Bank",
+    "iob": "Oriental Bank of Commerce (ab Bank of Baroda)",
+    "central": "The Central Bank of India",
+    "kfk": "The Central Bank of India",
+    "union": "Union Bank of India",
+    "nabi": "Bank of India (pehle NAB)",
+    "corporate": "Corporation Bank (ab Bank of Baroda)",
+    "andhra": "Bank of Baroda (pehle Andhra Bank)",
+    "andhrabank": "Bank of Baroda (pehle Andhra Bank)",
+    "vijaya": "Bank of Baroda (pehle Vijaya Bank)",
+    "vib": "Bank of Baroda (pehle Vijaya Bank)",
+    "dcb": "DCB Bank",
+    "fcb": "Federal Bank",
+    "idfk": "IDFC First Bank",
+    "rbl": "RBL Bank",
+    "idib": "IDBI Bank",
+    "esfbank": "SBI (State Bank of India)",
+    "esicbank": "SBI (State Bank of India)",
+    "paytm": "Paytm Payments Bank",
+    "amazpay": "Amazon Payments Bank",
+    "esicupi": "SBI (State Bank of India)",
+    "esfb": "SBI (State Bank of India)",
+    "esic2": "SBI (State Bank of India)",
+    "esicupay": "SBI (State Bank of India)",
+}
+
+_VPA_RE = re.compile(r"^([a-zA-Z0-9][a-zA-Z0-9._\-]{1,24})@([a-zA-Z][a-zA-Z0-9]{1,24})$")
+
+
+def upi_verify(target: str) -> dict:
+    """VPA (UPI ID) ka format check + bank handle ka bank naam.
+    NOTE: sirf PUBLIC info hai — linked mobile, account number, kaun hai wo kisi bhi
+    VPA se publicly nahi milta (aur isliye is tool me bhi nahi dikhega)."""
+    clean = (target or "").strip().lower()
+    clean = clean.replace(" ", "").lstrip("@")
+    if not clean or "@" not in clean:
+        return {"ok": False,
+                "error": ("Ye VPA nahi lagta. VPA me <code>@</code> hota hai.\n"
+                          "📌 Jaise: <code>rahul@sbi</code>, <code>9876543210@hdfcbank</code>\n"
+                          "Aapka VPA app me Settings → UPI ID se milta hai.")}
+    m = _VPA_RE.match(clean)
+    if not m:
+        return {"ok": False,
+                "error": (f"'{clean[:40]}' valid VPA format nahi hai.\n"
+                          "Format: <code>localpart@bankhandle</code> — jaise "
+                          "<code>rahul@sbi</code> (localpart me letters/numbers/. _ - chalte hain).")}
+    local, handle = m.group(1), m.group(2)
+    bank = UPI_BANK_HANDLES.get(handle)
+    out = {
+        "ok": True,
+        "vpa": clean,
+        "local": local,
+        "handle": handle,
+        "bank": bank,
+        "handle_known": bank is not None,
+        "notes": [],
+    }
+    if not bank:
+        out["notes"].append(f"Handle <code>@{handle}</code> meri known-bank list me nahi hai — "
+                            "ye chhoti bank ya naya PSP handle ho sakta hai.")
+    if re.match(r"^\d{10}$", local):
+        out["notes"].append("Local part ek 10-digit number hai (mobile-style VPA) — "
+                            "ye valid hai, par isse linked mobile number public nahi hota.")
+    if len(local) > 25:
+        out["notes"].append("Localpart 25 chars se lamba hai — bahut kam banks accept karte hain.")
+    return out
+
+
+# =====================================================================================
+# v52.2: 📡 TG PUBLIC INFO — t.me public page (sirf public info)
+# =====================================================================================
+def tg_user_public(username: str) -> dict:
+    """t.me/{username} ki PUBLIC page se name + about nikaalta hai (sirf wahi jo
+    koi bhi public page par dekh sakta hai). Private channels/members nahi."""
+    uname = (username or "").strip().lower()
+    uname = re.sub(r"^https?://(?:t\.me|telegram\.(?:me|dog))/?", "", uname).split("/")[0].lstrip("@")
+    if not re.match(r"^[a-z][a-z0-9_]{3,31}$", uname):
+        return {"ok": False,
+                "error": ("Valid @username bhejo — jaise <code>@telegram</code> ya "
+                          "<code>somechannel</code>.\n"
+                          "📌 Jo public channel hai, uska @username profile me dikhta hai.")}
+    try:
+        r = requests.get(f"https://t.me/{uname}", headers=UA_HEADERS, timeout=10)
+        if r.status_code == 404:
+            return {"ok": False, "exists": False,
+                    "error": (f"<code>@{uname}</code> ka koi public Telegram page nahi mila — "
+                              "username galat hai ya page private/removed hai.")}
+        page = r.text
+        title = re.search(r'property="og:title"\s+content="([^"]+)"', page)
+        desc = re.search(r'class="tgme_page_description[^"]*"[^>]*>(.*?)</div>', page, re.S)
+        name = (title.group(1) if title else "").strip()
+        # t.me: user milne par actual naam aata hai; na milne par generic "Telegram: Contact @x"
+        if name.startswith("Telegram: Contact"):
+            return {"ok": False, "exists": False,
+                    "error": (f"<code>@{uname}</code> ka koi public profile nahi mila — "
+                              "username galat hai, ya profile private hai, ya user remove ho gaya.")}
+        bio = ""
+        if desc:
+            bio = re.sub(r"<[^>]+>", "", desc.group(1)).strip()
+        return {"ok": True, "exists": True, "type": "public_page",
+                "username": uname, "name": name or f"@{uname}", "bio": bio}
+    except Exception:
+        return {"ok": False, "error": "Telegram public page abhi jawab nahi diya — 1 minute baad try karo."}
