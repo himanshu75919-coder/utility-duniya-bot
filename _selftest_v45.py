@@ -233,12 +233,9 @@ def test_client():
     ni = hub.hub_num_info("9876543210")
     ok("num-info hub se", ni.get("ok") is True and isinstance(ni.get("data"), dict), ni)
 
-    # v46: naye endpoints
-    rep = hub.hub_num_report("9058390341")
-    ok("num report (people[] merge) chala", rep.get("ok") and rep["people"][0]["name"] == "TEST USER"
-       and rep["people"][0]["father"] == "TEST FATHER", rep)
-    ok("num report me phone/address bhi", rep["people"][0]["phones"] == ["9058390341"]
-       and rep["people"][0]["addresses"] == ["Patna, Bihar"], rep["people"][0])
+    # v49.9: leaked record parser (naam/papa/address) poora code se hata diya — kanoon
+    ok("leaked-records parser code me nahi hai (legal saaf)",
+       not hasattr(hub, "hub_num_report"), dir(hub))
 
     veh = hub.hub_vehicle_report_new("BR30AR0802")
     ok("vehicle-report parse hua", veh.get("ok") and veh["vehicle"]["maker"] == "HONDA"
@@ -294,8 +291,13 @@ def test_tools_hub():
     tb = ct.resolve_terabox("https://1024terabox.com/s/1ahJz-qdH7h_9One0lXxDoA")
     ok("TERABOX tool hub engine se", tb.get("ok") and "API Hub" in str(tb.get("provider", "")), tb.get("provider"))
 
+    # v49.9: leaked personal records (naam/pata/Aadhaar) HAMESHA blocked — kanoon (DPDP/Aadhaar Act)
     rec = ost.lookup_public_records("9876543210")
-    ok("NUM-INFO (public records) hub se", rec.get("ok") and "hub" in str(rec.get("source", "")), rec)
+    ok("LEAKED RECORDS BLOCKED (kanooni safety)", rec.get("ok") is False and rec.get("blocked") is True,
+       f"blocked={rec.get('blocked')}")
+
+    sf = ost.number_safety_info("9876543210")
+    ok("SAFETY CARD (legal) links", sf.get("ok") and len(sf.get("links") or []) >= 3, len(sf.get("links") or []))
 
     un = ost.check_username_platforms("sumit_sharma2")
     ok("ID finder profiles bhi deta hai", un.get("ok") and "instagram" in (un.get("profiles") or {}),

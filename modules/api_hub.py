@@ -733,48 +733,6 @@ def hub_num_info(number_digits: str) -> dict:
 # =====================================================================
 # 🧾 NUM REPORT (full)  →  /num-info   [hub par abhi OFF ho sakta hai]
 # =====================================================================
-def hub_num_report(number_digits: str) -> dict:
-    """Number → poora report (naam/papa/address). Hub par ON ho to data aayega."""
-    dg = re.sub(r"\D", "", number_digits or "")
-    if len(dg) == 10:
-        dg = "91" + dg
-    if len(dg) != 12:
-        return {"ok": False, "error": "10 digit number bhejo"}
-    res = hub_try([("/num-info", {"q": dg}), ("/number-info", {"q": dg}), ("/num", {"q": dg})], timeout=70)
-    if not res.get("ok"):
-        return {"ok": False, "disabled_by_hub": res.get("disabled_by_hub", False),
-                "error": res.get("error") or "Hub se jawab nahi aaya"}
-    d = res["data"]
-    people = []
-    raw_people = d.get("people") if isinstance(d, dict) else None
-    if not isinstance(raw_people, list):
-        raw_people = _find_list(d, keys=("people", "records", "results", "data"))
-    for p in (raw_people or [])[:5]:
-        if not isinstance(p, dict):
-            continue
-        phones = p.get("phones") or p.get("alt_phones") or []
-        people.append({
-            "name": str(_pick(p, "name", "full_name", default="") or ""),
-            "father": str(_pick(p, "father_name", "father", "guardian", default="") or ""),
-            "phones": [str(x) for x in phones][:6] if isinstance(phones, list) else [],
-            "alt_phones": [str(x) for x in (p.get("alt_phones") or [])][:6],
-            "region": str(_pick(p, "region", "operator", "circle", default="") or ""),
-            "govt_ids": [str(x) for x in (p.get("govt_ids") or [])][:4],
-            "addresses": [str(x) for x in (p.get("addresses") or [])][:4]
-                         if isinstance(p.get("addresses"), list) else ([str(p.get("address"))] if p.get("address") else []),
-            "sources": p.get("sources") or [],
-        })
-    return {"ok": bool(people), "source": res.get("source") or f"hub{res.get('endpoint')}",
-            "number": dg, "people": people, "count": len(people),
-            "record_count": _pick(d, "record_count", "total", default=len(people)),
-            "sources_used": d.get("sources_used") if isinstance(d, dict) else None,
-            "formatted": (d.get("formatted") if isinstance(d, dict) else "") or "",
-            "error": "" if people else "Is number ka koi record nahi mila."}
-
-
-# =====================================================================
-# 🚗 VEHICLE FULL REPORT  →  /vehicle-report   [hub par abhi OFF ho sakta hai]
-# =====================================================================
 def hub_vehicle_report_new(plate: str) -> dict:
     """Plate → RC + RTO + insurance + PUC + challans (ek hi call me)."""
     pl = re.sub(r"[^A-Za-z0-9]", "", plate or "").upper()

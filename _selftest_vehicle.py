@@ -235,7 +235,8 @@ vc._CACHE.clear()
 # --------------------------------------------------------- 2) CARD TEXT
 print("\n--- 2) CARD TEXT (jo user ko dikhta hai) ---")
 card = vc.render_vehicle_report(res)
-for want in ("VEHICLE REPORT — HR26EV0001", "TOYOTA KIRLOSKAR MOTOR PVT LTD", "FORTUNER LEGENDER (AT)",
+for want in ("╔═══════════════════════════╗", "🚘 <b>VEHICLE INFO REPORT</b>",
+             "🔢 <b>Number:</b> <code>HR26EV0001</code>", "TOYOTA KIRLOSKAR MOTOR PVT LTD", "FORTUNER LEGENDER (AT)",
              "MOTOR CAR(LMV)", "DIESEL", "124.6 cc", "BHARAT STAGE VI", "E****H Y***V",
              "HARYANA HEAD OFFICE CHD", "North Gurgaon", "10-Jun-2022", "26-May-2041", "LTT",
              "CHOLAMANDALAM", "01-May-2029", "07-Jun-2027", "CHALLANS — 20 mile",

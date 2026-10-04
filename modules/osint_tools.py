@@ -7,7 +7,7 @@ and REAL Username Existence Checker (GitHub / YouTube / TikTok / Steam / Telegra
 
 NOTE (safety): Default me sirf PUBLIC / lawful sources use hote hain (telecom carrier+circle, bank branch,
 pin code, IP geo). "Public records" lookup (naam/address wala) ek OPTIONAL feature hai jo bot owner ne
-khud enable kiya hai — env NUM_LEAK_ENABLED=off karke ise kabhi bhi band kiya ja sakta hai.
+v49.9 se HAMESHA BAND hai (leaked personal data — DPDP Act/Aadhaar Act ke khilaf).
 Iska misuse (kisi ko pareshan karna / blackmail / fraud) India me CRIME hai (IT Act + DPDP Act).
 """
 
@@ -351,7 +351,8 @@ def lookup_ip_domain(target: str) -> dict:
 # =====================================================================================
 NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-api-hub.onrender.com").rstrip("/")
 NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
-NUM_LEAK_ENABLED = lambda: os.environ.get("NUM_LEAK_ENABLED", "on").strip().lower() not in ("off", "0", "false", "no")
+# v49.9: leaked personal-record lookup HAMESHA off (kabhi on nahi hoga)
+NUM_LEAK_ENABLED = lambda: False
 
 PUBLIC_RECORD_WARNING = (
     "⚠️ <b>IMPORTANT:</b>\n"
@@ -365,59 +366,48 @@ PUBLIC_RECORD_WARNING = (
 
 def lookup_public_records(number: str) -> dict:
     """
-    OPTIONAL: user ke diye hue API se public-records (naam / address / father-name) nikalta hai.
-    Env se band: NUM_LEAK_ENABLED=off | API badalni ho: NUM_INFO_API_BASE / NUM_INFO_API_KEY
+    v49.9 (IMPORTANT): Ye feature JAAN-BOOJH KAR band hai — HAMESHA.
+
+    Number se naam / pita ka naam / pata / Aadhaar dikhana **leaked (chori ke) database**
+    se aata hai. India me ye:
+      • DPDP Act 2023 ke khilaf hai (personal data ka galat istemal)
+      • Aadhaar Act sec. 38 — Aadhaar number dikhana/batna = jail ho sakti hai
+      • Telegram bhi aise bots ko PERMANENT BAN kar deta hai
+    Isliye ye function ab kabhi personal record return nahi karega — chahe koi env set ho.
+    (Kanooni tarika: sirf carrier/operator/HLR data + official complaint links.)
     """
-    if not NUM_LEAK_ENABLED():
-        return {"ok": False, "disabled": True,
-                "error": "The owner has disabled this feature (NUM_LEAK_ENABLED=off)."}
+    return {
+        "ok": False,
+        "blocked": True,
+        "legal_block": True,
+        "error": ("Naam/pata/Aadhaar jaise personal records leaked databases se aate hain — "
+                  "inhe dikhana/becna kayde se MANA hai (DPDP Act 2023 + Aadhaar Act). "
+                  "Bot ban ho jata aur FIR ka khatra hota hai. Isliye ye band hai."),
+        "safe_alternatives": {
+            "carrier": "📱 Operator/Circle data (legal) — NUMBER INFO tool me",
+            "complaint": "🚨 Spam/fraud: Sanchar Saathi ya 1930",
+        },
+    }
 
+
+def number_safety_info(number: str) -> dict:
+    """LEGAL help card: carrier data (agar provider ho) + official complaint/report links."""
     digits = re.sub(r"\D", "", number or "")
-    if hub is not None and hub.hub_ready():
-        _rep = hub.hub_num_report(digits)
-        if _rep.get("ok") and _rep.get("people"):
-            return {"ok": True, "source": _rep.get("source", "hub"), "raw": _rep,
-                    "hub_people": _rep["people"], "formatted": _rep.get("formatted") or ""}
-        if _rep.get("disabled_by_hub"):
-            return {"ok": False, "disabled_by_hub": True,
-                    "error": "Public-records lookup abhi provider ne band kar diya hai. Upar wala number card phir bhi kaam karta hai."
-                             "The full number card above still works."}
-    if len(digits) == 10:
-        digits = "91" + digits
-    if len(digits) != 12:
-        return {"ok": False, "error": "10 digit ka mobile number bhejo (jaise 9876543210)"}
-
+    info = {"ok": True, "number": digits}
     try:
-        r = requests.get(f"{NUM_INFO_API_BASE()}/api/num-info",
-                         params={"key": NUM_INFO_API_KEY(), "q": digits},
-                         headers=UA_HEADERS, timeout=45)
-        if r.status_code != 200:
-            return {"ok": False, "error": f"API did not answer (HTTP {r.status_code})"}
-        j = r.json()
-    except Exception as e:
-        return {"ok": False, "error": f"Could not reach the API: {str(e)[:90]}"}
-
-    if not j.get("status"):
-        return {"ok": False, "error": j.get("error") or "Is number ka koi record nahi mila"}
-
-    data = j.get("data") or {}
-    raw = list(data.get("main_records") or []) + list(data.get("alternative_records") or [])
-    records = []
-    for rec in raw[:5]:
-        records.append({
-            "name": (rec.get("full_name") or rec.get("name") or "—").strip(),
-            "father": (rec.get("the_name_of_the_father") or "").strip(),
-            "address": (rec.get("address") or "").strip(),
-            "phone": (rec.get("phone") or "").strip(),
-            "doc": (rec.get("document_number") or "").strip(),
-            "region": (rec.get("region") or "").strip(),
-        })
-
-    if not records:
-        return {"ok": False, "error": "Record mila par khaali hai. Doosra number try karo."}
-
-    return {"ok": True, "number": digits, "records": records, "count": len(records),
-            "record_count": j.get("record_count", len(records)), "warning": PUBLIC_RECORD_WARNING}
+        if hub is not None and hub.hub_ready():
+            car = hub.hub_carrier_info(digits)
+            if car.get("ok"):
+                info.update({"operator": car.get("operator"), "circle": car.get("circle"),
+                             "type": car.get("type"), "ported": car.get("ported")})
+    except Exception:
+        pass
+    info["links"] = [
+        ("🚫 Spam/Fraud report (Chakshu)", "https://sancharsaathi.gov.in/sfc/"),
+        ("🚨 Cyber Crime — 1930", "https://cybercrime.gov.in/"),
+        ("🔎 MNP / Ported check", "https://tafcop.dgtelecom.gov.in/"),
+    ]
+    return info
 
 
 # =====================================================================================

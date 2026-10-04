@@ -664,7 +664,10 @@ def render_unavailable(res: dict) -> str:
     """Live API band hone par IMANDAAR card — official portal ke direct links."""
     plate = res.get("plate") or ""
     bd = plate_breakdown(plate) if plate else {"ok": False}
-    out = ["🚗 <b>VEHICLE / RTO INFO</b>"]
+    out = ["╔═══════════════════════════╗",
+           "🚘 <b>VEHICLE / RTO INFO</b>",
+           "╚═══════════════════════════╝",
+           ""]
     if bd.get("ok"):
         pretty = f"{bd['state_code']} {bd['district_code']} {bd['series']} {bd['number']}".strip()
         out.append(f"🔖 <b>Number Plate:</b> <code>{_e(pretty)}</code>")
@@ -700,7 +703,13 @@ def render_report(res: dict, max_challans: int = 6) -> str:
         return render_unavailable(res)
 
     maker_model = " ".join([x for x in (rc.get("maker", ""), rc.get("model", "")) if x]).strip() or "—"
-    out = [f"🚘 <b>VEHICLE REPORT{' — ' + _e(plate) if plate else ''}</b>", "━━━━━━━━━━━━━━━━━━━━━━"]
+
+    out = ["╔═══════════════════════════╗",
+           "🚘 <b>VEHICLE INFO REPORT</b>",
+           "╚═══════════════════════════╝",
+           "",
+           f"🔢 <b>Number:</b> <code>{_e(plate) if plate else '—'}</code>",
+           "━━━━━━━━━━━━━━━━━━━━━━"]
 
     # vehicle
     line = ["🚗 <b>VEHICLE</b>", f"• <b>Maker / Model:</b> {_e(maker_model)}"]
