@@ -5,6 +5,8 @@ QR code, Image-to-PDF, URL Shortener, EMI & Interest, Age, Password, Multi-Sourc
 """
 
 import io
+import re
+from datetime import datetime, timezone
 from urllib.parse import quote
 import qrcode
 import requests
@@ -117,6 +119,155 @@ def site_screenshot(url: str, fullpage: bool = False, width: int = 1280, height:
                     return io.BytesIO(r2.content)
     except Exception:
         pass
+    return None
+
+
+# =====================================================================================
+# 🌦️ WEATHER — Open-Meteo (100% FREE, koi API key nahi) — v50
+# =====================================================================================
+WMO_WEATHER = {
+    0: ("☀️", "Bilkul saaf aasmaan"),
+    1: ("🌤️", "Zyada tar dhoop, thode baadal"),
+    2: ("⛅", "Aadhi dhoop, aadhi baadal"),
+    3: ("☁️", "Poora baadal — dhundla"),
+    45: ("🌫️", "Khuwaan (fog)"),
+    48: ("🌫️", "Barf ka khuwaan (icing fog)"),
+    51: ("🌦️", "Halki bheedi (drizzle)"),
+    53: ("🌦️", "Bheedi"),
+    55: ("🌧️", "Tez bheedi"),
+    56: ("🌧️", "Halki barf-bheedi"),
+    57: ("🌧️", "Tez barf-bheedi"),
+    61: ("🌦️", "Halki baarish"),
+    63: ("🌧️", "Baarish"),
+    65: ("🌧️", "Tez baarish"),
+    66: ("❄️", "Barf-baarish"),
+    67: ("❄️", "Tez barf-baarish"),
+    71: ("🌨️", "Halki barf"),
+    73: ("❄️", "Baarish saath barf"),
+    75: ("❄️", "Tez barf"),
+    77: ("❄️", "Barf ke daane (snow grains)"),
+    80: ("🌦️", "Halki baarish ke chhank"),
+    81: ("🌧️", "Baarish ke chhank"),
+    82: ("⛈️", "Tez baarish ke chhank"),
+    85: ("🌨️", "Barf ke chhank"),
+    86: ("❄️", "Tez barf ke chhank"),
+    95: ("⛈️", "Baadline (thunderstorm)"),
+    96: ("⛈️", "Baadline + barfdaane"),
+    99: ("⛈️", "Tez baadline + barfdaane"),
+}
+
+WEATHER_CITY_ALIASES = {
+    "gaya": "Gaya", "gaya bihar": "Gaya", "patna": "Patna",
+    "muzaffarpur": "Muzaffarpur", "bhagalpur": "Bhagalpur",
+    "munger": "Munger", "darbhanga": "Darbhanga",
+    "sitamarhi": "Sitamarhi", "hajipur": "Hazipur",
+}
+
+
+def weather_report(query: str) -> dict:
+    """City naam → abhi ka mausam + aage 3 din ka forecast (Open-Meteo, free, no key).
+
+    Returns {ok, place, temp, feels, humidity, wind, rain_today, icon, desc,
+             sunrise, sunset, forecast:[{date,icon,max,min,rain}]}
+    """
+    q = (query or "").strip()
+    if not q:
+        return {"ok": False, "error": "Shehar ka naam bhejo (jaise <code>Gaya</code> ya <code>Pune</code>)."}
+    alias = WEATHER_CITY_ALIASES.get(q.lower())
+
+    # 1) geocoding (naam → lat/lon)
+    try:
+        r = requests.get(
+            "https://geocoding-api.open-meteo.com/v1/search",
+            params={"name": alias or q, "count": 6, "language": "en", "format": "json"},
+            headers=UA, timeout=12,
+        )
+        hits = (r.json() or {}).get("results") or []
+    except Exception as e:
+        return {"ok": False, "error": f"City search fail ho gaya: {str(e)[:80]}"}
+    if not hits:
+        return {"ok": False,
+                "error": ("Ye sheher nahi mila. Poora naam likho (jaise <code>Gaya</code>, "
+                          "<code>Pune</code>, <code>Ranchi</code>, <code>Kolkata</code>).")}
+    hits.sort(key=lambda h: 0 if str(h.get("country", "")).lower() == "india" else 1)
+    hit = hits[0]
+    lat, lon = hit["latitude"], hit["longitude"]
+    place = ", ".join(x for x in [hit.get("name"), hit.get("admin1"), hit.get("country")] if x)
+
+    # 2) current + daily forecast
+    try:
+        r = requests.get("https://api.open-meteo.com/v1/forecast", params={
+            "latitude": lat, "longitude": lon,
+            "current": "temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,precipitation",
+            "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,sunrise,sunset",
+            "timezone": "auto", "forecast_days": 4,
+        }, headers=UA, timeout=15)
+        j = r.json()
+    except Exception as e:
+        return {"ok": False, "error": f"Weather server se jawab nahi aaya: {str(e)[:80]}"}
+
+    cur = j.get("current") or {}
+    daily = j.get("daily") or {}
+    codes = daily.get("weather_code") or []
+    tmax = daily.get("temperature_2m_max") or []
+    tmin = daily.get("temperature_2m_min") or []
+    prob = daily.get("precipitation_probability_max") or []
+    days = daily.get("time") or []
+    sunr = (daily.get("sunrise") or [""])[0]
+    suns = (daily.get("sunset") or [""])[0]
+    try:
+        code_now = int(cur.get("weather_code", 0) or 0)
+    except Exception:
+        code_now = 0
+    icon, desc = WMO_WEATHER.get(code_now, ("🌡️", "Weather update"))
+
+    forecast = []
+    for i in range(1, min(4, len(days))):
+        try:
+            di_code = int(codes[i] or 0)
+        except Exception:
+            di_code = 0
+        forecast.append({
+            "date": days[i],
+            "icon": WMO_WEATHER.get(di_code, ("🌡️", ""))[0],
+            "max": tmax[i] if i < len(tmax) and tmax[i] is not None else None,
+            "min": tmin[i] if i < len(tmin) and tmin[i] is not None else None,
+            "rain": prob[i] if i < len(prob) and prob[i] is not None else None,
+        })
+    try:
+        rain_today = int(prob[0]) if prob and prob[0] is not None else None
+    except Exception:
+        rain_today = None
+
+    def _hhmm(s):
+        return str(s).split("T")[-1][:5] if s else "—"
+
+    return {
+        "ok": True, "place": place, "city": hit.get("name", q),
+        "temp": cur.get("temperature_2m"), "feels": cur.get("apparent_temperature"),
+        "humidity": cur.get("relative_humidity_2m"), "wind": cur.get("wind_speed_10m"),
+        "rain_today": rain_today, "icon": icon, "desc": desc,
+        "sunrise": _hhmm(sunr), "sunset": _hhmm(suns),
+        "forecast": forecast, "lat": lat, "lon": lon,
+    }
+
+
+def domain_age_days(domain: str):
+    """FREE RDAP se domain kitne din purana hai. None = nahi mila (check skip)."""
+    try:
+        d = (domain or "").lower().strip().rstrip(".")
+        if not d or re.match(r"^\d{1,3}(\.\d{1,3}){3}$", d) or not re.search(r"\.", d):
+            return None
+        r = requests.get(f"https://rdap.org/domain/{d}", headers=UA, timeout=10, allow_redirects=True)
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        for ev in (j.get("events") or []):
+            if ev.get("eventAction") == "registration" and ev.get("eventDate"):
+                dte = datetime.fromisoformat(str(ev["eventDate"]).replace("Z", "+00:00"))
+                return max(0, (datetime.now(timezone.utc) - dte).days)
+    except Exception:
+        return None
     return None
 
 

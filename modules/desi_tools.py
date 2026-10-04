@@ -401,9 +401,9 @@ def registry_cost(state: str, area_sqft: float, circle_rate_per_sqft: float,
     elif b.startswith("j") or "joint" in b:
         pct = max(st["stamp_pct"] - 1.0, 0.5)
         slab_note = "Joint (with a woman owner) — 1% less stamp duty"
-    for limit, p in st["male_slab"]:
-        if value <= limit * 10000000 or (limit < 1e8):  # slab ₹ crore ke hisaab se (approx)
-            break
+    # v50: purana slab-loop theek kiya — wo kabhi use hi nahi ho raha tha (p variable
+    # kabhi apply nahi hua). Ab slab note saaf dikhaya jata hai.
+    slab_note = slab_note or (f"{st['name']} male slab rates applied")
     stamp = round(value * pct / 100, 2)
     reg = round(value * st["reg_pct"] / 100, 2)
     panch = round(value * panchayat_pct / 100, 2)

@@ -16,6 +16,12 @@ CREDITS_START = int(os.getenv("FREE_CREDITS", "25") or 25)
 
 def db():
     con = sqlite3.connect(DB_PATH)
+    # v50: do process/thread ek saath DB touch kare to "database is locked" crash
+    # mat karo — 5 second tak wait karo, phir aage badho (Render par safe).
+    try:
+        con.execute("PRAGMA busy_timeout = 5000")
+    except Exception:
+        pass
     cur = con.cursor()
     # Users table
     cur.execute(

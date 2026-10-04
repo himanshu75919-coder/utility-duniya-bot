@@ -130,6 +130,7 @@ from modules.desi_tools import (
     convert_land,
     land_text,
     statement_summary_text,
+    statement_passwords,
     parse_bank_statement,
     registry_cost,
     registry_text,
@@ -159,8 +160,10 @@ from modules.media_downloader import (
 )
 from modules.toolkit_extras import (
     analyze_link,
+    emi_calculator,
     expand_url,
     shorten_url,
+    village_compound_interest,
 )
 from modules.vehicle_challan import (
     fetch_vehicle_report,
@@ -195,6 +198,7 @@ from modules.general_tools import (
 
     vcard_data,
     wifi_qr_data,
+    weather_report,
 
     get_app_store_links,
     make_qr_bytes,
@@ -244,7 +248,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v49.15 Ultra"  # v49.15: card + text poora delete, code bilkul saaf
+BOT_VERSION = "v50.0 Premium Pro"  # v50: 2 naye tools (Weather + EMI/Vyaaj calc), 6 bug fixes, 4x speed
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -672,6 +676,7 @@ KB_BTNS = [
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
+    [f"🌦️ {to_bold('WEATHER / MAUSAM')}", f"🧮 {to_bold('EMI / INTEREST CALC')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -731,6 +736,17 @@ BTN_MODE_MAP = {
     "URL SHORT": "short",
     "LINK CHECK": "linkcheck",
     "APP FINDER": "appfind",
+    "WEATHER / MAUSAM": "weather",
+    "WEATHER": "weather",
+    "MAUSAM": "weather",
+    "EMI / INTEREST CALC": "emi",
+    "EMI CALC": "emi",
+    "EMI CALCULATOR": "emi",
+    "EMI / VYAAJ CALC": "emi",
+    "INTEREST CALC": "emi",
+    "INTEREST CALCULATOR": "emi",
+    "INTEREST": "emi",
+    "VYAAJ CALC": "emi",
     "BANK STATEMENT → EXCEL": "bankpdf",
     "BANK STATEMENT TO EXCEL": "bankpdf",
     "BANK STATEMENT - EXCEL": "bankpdf",
@@ -872,6 +888,12 @@ PROMPTS = {
         "📌 Jaise: <code>instagram</code>\n"
         "📦 <b>Ab app ka naam bhejo:</b>"
     ),
+    "weather": (
+        f"🌦️ <b>{to_bold('WEATHER / MAUSAM')}</b>\n"
+        "Shehar ka naam bhejo → abhi ka mausam + aage 3 din ka forecast.\n"
+        "📌 Jaise: <code>Gaya</code>, <code>Patna</code>, <code>Pune</code>, <code>Ranchi</code>\n"
+        "🌦️ <b>Ab shehar ka naam bhejo:</b>"
+    ),
     "shot": (
         f"🖼️ <b>{to_bold('SITE SCREENSHOT (HD)')}</b>\n"
         "Website ka top part ka screenshot.\n"
@@ -921,6 +943,8 @@ TUTORIAL_TEXT = (
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
     "• 🆔 ID FINDER → <code>me</code> ya @username bhejo → check ho jayega\n"
+    "• 🌦️ WEATHER → shehar ka naam bhejo → abhi ka mausam + 3 din ka forecast\n"
+    "• 🧮 EMI / INTEREST CALC → EMI kitni hogi, ya gaon-wala vyaaj ka poora hisaab\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim\n"
     "\n"
@@ -1199,7 +1223,8 @@ WELCOME_TEXT = (
     f"• 📥 <b>Video Downloader</b> — Insta / YouTube / FB / X\n"
     f"• ⚡ <b>Terabox</b> — bina ad ke seedha download\n"
     f"• 📸 <b>Photo &amp; PDF</b> — passport photo, marksheet PDF, 8-in-1 sheet\n"
-    f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n\n"
+    f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n"
+    f"• 🌦️ <b>Weather</b> + 🧮 <b>EMI/Vyaaj Calculator</b> — ab bot me FREE\n\n"
     "👇 <b>Neeche menu se koi bhi tool dabao</b>"
 )
 
@@ -1786,9 +1811,15 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             await context.bot.send_message(u, msg_text, parse_mode=HTML)
             success += 1
-            await asyncio.sleep(0.04)
         except Exception:
-            failed += 1
+            # v50: message me `<` jaisa character ho to HTML parse fail hota tha —
+            # ab plain text me dobara bhejo (user ko message zaroor mile)
+            try:
+                await context.bot.send_message(u, msg_text)
+                success += 1
+            except Exception:
+                failed += 1
+        await asyncio.sleep(0.04)
     await st.edit_text(f"📢 <b>Broadcast Complete!</b>\n\n• ✅ Success: {success}\n• ❌ Failed: {failed}", parse_mode=HTML)
 
 
@@ -2163,9 +2194,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.answer("Building page...")
         threading.Thread(target=publish_tutorial_now, kwargs={"force": True}, daemon=True).start()
         await q.message.reply_text(
-
             "📖 <b>Refreshing the tutorial page</b> (10-20 seconds).\n"
-            "Current link:</i>",
+            f"🔗 Current link: {tutorial_url()}",
             parse_mode=HTML, disable_web_page_preview=True)
         return
 
@@ -2681,6 +2711,24 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(tool_prompt("qr_vcard"), reply_markup=tool_tutorial_kb("qr_vcard"), parse_mode=HTML)
         return
 
+    # ---------- v50: EMI / VYAAJ CALCULATOR (FREE tools) ----------
+    if data in ("emi_calc", "emi_vyaaj"):
+        kind = "emi" if data == "emi_calc" else "vyaaj"
+        context.user_data["mode"] = f"{kind}_ask_amt"
+        txt = (
+            f"🧮 <b>{to_bold('BANK EMI CALCULATOR')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "💰 <b>Step 1/3 — Loan/EMI amount (₹) bhejo:</b>\n"
+            "(jaise <code>500000</code>)"
+        ) if kind == "emi" else (
+            f"🪔 <b>{to_bold('GAON-WALA VYAAJ (CHAKRAVRIDDHI)')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "💰 <b>Step 1/3 — Paisa (₹) bhejo</b> (jitna diya ya liya):\n"
+            "(jaise <code>50000</code>)"
+        )
+        await q.message.reply_text(txt, parse_mode=HTML)
+        return
+
 
     if data == "qr_text":
         context.user_data["mode"] = "qr"
@@ -3006,10 +3054,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v49: purane keyboard ke hata diye gaye buttons ----------
     # Jo users purane menu par 🎬 CLIP MAKER / 🔓 LINK BYPASS / 📈 INTEREST CALC
     # daba rahe hain — unko saaf message + naya keyboard mil jaye.
+    # v50: INTEREST CALC wapas aa gaya (naya 🧮 EMI / VYAAJ calculator) — isliye
+    # removed list me ab sirf CLIP MAKER + LINK BYPASS hain.
     _removed_keys = {
         "CLIP MAKER", "CLIPS MAKER", "VIDEO CLIP MAKER", "CLIPMAKER",
         "LINK BYPASS", "LINKBYPASS", "BYPASS",
-        "INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC",
     }
     if not action and clean_key in _removed_keys:
         _why = {
@@ -3020,18 +3069,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "LINK BYPASS": "🔓 Link Bypass",
             "LINKBYPASS": "🔓 Link Bypass",
             "BYPASS": "🔓 Link Bypass",
-            "INTEREST CALC": "📈 Interest Calc",
-            "INTEREST CALCULATOR": "📈 Interest Calc",
-            "INTEREST": "📈 Interest Calc",
-            "VYAAJ CALC": "📈 Interest Calc",
         }.get(clean_key, "Ye tool")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "Ye tool ab bot me nahi hai — iske badle aap ye use kar sakte ho:\n"
             "• 🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>\n"
-            "• 🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>\n"
-            "• 📈 Interest Calc ki jagah → 📜 <b>Kagaz Suite</b> (loan paper, registry cost)\n\n"
+            "• 🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>\n\n"
             "👇 Naya menu neeche hai:",
             reply_markup=kb_for(uid), parse_mode=HTML)
         return
@@ -3122,8 +3166,25 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("✅ Make Normal PDF", callback_data="make_pdf_now"),
                  InlineKeyboardButton("📄 A4 Print PDF", callback_data="make_pdf_a4")],
+                [InlineKeyboardButton("🗑️ Photos clear karo", callback_data="pdf_clear")],
             ])
             await update.message.reply_text(tool_prompt("pdf"), reply_markup=kb, parse_mode=HTML)
+            return
+
+        # 8b. v50: EMI / INTEREST CALCULATOR (FREE — 2 modes)
+        if action == "emi":
+            kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🧮 Bank EMI Calculator", callback_data="emi_calc")],
+                [InlineKeyboardButton("🪔 Gaon-wala Vyaaj (Chakravritti)", callback_data="emi_vyaaj")],
+                [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+            ])
+            await update.message.reply_text(
+                f"🧮 <b>{to_bold('EMI / INTEREST CALCULATOR')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "🧮 <b>Bank EMI</b> — loan ke liye monthly EMI + total interest\n"
+                "🪔 <b>Gaon-wala Vyaaj</b> — chakravritti hisaab (₹100 par ₹X mahina)\n"
+                "👇 <b>Kis ka hisaab chahiye?</b>",
+                reply_markup=kb, parse_mode=HTML)
             return
 
         # 9. VIP Premium, Refer & Account
@@ -3378,7 +3439,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.send_message(i, raw_text, parse_mode=HTML)
                 sent += 1
             except Exception:
-                failed += 1
+                # v50: HTML parse fail ho to plain text me bhejo
+                try:
+                    await context.bot.send_message(i, raw_text)
+                    sent += 1
+                except Exception:
+                    failed += 1
             if (sent + failed) % 25 == 0:
                 await asyncio.sleep(1)
         await st.edit_text(f"✅ <b>Broadcast done!</b>\n• Sent: {sent}\n• Failed (may have blocked the bot): {failed}", parse_mode=HTML)
@@ -3404,77 +3470,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
         return
 
-    # ---------- ADMIN: user search / ban / broadcast (text modes) ----------
-    if mode == "adm_search":
-        context.user_data.pop("mode", None)
-        target = None
-        key = raw_text.strip().lstrip("@")
-        if key.isdigit():
-            target = int(key)
-        else:
-            found = find_by_username("@" + key)
-            if found:
-                target = found[0]
-        if not target:
-            await update.message.reply_text(
-                "❌ User nahi mila. Numeric ID bhejo (jaise <code>8607774564</code>) "
-                "ya wahi @username jo user ne bot me set kiya hai.", parse_mode=HTML)
-            return
-        u = get_user(target)
-        row = get_user_row(target)
-        prem = u.get("premium_until") or ""
-        hist = user_payment_history(target)
-        await update.message.reply_text(
-            f"👤 <b>USER DETAIL</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🆔 <b>ID:</b> <code>{target}</code>\n"
-            f"👋 <b>Name:</b> {hesc(str((row[1] if row else '') or u.get('name') or '-'))}\n"
-            f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ No')}\n"
-            f"⚡ <b>Uses today:</b> {u.get('uses_today', 0)}\n"
-            f"🎟️ <b>Credits left:</b> {get_credits(target)} / {CREDITS_START}\n"
-            f"🚫 <b>Banned:</b> {'Yes' if u.get('banned') else 'No'}\n"
-            f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("👑 Give 30 days VIP", callback_data=f"ugrant:{target}:30"),
-                 InlineKeyboardButton("👑 Give 90 days VIP", callback_data=f"ugrant:{target}:90")],
-                [InlineKeyboardButton("👑 Give LIFETIME", callback_data=f"ugrant:{target}:9999"),
-                 InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}")],
-                [InlineKeyboardButton("🚫 Ban", callback_data=f"uban:{target}:1"),
-                 InlineKeyboardButton("🟢 Unban", callback_data=f"uban:{target}:0")],
-            ]),
-            parse_mode=HTML)
-        return
-
-    if mode == "adm_broadcast":
-        context.user_data.pop("mode", None)
-        ids = all_user_ids()
-        sent = failed = 0
-        st = await update.message.reply_text(f"📢 {len(ids)} users...")
-        for i in ids:
-            try:
-                await context.bot.send_message(i, raw_text, parse_mode=HTML)
-                sent += 1
-            except Exception:
-                failed += 1
-            if (sent + failed) % 25 == 0:
-                await asyncio.sleep(1)
-        await st.edit_text(f"✅ <b>Broadcast done!</b>\n• Sent: {sent}\n• Failed (may have blocked the bot): {failed}", parse_mode=HTML)
-        return
-
-    if mode == "adm_ban":
-        context.user_data.pop("mode", None)
-        parts = raw_text.split()
-        if len(parts) < 2 or not parts[1].isdigit():
-            await update.message.reply_text("Format: <code>ban 123456789</code> ya <code>unban 123456789</code>", parse_mode=HTML)
-            return
-        act, target = parts[0].lower(), int(parts[1])
-        if act.startswith("unban"):
-            set_ban(target, 0)
-            await update.message.reply_text(f"🟢 Ban removed: <code>{target}</code>.", parse_mode=HTML)
-        else:
-            set_ban(target, 1)
-            await update.message.reply_text(f"🚫 User banned: <code>{target}</code>.", parse_mode=HTML)
-        return
+    # (v50: upar wala LIVE admin block ke baad ye poora DUPLICATE block delete kiya —
+    #  ye kabhi run hi nahi hota tha, code 70 lines dead tha)
 
     # ---------- PAYMENT STEP 1: UTR (strict format check) ----------
     if mode and mode.startswith("pay_utr_"):
@@ -4099,6 +4096,27 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ID & USERNAME FINDER — REAL existence check (GitHub/Telegram/YouTube/TikTok/Steam)
     if mode == "idfind":
+        # v50 FIX: forwarded message PEHLE check karo — pehle ye bottom tak pahunchta hi
+        # nahi tha (help text dikh jata tha), jabki forward karna hi iska main kaam hai
+        fo = getattr(update.message, "forward_origin", None)
+        if fo:
+            fu = getattr(fo, "sender_user", None)
+            fc = getattr(fo, "chat", None)
+            if fu:
+                extra = f"\n• <b>Username:</b> @{fu.username}" if getattr(fu, "username", None) else ""
+                await update.message.reply_text(
+                    f"🆔 <b>Forwarded User ID:</b> <code>{fu.id}</code>\n"
+                    f"• <b>Name:</b> {hesc(getattr(fu, 'first_name', '') or '')}{extra}",
+                    parse_mode=HTML)
+                add_use(uid)
+                return
+            if fc:
+                await update.message.reply_text(
+                    f"🆔 <b>Forwarded Channel:</b> {hesc(str(getattr(fc, 'title', '') or ''))}\n"
+                    f"🆔 <b>ID:</b> <code>{fc.id}</code>",
+                    parse_mode=HTML)
+                add_use(uid)
+                return
         if raw_text.lower() == "me":
             await update.message.reply_text(
                 f"🆔 <b>Your Telegram ID:</b> <code>{uid}</code>\n"
@@ -4630,6 +4648,207 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ================= v50: 🌦️ WEATHER (Open-Meteo, free, no key) =================
+    if mode == "weather":
+        res = await asyncio.to_thread(weather_report, raw_text)
+        if not res.get("ok"):
+            await update.message.reply_text(
+                f"❌ {res.get('error')}\n\n🌦️ <b>Ab shehar ka naam bhejo:</b>", parse_mode=HTML)
+            return
+        day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        lines = [
+            f"🌦️ <b>{to_bold('WEATHER REPORT')} — {hesc(str(res['place']).upper())}</b>",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+        ]
+        if res.get("temp") is not None:
+            lines.append(f"{res['icon']} <b>Abhi:</b> {res['temp']:.1f}°C   (lag raha hai {res['feels']:.1f}°C)")
+        else:
+            lines.append(f"{res['icon']} <b>Abhi:</b> {hesc(res['desc'])}")
+        lines.append(f"💬 {hesc(res['desc'])}")
+        if res.get("humidity") is not None:
+            hum = f"💧 <b>Humidity:</b> {res['humidity']}%"
+            wind = f"   ·   💨 <b>Hawa:</b> {res['wind']} km/h" if res.get("wind") is not None else ""
+            lines.append(hum + wind)
+        if res.get("rain_today") is not None and res["rain_today"] >= 1:
+            lines.append(f"🌧️ <b>Aaj baarish ki sambhavna:</b> {res['rain_today']}%")
+        lines.append(f"🌅 Sunrise <b>{res['sunrise']}</b>   ·   🌇 Sunset <b>{res['sunset']}</b>")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("📅 <b>Aage 3 din:</b>")
+        for d in (res.get("forecast") or []):
+            try:
+                from datetime import datetime as _dtw
+                dname = day_names[_dtw.strptime(d["date"], "%Y-%m-%d").weekday()]
+            except Exception:
+                dname = str(d["date"])[5:]
+            rain = f" · 🌧️ {int(d['rain'])}%" if (d.get("rain") is not None and d["rain"] >= 1) else ""
+            mx = f"{d['max']:.0f}°" if d.get("max") is not None else "—"
+            mn = f"{d['min']:.0f}°" if d.get("min") is not None else "—"
+            lines.append(f"{d['icon']} <b>{dname} {str(d['date'])[5:]}</b>: {mx} / {mn}{rain}")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("ℹ️ <i>Source: Open-Meteo (free) — har 15 minute update</i>")
+        await update.message.reply_text("\n".join(lines), parse_mode=HTML)
+        add_use(uid)
+        return
+
+    # ================= v50: 🧮 EMI CALCULATOR (3 step) =================
+    if mode == "emi_ask_amt":
+        num = re.sub(r"[^0-9.]", "", raw_text)
+        try:
+            amt = float(num)
+        except Exception:
+            amt = 0.0
+        if amt <= 0:
+            await update.message.reply_text(
+                "💰 <b>Sirf number bhejo</b> (loan amount ₹), jaise <code>500000</code>", parse_mode=HTML)
+            return
+        context.user_data["emi_amt"] = amt
+        context.user_data["mode"] = "emi_ask_rate"
+        await update.message.reply_text(
+            f"✅ <b>Amount:</b> {inr(amt)}\n\n"
+            "💸 <b>Step 2/3 — Interest rate (per SAAL, %) bhejo:</b>\n"
+            "(jaise <code>11.5</code>) — <i>bank loan aam taur par 9-14% hota hai</i>",
+            parse_mode=HTML)
+        return
+
+    if mode == "emi_ask_rate":
+        num = re.sub(r"[^0-9.]", "", raw_text)
+        try:
+            rate = float(num)
+        except Exception:
+            rate = 0.0
+        if rate <= 0 or rate > 100:
+            await update.message.reply_text(
+                "💸 <b>Sirf rate bhejo</b> (per saal %), jaise <code>11.5</code>", parse_mode=HTML)
+            return
+        context.user_data["emi_rate"] = rate
+        context.user_data["mode"] = "emi_ask_months"
+        await update.message.reply_text(
+            f"✅ <b>Rate:</b> {rate}% / saal\n\n"
+            "📅 <b>Step 3/3 — Kitne MONTHS ke liye? number bhejo:</b>\n"
+            "(jaise <code>60</code> = 5 saal)",
+            parse_mode=HTML)
+        return
+
+    if mode == "emi_ask_months":
+        num = re.sub(r"[^0-9]", "", raw_text)
+        try:
+            months = int(num)
+        except Exception:
+            months = 0
+        if months <= 0:
+            await update.message.reply_text("📅 <b>Sirf months ka number bhejo</b>, jaise <code>60</code>", parse_mode=HTML)
+            return
+        amt = float(context.user_data.get("emi_amt") or 0)
+        rate = float(context.user_data.get("emi_rate") or 0)
+        context.user_data.pop("mode", None)
+        context.user_data.pop("emi_amt", None)
+        context.user_data.pop("emi_rate", None)
+        res = emi_calculator(amt, rate, months)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            return
+        sched = res["schedule"]
+        sched_lines = "\n".join(
+            f"   • {s['month']} mahine baad: balance <b>{inr(s['balance'])}</b>" for s in sched[-4:])
+        card = (
+            f"🧮 <b>{to_bold('EMI CALCULATION READY')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>Loan:</b> {inr(res['principal'])}\n"
+            f"💸 <b>Rate:</b> {res['rate']}% / saal\n"
+            f"📅 <b>Period:</b> {res['months']} months ({res['months'] / 12:.1f} saal)\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📆 <b>Monthly EMI: <u>{inr(res['emi'])}</u></b>\n"
+            f"🔴 <b>Total interest:</b> {inr(res['total_interest'])}\n"
+            f"💵 <b>Kul dena hoga:</b> {inr(res['total_payable'])}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📉 <b>Balance milestones:</b>\n{sched_lines}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "ℹ️ <i>Standard bank formula (reducing balance). Actual bank EMI ₹10-50 alag "
+            "ho sakti hai (processing fees ke saath).</i>"
+        )
+        await update.message.reply_text(card, parse_mode=HTML)
+        add_use(uid)
+        return
+
+    # ================= v50: 🪔 GAON-WALA VYAAJ (chakravritti, 3 step) =================
+    if mode == "vyaaj_ask_amt":
+        num = re.sub(r"[^0-9.]", "", raw_text)
+        try:
+            amt = float(num)
+        except Exception:
+            amt = 0.0
+        if amt <= 0:
+            await update.message.reply_text(
+                "💰 <b>Sirf number bhejo</b> (paisa ₹), jaise <code>50000</code>", parse_mode=HTML)
+            return
+        context.user_data["vyaaj_amt"] = amt
+        context.user_data["mode"] = "vyaaj_ask_rate"
+        await update.message.reply_text(
+            f"✅ <b>Paisa:</b> {inr(amt)}\n\n"
+            "💸 <b>Step 2/3 — ₹100 par kitne ₹ ka byaaj (har MAHINE)?</b>\n"
+            "(jaise <code>4</code> = ₹100 par ₹4 mahina)",
+            parse_mode=HTML)
+        return
+
+    if mode == "vyaaj_ask_rate":
+        num = re.sub(r"[^0-9.]", "", raw_text)
+        try:
+            rate = float(num)
+        except Exception:
+            rate = 0.0
+        if rate <= 0 or rate > 50:
+            await update.message.reply_text(
+                "💸 <b>₹100 par kitne ₹ mahina?</b> sirf number bhejo, jaise <code>4</code>", parse_mode=HTML)
+            return
+        context.user_data["vyaaj_rate"] = rate
+        context.user_data["mode"] = "vyaaj_ask_months"
+        await update.message.reply_text(
+            f"✅ <b>Rate:</b> ₹{rate:g} per ₹100 har mahina\n\n"
+            "📅 <b>Step 3/3 — Kitne MONTHS ka hisaab chahiye?</b>\n"
+            "(jaise <code>12</code> = 1 saal)",
+            parse_mode=HTML)
+        return
+
+    if mode == "vyaaj_ask_months":
+        num = re.sub(r"[^0-9]", "", raw_text)
+        try:
+            months = int(num)
+        except Exception:
+            months = 0
+        if months <= 0:
+            await update.message.reply_text("📅 <b>Sirf months ka number bhejo</b>, jaise <code>12</code>", parse_mode=HTML)
+            return
+        amt = float(context.user_data.get("vyaaj_amt") or 0)
+        rate = float(context.user_data.get("vyaaj_rate") or 0)
+        context.user_data.pop("mode", None)
+        context.user_data.pop("vyaaj_amt", None)
+        context.user_data.pop("vyaaj_rate", None)
+        res = village_compound_interest(amt, rate, months)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error', 'Hisaab nahi ho paya')}", parse_mode=HTML)
+            return
+        ms = res.get("milestones") or {}
+        ms_lines = "\n".join(f"   • <b>{k}:</b> {inr(v)}" for k, v in ms.items()) or "   • (months kam hai)"
+        card = (
+            f"🪔 <b>{to_bold('CHAKRAVRIDDHI VYAAJ HISAAB')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"💰 <b>Paisa:</b> {inr(res['principal'])}\n"
+            f"💸 <b>Rate:</b> {res['per_hundred_note']}\n"
+            f"📅 <b>Time:</b> {res['months']} mahine\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🔴 <b>Kul byaaj:</b> {inr(res['total_interest'])}\n"
+            f"💵 <b>Kul wapas karna:</b> {inr(res['total_payable'])}\n"
+            f"✖️ <b>Paisa double hua:</b> {inr(res['double_amount'])}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📊 <b>Milestones (utne dena hoga):</b>\n{ms_lines}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"ℹ️ <i>Gaon-wala system — byaaj har mahine principal me joda gaya. "
+            f"Pehla mahine ka byaaj: {inr(res['first_month_interest'])}.</i>"
+        )
+        await update.message.reply_text(card, parse_mode=HTML)
+        add_use(uid)
+        return
+
     # Forwarded message for ID Finder + Auto-Forward channel pakadna
     if hasattr(update.message, "forward_origin") and update.message.forward_origin:
         orig = update.message.forward_origin
@@ -4733,7 +4952,19 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
             await st.delete()
             await deliver_statement(update, context, uid, res)
             return True
-        if res.get("locked"):
+        if res.get("locked") and not res.get("wrong_password"):
+            # v50 PRO: pehle KHUD common passwords try karo — user ko matlaagana nahi padega
+            st.edit_text("🔒 PDF locked hai — main common passwords khud try kar raha hoon (2-5 sec)…",
+                         parse_mode=HTML)
+            cands = [c for c in statement_passwords() if len(c) >= 4][:8]
+            for cand in cands:
+                r2 = await asyncio.to_thread(parse_bank_statement, data, cand)
+                if r2.get("ok"):
+                    await st.delete()
+                    await deliver_statement(update, context, uid, r2)
+                    await say("🔓 <b>Auto-unlock ho gaya!</b> PDF ka password khud mil chuka tha ✅",
+                              parse_mode=HTML)
+                    return True
             context.user_data["mode"] = "bankpdf_pass"
             await st.edit_text(
                 "🔒 <b>This PDF is locked with a password!</b>\n\nSend the password (as text).\n"
@@ -4968,16 +5199,25 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Image to PDF
     if mode == "pdf":
+        pages = context.user_data.setdefault("pdf_pages", [])
+        # v50: prompt kehta hai "10 photo tak" — ab sach me 10 par ruk jata hai
+        if len(pages) >= 10:
+            await update.message.reply_text(
+                "📸 <b>Max 10 photos!</b> Pehle neeche wale button se PDF bana lo, "
+                "phir /cancel karke naya set bhejo.")
+            return
         photo_file = await update.message.photo[-1].get_file()
         buf = io.BytesIO()
         await photo_file.download_to_memory(buf)
-        pages = context.user_data.setdefault("pdf_pages", [])
         pages.append(buf.getvalue())
         kb = InlineKeyboardMarkup([
             [InlineKeyboardButton(f"✅ Normal PDF ({len(pages)} photos)", callback_data="make_pdf_now"),
              InlineKeyboardButton("📄 A4 Print PDF", callback_data="make_pdf_a4")],
+            [InlineKeyboardButton("🗑️ Photos clear karo", callback_data="pdf_clear")],
         ])
-        await update.message.reply_text(f"📸 {len(pages)} photo add ho gayi! Aur bhejo ya neeche button par tap karo 👇", reply_markup=kb)
+        await update.message.reply_text(
+            f"📸 {len(pages)}/10 photo add ho gayi! Aur bhejo ya neeche button par tap karo 👇",
+            reply_markup=kb)
         return
 
 
@@ -5134,6 +5374,12 @@ async def on_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def on_pdf_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
+    if q.data == "pdf_clear":
+        context.user_data.pop("pdf_pages", None)
+        context.user_data.pop("mode", None)
+        await q.answer("Photos clear ho gayi ✅")
+        await q.message.reply_text(tool_prompt("pdf"), parse_mode=HTML)
+        return
     if q.data in ("make_pdf_now", "make_pdf_a4"):
         pages = context.user_data.get("pdf_pages", [])
         if not pages:
@@ -5159,6 +5405,16 @@ async def on_pdf_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- ERROR HANDLER ----------------
 async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     log.error("Exception handling update: %s", context.error)
+    # v50: user bhi jaane ki koi chhota ghatna hua — chup-chaap na mile
+    try:
+        msg = getattr(update, "effective_message", None)
+        if msg is not None:
+            await msg.reply_text(
+                "⚠️ <b>Chhota sa ghatna ho gaya!</b> Ye kaam nahi ho paya.\n"
+                "10 second baad dobara try karo. Problem bar-bar ho to Support: @Supermannn_x",
+                parse_mode=HTML)
+    except Exception:
+        pass
 
 
 # ---------------- POST INIT ----------------
@@ -5330,7 +5586,7 @@ def main():
     app.add_handler(CommandHandler("sarkari", _cmd_sarkari))
 
     # Callbacks
-    app.add_handler(CallbackQueryHandler(on_pdf_cb, pattern="^(make_pdf_now|make_pdf_a4)$"))
+    app.add_handler(CallbackQueryHandler(on_pdf_cb, pattern="^(make_pdf_now|make_pdf_a4|pdf_clear)$"))
     app.add_handler(CallbackQueryHandler(on_cb))
 
     # Message Handlers

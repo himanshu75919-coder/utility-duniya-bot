@@ -60,48 +60,65 @@ def make_stamped_passport(photo_bytes: bytes, candidate_name: str, dop_date: str
     draw.text((w // 2, y_center - 16), name_str, fill=(0, 0, 0), anchor="mm", font=font_name)
     draw.text((w // 2, y_center + 18), date_str, fill=(0, 0, 0), anchor="mm", font=font_date)
     
-    # Compress to 20KB - 50KB
-    out = io.BytesIO()
-    for q in (85, 75, 65, 55, 45, 35):
-        out.seek(0)
-        out.truncate(0)
+    # Compress to 20KB - 50KB (govt portals 20KB se kam file accept nahi karte —
+    # isliye quality ladder: pehle badi quality try karo, jo 20-50 window me aaye wahi lo.
+    # Koi quality window me na aaye to window ke SABSE PAAS wali lo:
+    #   • sab >50KB  → chhoti quality (50 ke sabse paas)
+    #   • sab <20KB  → badi quality  (20 ke sabse paas)
+    ladder = (95, 88, 82, 75, 68, 60, 52, 45, 38, 32)
+    sizes = {}
+    chosen = None
+    for q in ladder:
+        out = io.BytesIO()
         passport.save(out, format="JPEG", quality=q, optimize=True)
-        size_kb = len(out.getvalue()) / 1024
-        if 20 <= size_kb <= 50 or q == 35:
-            break
-            
+        sizes[q] = len(out.getvalue()) / 1024
+        if chosen is None and 20 <= sizes[q] <= 50:
+            chosen = q
+    if chosen is None:
+        if sizes[ladder[-1]] > 50:
+            chosen = ladder[-1]   # sabse chhoti quality bhi 50KB se badi — wahi lo (paas wali)
+        else:
+            chosen = ladder[0]    # sabse badi quality bhi 20KB se chhoti — wahi lo (paas wali)
+
+    out = io.BytesIO()
+    passport.save(out, format="JPEG", quality=chosen, optimize=True)
     out.seek(0)
-    return out, int(len(out.getvalue()) / 1024)
+    return out, int(sizes[chosen])
 
 
 def make_printable_sheet(photo_bytes: bytes, copies: int = 8) -> io.BytesIO:
     """
-    Arranges 6 or 8 passport photos on a standard 4x6 inch (1200x1800 px @ 300 DPI) sheet
-    with cutting crop marks for easy printing at photo labs.
+    v50: EXACT 3.5 × 4.5 cm passport photos on a standard 6×4 inch lab sheet
+    (1800×1200 px @ 300 DPI). Per photo = 413×532 px — dukaan par bilkul
+    standard passport size hi print hoga (purana 350×450 chhota padta tha).
+    4 columns × 2 rows = 8 copies, soft cut lines ke saath.
     """
     img = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
-    pw, ph = 350, 450
+    pw, ph = 413, 532  # 3.5×4.5 cm @ 300 DPI
     single = ImageOps.fit(img, (pw, ph), centering=(0.5, 0.35))
-    
+
     # Add border & cut line around single photo
     draw_s = ImageDraw.Draw(single)
-    draw_s.rectangle([(0, 0), (pw - 1, ph - 1)], outline=(180, 180, 180), width=2)
-    
-    # 4x6 inch canvas @ 300 DPI = 1200 x 1800 px
+    draw_s.rectangle([(0, 0), (pw - 1, ph - 1)], outline=(150, 150, 150), width=2)
+
+    # 6×4 inch lab canvas @ 300 DPI = 1800 x 1200 px (landscape — standard 8-up sheet)
     sheet = Image.new("RGB", (1800, 1200), color=(255, 255, 255))
-    
+
     # Arrange 8 photos (4 columns x 2 rows)
-    # Margins and spacing
     cols, rows = 4, 2
     spacing_x = (1800 - (cols * pw)) // (cols + 1)
     spacing_y = (1200 - (rows * ph)) // (rows + 1)
-    
+
     for r in range(rows):
         for c in range(cols):
             x = spacing_x + c * (pw + spacing_x)
             y = spacing_y + r * (ph + spacing_y)
             sheet.paste(single, (x, y))
-            
+
+    # Sheet border (lab ko pata chale yahan tak print karna hai)
+    dr = ImageDraw.Draw(sheet)
+    dr.rectangle([(10, 10), (1789, 1189)], outline=(205, 205, 205), width=2)
+
     out = io.BytesIO()
     sheet.save(out, format="JPEG", quality=95, dpi=(300, 300))
     out.seek(0)

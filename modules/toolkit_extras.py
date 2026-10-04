@@ -14,6 +14,7 @@ Engines that make the older tools professional:
 
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import quote, urlparse, parse_qs, urlunparse
 
 import requests
@@ -83,19 +84,51 @@ SHORTENER_PROVIDERS = [
 
 
 def shorten_url(url: str, want: int = 2) -> list:
-    """Ek ya zyada working short links return karta hai: [(provider, short_url), ...]"""
+    """Ek ya zyada working short links return karta hai: [(provider, short_url), ...]
+
+    v50: AB PARALLEL — saare 6 provider ek saath chalte hain (ThreadPool).
+    Purana serial way me ek dead provider 8s hang karke poora flow slow karta tha.
+    """
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
-    out = []
-    for name, fn in SHORTENER_PROVIDERS:
-        if len(out) >= want:
-            break
+
+    def _one(name, fn):
         try:
             s = fn(url)
             if s and s.strip() and s.strip() != url:
-                out.append((name, s.strip()))
+                return (name, s.strip())
         except Exception:
-            continue
+            pass
+        return None
+
+    out = []
+    try:
+        with ThreadPoolExecutor(max_workers=len(SHORTENER_PROVIDERS)) as ex:
+            futs = {ex.submit(_one, name, fn): i for i, (name, fn) in enumerate(SHORTENER_PROVIDERS)}
+            results = {}
+            for fut in futs:
+                try:
+                    r = fut.result(timeout=12)
+                except Exception:
+                    r = None
+                if r:
+                    results[futs[fut]] = r
+        # priority order me (jaise list me hain), upar wale providers pehle
+        for i in sorted(results.keys()):
+            out.append(results[i])
+            if len(out) >= want:
+                break
+    except Exception:
+        # thread engine me koi bhi galti ho to purana serial way
+        for name, fn in SHORTENER_PROVIDERS:
+            if len(out) >= want:
+                break
+            try:
+                s = fn(url)
+                if s and s.strip() and s.strip() != url:
+                    out.append((name, s.strip()))
+            except Exception:
+                continue
     return out
 
 
@@ -327,15 +360,31 @@ def analyze_link(raw_url: str) -> dict:
         reasons.append("🆓 Free hosting domain par bank/login jaisa page — scam ka common joda.")
 
     # --- E) OpenPhish live feed ---
+    # v50: O(1) set check (purane `any(u.startswith(...))` scan se har check 1-2s slow tha)
     _load_openphish()
     if _PHISH_CACHE["urls"]:
-        if target in _PHISH_CACHE["urls"] or any(u.startswith(target) for u in _PHISH_CACHE["urls"] if len(u) > 20):
+        if target in _PHISH_CACHE["urls"]:
             risk += 60
             reasons.append("🚨 Ye link OpenPhish ke LIVE phishing feed me hai (pakka scam).")
         elif host_no_port in _PHISH_CACHE["hosts"]:
             risk += 50
             reasons.append("🚨 This domain name is in the OpenPhish live phishing feed.")
     signals["openphish_size"] = len(_PHISH_CACHE["urls"])
+
+    # --- E2) v50: DOMAIN AGE (free RDAP) — naye domain se scam sabse zyada ---
+    if host_no_port and not re.match(r"^\d{1,3}(\.\d{1,3}){3}$", host_no_port) and "." in host_no_port:
+        try:
+            from modules.general_tools import domain_age_days as _dom_age
+        except Exception:
+            _dom_age = None
+        age = _dom_age(host_no_port) if _dom_age else None
+        signals["domain_age_days"] = age
+        if age is not None and age < 30:
+            risk += 20
+            reasons.append(f"🆕 Ye domain sirf <b>{age} din</b> purana hai — naye domain se scams sabse zyada hote hain.")
+        elif age is not None and age < 90:
+            risk += 8
+            reasons.append(f"📆 Domain sirf {age} din purana hai (kam jaana-mana).")
 
     # --- F) urlscan.io reputation ---
     scans = _urlscan_reputation(host_no_port) if host_no_port else -1
@@ -380,8 +429,49 @@ def analyze_link(raw_url: str) -> dict:
 
 
 # =====================================================================================
-# 4) INTEREST CALCULATOR (ye tool pehle TOOTA hua tha — ab poora engine)
+# 4) EMI CALCULATOR — v50 (standard bank formula, reducing balance)
 # =====================================================================================
+def emi_calculator(principal, annual_rate_pct, months) -> dict:
+    """
+    Bank EMI:  EMI = P·r·(1+r)^n / ((1+r)^n − 1)   (r = monthly rate = annual/12/100)
+
+    principal        : loan amount (₹)
+    annual_rate_pct  : interest rate % per SAAL (jaise 11.5)
+    months           : kitne months (jaise 60 = 5 saal)
+
+    Returns {ok, emi, total_interest, total_payable, schedule:[{month,balance}]}
+    """
+    try:
+        P = float(principal)
+        rate = float(annual_rate_pct)
+        n = int(months)
+    except Exception:
+        return {"ok": False, "error": "Sahi number bhejo (amount, rate, months)."}
+    if P <= 0 or n <= 0 or rate < 0 or rate > 100:
+        return {"ok": False, "error": "Amount, rate aur months sab sahi (positive) hone chahiye."}
+    n = min(n, 600)  # 50 saal se upar ka matlab nahi
+    r = rate / 12.0 / 100.0
+    if r == 0:
+        emi = P / n
+        total_interest = 0.0
+    else:
+        f = (1.0 + r) ** n
+        emi = P * r * f / (f - 1.0)
+        total_interest = emi * n - P
+    # reducing-balance schedule — har 6 mahine ka balance (ya aakhri mahine)
+    bal = P
+    schedule = []
+    for m in range(1, n + 1):
+        intr = bal * r
+        prin = max(0.0, emi - intr)
+        bal = max(0.0, bal - prin)
+        if m % 6 == 0 or m == n:
+            schedule.append({"month": m, "balance": round(bal, 2)})
+    return {
+        "ok": True, "principal": P, "rate": rate, "months": n,
+        "emi": round(emi, 2), "total_interest": round(total_interest, 2),
+        "total_payable": round(P + total_interest, 2), "schedule": schedule,
+    }
 
 
 # =====================================================================================
