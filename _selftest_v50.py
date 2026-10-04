@@ -123,14 +123,8 @@ out3, kb3 = make_stamped_passport(_pure_b.getvalue(), "NOISE TEST", "01-01-2026"
 check("extreme noise → window ke paas (150KB se chhota)", 0 < kb3 <= 150, f"{kb3}KB")
 
 # =====================================================================
-section("5) 📄 IMAGE→PDF (A4 + normal)")
-from modules.general_tools import pages_to_pdf, make_qr_bytes, wifi_qr_data, vcard_data
-
-pages = [photo_bytes, noisy]
-pdf_n = pages_to_pdf(pages)
-check("normal PDF bana", len(pdf_n) > 1000 and pdf_n[:4] == b"%PDF", str(len(pdf_n)))
-pdf_a4 = pages_to_pdf(pages, a4=True)
-check("A4 PDF bana", len(pdf_a4) > 1000 and pdf_a4[:4] == b"%PDF", str(len(pdf_a4)))
+section("5) 📷 QR ENGINES (QR / WiFi / vCard)")
+from modules.general_tools import make_qr_bytes, wifi_qr_data, vcard_data
 
 q = make_qr_bytes("https://t.me/test")
 check("QR bytes", len(q.getvalue()) > 500)
@@ -138,37 +132,7 @@ check("WiFi QR data", wifi_qr_data("HomeWiFi", "1234").startswith("WIFI:T:WPA"))
 check("vCard data", "BEGIN:VCARD" in vcard_data("Test", "9876543210"))
 
 # =====================================================================
-section("6)  EMI CALCULATOR ENGINE")
-from modules.toolkit_extras import emi_calculator, village_compound_interest
-
-# known value: P=500000, 12%/yr, 60 mo → EMI ≈ 11,120.5
-r = emi_calculator(500000, 12, 60)
-check("EMI ok", r["ok"] is True)
-check("EMI ≈ 11120", abs(r["emi"] - 11120.5) < 2, str(r["emi"]))
-check("total interest = emi*60 - P", abs(r["total_interest"] - (r["emi"] * 60 - 500000)) < 2)
-check("schedule me milestones", len(r["schedule"]) == 10, str(len(r["schedule"])))  # 6,12,...,60
-check("aakhri balance ~0", r["schedule"][-1]["balance"] < 5, str(r["schedule"][-1]))
-
-r0 = emi_calculator(120000, 0, 12)
-check("0% rate → EMI = P/12", abs(r0["emi"] - 10000) < 0.01, str(r0["emi"]))
-rb = emi_calculator("abc", 12, 12)
-check("garbage input → saaf error", rb["ok"] is False)
-rb2 = emi_calculator(100, 12, -5)
-check("negative months → error", rb2["ok"] is False)
-
-# =====================================================================
-section("7) 🪔 GAON-WALA CHAKRAVRIDDHI VYAAJ")
-# P=1000, 5%/mo, 12 mo → 1000*1.05^12 = 1795.86
-r = village_compound_interest(1000, 5, 12)
-check("ok", r["ok"] is True)
-check("12 mahine balance ≈ 1795.86", abs(r["total_payable"] - 1795.86) < 0.5, str(r["total_payable"]))
-check("total interest ≈ 795.86", abs(r["total_interest"] - 795.86) < 0.5, str(r["total_interest"]))
-check("milestones 6+12", ("6 months" in r["milestones"]) and ("12 months" in r["milestones"]),
-      str(r["milestones"]))
-check("double = 2000", r["double_amount"] == 2000)
-
-# =====================================================================
-section("8) 📱 PHONE NUMBER — toll-free fix")
+section("6) 📱 PHONE NUMBER — toll-free fix")
 from modules.osint_tools import lookup_phone_info
 
 m = lookup_phone_info("9876543210")
@@ -277,20 +241,6 @@ check("parallel = fast (<12s)", _dt < 12, f"{_dt:.1f}s")
 print(f"   ⏱️ parallel shortener: {len(links)} links me {_dt:.1f}s")
 
 # =====================================================================
-section("13) 📲 USERNAME FINDER PARALLEL (live)")
-from modules.osint_tools import check_username_platforms
-
-_t0 = time.time()
-p = check_username_platforms("torvalds")  # exists on GitHub
-_dt = time.time() - _t0
-check("result ok", p["ok"] is True)
-gh = [r for r in p["results"] if r["key"] == "github"]
-check("github = torvalds FOUND", gh and gh[0]["exists"] is True, str(gh)[:100])
-check("5 platform check hue", len(p["results"]) == 5, str(len(p["results"])))
-check("parallel = fast (<20s)", _dt < 20, f"{_dt:.1f}s")
-print(f"   ⏱️ parallel username check: {_dt:.1f}s")
-
-# =====================================================================
 section("14) 🛡️ LINK CHECK + DOMAIN AGE SIGNAL (live)")
 from modules.toolkit_extras import analyze_link
 
@@ -323,29 +273,43 @@ check("stats ban rahe hain", database.stats()["total_users"] >= 1)
 os.remove("/tmp/v50_test_botdata.db")
 
 # =====================================================================
-section("16) 🤖 BOT.PY WIRING CHECKS (static)")
+section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v50 version", any(f"v50.{i}" in bot_src for i in range(0, 9))),
+    ("v51 version", "v51.0 Premium Earning" in bot_src),
     ("weather button menu me", "WEATHER / MAUSAM" in bot_src),
-    ("emi button menu me", "EMI / INTEREST CALC" in bot_src),
     ("weather prompt", '"weather": (' in bot_src),
     ("weather handler", 'if mode == "weather":' in bot_src),
-    ("emi_calc callback", 'data in ("emi_calc", "emi_vyaaj")' in bot_src),
-    ("emi ask modes", 'if mode == "emi_ask_amt":' in bot_src and 'if mode == "emi_ask_rate":' in bot_src),
-    ("vyaaj ask modes", 'if mode == "vyaaj_ask_amt":' in bot_src and 'if mode == "vyaaj_ask_months":' in bot_src),
-    ("idfind forward fix", "forwarded message PEHLE check karo" in bot_src),
-    ("pdf 10 limit", "Max 10 photos" in bot_src),
-    ("pdf_clear handler", 'if q.data == "pdf_clear":' in bot_src),
     ("bankpdf auto-pass", "statement_passwords()" in bot_src),
     ("admtut fix", "Current link:</i>" not in bot_src),
     ("broadcast fallback", "parse fail ho to plain text me bhejo" in bot_src),
     ("on_error user msg", "Chhota sa ghatna ho gaya" in bot_src),
     ("weather import", "weather_report" in bot_src),
-    ("emi import", "emi_calculator" in bot_src),
-    ("vyaaj import", "village_compound_interest" in bot_src),
     ("dead admin block delete", "row[1] if row else" not in bot_src),
-    ("interest calc removed-list se bahar", '"INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC"' not in bot_src),
+    # ---- v51: 5 tools PERMANENTLY delete (wiring gayab) ----
+    ("EMI mapping gayab", '"EMI / INTEREST CALC": "emi"' not in bot_src),
+    ("EMI action gayab", 'action == "emi"' not in bot_src),
+    ("EMI modes gayab", 'if mode == "emi_ask_amt":' not in bot_src),
+    ("vyaaj modes gayab", 'if mode == "vyaaj_ask_amt":' not in bot_src),
+    ("screenshot mapping gayab", '"SITE SCREENSHOT": "shot"' not in bot_src),
+    ("shot action gayab", 'action == "shot"' not in bot_src),
+    ("shot mode gayab", 'if mode in ("shot", "shot_full")' not in bot_src),
+    ("image→pdf mapping gayab", '"IMAGE→PDF": "pdf"' not in bot_src),
+    ("pdf action gayab", 'action == "pdf"' not in bot_src),
+    ("on_pdf_cb gayab", "async def on_pdf_cb" not in bot_src),
+    ("private channel action gayab", 'action == "cloner_private_help"' not in bot_src),
+    ("private mapping gayab", '"PRIVATE CHANNEL SETUP": "cloner_private_help"' not in bot_src),
+    ("idfind mapping gayab", '"ID & USERNAME FINDER": "idfind"' not in bot_src),
+    ("idfind mode gayab", 'if mode == "idfind":' not in bot_src),
+    ("check_username_platforms import gayab", "check_username_platforms" not in bot_src),
+    ("deleted tools removed-list me", '"EMI / INTEREST CALC", "EMI CALC"' in bot_src),
+    # ---- v51: SAARE tools premium ----
+    ("all tools premium set", all(t in bot_src for t in
+        ["\"terabox\"", "\"pp_stamp\"", "\"print_sheet\"", "\"doc_compress\"",
+         "\"sarkari\"", "\"ifsc\"", "\"pin\"", "\"ip\"", "\"qr\"",
+         "\"short\"", "\"linkcheck\"", "\"appfind\"", "\"weather\""])),
+    ("vehicle key = rto", '"rto",                 # 🚗 VEHICLE' in bot_src),
+    ("premium tool names updated", '"terabox": "⚡ Terabox / Cloud Downloader"' in bot_src),
 ]
 for nm, ok in checks:
     check(nm, ok)

@@ -1,8 +1,8 @@
-# 📖 1-PADHO-PEHLE.md — v50.4 Premium Pro (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v51.0 Premium Earning (5 minute me poora samajh)
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
-1. **v50 me kya badla** (2 line me)
+1. **v51 me kya badla** (2 line me)
 2. **Deploy kaise karna hai** (4 step)
 3. **Telegram me test kaise karna hai** (5 minute)
 4. **Credits / VIP ka hisaab**
@@ -10,18 +10,25 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
 ---
 
-## 1️⃣ v50 me kya badla (short) — PREMIUM PRO
+## 1️⃣ v51 me kya badla (short) — PREMIUM EARNING
 
 | Kya | Detail |
 |---|---|
-| 🌦️ **NAYA WEATHER tool** | Shehar ka naam bhejo (Gaya, Patna, Pune…) → abhi ka mausam + aage 3 din ka forecast. 100% free (koi API key nahi) |
-| 🧮 **NAYA EMI/VYAAJ calculator** | 🧮 Bank EMI (amount + rate + months → EMI, total interest, milestones) + 🪔 gaon-wala chakravritti vyaaj hisaab |
-| 🐛 **9 bug fixes** | ID Finder forward · 8-in-1 sheet EXACT 3.5×4.5cm · passport photo 20-50KB · toll-free numbers · admin button crash · PDF 10-photo limit · broadcast fallback · DB lock · dead code |
-| ⚡ **4x FAST** | URL shortener 6 providers parallel (~1 sec) · ID finder parallel (~5-10s) · link check + domain-age signal · bank PDF auto-unlock |
-| 🚨 **CORE LAYER (v50.1–v50.3)** | Bot freeze fix (blocking calls → async) · SSRF guard (internal address block) · caching (IFSC/PIN/IP/GST/PAN) · rate limiting (per-user) · `/sys` admin health |
-| ✅ **Test suites** | `tests/test_v50_core.py` **107** + `_selftest_v50.py` **99** + `_verify_v49.py` **125** = **331 checks, sab green** |
+| 🗑️ **5 tools PERMANENTLY delete** | 🧮 EMI/Interest Calc · 🖼️ Site Screenshot · 🖼️ Image→PDF · 🔒 Private Channel Setup · 🆔 ID & Username Finder — code + bot + GitHub + tutorial videos, sab se gayab |
+| 💰 **AB SAARE tools PREMIUM** | Naye user ko **25 free credits** (1 use = 1 credit). Credits khatam → VIP lo. **VIP = poora bot unlimited** |
+| 👑 **VIP plans** | 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199 |
+|  **Vehicle key fix** | Vehicle ab premium gate se sahi pass hota hai (pehle key mismatch thi) |
+| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **89** + `_verify_v49.py` **128** = **323 checks, sab green** |
 
-### v49 (purana, context ke liye)
+### v50 (purana, context ke liye)
+| Kya | Detail |
+|---|---|
+| 🌦️ **NAYA WEATHER tool** | Shehar ka naam bhejo → abhi ka mausam + 3 din ka forecast (abhi bhi hai, v51 se premium) |
+| 🐛 **Bug fixes** | 8-in-1 sheet EXACT 3.5×4.5cm · passport photo 20-50KB · toll-free numbers · admin button · broadcast fallback · DB lock · dead code |
+| ⚡ **SPEED** | URL shortener parallel (~1 sec) · link check + domain-age · bank PDF auto-unlock |
+| 🚨 **CORE LAYER (v50.1–v50.3)** | Bot freeze fix · SSRF guard · caching · rate limiting · `/sys` admin health |
+
+### v49 (aur purana, context ke liye)
 | Kya | Detail |
 |---|---|
 | 🗑️ **3 faaltu tools hate** | 🎬 CLIP MAKER · 🔓 LINK BYPASS · 📈 INTEREST CALC (INTEREST CALC v50 me 🧮 naye roop me wapas aaya) |
