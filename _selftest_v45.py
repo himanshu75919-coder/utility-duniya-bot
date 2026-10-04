@@ -297,7 +297,11 @@ def test_tools_hub():
        f"blocked={rec.get('blocked')}")
 
     sf = ost.number_safety_info("9876543210")
-    ok("SAFETY CARD (legal) links", sf.get("ok") and len(sf.get("links") or []) >= 3, len(sf.get("links") or []))
+    ok("SAFETY CARD: koi link nahi (user ka order)", sf.get("ok") and (sf.get("links") or []) == [],
+       sf.get("links"))
+    ok("SAFETY CARD: helpline numbers (advice) milte hain",
+       len(sf.get("advice") or []) >= 3 and any("1930" in a for a in (sf.get("advice") or [])),
+       sf.get("advice"))
 
     un = ost.check_username_platforms("sumit_sharma2")
     ok("ID finder profiles bhi deta hai", un.get("ok") and "instagram" in (un.get("profiles") or {}),

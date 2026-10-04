@@ -245,7 +245,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v49.13 Ultra"  # v49.13: info tools se saare bahar-wale links hataye
+BOT_VERSION = "v49.14 Ultra"  # v49.14: safety card ke links bhi hataye (sirf helpline numbers)
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -2768,14 +2768,19 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "✅ <b>Jo hum KANOONI tarike se dikha sakte hain:</b>",
             "• Operator, circle, number type (upar dekho)",
             "• Number valid hai ya nahi",
-            "• Official complaint links (neeche)",
+            "• Official helpline numbers (neeche)",
             "",
             "🛡️ <b>Asli madad — official aur free:</b>",
         ]
-        kb = [[InlineKeyboardButton(lbl, url=url)] for lbl, url in (info.get("links") or [])]
-        if not kb:
-            kb = [[InlineKeyboardButton("🚨 Cyber Crime — 1930", url="https://cybercrime.gov.in/")]]
-        await st.edit_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(kb), parse_mode=HTML)
+        # v49.14: koi link button NAHI (user ka order) — sirf helpline numbers plain text me
+        for _a in (info.get("advice") or [
+                "• 📞 <b>Cyber Crime Helpline:</b> 1930 (24x7, free)",
+                "• 📞 <b>Financial fraud:</b> 155260",
+                "• 🚔 <b>Nazdeeki police station / cyber cell</b> me likhit shikayat do"]):
+            lines.append(_a)
+        if info.get("note"):
+            lines += ["", f"<i>{hesc(str(info['note']))}</i>"]
+        await st.edit_text("\n".join(lines), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4059,10 +4064,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"ℹ️ <i>{res['note']}</i>\n\n"
-                "👇 Fraud/spam shikayat ke liye (official channels):"
+                "👇 Fraud/spam shikayat ke liye (official helpline):"
             )
             # v49.9: leaked "public records" button HATA diya — uski jagah legal safety card
-            rows.insert(0, [InlineKeyboardButton("🛡️ Safety card + complaint links",
+            rows.insert(0, [InlineKeyboardButton("🛡️ Number Safety Card (helpline)",
                                                  callback_data=f"nsafe:{res['e164']}")])
             await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:

@@ -365,7 +365,7 @@ def lookup_public_records(number: str) -> dict:
       • Aadhaar Act sec. 38 — Aadhaar number dikhana/batna = jail ho sakti hai
       • Telegram bhi aise bots ko PERMANENT BAN kar deta hai
     Isliye ye function ab kabhi personal record return nahi karega — chahe koi env set ho.
-    (Kanooni tarika: sirf carrier/operator/HLR data + official complaint links.)
+    (Kanooni tarika: sirf carrier/operator/HLR data + official helpline numbers — koi link nahi.)
     """
     return {
         "ok": False,
@@ -393,11 +393,18 @@ def number_safety_info(number: str) -> dict:
                              "type": car.get("type"), "ported": car.get("ported")})
     except Exception:
         pass
-    info["links"] = [
-        ("🚫 Spam/Fraud report (Chakshu)", "https://sancharsaathi.gov.in/sfc/"),
-        ("🚨 Cyber Crime — 1930", "https://cybercrime.gov.in/"),
-        ("🔎 MNP / Ported check", "https://tafcop.dgtelecom.gov.in/"),
+    # v49.14: safety card ke links bhi HATA diye (user ka order) — sirf helpline numbers
+    # (plain text, koi URL nahi) + in-bot guidance.
+    info["links"] = []
+    info["advice"] = [
+        "• 📞 <b>Cyber Crime Helpline:</b> 1930 (24x7, free — turant call karo)",
+        "• 📞 <b>Financial fraud:</b> 155260 (bank se paisa wapas/rokne ke liye)",
+        "• 🚔 <b>Nazdeeki police station / cyber cell</b> me likhit shikayat do (receipt lo)",
+        "• 📵 <b>Chori hui SIM</b> turant apne operator ki app/helpline se band karwao",
+        "• 🧾 <b>Proof rakho:</b> chat screenshots, transaction ID, caller ka number",
     ]
+    info["note"] = ("Ye helpline numbers Official/Government ke hain. Card me koi website link "
+                    "nahi diya gaya — aapko sirf call karna hai.")
     return info
 
 
