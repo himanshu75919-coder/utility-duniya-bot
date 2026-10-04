@@ -112,7 +112,16 @@ def lookup_phone_info(number_str: str) -> dict:
         return {"ok": False, "error": "Number bhejo (jaise <code>9876543210</code> ya <code>+919876543210</code>)"}
 
     if not clean.startswith("+"):
-        clean = ("+91" + clean) if len(clean) == 10 else ("+" + clean)
+        if len(clean) == 10:
+            clean = "+91" + clean
+        elif len(clean) == 11 and clean.startswith("1"):
+            # v50 fix: Indian toll-free 1800-xxxxxxx (11 digit, '1' se shuru)
+            # pehle ye "+1800..." ban jata tha = US country code, number galat parse hota tha
+            clean = "+91" + clean
+        elif len(clean) == 12 and clean.startswith("91"):
+            clean = "+" + clean
+        else:
+            clean = "+" + clean
 
     try:
         parsed = phonenumbers.parse(clean, None)
@@ -427,18 +436,46 @@ LINK_ONLY = [
 
 
 def check_username_platforms(username: str) -> dict:
-    """Real check (GitHub/Telegram/YouTube/TikTok/Steam) + baaki ke direct links."""
+    """Real check (GitHub/Telegram/YouTube/TikTok/Steam) + baaki ke direct links.
+
+    v50: saare 5 check PARALLEL (ThreadPool) — purana serial way me ek slow/dead
+    platform ka 10-12s timeout poore tool ko slow karta tha (worst ~60s). Ab ~12s.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+
     u = (username or "").lstrip("@").strip()
     u = re.sub(r"[^A-Za-z0-9._\-]", "", u)
     if len(u) < 2:
         return {"ok": False, "error": "Username must be at least 2 letters (example <code>@himanshu</code>)"}
 
-    results = []
-    for key, (label, fn, url_tpl) in CHECKERS.items():
-        exists, extra = fn(u)
-        results.append({
-            "key": key, "label": label, "exists": exists, "extra": extra, "url": url_tpl.format(u),
-        })
+    def _check(i, key, label, fn, url_tpl):
+        try:
+            exists, extra = fn(u)
+        except Exception:
+            exists, extra = None, ""
+        return i, {"key": key, "label": label, "exists": exists, "extra": extra, "url": url_tpl.format(u)}
+
+    results = [None] * len(CHECKERS)
+    try:
+        with ThreadPoolExecutor(max_workers=len(CHECKERS)) as ex:
+            futs = [ex.submit(_check, i, k, v[0], v[1], v[2]) for i, (k, v) in enumerate(CHECKERS.items())]
+            for fut in futs:
+                try:
+                    i, res = fut.result(timeout=20)
+                    results[i] = res
+                except Exception:
+                    pass
+    except Exception:
+        # fallback: serial
+        results = []
+        for key, (label, fn, url_tpl) in CHECKERS.items():
+            try:
+                exists, extra = fn(u)
+            except Exception:
+                exists, extra = None, ""
+            results.append({"key": key, "label": label, "exists": exists,
+                            "extra": extra, "url": url_tpl.format(u)})
+    results = [r for r in results if r is not None]
 
     links = [{"label": lab, "url": tpl.format(u)} for lab, tpl in LINK_ONLY]
 

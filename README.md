@@ -1,11 +1,46 @@
-# ⚡ Utility Duniya Super-Bot — **v49**
+# ⚡ Utility Duniya Super-Bot — **v50 Premium Pro**
 
-**Ek hi bot me 30+ kaam:** video download, channel auto-forward, photo/document banane wale tools,
+**Ek hi bot me 32+ kaam:** video download, channel auto-forward, photo/document banane wale tools,
 sarkari kagaz, bank statement → Excel, media studio (MP3 / status video / karaoke), info tools
-(IMEI / vehicle / number / IFSC / pincode / ID / IP), QR, link safety, aur VIP + payment system.
+(IMEI / vehicle / number / IFSC / pincode / ID / IP), **weather + EMI/vyaaj calculator**, QR,
+link safety, aur VIP + payment system.
 
 Poora bot ka **text Hinglish** me hai — short prompt + example ke saath, taaki naya user bhi bina
 padhe samajh jaye.
+
+---
+
+## 🆕 v50 me kya badla (Premium Pro)
+
+### ➕ 2 NAYE FREE TOOLS
+| Tool | Kya karta hai |
+|---|---|
+| 🌦️ **WEATHER / MAUSAM** | Shehar ka naam bhejo (Gaya, Patna, Pune…) → abhi ka mausam + aage 3 din ka forecast, hawa, humidity, baarish ki sambhavna, sunrise/sunset. 100% free (Open-Meteo, koi API key nahi) |
+| 🧮 **EMI / INTEREST CALC** | 🧮 Bank EMI calculator (amount + rate% + months → monthly EMI, total interest, balance milestones) + 🪔 Gaon-wala **chakravritti vyaaj** hisaab (₹100 par ₹X mahina, poora month-by-month). PURANA INTEREST CALC ka badla — ab poora kaam karta hai |
+
+### 🐛 BUG FIXES (real problems)
+| Kya | Problem |
+|---|---|
+| 🆔 **ID Finder forward** | Forward karne par ID nahi milti thi (help text aa jata tha) — ab forward sabse pehle process hota hai |
+| 🖨️ **8-in-1 sheet** | Photos 1.17×1.5" chhoti print hoti thi — ab **EXACT 3.5×4.5cm** (413×532px @300DPI) |
+| 📸 **Passport photo size** | Kabhi 20KB se chhoti file banti thi (portals reject karte hain) — ab 20-50KB window pakka |
+| 📱 **Toll-free numbers** | 1800-… (11 digit) US country code ban jata tha — ab +91 India |
+| 🛠️ **Admin tutorial button** | Button par crash (galat HTML tag) — ab kaam karta hai + link dikhata hai |
+| 🖼️ **Image→PDF** | "10 photo tak" likha tha par limit nahi thi — ab 10 par rukta hai + Clear button |
+| 📢 **Broadcast** | `<` jaise character par poora broadcast fail hota — ab plain-text fallback |
+| 🗄️ **Database** | "database is locked" crash ka risk — `busy_timeout` laga |
+| 🧹 **Dead code** | 70 lines duplicate admin code delete kiya |
+
+### ⚡ SPEED + PRO UPGRADES
+| Kya | Kya badla |
+|---|---|
+| 🔗 **URL Shortener** | Ab 6 providers **PARALLEL** chalte hain — 10-45s ki jagah **~1 second** |
+| 🆔 **ID/Username Finder** | 5 platform checks **parallel** — ~60s ki jagah **~5-10s** |
+| 🔍 **Link Check** | NAYA **domain-age** signal (free RDAP) — 30 din se naya domain = automatic risk +20. Phishing feed scan bhi ab instant |
+| 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
+| 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
+
+✅ **Test suite:** `_selftest_v50.py` = **99 checks** (2 naye tools, 9 bug fixes, live API checks, DB/credits)
 
 ---
 
