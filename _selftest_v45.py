@@ -393,6 +393,17 @@ class FakeMsg:
                     out.append(getattr(b, "callback_data", "") or b.text)
         return out
 
+    def urls(self):
+        """v49.14: card me jo bhi URL buttons hain (koi hona hi nahi chahiye)."""
+        out = []
+        for kb in self.kbs:
+            for row in getattr(kb, "inline_keyboard", []):
+                for b in row:
+                    u = getattr(b, "url", None)
+                    if u:
+                        out.append(f"{b.text} -> {u}")
+        return out
+
 
 class FakeQuery:
     def __init__(self, data, uid=USER):
@@ -467,6 +478,23 @@ async def test_bot_flows():
     await bot.on_text(upd(m4, n=107), ctx4)
     ok("ID finder me Instagram profile dikhi", "INSTAGRAM" in m4.U() and "SUM" in m4.U(), m4.replies_text()[:250])
     ok("ID finder me followers bhi", "12000" in m4.replies_text(), m4.replies_text()[:250])
+
+    # v49.14: NUMBER SAFETY CARD — koi link nahi, sirf helpline numbers (user ka order)
+    ctx_s = Ctx()
+    ctx_s.user_data["mode"] = "numinfo"
+    m_s = FakeMsg("9876543210", uid=USER)
+    dbm.set_credits(USER, 5)
+    await bot.on_text(upd(m_s, n=120), ctx_s)
+    ok("NUM INFO card bana", "NUMBER INFO REPORT" in m_s.U(), m_s.replies_text()[:200])
+    ok("numinfo card me koi bahar wala link button nahi", not m_s.urls(), m_s.urls())
+    ok("numinfo card me safety card button", any("nsafe" in str(c) for c in m_s.cb_data()), m_s.cb_data()[:6])
+
+    q_s = FakeQuery("nsafe:919876543210", uid=USER)
+    await bot.on_cb(Update(update_id=121, callback_query=q_s), ctx_s)
+    t_s = q_s.message.replies_text()
+    ok("SAFETY CARD khula — helpline numbers (1930 / 155260)", "1930" in t_s and "155260" in t_s, t_s[:320])
+    ok("SAFETY CARD me koi URL text me bhi nahi", "http" not in t_s.lower(), t_s[:320])
+    ok("SAFETY CARD me koi link button nahi", not q_s.message.urls(), q_s.message.urls())
 
     # /hubstatus
     ctx5 = Ctx()
