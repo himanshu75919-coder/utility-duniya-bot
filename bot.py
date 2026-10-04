@@ -183,10 +183,8 @@ from modules.imei_lookup import (
     validate_imei as imei_validate,
 )
 from modules.osint_tools import (
-    NUM_LEAK_ENABLED,
-    PUBLIC_RECORD_WARNING,
     check_username_platforms,
-    lookup_public_records,
+    number_safety_info,
     search_by_area_name,
     lookup_ifsc,
     lookup_ip_domain,
@@ -247,7 +245,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v30 Ultra"
+BOT_VERSION = "v49.9 Ultra"  # v49.9: legal cleanup (leaked records band) + premium vehicle card
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -2740,66 +2738,48 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # ============ PUBLIC RECORDS (optional feature) ============
-    if data.startswith("numrec:"):
+    # ============ v49.9: NUMBER SAFETY CARD (legal — leaked records band hai) ============
+    if data.startswith("numrec:") or data.startswith("nsafe:"):
         number = data.split(":", 1)[1]
-        if not NUM_LEAK_ENABLED():
-            await q.answer("This feature is currently off.", show_alert=True)
-            return
-        await q.answer("Searching... (5-15 seconds)")
-        st = await q.message.reply_text("🧾 <b>Searching public records...</b>\n<i>This can take 5-20 seconds, please wait.</i>", parse_mode=HTML)
+        await q.answer("Safety card bana raha hoon...")
+        st = await q.message.reply_text("🛡️ <b>Safety card ban raha hai...</b>", parse_mode=HTML)
         try:
-            res = await asyncio.to_thread(lookup_public_records, number)
-        except Exception as e:
-            res = {"ok": False, "error": str(e)[:120]}
-
-        if not res.get("ok"):
-            if res.get("disabled_by_hub"):
-                await st.edit_text(
-                    "ℹ️ <b>Public-record search is turned off right now</b>\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
-                    "The live records service (name / address) is currently disabled by the data provider.\n"
-                    "✅ <b>No credit was cut</b> — the normal number card above still works.\n\n"
-                    "Official safety links:\n"
-                    "• <a href=\"https://cybercrime.gov.in/\">cybercrime.gov.in</a> — report a fraud number\n"
-                    "• <a href=\"https://sancharsaathi.gov.in/\">sancharsaathi.gov.in</a> — DoT chakshu (spam report)",
-                    parse_mode=HTML)
-                add_use(uid)
-                return
-            await st.edit_text(
-                f"❌ <b>No public record found</b>\n\n{hesc(str(res.get('error'))[:200])}\n\n"
-                "💡 <i>Ye number database me nahi hai. Doosra number try karo.</i>",
-                parse_mode=HTML)
-            add_use(uid)
-            return
-
-        lines = [f"🧾 <b>{to_bold('PUBLIC RECORDS')}</b> — <code>+{hesc(res['number'])}</code>",
-                 f"<i>Found: {res['count']} record (total in database: {res.get('record_count', res['count'])})</i>",
-                 "━━━━━━━━━━━━━━━━━━━━━━"]
-        for i, rec in enumerate(res["records"], 1):
-            lines.append(f"<b>{i}. {hesc(rec['name'])}</b>")
-            if rec.get("father"):
-                lines.append(f"   👨 <b>Father's name:</b> {hesc(rec['father'])}")
-            if rec.get("address"):
-                lines.append(f"   🏠 <b>Pata:</b> {hesc(rec['address'])}")
-            if rec.get("phone"):
-                lines.append(f"   📞 <b>Linked number:</b> <code>{hesc(rec['phone'])}</code>")
-            if rec.get("doc"):
-                lines.append(f"   🪪 <b>Doc/Aadhaar:</b> <code>{hesc(rec['doc'])}</code>")
-            if rec.get("region"):
-                lines.append(f"   🗺️ <b>Region/Operator:</b> {hesc(rec['region'])}")
-            lines.append("")
-        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
-        lines.append("ℹ️ <b>Sometimes the record belongs to someone else</b> — this happens when a number is recycled or ported. "
-                     "Trust it only after matching the name or address.")
-        lines.append("")
-        lines.append(PUBLIC_RECORD_WARNING)
-
-        kb_rec = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚨 Fraud/Spam? Complaint on 1930", url="https://cybercrime.gov.in/")],
-            [InlineKeyboardButton("🚫 Report on Chakshu (TRAI)", url="https://sancharsaathi.gov.in/")],
-        ])
-        await st.edit_text("\n".join(lines), reply_markup=kb_rec, parse_mode=HTML)
+            info = await asyncio.to_thread(number_safety_info, number)
+        except Exception:
+            info = {"links": [], "number": number}
+        lines = [
+            "╔═══════════════════════════╗",
+            f"🛡️ <b>{to_bold('NUMBER SAFETY CARD')}</b>",
+            "╚═══════════════════════════╝",
+            "",
+            f"📱 <b>Number:</b> <code>+{hesc(str(info.get('number') or number))}</code>",
+        ]
+        if info.get("operator"):
+            lines.append(f"📡 <b>Operator:</b> {hesc(str(info['operator']))} "
+                         f"{('· ' + hesc(str(info.get('circle')))) if info.get('circle') else ''}")
+        if info.get("type"):
+            lines.append(f"🔢 <b>Type:</b> {hesc(str(info['type']))}")
+        if info.get("ported") not in (None, "", False):
+            lines.append(f"🔁 <b>Ported (MNP):</b> {hesc(str(info['ported']))}")
+        lines += [
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "🔒 <b>Naam / pata / Aadhaar kyun nahi dikhta?</b>",
+            "Ye data <b>leaked (chori ke) databases</b> se aata hai. India me inhe dikhana ya",
+            "bechna <b>kayde se MANA</b> hai (DPDP Act 2023 + Aadhaar Act). Isse bot <b>ban</b>",
+            "ho jata aur <b>FIR</b> ka khatra hota hai — isliye hum ye kabhi nahi dikhate. 🙏",
+            "",
+            "✅ <b>Jo hum KANOONI tarike se dikha sakte hain:</b>",
+            "• Operator, circle, number type (upar dekho)",
+            "• Number valid hai ya nahi",
+            "• Official complaint links (neeche)",
+            "",
+            "🛡️ <b>Asli madad — official aur free:</b>",
+        ]
+        kb = [[InlineKeyboardButton(lbl, url=url)] for lbl, url in (info.get("links") or [])]
+        if not kb:
+            kb = [[InlineKeyboardButton("🚨 Cyber Crime — 1930", url="https://cybercrime.gov.in/")]]
+        await st.edit_text("\n".join(lines), reply_markup=InlineKeyboardMarkup(kb), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4072,7 +4052,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if pair:
                 rows.append(pair)
             card = (
-                f"📱 <b>{to_bold('NUMBER INFORMATION')}</b>\n"
+                "╔═══════════════════════════╗\n"
+                f"📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
+                "╚═══════════════════════════╝\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"• <b>Number:</b> <code>{res['international']}</code>\n"
                 f"• <b>National:</b> {res['national']}\n"
@@ -4088,8 +4070,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"ℹ️ <i>{res['note']}</i>\n\n"
                 "👇 Links for further checks:"
             )
-            if NUM_LEAK_ENABLED():
-                rows.insert(0, [InlineKeyboardButton("🧾 Public records bhi check karo (naam/pata)", callback_data=f"numrec:{res['e164']}")])
+            # v49.9: leaked "public records" button HATA diya — uski jagah legal safety card
+            rows.insert(0, [InlineKeyboardButton("🛡️ Safety card + complaint links",
+                                                 callback_data=f"nsafe:{res['e164']}")])
             await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
@@ -5296,6 +5279,7 @@ def _keepalive():
             _ka = (f"keepalive pinger: last {_KEEPALIVE_STATE.get('last_run')} | ok={_KEEPALIVE_STATE.get('last_ok')}"
                    f" | runs={_KEEPALIVE_STATE.get('runs')}")
             html = ("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"
+                    f"<p style='font-family:monospace'>version: {BOT_VERSION}</p>"
                     f"<p style='font-family:monospace'>{_ka}</p>"
                     f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
             self.wfile.write(html.encode("utf-8"))
