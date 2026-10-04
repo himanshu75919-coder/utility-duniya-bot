@@ -420,7 +420,7 @@ async def flows():
     ok("challan list aayi", "CH46894230719122563" in t2 and "PENDING" in t2, t2[-400:])
     ok("1 credit kata", dbm.get_credits(USER) == before - 1, (before, dbm.get_credits(USER)))
     ok("'credit used' line aayi", ("credit used" in t2.lower() or "credit laga" in t2.lower()), t2[-200:])
-    ok("official buttons aaye", any("echallan" in str(u or "") for u in _urls(m2)), _urls(m2))
+    ok("live card me koi website link button nahi (user ka order)", not _urls(m2), _urls(m2))
 
     q = await click("vehagain:HR26EV0001", ctx, uid=USER)
     ok("'Check again' callback chala", "FORTUNER LEGENDER" in q.message.all_text(), q.message.all_text()[:200])
@@ -459,6 +459,11 @@ async def flows():
     ok("API down par free card + reason", "RTO Office" in m6.all_text() or "RTO" in m6.all_text(),
        m6.all_text()[:250])
     ok("API down par credit nahi kata", dbm.get_credits(USER) == 5, dbm.get_credits(USER))
+    # v49.12: free card me SMS tarika ho, koi website link/button NAHI
+    ok("free card me SMS tarika (VAHAN + CHALLAN + 7738299899)",
+       "7738299899" in m6.all_text() and "VAHAN" in m6.all_text().upper()
+       and "CHALLAN" in m6.all_text().upper(), m6.all_text()[-400:])
+    ok("free card me koi website link button nahi", not _urls(m6), _urls(m6))
     os.environ["VEHICLE_API_BASE"] = "http://127.0.0.1:8791/api"
     vc._CACHE.clear()
 

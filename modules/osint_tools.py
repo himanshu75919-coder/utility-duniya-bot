@@ -97,14 +97,10 @@ def lookup_vehicle_rto(plate: str) -> dict:
         "rto_code": rto_code,
         "district": district,
         "vehicle_class": v_class,
-        "links": [
-            ("🔎 RC Details (VAHAN)", "https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml"),
-            ("🎫 e-Challan Check", "https://echallan.parivahan.gov.in/index/accused-challan"),
-            ("🛡️ Insurance (IIB)", "https://iib.gov.in/IIB/InsuPolicySearch.aspx"),
-            ("📄 DL Status (Sarathi)", "https://sarathi.parivahan.gov.in/sarathiservice/stateSelection.do"),
-            ("📲 mParivahan App", "https://play.google.com/store/apps/details?id=com.nic.mparivahan"),
-        ],
-        "note": "VAHAN/Parivahan par OTP aur captcha lagta hai, isliye asli RC details wahi milti hain — ye tool aapko official page par le jata hai.",
+        # v49.12: SAARE website links hata diye (user ka order) — sirf SMS tarika
+        "links": [],
+        "sms": {"rc": f"VAHAN {clean}", "challan": f"CHALLAN {clean}", "number": "7738299899"},
+        "note": "RC + challan ka poora record SMS se: 'VAHAN <number>' aur 'CHALLAN <number>' likh kar 7738299899 par bhejo (official MoRTH/NIC gateway, free).",
     }
 
 
