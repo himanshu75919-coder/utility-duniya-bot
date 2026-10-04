@@ -5,10 +5,8 @@ Smart OSINT & Digital Investigation Hub — v32 PRO
 Vehicle RTO, Phone Carrier/Circle, IFSC Bank Branch, Pincode (+ area-name search), Domain/IP Lookup,
 and REAL Username Existence Checker (GitHub / YouTube / TikTok / Steam / Telegram verified).
 
-NOTE (safety): Default me sirf PUBLIC / lawful sources use hote hain (telecom carrier+circle, bank branch,
-pin code, IP geo). "Public records" lookup (naam/address wala) ek OPTIONAL feature hai jo bot owner ne
-v49.9 se HAMESHA BAND hai (leaked personal data — DPDP Act/Aadhaar Act ke khilaf).
-Iska misuse (kisi ko pareshan karna / blackmail / fraud) India me CRIME hai (IT Act + DPDP Act).
+NOTE: Default me sirf PUBLIC / lawful sources use hote hain (telecom carrier+circle, bank branch,
+pin code, IP geo).
 """
 
 import os
@@ -108,7 +106,7 @@ def lookup_vehicle_rto(plate: str) -> dict:
 # PHONE NUMBER
 # =====================================================================================
 def lookup_phone_info(number_str: str) -> dict:
-    """Carrier, circle/region, timezone, number type + safety links (100% public data)."""
+    """Carrier, circle/region, timezone, number type (100% public data)."""
     clean = re.sub(r"[^\d+]", "", number_str or "")
     if not clean:
         return {"ok": False, "error": "Number bhejo (jaise <code>9876543210</code> ya <code>+919876543210</code>)"}
@@ -164,8 +162,7 @@ def lookup_phone_info(number_str: str) -> dict:
         "timezones": zones,
         "type": ntype,
         "series_note": series_note,
-        # v49.13: bahar wale links (WhatsApp/Telegram/Truecaller/Google) hata diye (user ka order).
-        # Shikayat ke official channels alag se number_safety_info() me hain (safety card).
+        # v49.13: bahar wale links hata diye (user ka order) — koi link nahi.
         "links": [],
         "note": "Number port (MNP) hua ho to carrier/circle badal sakta hai.",
     }
@@ -335,77 +332,6 @@ def lookup_ip_domain(target: str) -> dict:
         return {"ok": False, "error": f"API status {r.status_code}"}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
-
-
-# =====================================================================================
-# PUBLIC-RECORDS LOOKUP (OPTIONAL — bot owner ne enable kiya; env se off ho sakta hai)
-# =====================================================================================
-NUM_INFO_API_BASE = lambda: os.environ.get("NUM_INFO_API_BASE", "https://osint-api-hub.onrender.com").rstrip("/")
-NUM_INFO_API_KEY = lambda: os.environ.get("NUM_INFO_API_KEY", "Demo")
-# v49.9: leaked personal-record lookup HAMESHA off (kabhi on nahi hoga)
-NUM_LEAK_ENABLED = lambda: False
-
-PUBLIC_RECORD_WARNING = (
-    "⚠️ <b>IMPORTANT:</b>\n"
-    "This is <b>public/leaked record</b> information (it may contain someone's personal details).\n"
-    "• Using it to <b>harass, blackmail or defraud</b> anyone is a <b>CRIME</b> in India "
-    "(IT Act + DPDP Act — jail/fine possible)\n"
-    "• Look up only <b>your own</b> information, or for <b>legal</b> work (example: complaint about a fraud number)\n"
-    "• The bot owner can switch this feature off any time (NUM_LEAK_ENABLED=off)"
-)
-
-
-def lookup_public_records(number: str) -> dict:
-    """
-    v49.9 (IMPORTANT): Ye feature JAAN-BOOJH KAR band hai — HAMESHA.
-
-    Number se naam / pita ka naam / pata / Aadhaar dikhana **leaked (chori ke) database**
-    se aata hai. India me ye:
-      • DPDP Act 2023 ke khilaf hai (personal data ka galat istemal)
-      • Aadhaar Act sec. 38 — Aadhaar number dikhana/batna = jail ho sakti hai
-      • Telegram bhi aise bots ko PERMANENT BAN kar deta hai
-    Isliye ye function ab kabhi personal record return nahi karega — chahe koi env set ho.
-    (Kanooni tarika: sirf carrier/operator/HLR data + official helpline numbers — koi link nahi.)
-    """
-    return {
-        "ok": False,
-        "blocked": True,
-        "legal_block": True,
-        "error": ("Naam/pata/Aadhaar jaise personal records leaked databases se aate hain — "
-                  "inhe dikhana/becna kayde se MANA hai (DPDP Act 2023 + Aadhaar Act). "
-                  "Bot ban ho jata aur FIR ka khatra hota hai. Isliye ye band hai."),
-        "safe_alternatives": {
-            "carrier": "📱 Operator/Circle data (legal) — NUMBER INFO tool me",
-            "complaint": "🚨 Spam/fraud: Sanchar Saathi ya 1930",
-        },
-    }
-
-
-def number_safety_info(number: str) -> dict:
-    """LEGAL help card: carrier data (agar provider ho) + official complaint/report links."""
-    digits = re.sub(r"\D", "", number or "")
-    info = {"ok": True, "number": digits}
-    try:
-        if hub is not None and hub.hub_ready():
-            car = hub.hub_carrier_info(digits)
-            if car.get("ok"):
-                info.update({"operator": car.get("operator"), "circle": car.get("circle"),
-                             "type": car.get("type"), "ported": car.get("ported")})
-    except Exception:
-        pass
-    # v49.14: safety card ke links bhi HATA diye (user ka order) — sirf helpline numbers
-    # (plain text, koi URL nahi) + in-bot guidance.
-    info["links"] = []
-    info["advice"] = [
-        "• 📞 <b>Cyber Crime Helpline:</b> 1930 (24x7, free — turant call karo)",
-        "• 📞 <b>Financial fraud:</b> 155260 (bank se paisa wapas/rokne ke liye)",
-        "• 🚔 <b>Nazdeeki police station / cyber cell</b> me likhit shikayat do (receipt lo)",
-        "• 📵 <b>Chori hui SIM</b> turant apne operator ki app/helpline se band karwao",
-        "• 🧾 <b>Proof rakho:</b> chat screenshots, transaction ID, caller ka number",
-    ]
-    info["note"] = ("Ye helpline numbers Official/Government ke hain. Card me koi website link "
-                    "nahi diya gaya — aapko sirf call karna hai.")
-    return info
 
 
 # =====================================================================================

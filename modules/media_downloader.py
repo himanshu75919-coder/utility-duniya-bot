@@ -50,7 +50,7 @@ FB_UA = {
     "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
 }
 
-MAX_TG_MB = 48  # Telegram Bot API upload limit ~50MB (safety margin)
+MAX_TG_MB = 48  # Telegram Bot API upload limit ~50MB (buffer)
 
 # ffmpeg detection: system ka, warna imageio-ffmpeg ka bundled binary (Render pe bhi chal jata hai)
 _FFMPEG_LOC = shutil.which("ffmpeg")
