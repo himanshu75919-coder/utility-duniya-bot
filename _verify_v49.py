@@ -178,7 +178,9 @@ ok("📱 Operator mila", bool(r.get("operator")))
 
 r = ot.lookup_vehicle_rto("BR30AR0802")
 ok("🚗 RTO free card live", r.get("ok") and r.get("state_name") == "Bihar", r.get("error"))
-ok("🚗 RTO me official links", len(r.get("links") or []) >= 2)
+ok("🚗 RTO se website links HAT gaye (user ka order)", (r.get("links") or []) == [])
+ok("🚗 RTO me SMS tarika (VAHAN/CHALLAN -> 7738299899)",
+   "7738299899" in str((r.get("sms") or {}).get("number", "")) and "VAHAN" in str((r.get("sms") or {}).get("rc", "")))
 
 r = ot.check_username_platforms("github")
 ok("🆔 Username check live", r.get("ok") and len(r.get("results") or []) >= 3, r.get("error"))

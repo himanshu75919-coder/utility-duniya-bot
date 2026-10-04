@@ -686,15 +686,9 @@ def render_unavailable(res: dict) -> str:
     out.append("")
     out.append("✅ <b>Bilkul ₹0 — koi credit nahi kata, koi site kholne ki zaroorat nahi.</b>")
     out.append("")
-    out.append("━━━ 🔘 <b>Ya 1-tap buttons (neeche, ₹0)</b> ━━━")
-    out.append("• 🎫 <b>e-Challan</b> → plate daalo + captcha → pending challan list")
-    out.append("• 🔎 <b>VAHAN RC</b> → plate daalo → poora RC record")
-    out.append("• 🛡️ <b>IIB</b> → insurance company + policy expiry")
-    out.append("• 📄 <b>Sarathi</b> → DL number + DOB se licence details")
-    out.append("")
-    out.append("<i>Note: server se ye auto-check nahi hota (govt sites sirf India ke net se "
-               "khulti hain + captcha) — isliye bot jhooti &quot;sab saaf hai&quot; line kabhi "
-               "nahi dikhayega. Jitna ho sakta tha, sab is card me hai.</i>")
+    out.append("<i>Note: koi website link nahi hai — server se ye auto-check nahi hota (govt "
+               "sites sirf India ke net se khulti hain + captcha). Isliye SMS wala rasta "
+               "diya hai: wahi 100% chalta hai aur bilkul free hai.</i>")
     return "\n".join(out)
 
 

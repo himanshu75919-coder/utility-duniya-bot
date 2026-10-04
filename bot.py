@@ -245,7 +245,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v49.11 Ultra"  # v49.11: SMS-first vehicle card (100% free, sabse upar)
+BOT_VERSION = "v49.12 Ultra"  # v49.12: vehicle tool se SAARE website links hata diye
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -2185,11 +2185,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if live.get("ok"):
             await q.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
             rows_live = [
-                [InlineKeyboardButton("🚨 Check / pay on e-Challan (official)",
-                                      url="https://echallan.parivahan.gov.in/"),
-                 InlineKeyboardButton("📄 VAHAN RC status",
-                                      url="https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml")],
-                [InlineKeyboardButton("🔄 Check again", callback_data=f"vehagain:{live['plate']}")],
+                [InlineKeyboardButton("🔄 Dobara check karo", callback_data=f"vehagain:{live['plate']}")],
             ]
             await q.message.reply_text(render_vehicle_report(live), reply_markup=InlineKeyboardMarkup(rows_live),
                                        parse_mode=HTML)
@@ -3841,7 +3837,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         def _free_card(extra: str = ""):
-            rows_ = [[InlineKeyboardButton(txt, url=url)] for txt, url in base["links"]]
+            # v49.12: koi website link/button NAHI — sirf SMS tarika (100% free, phone se)
+            _pl = (base.get("plate") or str(raw_text or "").replace(" ", "").upper())
+            sms = ("━━━━━━━━━━━━━━━━━━━━━━\n"
+                   "📲 <b>RC + challan ka poora record — SMS se (30 sec, FREE)</b>\n"
+                   f"1️⃣ SMS likho:  <code>VAHAN {_pl}</code>\n"
+                   f"2️⃣ SMS likho:  <code>CHALLAN {_pl}</code>\n"
+                   "3️⃣ Bhejo is number par:  <code>7738299899</code>\n"
+                   "<i>(Official MoRTH / NIC gateway — reply me: owner naam, maker, model, "
+                   "RC date, insurance, pending challan. Unlimited SMS pack me bilkul ₹0.)</i>\n"
+                   "✅ <b>Koi website kholne ki zaroorat nahi — sab isi card me.</b>")
             return (
                 f"🚗 <b>{to_bold('VEHICLE / RTO INFO')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -3851,9 +3856,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + (f"🚙 <b>Vehicle Class (from series):</b> {base['vehicle_class']}\n" if base.get("vehicle_class") else "")
                 + "━━━━━━━━━━━━━━━━━━━━━━\n"
                 + (extra + "\n" if extra else "")
-                + f"ℹ️ <i>{base['note']}</i>\n\n"
-                "👇 Check officially here:"
-            ), InlineKeyboardMarkup(rows_)
+                + sms
+            ), None
 
         # ---- live RC + challan report (agar API set hai) ----
         if vehicle_api_ready() and vehicle_plate_ok(raw_text):
@@ -3861,7 +3865,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not can_use_premium_tool(_u, uid):
                 await update.message.reply_text(get_credits_over_text("vehicle"),
                                                 reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                card_txt, kb_free = _free_card("✅ <b>Free part:</b> RTO office + official check links are open below.")
+                card_txt, kb_free = _free_card("✅ <b>Free part:</b> RTO office + district yahan hai, aur neeche SMS se poora record.")
                 await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
                 context.user_data.pop("mode", None)
                 add_use(uid)
@@ -3883,10 +3887,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if live.get("ok"):
                 await update.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
                 rows_live = [
-                    [InlineKeyboardButton("🚨 Check / pay on e-Challan (official)",
-                                          url="https://echallan.parivahan.gov.in/"),
-                     InlineKeyboardButton("📄 VAHAN RC status",
-                                          url="https://vahan.parivahan.gov.in/nrservices/faces/user/searchstatus.xhtml")],
                     [InlineKeyboardButton("🔄 Ye number dobara check karo", callback_data=f"vehagain:{live['plate']}")],
                 ]
                 await update.message.reply_text(render_vehicle_report(live),
@@ -3895,8 +3895,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             # API fail → free card + reason
             if live.get("hub_disabled"):
-                _why = ("⚠️ <b>Live RC / challan data abhi band hai.</b>\n"
-                        "<i>Data provider ne vehicle records rok diye hain. Neeche RTO card phir bhi kaam karta hai.</i>")
+                _why = ("⚠️ <b>Live auto-check abhi band hai.</b>\n"
+                        "<i>Neeche wala SMS tarika hamesha chalta hai (MoRTH ka official number).</i>")
             else:
                 _why = f"⚠️ <b>Live report not available:</b> {hesc(str(live.get('error'))[:120])}"
             card_txt, kb_free = _free_card(_why)
@@ -3904,7 +3904,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
 
-        card_txt, kb_free = _free_card("🚨 <b>Challan + poori RC report:</b> official portal par apne aap check kar sakte ho (neeche links) → VAHAN / e-Challan")
+        card_txt, kb_free = _free_card("🚨 <b>Challan + poori RC report ke liye:</b> neeche SMS karo — 30 second me aapke phone par aa jayega.")
         await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
         add_use(uid)
         return
