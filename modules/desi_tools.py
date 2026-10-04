@@ -1084,6 +1084,45 @@ def youtube_mp3(url: str, quality: str = "192") -> dict:
 
 
 # ============================================================
+#  4b) 🗣️ TEXT → HINDI VOICE (edge-tts, free neural voices)
+# ============================================================
+# Microsoft ke FREE neural Hindi voices — ekdum real/desi awaaz (robotic nahi).
+# Koi API key nahi, koi paid service nahi. Text bhejo → MP3 audio aata hai.
+TTS_HI_VOICES = {
+    "male":   "hi-IN-MadhurNeural",   # mard awaaz (natural, desi)
+    "female": "hi-IN-SwaraNeural",    # aurat awaaz (natural, desi)
+}
+TTS_MAX_CHARS = 1500
+
+
+async def hindi_tts(text: str, voice: str = "male", rate: str = "+0%") -> dict:
+    """Text → real Hindi MP3 (edge-tts neural). Returns {ok, bytes, size_mb}."""
+    text = (text or "").strip()
+    if not text:
+        return {"ok": False, "error": "Pehle text bhejo."}
+    if len(text) > TTS_MAX_CHARS:
+        text = text[:TTS_MAX_CHARS]
+    voice_id = TTS_HI_VOICES.get(voice, TTS_HI_VOICES["male"])
+    out = _tmp(".mp3")
+    try:
+        import edge_tts  # lazy — Render par pip se aata hai
+        comm = edge_tts.Communicate(text, voice_id, rate=rate)
+        await comm.save(out)
+        if not os.path.exists(out) or os.path.getsize(out) < 500:
+            return {"ok": False, "error": "Audio nahi bana (internet/voice issue). Thodi der baad dobara try karo."}
+        with open(out, "rb") as fh:
+            data = fh.read()
+        return {"ok": True, "bytes": data, "size_mb": round(len(data) / 1048576, 2)}
+    except Exception as e:
+        return {"ok": False, "error": f"Voice nahi banna: {str(e)[:160]}"}
+    finally:
+        try:
+            os.remove(out)
+        except OSError:
+            pass
+
+
+# ============================================================
 #  5) (BONUS) 🪔 RUHU KAAL + DIN SHUBH MUHURAT (offline hisaab)
 # ============================================================
 

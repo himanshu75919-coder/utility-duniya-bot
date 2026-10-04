@@ -8,6 +8,26 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v51.2 UPDATE — NAYA TOOL: 🗣️ TEXT → HINDI VOICE
+
+**Bhai, ekdum naya earning tool aa gaya hai — "Text → Hindi Voice":**
+
+- Media Studio me naya button: **"🗣️ Text → Hindi Voice (MP3)"**
+- User apna text bhejta hai (Hindi me, max 1500 letters) — jaise: *"Bhai kaise ho? Aaj ka din bahut accha hai."*
+- Bot use **ekdum real desi Hindi awaaz** me MP3 bana ke wapas bhej deta hai
+- 2 awaazein chun sakte ho: **Madhur (mard)** ya **Swara (aurat)** — dono natural, robotic bilkul nahi
+- Har use par **1 credit** — premium model wahi chal raha hai
+
+**Engine kaafi important hai:** Microsoft ka **free neural voice** engine (`edge-tts`) use hota hai —
+koi API key nahi, koi monthly bill nahi, koi paid service nahi. Toh **cost = ZERO**, poora margin aapka.
+
+**Kis ke kaam aayega:** reels banane wale (voiceover), YouTubers, students (presentation),
+dukandaar (shop ka announcement), aur har koi jo Hindi me voice note bhejna chahta hai bina bolne ke.
+
+Saare tests green hain — ab **334 checks** (13 naye TTS checks ke saath).
+
+---
+
 ## 🆕 v51.1 UPDATE — WEATHER / MAUSAM tool bhi permanently hata diya
 
 **Bhai, 🌦️ WEATHER / MAUSAM tool ab poore bot se gayab hai** (jaisa tumne kaha):
@@ -16,7 +36,7 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 - Prompt, premium list, rate-limit — sab se iska code nikaal diya.
 - Jo purane user uska button dabayenge, unhe **saaf message** milega "🌦️ Weather / Mausam hata diya gaya hai" + ek replacement suggestion (crash nahi).
 
-Isse **ab total 6 tools permanently delete** ho gaye. Saare test suites (321 checks) green hain.
+Isse **ab total 6 tools permanently delete** ho gaye. (Wo time par 321 checks green the; ab v51.2 ke saath **334**.)
 
 ---
 

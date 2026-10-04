@@ -260,7 +260,7 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v51.1 version", "v51.1 Premium Earning" in bot_src),
+    ("v51.2 version", "v51.2 Premium Earning" in bot_src),
     ("weather button menu se gayab", "🌦️ {to_bold('WEATHER / MAUSAM')}" not in bot_src),
     ("weather prompt gayab", '"weather": (' not in bot_src),
     ("weather handler gayab", 'if mode == "weather":' not in bot_src),
@@ -299,6 +299,38 @@ checks = [
     ("premium tool names updated", '"terabox": "⚡ Terabox / Cloud Downloader"' in bot_src),
 ]
 for nm, ok in checks:
+    check(nm, ok)
+
+# =====================================================================
+section("17) 🗣️ TEXT → HINDI VOICE (edge-tts, free neural) — v51.2")
+import asyncio
+from modules import desi_tools as _desi
+
+async def _tts_main():
+    r_m = await _desi.hindi_tts("Namaste bhai! Ye hai Utility Duniya ka naya Hindi voice tool.", "male")
+    r_f = await _desi.hindi_tts("Main bhi sunn liya, awaaz ekdum acchi lagi.", "female")
+    r_e = await _desi.hindi_tts("   ")
+    return r_m, r_f, r_e
+
+r_m, r_f, r_e = asyncio.run(_tts_main())
+check("male voice MP3 bana", r_m.get("ok") is True and len(r_m.get("bytes", b"")) > 1000, str(r_m)[:100])
+check("female voice MP3 bana", r_f.get("ok") is True and len(r_f.get("bytes", b"")) > 1000, str(r_f)[:100])
+check("khaali text → saaf error", r_e.get("ok") is False)
+check("TTS voices registered", _desi.TTS_HI_VOICES.get("male") == "hi-IN-MadhurNeural"
+      and _desi.TTS_HI_VOICES.get("female") == "hi-IN-SwaraNeural")
+
+tts_checks = [
+    ("media_tts rate-limit", '"media_tts":   (8,  60,  "Text → Hindi Voice")' in bot_src),
+    ("tts menu button", 'callback_data="media_tts"' in bot_src),
+    ("tts ask prompt", '"tts": ("🗣️ <b>TEXT → HINDI VOICE</b>' in bot_src),
+    ("tts on_text handler", 'if mode == "media_tts":' in bot_src),
+    ("tts voice pick kb", 'ttsvoice:male' in bot_src and 'ttsvoice:female' in bot_src),
+    ("tts callback handler", 'data.startswith("ttsvoice:")' in bot_src),
+    ("tts engine call", "desi.hindi_tts(txt, vkey)" in bot_src),
+    ("tts credit spend", 'spend_credit_msg(uid, "mediastudio")' in bot_src),
+    ("edge-tts in requirements", "edge-tts" in open("requirements.txt").read()),
+]
+for nm, ok in tts_checks:
     check(nm, ok)
 
 # =====================================================================

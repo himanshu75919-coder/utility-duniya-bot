@@ -1,4 +1,19 @@
-# 📖 1-PADHO-PEHLE.md — v51.1 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v51.2 Premium Earning (5 minute me poora samajh)
+
+## 🆕 v51.2 me naya tool — 🗣️ TEXT → HINDI VOICE
+
+**Kya karta hai:** Media Studio me naya button **"🗣️ Text → Hindi Voice (MP3)"** hai.
+User apna text bhejta hai (Hindi me, max 1500 letters) → bot use **ekdum real desi Hindi awaaz** me MP3 bana deta hai.
+2 awaazein: **Madhur (mard)** aur **Swara (aurat)** — dono natural, robotic nahi.
+
+**Kaise banaya:** `edge-tts` (Microsoft ka FREE neural voice engine) — koi API key nahi, koi paise nahi.
+Har use par **1 credit** jata hai (premium model wahi).
+
+| Kya | Detail |
+|---|---|
+| 🎙️ **Voices** | hi-IN-MadhurNeural (male) + hi-IN-SwaraNeural (female) |
+| 📏 **Limit** | Max 1500 letters/use · rate-limit 8 use/minute |
+| 🧪 **Tests** | 13 naye checks (live MP3 generation dono awaazon + wiring) — **334 checks total, sab green** |
 
 Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 
@@ -18,7 +33,7 @@ Bhai, ye file **sabse pehle** padh lo. Isme sirf kaam ki baat hai:
 | 💰 **AB SAARE tools PREMIUM** | Naye user ko **25 free credits** (1 use = 1 credit). Credits khatam → VIP lo. **VIP = poora bot unlimited** |
 | 👑 **VIP plans** | 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199 |
 |  **Vehicle key fix** | Vehicle ab premium gate se sahi pass hota hai (pehle key mismatch thi) |
-| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **87** + `_verify_v49.py` **128** = **321 checks, sab green** |
+| ✅ **Test suites** | `tests/test_v50_core.py` **106** + `_selftest_v50.py` **100** + `_verify_v49.py` **128** = **334 checks, sab green**  |
 
 ### v50 (purana, context ke liye)
 | Kya | Detail |

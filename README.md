@@ -1,4 +1,11 @@
-# ⚡ Utility Duniya Super-Bot — **v51.1 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v51.2 Premium Earning**
+
+## 🆕 v51.2 me kya badla
+
+| Kya | Detail |
+|---|---|
+| 🗣️ **NAYA TOOL: TEXT → HINDI VOICE** | Media Studio me — text bhejo (max 1500 letters) → **ekdum real desi Hindi awaaz me MP3** (2 voices: Madhur male / Swara female). Engine: `edge-tts` (Microsoft neural, **free, koi API key nahi**). 1 credit/use. |
+| ✅ **Tests** | 3 suites, **334 checks sab green** (naye 13 TTS checks: live male/female MP3 generation + wiring) |
 
 **Ek hi bot me 27+ kaam:** video download, channel auto-forward, photo/document banane wale tools,
 sarkari kagaz, bank statement → Excel, media studio (MP3 / status video / karaoke), info tools
@@ -34,10 +41,10 @@ padhe samajh jaye.
 |  **Vehicle key fix** | Ab `rto` action premium gate se sahi pass hota hai (pehle key mismatch thi). |
 | 🛡️ **Credit spend** | Har tool ke result par 1 credit deduct (fail hone par credit nahi jata). |
 
-### 🧪 Tests (3 suites, 321 checks — sab green)
+### 🧪 Tests (3 suites, 334 checks — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 87  checks — tools + 6-tool deletion wiring + DB/credits
+python3 _selftest_v50.py           # 100 checks — tools + 6-tool deletion + TTS + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -89,7 +96,7 @@ NET_MAX_MB=150
 
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 87 checks — tools + 6-tool deletion wiring + DB/credits
+python3 _selftest_v50.py           # 100 checks — tools + 6-tool deletion + TTS + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -120,7 +127,7 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 | 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
 | 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
 
-✅ **Test suite:** `_selftest_v50.py` = **87 checks** (tools, 6-tool deletion wiring, live API checks, DB/credits)
+✅ **Test suite:** `_selftest_v50.py` = **100 checks** (tools, 6-tool deletion, TTS, live API checks, DB/credits)
 
 ---
 
