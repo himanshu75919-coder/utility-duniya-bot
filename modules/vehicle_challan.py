@@ -674,27 +674,27 @@ def render_unavailable(res: dict) -> str:
         out.append(f"🗺️ <b>State:</b> {_e(bd['state'])} ({_e(bd['state_code'])})")
         out.append(f"🏢 <b>RTO / District code:</b> {_e(bd['state_code'])}{_e(bd['district_code'])}")
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
-    out.append("⚠️ <b>Live RC / challan auto-check server se possible nahi.</b>")
-    out.append("<i>(Govt sites sirf India ke net se khulti hain + captcha/OTP lagta hai — "
-               "isliye bot jhooti &quot;sab saaf hai&quot; line nahi dikhayega. Neeche 2 tarike "
-               "hain jisse aapko asli result 30-60 sec me mil jayega.)</i>")
+    out.append("📲 <b>RC + challan ka poora record chahiye? — SMS karo (30 sec, FREE)</b>")
+    _pl = _e(plate) if plate else "BR30AR0802"
+    out.append(f"1️⃣ SMS likho:  <code>VAHAN {_pl}</code>")
+    out.append(f"2️⃣ SMS likho:  <code>CHALLAN {_pl}</code>")
+    out.append("3️⃣ Bhejo is number par:  <code>7738299899</code>")
+    out.append("<i>(Official MoRTH / NIC gateway — unlimited SMS pack me bilkul free. "
+               "Reply me milega: owner naam, maker, model, RC date, insurance, pending challan.)</i>")
     out.append("")
-    out.append("✅ <b>Sab ₹0 — koi credit nahi kata.</b>")
+    out.append("💡 <i>Upar wali line dabao = copy ho jayegi (Telegram me).</i>")
     out.append("")
-    out.append("━━━ 📲 <b>TARIKA 1 — SMS (sabse aasan, no website)</b> ━━━")
-    out.append(f"• <b>RC details:</b> SMS karo  <code>VAHAN {(_e(plate) if plate else 'BR30AR0802')}</code>")
-    out.append(f"• <b>Challan:</b> SMS karo  <code>CHALLAN {(_e(plate) if plate else 'BR30AR0802')}</code>")
-    out.append("• <b>Number:</b> <code>7738299899</code> <i>(official MoRTH / NIC gateway)</i>")
-    out.append("<i>Reply SMS me owner (masked), maker, model, reg. date, insurance mil jayega.</i>")
+    out.append("✅ <b>Bilkul ₹0 — koi credit nahi kata, koi site kholne ki zaroorat nahi.</b>")
     out.append("")
-    out.append("━━━ 🔘 <b>TARIKA 2 — 1-tap buttons (neeche)</b> ━━━")
+    out.append("━━━ 🔘 <b>Ya 1-tap buttons (neeche, ₹0)</b> ━━━")
     out.append("• 🎫 <b>e-Challan</b> → plate daalo + captcha → pending challan list")
     out.append("• 🔎 <b>VAHAN RC</b> → plate daalo → poora RC record")
     out.append("• 🛡️ <b>IIB</b> → insurance company + policy expiry")
     out.append("• 📄 <b>Sarathi</b> → DL number + DOB se licence details")
     out.append("")
-    out.append("<i>Tip: e-Challan me kuch jagah last-5 chassis number bhi maangta hai — "
-               "wo apne RC paper par likha hota hai.</i>")
+    out.append("<i>Note: server se ye auto-check nahi hota (govt sites sirf India ke net se "
+               "khulti hain + captcha) — isliye bot jhooti &quot;sab saaf hai&quot; line kabhi "
+               "nahi dikhayega. Jitna ho sakta tha, sab is card me hai.</i>")
     return "\n".join(out)
 
 
