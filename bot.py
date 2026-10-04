@@ -122,7 +122,6 @@ from modules.cyber_studio import (
 )
 from modules.cloud_tools import resolve_cloud_url
 from modules import desi_tools as desi
-from modules import govt_tools as govt   # v52: GOVT SERVICES (court/result/idguide/jobs)
 from modules.desi_tools import (
     KAGAZ_FIELDS,
     KAGAZ_MAKERS,
@@ -246,9 +245,6 @@ TOOL_RATE_LIMITS = {
     "media_ytmp3": (5,  120, "YouTube → MP3"),
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
-    "govt_case":   (10, 60,  "Court Case Status"),
-    "govt_result": (15, 60,  "Sarkari Result"),
-    "govt_jobs":   (15, 60,  "Govt Job Tracker"),
     # normal info tools
     "ip":          (15, 60,  "IP / Domain Info"),
     "ifsc":        (15, 60,  "IFSC Info"),
@@ -291,7 +287,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v52.0 Premium Earning"  # v52.0: 🏛️ GOVT SERVICES (4 tools) + 🎞️ YouTube quality selector (360/480/720/1080) + 🚀 self-ping speed fix
+BOT_VERSION = "v52.1 Premium Earning"  # v52.1: GOVT SERVICES user order par delete + 🎞️ YT quality selector + 🚀 speed fix (v52.0 se)
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -349,7 +345,6 @@ PREMIUM_TOOLS = {
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
     "appfind",             # 📦 APP FINDER
-    "govt_case",           # ⚖️ COURT CASE STATUS (CNR) — v52
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -374,7 +369,6 @@ PREMIUM_TOOL_NAMES = {
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
     "appfind": "📦 App Finder",
-    "govt_case": "⚖️ Court Case Status (CNR)",
 }
 
 
@@ -756,7 +750,7 @@ KB_BTNS = [
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
-    [f"🏛️ {to_bold('GOVT SERVICES')}", f"❓ {to_bold('HELP / TUTORIAL')}"],
+    [f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
 
 
@@ -818,10 +812,6 @@ BTN_MODE_MAP = {
     "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
-    "GOVT SERVICES": "govt",
-    "GOVT": "govt",
-    "GOVERNMENT": "govt",
-    "GOVT SERVICE": "govt",
     "VIP PREMIUM": "premium",
     "REFER & EARN": "refer",
     "MY ACCOUNT": "account",
@@ -978,12 +968,6 @@ TUTORIAL_TEXT = (
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
-    "\n"
-    "🏛️ <b>Govt Services (naya):</b>\n"
-    "• ⚖️ COURT CASE STATUS → 16-digit CNR bhejo → poora case history (aage ki hearing date tak)\n"
-    "• 📋 SARKARI RESULT → latest results/admit cards (official links ke saath)\n"
-    "• 🪪 GOVT ID STATUS → PAN/Voter/Aadhaar ka CAPTCHA-free official SMS + helpline\n"
-    "• 🏛️ GOVT JOB TRACKER → latest notifications + application last dates\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
     "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
@@ -1209,32 +1193,6 @@ def media_menu_kb():
     ]
     return InlineKeyboardMarkup(rows)
 
-
-# ---------------- v52: GOVT SERVICES ----------------
-GOVT_MENU_TEXT = (
-    f"🏛️ <b>{to_bold('GOVT SERVICES')}</b>\n"
-    "Government-related information — sab official/public data se, 100% legal.\n"
-    "Na login, na OTP, na aapka koi password — sirf information.\n"
-    "👇 <b>Option chuno:</b>"
-)
-
-
-def govt_menu_kb():
-    rows = [
-        [InlineKeyboardButton("⚖️ Court Case Status (CNR se)", callback_data="govt_case")],
-        [InlineKeyboardButton("📋 Sarkari Result Center", callback_data="govt_result")],
-        [InlineKeyboardButton("🪪 Govt ID Status (PAN/Voter/Aadhaar)", callback_data="govt_id")],
-        [InlineKeyboardButton("🏛️ Govt Job + Exam Tracker", callback_data="govt_jobs")],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-    ]
-    return InlineKeyboardMarkup(rows)
-
-
-def govt_id_kb():
-    rows = [[InlineKeyboardButton(v["name"], callback_data=f"govt_idsvc:{k}")]
-            for k, v in govt.GOVT_ID_SERVICES.items()]
-    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
 
 
 def voice_preset_kb():
@@ -2840,46 +2798,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(text, parse_mode=HTML)
         return
 
-    # ---------- v52: 🏛️ GOVT SERVICES callbacks ----------
-    if data == "govt_case":
-        _u_g = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_g, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("govt_case"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        context.user_data["mode"] = "govt_case"
-        await q.message.reply_text(
-            "⚖️ <b>COURT CASE STATUS</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Ab <b>16-digit CNR number bhejo</b> (4 letters + 12 digits).\n"
-            "📌 Jaise: <code>DLHC010351552024</code>, <code>BIPT010012342023</code>\n"
-            "📍 Ye number aapki case filing receipt / pehli court order me hota hai.\n"
-            "⏱️ 1 credit jayega (API se live case data aata hai).",
-            parse_mode=HTML)
-        return
-
-    if data == "govt_result":
-        context.user_data["mode"] = "govt_result"
-        await q.message.reply_text(govt.results_text(), parse_mode=HTML)
-        return
-
-    if data == "govt_jobs":
-        context.user_data["mode"] = "govt_jobs"
-        await q.message.reply_text(govt.jobs_text(), parse_mode=HTML)
-        return
-
-    if data == "govt_id":
-        await q.message.reply_text(
-            "🪪 <b>GOVT ID STATUS</b> — kaunsa document? (button dabao)",
-            reply_markup=govt_id_kb(), parse_mode=HTML)
-        return
-
-    if data.startswith("govt_idsvc:"):
-        key = data.split(":", 1)[1]
-        await q.message.reply_text(govt.idguide_card(key), parse_mode=HTML)
-        return
-
     # ---------- v52: 🎞️ YOUTUBE QUALITY PICKER ----------
     if data.startswith("ytq:"):
         hstr = data.split(":", 1)[1]
@@ -3343,6 +3261,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC",
         # v51.1: weather tool permanently removed
         "WEATHER", "MAUSAM", "WEATHER / MAUSAM", "WEATHER / MAUSAM ",
+        # v52.1: GOVT SERVICES (v52.0) user order par hataya
+        "GOVT SERVICES", "GOVT", "GOVERNMENT", "GOVT SERVICE",
     }
     if not action and clean_key in _removed_keys:
         _why = {
@@ -3376,6 +3296,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "MAUSAM": "🌦️ Weather / Mausam",
             "WEATHER / MAUSAM": "🌦️ Weather / Mausam",
             "WEATHER / MAUSAM ": "🌦️ Weather / Mausam",
+            "GOVT SERVICES": "🏛️ Govt Services",
+            "GOVT": "🏛️ Govt Services",
+            "GOVERNMENT": "🏛️ Govt Services",
+            "GOVT SERVICE": "🏛️ Govt Services",
         }.get(clean_key, "Ye tool")
         _alt = {
             "CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
@@ -3408,6 +3332,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "WEATHER / MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "WEATHER / MAUSAM ": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
+            "GOVT SERVICES": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
+            "GOVT": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
+            "GOVERNMENT": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
+            "GOVT SERVICE": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
         }.get(clean_key, "Neeche naya menu check karo")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
@@ -3463,12 +3391,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action == "mediastudio":
             context.user_data["mode"] = "media_menu"
             await update.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
-            return
-
-        # 3d. v52: GOVT SERVICES (menu — info free, CNR case lookup 1 credit)
-        if action == "govt":
-            context.user_data["mode"] = "govt_menu"
-            await update.message.reply_text(GOVT_MENU_TEXT, reply_markup=govt_menu_kb(), parse_mode=HTML)
             return
 
         # 4. Sarkari Portals (v51: premium — 1 credit per use)
@@ -4903,42 +4825,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML,
         )
         add_use(uid)
-        return
-
-    # ---------- v52: 🏛️ GOVT SERVICES (text modes) ----------
-    if mode == "govt_menu":
-        await update.message.reply_text("👆 Upar wale buttons se govt service chuno.", parse_mode=HTML)
-        return
-
-    if mode == "govt_case":
-        cnr = raw_text.strip().upper()
-        _u_c = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u_c, uid):
-            context.user_data.pop("mode", None)
-            await update.message.reply_text(get_credits_over_text("govt_case"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        res = await asyncio.to_thread(govt.ecourts_case_status, cnr)
-        if not res.get("ok"):
-            context.user_data.pop("mode", None)
-            msg = ("⏳ " + res["error"]) if res.get("setup") else ("❌ " + res["error"])
-            await update.message.reply_text(msg, parse_mode=HTML)
-            return
-        card = govt.ecourts_card(res)
-        await update.message.reply_text(card + "\n\n" + spend_credit_msg(uid, "govt_case"), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
-
-    if mode == "govt_result":
-        await update.message.reply_text(govt.result_search(raw_text), parse_mode=HTML)
-        return
-
-    if mode == "govt_jobs":
-        kw = raw_text.strip()
-        region = kw.lower() if kw.lower() in govt._REGION_MAP else ""
-        await update.message.reply_text(
-            govt.jobs_text(region=region, keyword="" if region else kw), parse_mode=HTML)
         return
 
     # Forwarded message for ID Finder + Auto-Forward channel pakadna

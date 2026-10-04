@@ -1,19 +1,14 @@
-# ⚡ Utility Duniya Super-Bot — **v52.0 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v52.1 Premium Earning**
 
-## 🆕 v52.0 me kya badla
+## 🆕 v52.1 me kya badla
 
-### 🏛️ NAYA: GOVT SERVICES (4 government information tools — 100% legal)
-| Tool | Kya karta hai | Cost |
-|---|---|---|
-| ⚖️ **Court Case Status** | 16-digit **CNR number** bhejo → poora case history (parties, judge, next hearing date, saari sunwai). eCourts data API (eCourtsIndia) se. **Token chahiye** (free signup, ₹200 credits, koi card nahi) | 1 credit/use |
-| 📋 **Sarkari Result Center** | Latest results + admit cards (official links ke saath) — exam ka naam bhejo → filter | Free |
-| 🪪 **Govt ID Status** | PAN/Voter/Aadhaar/Passport ke **CAPTCHA-free official SMS + helpline** — bot exact SMS ready karke deta hai | Free |
-| 🏛️ **Govt Job Tracker** | Latest notifications + application last dates — state/qualification se filter (`UP`, `12th`, `ssc` bhejo) | Free |
+### 🗑️ GOVT SERVICES PERMANENTLY delete (user order)
+v52.0 me jo 4 govt tools aaye the (Court Case Status / Sarkari Result / Govt ID Status / Job Tracker)
+— user ke order par **poore delete** ho gaye (button + engine module `modules/govt_tools.py` +
+premium entry + rate-limit + tests + docs, sab). `ECOURTS_API_KEY` env bhi hata diya.
+Purane keyboard ke users ko saaf "Govt Services hata diya gaya" message milta hai.
 
-> ⚖️ **Legal design rule:** koi bhi cheez jo govt portal me LOGIN/CAPTCHA/OTP maangta hai, bot me
-> automated **nahi** hota (IT Act 43/66 + DPDP). Sirf public data + official CAPTCHA-free tareeke.
-
-### 🎞️ NAYA: YOUTUBE QUALITY SELECTOR (Video Downloader)
+### 🎞️ NAYA (v52.0 se, abhi bhi hai): YOUTUBE QUALITY SELECTOR (Video Downloader)
 YouTube link bhejo → **1080p / 720p / 480p / 360p buttons** aayenge → jo dabao wahi quality milegi.
 Pipeline: pehle direct download (agar YouTube server IP allow kare), warna hub 1080p + **bot-side
 ffmpeg downscale** (360p waghera). 1080p = original (koi re-encode nahi).
@@ -35,7 +30,6 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 | Var | Value | Kyu |
 |---|---|---|
 | `BOT_SELF_URL` | `https://utility-duniya-bot.onrender.com` | Self-ping speed fix |
-| `ECOURTS_API_KEY` | (free token — `eci_live_...`) | Court Case Status tool ke liye (optional) |
 
 ---
 
