@@ -1,4 +1,17 @@
-# 📖 1-PADHO-PEHLE.md — v52.2 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v52.3 Premium Earning (5 minute me poora samajh)
+
+## 🆕 v52.3 me kya badla (6 naye tools — aapke choice par)
+
+| Kya | Detail |
+|---|---|
+| 🎮 **BGMI UID (naya)** | Dost ka BGMI UID → naam/level/rank/stats (public). BGMI India ke liye free API nahi hai isliye best-effort + official guide — kabhi fake data nahi |
+| 🔥 **FF UID (naya)** | FF UID → naam/level/BR+CS rank/likes/last login (Garena public data, 13 regions) |
+| 📌 **PINTEREST (naya)** | Pin link → original HD image download; keyword → 6 images → tap karke download |
+| 📄 **WEB SCRAPER (naya)** | Public page ka link → poora text (bada page = .txt file). Private IPs block |
+| 📧 **TEMP MAIL (naya)** | NEW → ek-baar ka email + inbox (mail.tm free API, 30 din) |
+| 🪪 **AADHAAR EID (naya)** | APNA 14-digit EID → ready SMS 51969 ke liye (official UIDAI status) |
+| ⚙️ **Cost** | Saare 6 premium (1 credit/use) · Menu ab **33 buttons** |
+| ✅ **Tests** | **413 checks sab green** (106 + 179 + 128) |
 
 ## 🆕 v52.2 me kya badla
 

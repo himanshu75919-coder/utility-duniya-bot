@@ -1,4 +1,43 @@
-# ⚡ Utility Duniya Super-Bot — **v52.2 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v52.3 Premium Earning**
+
+## 🆕 v52.3 me kya badla
+
+### 🎮🔥 NAYA: GAME PLAYER INFO (BGMI UID + FF UID)
+Dost ka game UID bhejo → **player ka naam, level, rank, K/D, last login** — sab **public in-game data**.
+- 🔥 **FF UID**: Garena ke public profile data se (free API) — 13 regions (IND/BR/SG/US...) support
+- 🎮 **BGMI UID**: best-effort public stats + official in-game guide (BGMI India ke liye free public API officially nahi hai — kabhi fake data nahi)
+- ⚠️ "Private leaderboard" / real identity wala data **kabhi nahi** — sirf public in-game data
+
+### 📌 NAYA: PINTEREST (image HD download)
+- **PIN LINK** bhejo (app se copy link) → **original quality** image download
+- **KEYWORD** bhejo → 6 public images dikhte hain → tap karke download
+- Pinterest ka official CDN (i..com) se direct — koi API key nahi
+
+### 📄 NAYA: WEB SCRAPER (public page → clean text)
+Koi bhi public article/blog/news page ka link bhejo → poora text saaf format me (bada page = .txt file).
+SSRF-protected — private/internal IPs kabhi nahi khulte.
+
+### 📧 NAYA: TEMP MAIL (disposable email + inbox)
+`NEW` bhejo → ek-baar ka email ID (mail.tm free API) → kisi bhi jagah signup/OTP ke liye.
+`INBOX` bhejo → messages yahan dikhte hain. Password bot generate karta hai, user ko sirf address dikhta hai. 30 din valid.
+
+### 🪪 NAYA: AADHAAR EID STATUS HELPER (APNA EID)
+Apna **14-digit Enrolment ID (EID/EPIC)** bhejo (Aadhaar acknowledgement slip ke top par) →
+bot **ready SMS** bana deta hai: `UID STATUS xxxxxxxxxxxxxxxx` → **51969** pe bhejo → official UIDAI status.
+- ✅ 100% legal: sirf APNA EID, official CAPTCHA-free SMS service + official web link
+- ❌ Koi data leak nahi, koi CAPTCHA bypass nahi, kisi aur ka EID/Aadhaar nahi
+
+> ⚖️ Teeno + baaki sab **100% legal** — sirf public data + official sources.
+> Saare 6 naye tools **premium (1 credit/use)** hain.
+
+### 🧪 Tests (3 suites, sab green)
+```bash
+python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
+python3 _selftest_v50.py           # v52.3 tools + saare purane sections
+python3 _verify_v49.py             # 128 checks — purana regression suite
+```
+
+---
 
 ## 🆕 v52.2 me kya badla
 
@@ -18,10 +57,10 @@ user profiles t.me public page se). Sirf public info — private members/phone n
 > ⚖️ Teeno **100% legal** — sirf public data + official APIs (RDAP / DNS / Bot API / t.me).
 > Premium hain (1 credit/use) — baaki info tools jaise hi.
 
-### 🧪 Tests (3 suites, **380 checks** — sab green)
+### 🧪 Tests (3 suites, **413 checks** — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 146 checks — tools + deletion + TTS + GOVT-removed + YT quality + v52.2 tools
+python3 _selftest_v50.py           # 179 checks — tools + deletion + TTS + GOVT-removed + YT quality + v52.2 tools
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
