@@ -8,6 +8,38 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v52.0 UPDATE — GOVT SERVICES + YouTube Quality Selector + Speed
+
+**Bhai, teen badi cheezein aa gayi hain:**
+
+**1. 🏛️ GOVT SERVICES (naya menu — 4 government tools)**
+- **⚖️ Court Case Status** — 16-digit CNR number bhejo → poora case history (parties, judge, next hearing date). Ye aapke bot ka **unique USP** hai — Indian bots me ye almost koi nahi deta. ⚠️ Isme ek **free token** lagana hai (niche bataya hai).
+- **📋 Sarkari Result Center** — latest results + admit cards (official links ke saath).
+- **🪪 Govt ID Status** — PAN/Voter/Aadhaar/Passport ke liye **CAPTCHA-free official SMS** + helpline. Bot aapko exact SMS ready karke deta hai.
+- **🏛️ Govt Job Tracker** — latest notifications + application last dates (state/qualification se filter).
+
+**Legal baat (important):** Jis govt portal me LOGIN/CAPTCHA/OTP maangta hai, uska kaam bot me
+automated **nahi** karte (wo illegal hai — IT Act). Isliye ye 4 tools **public data** use karte hain —
+koi CAPTCHA crack nahi, koi password store nahi, koi OTP hack nahi. 100% safe, 100% aapke kaam aayega.
+
+**2. 🎞️ YouTube Quality Selector**
+Video Downloader me ab YouTube link bhejne par **1080p / 720p / 480p / 360p buttons** aate hain.
+User jo quality chune, wahi milegi. (1080p = original; chhoti quality = bot par ffmpeg convert.)
+
+**3. 🚀 Speed fix (premium feel)**
+- Bot ab **24/7 jaagta** hai (self-ping se Render ka 15-min sleep nahi hota) → **cold start sirf
+  pehli baar / deploy ke baad**, uske baad respond ~instant.
+- `/start` ki welcome photo ab CDN cache se turant aati hai.
+
+** Aapka 1 kaam (Court Case Status ke liye, 1 minute):**
+1. Browser kholo → `ecourtsindia.com/api`
+2. Free account banao (sirf email — **koi credit card nahi**) → ₹200 free credits milenge
+3. Account me aapka **API token** dikhega (`eci_live_...` jaisa)
+4. Wo token mujhe bhejo → main Render ke env me `ECOURTS_API_KEY` set kar dunga
+Token nahi dilaoge to baaki 3 govt tools + poora bot aise hi chalta rahega (court tool "setup pending" dikhega).
+
+---
+
 ## 🆕 v51.3 UPDATE — Deploy "Conflict" error ab friendly (bot theek tha, bas log scary the)
 
 **Bhai, pehle screenshot me jo red ERROR dikha tha — "Conflict: terminated by other getUpdates request" — wo koi tootna nahi tha.** Samjho:

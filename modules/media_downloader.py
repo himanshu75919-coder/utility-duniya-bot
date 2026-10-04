@@ -25,6 +25,7 @@ import time
 import asyncio
 import tempfile
 import shutil
+import subprocess
 
 import requests
 from PIL import Image
@@ -680,3 +681,149 @@ def _hub_twitter_download(url: str, max_mb: int) -> dict:
 async def download_video_async(url: str, max_mb: int = MAX_TG_MB) -> dict:
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, download_video_media, url, max_mb)
+
+
+# ============================================================
+#  v52: 🎞️ YOUTUBE QUALITY SELECTOR (360/480/720/1080)
+# ============================================================
+# YouTube ab sirf best (1080p+) deta hai. Ab user khud quality chunta hai —
+# bot available heights fetch karta hai, user tap karta hai, usi height me download.
+
+# User ke liye standard options (upar jo available ho wo hi dikhenge)
+YT_QUALITY_OPTIONS = [1080, 720, 480, 360]
+
+
+def yt_available_qualities(url: str) -> list:
+    """YouTube link ke available heights (standard options me se, high→low).
+
+    Sirf metadata fetch hota hai (video download NAHI) — fast hai.
+    Koi option nahi mila to khali list (caller default 1080 use karega).
+    """
+    if not yt_dlp:
+        return []
+    try:
+        info = _ytdlp_info(url)
+        if not info:
+            return []
+        heights = {f.get("height") for f in (info.get("formats") or []) if f.get("height")}
+        opts = [h for h in YT_QUALITY_OPTIONS if h in heights]
+        # 1080 se upar bhi available ho to wo bhi dikhao (2160/1440)
+        extra = sorted([h for h in heights if h > 1080], reverse=True)[:2]
+        return extra + opts
+    except Exception:
+        return []
+
+
+def downscale_video(data: bytes, target_h: int, max_mb: int = MAX_TG_MB) -> dict:
+    """MP4 bytes ko chhoti height par scale karo (ffmpeg, bot server par).
+
+    1080p video aaya aur user ne 480p maanga -> ffmpeg se 480p me convert.
+    Returns {ok, bytes, size_mb} ya {ok: False, error|too_big}.
+    """
+    if not _HAS_FFMPEG:
+        return {"ok": False, "error": "ffmpeg server par nahi hai"}
+    tmp = tempfile.mkdtemp(prefix="qsc_")
+    src, out = os.path.join(tmp, "in.mp4"), os.path.join(tmp, "out.mp4")
+    try:
+        with open(src, "wb") as f:
+            f.write(data)
+        cp = subprocess.run(
+            [_FFMPEG_LOC, "-y", "-i", src, "-vf", f"scale=-2:{int(target_h)}",
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out],
+            capture_output=True, timeout=900)
+        if cp.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) < 5000:
+            return {"ok": False,
+                    "error": (cp.stderr or b"").decode(errors="ignore")[-160:]}
+        if os.path.getsize(out) > max_mb * 1024 * 1024:
+            return {"ok": False, "too_big": True,
+                    "size_mb": round(os.path.getsize(out) / 1048576, 2)}
+        with open(out, "rb") as f:
+            d = f.read()
+        return {"ok": True, "bytes": d, "size_mb": _size_mb(d)}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:120]}
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _yt_quality_download(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict:
+    """v52 quality pipeline: pehle direct (agar server IP allowed hai),
+    warna hub 1080p + bot-side ffmpeg downscale. Result contract = _hub_youtube_download."""
+    h = int(height)
+    if h >= 1080:
+        return _hub_youtube_download(url, max_mb)          # original best quality
+    # 1) Direct local download (kaam karta hai jab YouTube IP allow kare)
+    data, info = yt_download_at_height(url, h, max_mb)
+    if data and len(data) > 1000:
+        return {"ok": True, "type": "video", "platform": "YouTube",
+                "title": (info or {}).get("title") or "", "bytes": data,
+                "size_mb": _size_mb(data), "duration": (info or {}).get("duration") or 0,
+                "quality": f"{h}p", "engine": "direct"}
+    # 2) Fallback: hub ka best-quality link + bot par ffmpeg downscale
+    hubres = _hub_youtube_download(url, max_mb)
+    if not hubres.get("ok") or hubres.get("type") != "video" or not hubres.get("bytes"):
+        return hubres                                        # link/error waisa hi
+    ds = downscale_video(hubres["bytes"], h, max_mb)
+    if not ds.get("ok"):
+        if ds.get("too_big"):
+            return {"ok": True, "type": "link", "platform": "YouTube",
+                    "title": hubres.get("title") or "",
+                    "direct_url": hubres.get("direct_url") or "",
+                    "size_mb": ds["size_mb"], "quality": f"{h}p",
+                    "engine": "hub",
+                    "note": (f"{h}p convert hone ke baad bhi file "
+                             f"{ds['size_mb']} MB ki hai (Telegram limit {max_mb} MB). "
+                             "Neeche ka original link use karo.")}
+        hubres["note_quality"] = "chhoti quality convert nahi ho payi — original HD bheja hai"
+        return hubres
+    hubres["bytes"] = ds["bytes"]
+    hubres["size_mb"] = ds["size_mb"]
+    hubres["quality"] = f"{h}p"
+    hubres["engine"] = (hubres.get("engine") or "hub") + f" → {h}p"
+    return hubres
+
+
+def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
+    """Diya gaya height par YouTube video download (bestvideo+audio merge -> mp4).
+
+    Returns (bytes|None, info|None) — _ytdlp_download_bytes jaisa contract.
+    """
+    if not yt_dlp:
+        return None, None
+    tmp = tempfile.mkdtemp(prefix="udl_q_")
+    try:
+        cap = max_mb - 3
+        h = int(height)
+        if _HAS_FFMPEG:
+            fmt = (f"bv*[height<={h}][filesize_approx<{cap//2}M]+ba[filesize_approx<{cap//2}M]/"
+                   f"b[height<={h}][filesize_approx<{cap}M]/bv*[height<={h}]+ba/b[height<={h}]/b/best")
+        else:
+            fmt = (f"b[ext=mp4][height<={h}][filesize<{cap}M]/b[height<={h}][filesize_approx<{cap}M]/"
+                   f"b[height<={h}]/b/best")
+        opts = _ytdlp_opts({
+            "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
+            "format": fmt,
+            "noplaylist": True,
+            "merge_output_format": "mp4" if _HAS_FFMPEG else None,
+            "quiet": True,
+            "no_warnings": True,
+            "ignoreerrors": False,
+        })
+        with yt_dlp.YoutubeDL(opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+        path = None
+        for f in os.listdir(tmp):
+            if os.path.getsize(os.path.join(tmp, f)) > 1000:
+                path = os.path.join(tmp, f)
+                break
+        if not path:
+            return None, info
+        if os.path.getsize(path) > max_mb * 1024 * 1024:
+            return None, info
+        with open(path, "rb") as fh:
+            return fh.read(), info
+    except Exception:
+        return None, None
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

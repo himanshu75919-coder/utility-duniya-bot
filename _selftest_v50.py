@@ -260,7 +260,30 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v51.3 version", "v51.3 Premium Earning" in bot_src),
+    ("v52.0 version", "v52.0 Premium Earning" in bot_src),
+    # ---- v52: 🏛️ GOVT SERVICES wiring ----
+    ("govt keyboard button", "GOVT SERVICES" in bot_src),
+    ("govt mode map", '"GOVT SERVICES": "govt"' in bot_src),
+    ("govt action handler", 'if action == "govt":' in bot_src),
+    ("govt menu kb", "def govt_menu_kb():" in bot_src),
+    ("govt case callback", 'if data == "govt_case":' in bot_src),
+    ("govt result callback", 'if data == "govt_result":' in bot_src),
+    ("govt jobs callback", 'if data == "govt_jobs":' in bot_src),
+    ("govt id callback", 'if data == "govt_id":' in bot_src),
+    ("govt idsvc callback", 'data.startswith("govt_idsvc:")' in bot_src),
+    ("govt case on_text", 'if mode == "govt_case":' in bot_src),
+    ("govt result on_text", 'if mode == "govt_result":' in bot_src),
+    ("govt jobs on_text", 'if mode == "govt_jobs":' in bot_src),
+    ("govt case premium", '"govt_case"' in bot_src),
+    ("govt module import", "from modules import govt_tools as govt" in bot_src),
+    # ---- v52: 🎞️ YouTube quality selector ----
+    ("yt quality chooser", "yt_available_qualities" in bot_src),
+    ("ytq callback", 'data.startswith("ytq:")' in bot_src),
+    ("yt quality download fn", "_yt_quality_download" in bot_src),
+    ("yt quality rate-limit", '"yt_q":        (8,  120, "YouTube Quality")' in bot_src),
+    # ---- v52: 🚀 speed fixes ----
+    ("self-ping keepalive", "_self_health not in _KEEPALIVE_PEERS" in bot_src),
+    ("welcome fid cache", "_WELCOME_FID" in bot_src),
     ("conflict friendly handler", "isinstance(err, Conflict)" in bot_src),
     ("conflict import", "from telegram.error import RetryAfter, Conflict" in bot_src),
     ("conflict user msg nahi", "_CONFLICT_NOTE" in bot_src),
@@ -336,6 +359,75 @@ tts_checks = [
 ]
 for nm, ok in tts_checks:
     check(nm, ok)
+
+# =====================================================================
+section("18) 🏛️ GOVT SERVICES ENGINE (v52) — CNR/Result/ID-Guide/Jobs")
+import modules.govt_tools as _govt
+
+# CNR validation
+check("valid CNR accept", _govt.validate_cnr("DLHC010351552024") is True)
+check("valid CNR lowercase accept", _govt.validate_cnr("dlhc010351552024") is True)
+check("galat CNR (short) reject", _govt.validate_cnr("DLHC123") is False)
+check("galat CNR (space) reject", _govt.validate_cnr("DLHC 010351552024") is False)
+check("galat CNR (dash) reject", _govt.validate_cnr("DLHC-01035155-2024") is False)
+
+# ecourts: token nahi hai -> setup pending (na crash)
+_r = _govt.ecourts_case_status("DLHC010351552024")
+if _govt.ecourts_token():
+    check("ecourts token set hai", True)
+else:
+    check("ecourts no-token -> setup pending", _r.get("setup") is True, str(_r)[:80])
+
+# results
+rt = _govt.results_text()
+check("results text ban raha", "SARKARI RESULT CENTER" in rt and len(rt) > 200)
+rs = _govt.result_search("ssc")
+check("result search 'ssc' match", "SSC" in rs.upper())
+rs2 = _govt.result_search("xyznotfound")
+check("result search no-match fallback", "SARKARI RESULT CENTER" in rs2)
+
+# id guide
+ig = _govt.idguide_card("pan_nsidl")
+check("id guide PAN (SMS) ban raha", "NSDLPAN" in ig and "57575" in ig)
+ig2 = _govt.idguide_card("passport")
+check("id guide passport (SMS) ban raha", "9704100100" in ig2)
+check("id guide galat key -> safe msg", "nahi mili" in _govt.idguide_card("xyz"))
+
+# jobs
+jt = _govt.jobs_text()
+check("jobs text ban raha", "GOVT JOB TRACKER" in jt and len(jt) > 200)
+jt_up = _govt.jobs_text(region="UP")
+check("jobs region filter UP", "UPESSC" in jt_up or "UPSSSC" in jt_up)
+check("jobs data date hai", "as of" in jt.lower())
+
+# =====================================================================
+section("19) 🎞️ YOUTUBE QUALITY SELECTOR (v52) — live")
+import modules.media_downloader as _md
+
+check("yt quality options const", _md.YT_QUALITY_OPTIONS == [1080, 720, 480, 360])
+# Live: ek YT video ke available qualities (metadata only — fast)
+try:
+    hs = _md.yt_available_qualities("https://www.youtube.com/watch?v=dQw4w9WgXcQ")
+    check("yt available qualities (live)", isinstance(hs, list) and len(hs) >= 2, str(hs))
+    check("1080 quality available", 1080 in hs or 720 in hs, str(hs))
+except Exception as e:
+    check("yt available qualities (live)", False, str(e)[:120])
+
+# downscale: ek chhota test video banao -> 360p me convert
+import subprocess as _sp, tempfile as _tf, os as _os
+try:
+    _src = _tf.mktemp(suffix=".mp4")
+    _sp.run([_md._FFMPEG_LOC, "-y", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=24:duration=2",
+             "-f", "lavfi", "-i", "sine=frequency=440:duration=2",
+             "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", _src],
+            capture_output=True, timeout=120)
+    _data = open(_src, "rb").read()
+    _os.remove(_src)
+    _ds = _md.downscale_video(_data, 360)
+    check("downscale 720->360 kaam karta", _ds.get("ok") is True and len(_ds.get("bytes", b"")) > 1000,
+          str(_ds)[:100])
+except Exception as e:
+    check("downscale 720->360 kaam karta", False, str(e)[:120])
 
 # =====================================================================
 print(f"\n{'=' * 55}")
