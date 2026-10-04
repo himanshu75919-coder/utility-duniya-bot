@@ -8,6 +8,18 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v51.1 UPDATE — WEATHER / MAUSAM tool bhi permanently hata diya
+
+**Bhai, 🌦️ WEATHER / MAUSAM tool ab poore bot se gayab hai** (jaisa tumne kaha):
+- Menu ka 🌦️ WEATHER / MAUSAM button hata.
+- Uska poora engine (Open-Meteo se mausam lane wala code, WMO codes, shehar ke naam wali list) `modules/general_tools.py` se delete.
+- Prompt, premium list, rate-limit — sab se iska code nikaal diya.
+- Jo purane user uska button dabayenge, unhe **saaf message** milega "🌦️ Weather / Mausam hata diya gaya hai" + ek replacement suggestion (crash nahi).
+
+Isse **ab total 6 tools permanently delete** ho gaye. Saare test suites (321 checks) green hain.
+
+---
+
 ## 🆕 v51 UPDATE — 5 tools hataaye + ab saare tools premium (earning)
 
 **Bhai, ye 5 tools poore bot se hata diye gaye hain** (jaisa tumne kaha):

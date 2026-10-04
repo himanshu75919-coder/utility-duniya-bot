@@ -195,7 +195,6 @@ from modules.general_tools import (
 
     vcard_data,
     wifi_qr_data,
-    weather_report,
 
     get_app_store_links,
     make_qr_bytes,
@@ -252,7 +251,6 @@ TOOL_RATE_LIMITS = {
     "linkcheck":   (10, 60,  "Link Check"),
     "short":       (10, 60,  "URL Shortener"),
     "appfind":     (15, 60,  "App Finder"),
-    "weather":     (15, 60,  "Weather / Mausam"),
     # document tools (local CPU)
     "pp_stamp":    (10, 120, "Passport Photo"),
     "print_sheet": (10, 120, "8-in-1 Print Sheet"),
@@ -285,7 +283,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v51.0 Premium Earning"  # v51: 5 tools delete (EMI/Screenshot/Image-PDF/Private-Channel/ID-Finder) + SAARE tools premium (earning model)
+BOT_VERSION = "v51.1 Premium Earning"  # v51.1: WEATHER tool bhi permanently delete (total 6) + per-tool removal messages
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -343,7 +341,6 @@ PREMIUM_TOOLS = {
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
     "appfind",             # 📦 APP FINDER
-    "weather",             # 🌦️ WEATHER / MAUSAM
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -368,7 +365,6 @@ PREMIUM_TOOL_NAMES = {
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
     "appfind": "📦 App Finder",
-    "weather": "🌦️ Weather / Mausam",
 }
 
 
@@ -414,7 +410,7 @@ def get_credits_over_text(action: str = "") -> str:
         "• 📥 Video Downloader • 📱 Number Info • 🔄 Channel Cloner\n"
         "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
         "• 🏦 Bank PDF→Excel • 📜 Kagaz Suite • ⚡ Media Studio\n"
-        "• 🚗 Vehicle • 📲 IMEI • 🌦️ Weather • aur saare tools\n"
+        "• 🚗 Vehicle • 📲 IMEI • 📦 App Finder • aur saare tools\n"
         "• ♾️ 30/60/90/120 din ya LIFETIME — sab plans\n\n"
         f"💎 <b>VIP plans:</b> 30d ₹49 • 60d ₹89 • 90d ₹129 • 120d ₹169 • Lifetime ₹199\n"
         "👇 Neeche se VIP lo, unlimited use karo:"
@@ -749,7 +745,6 @@ KB_BTNS = [
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
-    [f"🌦️ {to_bold('WEATHER / MAUSAM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -804,9 +799,6 @@ BTN_MODE_MAP = {
     "URL SHORT": "short",
     "LINK CHECK": "linkcheck",
     "APP FINDER": "appfind",
-    "WEATHER / MAUSAM": "weather",
-    "WEATHER": "weather",
-    "MAUSAM": "weather",
     "BANK STATEMENT → EXCEL": "bankpdf",
     "BANK STATEMENT TO EXCEL": "bankpdf",
     "BANK STATEMENT - EXCEL": "bankpdf",
@@ -935,12 +927,6 @@ PROMPTS = {
         "📌 Jaise: <code>instagram</code>\n"
         "📦 <b>Ab app ka naam bhejo:</b>"
     ),
-    "weather": (
-        f"🌦️ <b>{to_bold('WEATHER / MAUSAM')}</b>\n"
-        "Shehar ka naam bhejo → abhi ka mausam + aage 3 din ka forecast.\n"
-        "📌 Jaise: <code>Gaya</code>, <code>Patna</code>, <code>Pune</code>, <code>Ranchi</code>\n"
-        "🌦️ <b>Ab shehar ka naam bhejo:</b>"
-    ),
     "qr_wifi": (
         f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n"
         "Guest QR scan karega → phone khud WiFi se jud jayega.\n"
@@ -976,7 +962,6 @@ TUTORIAL_TEXT = (
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
-    "• 🌦️ WEATHER → shehar ka naam bhejo → abhi ka mausam + 3 din ka forecast\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim\n"
     "\n"
@@ -1254,7 +1239,7 @@ WELCOME_TEXT = (
     f"• ⚡ <b>Terabox</b> — bina ad ke seedha download\n"
     f"• 📸 <b>Photo &amp; PDF</b> — passport photo, marksheet PDF, 8-in-1 sheet\n"
     f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n"
-    f"• 🌦️ <b>Weather / Mausam</b> — shehar ka naam bhejo, 3 din ka forecast\n\n"
+    f"• 📦 <b>App Finder</b> — app ka naam bhejo → official link + size\n\n"
     "👇 <b>Neeche menu se koi bhi tool dabao</b>"
 )
 
@@ -3143,6 +3128,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "SITE SCREENSHOT", "SITE SCREENSHOT (HD)", "SITE SCREENSHOT (FULL PAGE)", "SCREENSHOT",
         "EMI / INTEREST CALC", "EMI CALC", "EMI CALCULATOR", "EMI / VYAAJ CALC",
         "INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC",
+        # v51.1: weather tool permanently removed
+        "WEATHER", "MAUSAM", "WEATHER / MAUSAM", "WEATHER / MAUSAM ",
     }
     if not action and clean_key in _removed_keys:
         _why = {
@@ -3172,13 +3159,47 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "INTEREST CALCULATOR": "🧮 EMI / Interest Calc",
             "INTEREST": "🧮 EMI / Interest Calc",
             "VYAAJ CALC": "🧮 EMI / Interest Calc",
+            "WEATHER": "🌦️ Weather / Mausam",
+            "MAUSAM": "🌦️ Weather / Mausam",
+            "WEATHER / MAUSAM": "🌦️ Weather / Mausam",
+            "WEATHER / MAUSAM ": "🌦️ Weather / Mausam",
         }.get(clean_key, "Ye tool")
+        _alt = {
+            "CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
+            "CLIPS MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
+            "VIDEO CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
+            "CLIPMAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
+            "LINK BYPASS": "🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>",
+            "LINKBYPASS": "🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>",
+            "BYPASS": "🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>",
+            "ID & USERNAME FINDER": "🆔 ID Finder ki jagah → 📱 <b>Number Info</b> (legal operator/circle info)",
+            "ID FINDER": "🆔 ID Finder ki jagah → 📱 <b>Number Info</b> (legal operator/circle info)",
+            "USERNAME FINDER": "🆔 ID Finder ki jagah → 📱 <b>Number Info</b> (legal operator/circle info)",
+            "PRIVATE CHANNEL SETUP": "🔒 Private Channel Setup ki jagah → 🔄 <b>Channel Cloner</b>",
+            "IMAGE→PDF": "🖼️ Image→PDF ki jagah → 📄 <b>Document PDF</b>",
+            "IMAGE TO PDF": "🖼️ Image→PDF ki jagah → 📄 <b>Document PDF</b>",
+            "IMAGE - PDF": "🖼️ Image→PDF ki jagah → 📄 <b>Document PDF</b>",
+            "SITE SCREENSHOT": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
+            "SITE SCREENSHOT (HD)": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
+            "SITE SCREENSHOT (FULL PAGE)": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
+            "SCREENSHOT": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
+            "EMI / INTEREST CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "EMI CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "EMI CALCULATOR": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "EMI / VYAAJ CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "INTEREST CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "INTEREST CALCULATOR": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "INTEREST": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "VYAAJ CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
+            "WEATHER": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
+            "MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
+            "WEATHER / MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
+            "WEATHER / MAUSAM ": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
+        }.get(clean_key, "Neeche naya menu check karo")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Ye tool ab bot me nahi hai — iske badle aap ye use kar sakte ho:\n"
-            "• 🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>\n"
-            "• 🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>\n\n"
+            f"• {_alt}\n\n"
             "👇 Naya menu neeche hai:",
             reply_markup=kb_for(uid), parse_mode=HTML)
         return
@@ -4623,50 +4644,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML,
         )
         add_use(uid)
-        return
-
-    # ================= v50: 🌦️ WEATHER (Open-Meteo, free, no key) =================
-    if mode == "weather":
-        res = await asyncio.to_thread(weather_report, raw_text)
-        if not res.get("ok"):
-            await update.message.reply_text(
-                f"❌ {res.get('error')}\n\n🌦️ <b>Ab shehar ka naam bhejo:</b>", parse_mode=HTML)
-            return
-        day_names = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        lines = [
-            f"🌦️ <b>{to_bold('WEATHER REPORT')} — {hesc(str(res['place']).upper())}</b>",
-            "━━━━━━━━━━━━━━━━━━━━━━",
-        ]
-        if res.get("temp") is not None:
-            lines.append(f"{res['icon']} <b>Abhi:</b> {res['temp']:.1f}°C   (lag raha hai {res['feels']:.1f}°C)")
-        else:
-            lines.append(f"{res['icon']} <b>Abhi:</b> {hesc(res['desc'])}")
-        lines.append(f"💬 {hesc(res['desc'])}")
-        if res.get("humidity") is not None:
-            hum = f"💧 <b>Humidity:</b> {res['humidity']}%"
-            wind = f"   ·   💨 <b>Hawa:</b> {res['wind']} km/h" if res.get("wind") is not None else ""
-            lines.append(hum + wind)
-        if res.get("rain_today") is not None and res["rain_today"] >= 1:
-            lines.append(f"🌧️ <b>Aaj baarish ki sambhavna:</b> {res['rain_today']}%")
-        lines.append(f"🌅 Sunrise <b>{res['sunrise']}</b>   ·   🌇 Sunset <b>{res['sunset']}</b>")
-        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
-        lines.append("📅 <b>Aage 3 din:</b>")
-        for d in (res.get("forecast") or []):
-            try:
-                from datetime import datetime as _dtw
-                dname = day_names[_dtw.strptime(d["date"], "%Y-%m-%d").weekday()]
-            except Exception:
-                dname = str(d["date"])[5:]
-            rain = f" · 🌧️ {int(d['rain'])}%" if (d.get("rain") is not None and d["rain"] >= 1) else ""
-            mx = f"{d['max']:.0f}°" if d.get("max") is not None else "—"
-            mn = f"{d['min']:.0f}°" if d.get("min") is not None else "—"
-            lines.append(f"{d['icon']} <b>{dname} {str(d['date'])[5:]}</b>: {mx} / {mn}{rain}")
-        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
-        lines.append("ℹ️ <i>Source: Open-Meteo (free) — har 15 minute update</i>")
-        await update.message.reply_text(spend_credit_msg(uid, "weather") + "\n" + "\n".join(lines), parse_mode=HTML)
-        add_use(uid)
-        return
-
         return
 
     # Forwarded message for ID Finder + Auto-Forward channel pakadna

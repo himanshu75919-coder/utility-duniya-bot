@@ -1,8 +1,8 @@
-# ⚡ Utility Duniya Super-Bot — **v51.0 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v51.1 Premium Earning**
 
 **Ek hi bot me 27+ kaam:** video download, channel auto-forward, photo/document banane wale tools,
 sarkari kagaz, bank statement → Excel, media studio (MP3 / status video / karaoke), info tools
-(IMEI / vehicle / number / IFSC / pincode / IP), **weather/mausam**, QR, link safety, aur
+(IMEI / vehicle / number / IFSC / pincode / IP), QR, link safety, aur
 **VIP + payment system (ab SAARE tools premium)**.
 
 Poora bot ka **text Hinglish** me hai — short prompt + example ke saath, taaki naya user bhi bina
@@ -12,9 +12,9 @@ padhe samajh jaye.
 
 ---
 
-## 🆕 v51 me kya badla (Premium Earning Edition)
+## 🆕 v51.1 me kya badla (Premium Earning Edition)
 
-### 🗑️ 5 tools PERMANENTLY delete (code + bot + GitHub + videos, sab se gayab)
+### 🗑️ 6 tools PERMANENTLY delete (code + bot + GitHub + videos, sab se gayab)
 | Tool | Note |
 |---|---|
 | 🧮 **EMI / INTEREST CALC** | Menu button, 3-step flow, calculator engine (bank EMI + chakravritti vyaaj) — poora gayab |
@@ -22,8 +22,9 @@ padhe samajh jaye.
 | 🖼️ **IMAGE→PDF** | Multi-photo PDF + A4, `on_pdf_cb` handler — poora gayab |
 | 🔒 **PRIVATE CHANNEL SETUP** | Cloner ka private-help flow + "Poori Guide" button — poora gayab |
 | 🆔 **ID & USERNAME FINDER** | `me`/forward/@username + 5-platform checker engine — poora gayab |
+| 🌦️ **WEATHER / MAUSAM** (v51.1) | Menu button, prompt, Open-Meteo engine (`weather_report`, `WMO_WEATHER`, city aliases) — poora gayab |
 
-> Purane keyboard ke users ko saaf "tool remove" message milta hai (crash nahi) + `/refresh` se naya menu.
+> Purane keyboard ke users ko **tool ke hisaab se saaf "hata diya gaya" message + replacement suggestion** milta hai (crash nahi) + `/refresh` se naya menu.
 
 ### 💰 SAARE tools AB PREMIUM (earning model)
 | Kya | Detail |
@@ -33,10 +34,10 @@ padhe samajh jaye.
 |  **Vehicle key fix** | Ab `rto` action premium gate se sahi pass hota hai (pehle key mismatch thi). |
 | 🛡️ **Credit spend** | Har tool ke result par 1 credit deduct (fail hone par credit nahi jata). |
 
-### 🧪 Tests (3 suites, 323 checks — sab green)
+### 🧪 Tests (3 suites, 321 checks — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 89  checks — tools + 5-tool deletion wiring + DB/credits
+python3 _selftest_v50.py           # 87  checks — tools + 6-tool deletion wiring + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -88,7 +89,7 @@ NET_MAX_MB=150
 
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 89 checks — tools + 5-tool deletion wiring + DB/credits
+python3 _selftest_v50.py           # 87 checks — tools + 6-tool deletion wiring + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -96,13 +97,8 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 
 ## 🆕 v50 me kya badla (Premium Pro)
 
-> ⚠️ **v51 note:** v50 me jo tools aaye the — 🧮 EMI/INTEREST CALC, 🖼️ SITE SCREENSHOT, 🖼️ IMAGE→PDF,
-> 🆔 ID & USERNAME FINDER — wo **v51 me permanently delete** ho gaye (upar dekho). 🌦️ WEATHER abhi bhi hai.
-
-### ➕ NAYA FREE TOOL
-| Tool | Kya karta hai |
-|---|---|
-| 🌦️ **WEATHER / MAUSAM** | Shehar ka naam bhejo (Gaya, Patna, Pune…) → abhi ka mausam + aage 3 din ka forecast, hawa, humidity, baarish ki sambhavna, sunrise/sunset. 100% free engine (Open-Meteo, koi API key nahi) — **v51 se premium (1 credit/use)** |
+> ⚠️ **v51/v51.1 note:** v50 me jo tools aaye the — 🧮 EMI/INTEREST CALC, 🖼️ SITE SCREENSHOT, 🖼️ IMAGE→PDF,
+> 🆔 ID & USERNAME FINDER — wo **v51 me permanently delete** ho gaye (upar dekho). 🌦️ WEATHER bhi **v51.1 me permanently delete** ho gaya.
 
 ### 🐛 BUG FIXES (real problems)
 | Kya | Problem |
@@ -124,7 +120,7 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 | 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
 | 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
 
-✅ **Test suite:** `_selftest_v50.py` = **89 checks** (tools, 5-tool deletion wiring, live API checks, DB/credits)
+✅ **Test suite:** `_selftest_v50.py` = **87 checks** (tools, 6-tool deletion wiring, live API checks, DB/credits)
 
 ---
 

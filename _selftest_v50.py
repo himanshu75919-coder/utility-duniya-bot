@@ -31,33 +31,17 @@ def section(t):
 
 
 # =====================================================================
-section("1) ️ WEATHER ENGINE (Open-Meteo, free, no key)")
-from modules.general_tools import weather_report, domain_age_days
-
-r = weather_report("")
-check("khaali input → saaf error", (not r["ok"]) and "shehar" in r["error"].lower())
-
-r = weather_report("Gaya")
-check("Gaya resolve hua", r.get("ok") is True, str(r)[:120])
-if r.get("ok"):
-    check("Gaya state = Bihar", "bihar" in r["place"].lower(), r["place"])
-    check("temperature mila", isinstance(r.get("temp"), (int, float)))
-    check("feels-like mila", isinstance(r.get("feels"), (int, float)))
-    check("3 din forecast", len(r.get("forecast") or []) == 3, str(len(r.get("forecast") or [])))
-    check("sunrise/sunset hh:mm", len(r.get("sunrise", "")) == 5 and len(r.get("sunset", "")) == 5,
-          f"{r.get('sunrise')}/{r.get('sunset')}")
-
-r2 = weather_report("Pune")
-check("Pune bhi resolve", r2.get("ok") is True, str(r2)[:120])
-if r2.get("ok"):
-    check("Pune India me sorted", "india" in r2["place"].lower() or "maharashtra" in r2["place"].lower(),
-          r2["place"])
-
-r3 = weather_report("XYZNONEXISTCITY999")
-check("galat city → saaf error", (not r3["ok"]))
+section("1) 🌦️ WEATHER TOOL — v51.1 me PERMANENTLY REMOVED (verify)")
+import modules.general_tools as _gt
+check("weather_report function delete hua", not hasattr(_gt, "weather_report"))
+check("WMO_WEATHER dict delete hua", not hasattr(_gt, "WMO_WEATHER"))
+check("WEATHER_CITY_ALIASES delete hua", not hasattr(_gt, "WEATHER_CITY_ALIASES"))
+check("build_upi_link safe (UPI QR tool ke liye)", hasattr(_gt, "build_upi_link"))
+check("domain_age_days safe (linkcheck use karta hai)", hasattr(_gt, "domain_age_days"))
 
 # =====================================================================
 section("2) 🔍 DOMAIN AGE (free RDAP)")
+from modules.general_tools import domain_age_days
 a = domain_age_days("github.com")
 check("github.com ki age mili (>1000 din)", isinstance(a, int) and a > 1000, str(a))
 a2 = domain_age_days("google.com")
@@ -276,15 +260,18 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v51 version", "v51.0 Premium Earning" in bot_src),
-    ("weather button menu me", "WEATHER / MAUSAM" in bot_src),
-    ("weather prompt", '"weather": (' in bot_src),
-    ("weather handler", 'if mode == "weather":' in bot_src),
+    ("v51.1 version", "v51.1 Premium Earning" in bot_src),
+    ("weather button menu se gayab", "🌦️ {to_bold('WEATHER / MAUSAM')}" not in bot_src),
+    ("weather prompt gayab", '"weather": (' not in bot_src),
+    ("weather handler gayab", 'if mode == "weather":' not in bot_src),
+    ("weather import gayab", "weather_report" not in bot_src),
+    ("weather premium list se gayab", '"weather",             # 🌦️ WEATHER / MAUSAM' not in bot_src),
+    ("weather rate-limit se gayab", '"weather":     (15, 60,  "Weather / Mausam")' not in bot_src),
+    ("weather removed-list me", '"WEATHER", "MAUSAM"' in bot_src),
     ("bankpdf auto-pass", "statement_passwords()" in bot_src),
     ("admtut fix", "Current link:</i>" not in bot_src),
     ("broadcast fallback", "parse fail ho to plain text me bhejo" in bot_src),
     ("on_error user msg", "Chhota sa ghatna ho gaya" in bot_src),
-    ("weather import", "weather_report" in bot_src),
     ("dead admin block delete", "row[1] if row else" not in bot_src),
     # ---- v51: 5 tools PERMANENTLY delete (wiring gayab) ----
     ("EMI mapping gayab", '"EMI / INTEREST CALC": "emi"' not in bot_src),
@@ -307,7 +294,7 @@ checks = [
     ("all tools premium set", all(t in bot_src for t in
         ["\"terabox\"", "\"pp_stamp\"", "\"print_sheet\"", "\"doc_compress\"",
          "\"sarkari\"", "\"ifsc\"", "\"pin\"", "\"ip\"", "\"qr\"",
-         "\"short\"", "\"linkcheck\"", "\"appfind\"", "\"weather\""])),
+         "\"short\"", "\"linkcheck\"", "\"appfind\""])),
     ("vehicle key = rto", '"rto",                 # 🚗 VEHICLE' in bot_src),
     ("premium tool names updated", '"terabox": "⚡ Terabox / Cloud Downloader"' in bot_src),
 ]
