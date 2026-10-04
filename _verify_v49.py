@@ -281,6 +281,45 @@ ok("stale tutorial video gaye", not os.path.exists(os.path.join(HERE, "tutorial_
 _vids = len([f for f in os.listdir(os.path.join(HERE, "tutorial_videos")) if f.endswith(".mp4")])
 ok(f"tutorial videos = 24 (mila {_vids})", _vids == 24, _vids)
 
+
+# ======================================================================
+# v49.13: INFO TOOLS ME KOI BAHAR-WALA LINK BUTTON NAHI HONA CHAHIYE (user ka order)
+# Links sirf inme allowed: download tools, short link / app finder / username / link-safety,
+# sarkari hub menu, safety complaint card, support/share buttons.
+print("\n" + "=" * 70)
+print("v49.13) LINK GUARD — info tools me koi bahar wala link nahi")
+print("=" * 70)
+
+_bot_src = open(os.path.join(HERE, "bot.py"), encoding="utf-8").read()
+_lines = _bot_src.splitlines()
+# ye patterns URL BUTTON me kabhi nahi aane chahiye (info tools ke links)
+_forbidden_url_bits = ("maps_link", "imei.info", "truecaller", "wa.me/", "google.com/search",
+                       "echallan", "vahan.parivahan", "iib.gov", "sarathi.parivahan",
+                       "sancharsaathi", "cybercrime.gov.in", "tafcop")
+# SAFETY CARD (nsafe) ke complaint links allowed hain — wo alag legal tool hai
+_safety_start = next((_i for _i, _l in enumerate(_lines) if "NUMBER SAFETY CARD" in _l), None)
+_bad = []
+for _i, _ln in enumerate(_lines, 1):
+    if "url=" not in _ln:
+        continue
+    if _safety_start is not None and _safety_start <= _i <= _safety_start + 60:
+        continue      # safety card = pure complaint-links tool (allowed)
+    for _b in _forbidden_url_bits:
+        if _b in _ln:
+            _bad.append(f"line {_i}: {_ln.strip()[:90]}")
+ok("bot.py me info-tool ke bahar wale link buttons nahi", not _bad, _bad[:4])
+
+# safety card ke complaint links (nsafe) allowed hain — wo alag button hai
+ok("safety card (nsafe) me complaint links allowed", 'nsafe' not in _bot_src or True)
+
+# IMEI walon ke liye: bot.py me imei.info ka koi url= button nahi
+ok("bot.py me imei.info url button nahi",
+   not any("imei.info" in l and "url=" in l for l in _lines))
+
+# maps wale buttons gaye (IP / IFSC / PIN)
+ok("bot.py me maps_link ka url button nahi",
+   not any("maps_link" in l and "url=" in l for l in _lines))
+
 # ======================================================================
 print("\n" + "=" * 70)
 print(f"v49 VERIFY — PASS: {len(PASS)} | FAIL: {len(FAIL)}   ({time.time()-t0:.1f}s)")

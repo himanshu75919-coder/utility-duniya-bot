@@ -172,7 +172,7 @@ from modules import api_hub as hubapi
 from modules.render_health import webhook_url_from_env, webhook_url_usable
 from modules.imei_lookup import (
     device_title as imei_title,
-    fallback_links as imei_fallback_links,
+    fallback_links as imei_fallback_links,  # v49.13: UI se hata (module me info ke liye rakha)
     fetch_imei_details,
     help_card as imei_help_card,
     is_configured as imei_api_ready,
@@ -245,7 +245,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v49.12 Ultra"  # v49.12: vehicle tool se SAARE website links hata diye
+BOT_VERSION = "v49.13 Ultra"  # v49.13: info tools se saare bahar-wale links hataye
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -3806,7 +3806,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             flags.append("🛡️ Proxy/VPN: " + ("⚠️ Yes (hidden connection)" if res.get("is_proxy") else "✅ No"))
             flags.append("🏢 Datacenter/Hosting: " + ("✅ Yes (server/VPN line)" if res.get("is_hosting") else "❌ No (normal internet line)"))
             flags.append("📱 Mobile network: " + ("✅ Yes" if res.get("is_mobile") else "❌ No"))
-            rows = [[InlineKeyboardButton("🗺️ See on Map", url=res["maps_link"])]]
+            rows = []   # v49.13: koi website/Map link nahi (user ka order)
             await update.message.reply_text(
                 f"🌐 <b>{to_bold('IP / DOMAIN INFORMATION')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -3822,7 +3822,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• <b>Timezone:</b> {res['timezone']}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(flags) +
                 "\n\n<i>This is public IP information (for websites/servers). It does not show anyone's home address.</i>",
-                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+                reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
         add_use(uid)
@@ -3938,16 +3938,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         if not res_i.get("ok"):
-            rows_fb = [[InlineKeyboardButton(t, url=u)] for t, u in imei_fallback_links(imei_clean)]
+            # v49.13: imei.info wale link buttons hata diye (user ka order)
             await update.message.reply_text(
                 "❌ <b>DEVICE DETAILS NAHI MILE</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n"
                 f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
-                "✅ <b>Koi credit nahi kata</b> — number check karke dobara bhejo.\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "👇 Official site par bhi check kar sakte ho:",
-                reply_markup=InlineKeyboardMarkup(rows_fb), parse_mode=HTML)
+                "✅ <b>Koi credit nahi kata</b> — IMEI check karke dobara bhejo (dial <code>*#06#</code>).",
+                parse_mode=HTML)
             add_use(uid)
             return
         await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
@@ -3974,9 +3972,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
         except Exception as e:
             log.warning("imei json file send fail: %s", e)
-        rows_i = [[InlineKeyboardButton(t, url=u)] for t, u in (res_i.get("links") or [])[:3]]
-        rows_i.append([InlineKeyboardButton("🔄 Doosra IMEI check karo", callback_data="imei_new")])
-        await update.message.reply_text("👇 More:", reply_markup=InlineKeyboardMarkup(rows_i), parse_mode=HTML)
+        # v49.13: device ke bahar wale links (imei.info/nanoreview) hata diye — sirf refresh
+        rows_i = [[InlineKeyboardButton("🔄 Doosra IMEI check karo", callback_data="imei_new")]]
+        await update.message.reply_text("👇 Next:", reply_markup=InlineKeyboardMarkup(rows_i), parse_mode=HTML)
         context.user_data.pop("mode", None)
         add_use(uid)
         return
@@ -4043,14 +4041,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _car = {}
         if res.get("ok"):
             await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
-            rows = []
-            pair = []
-            for label, url in res["links"]:
-                pair.append(InlineKeyboardButton(label, url=url))
-                if len(pair) == 2:
-                    rows.append(pair); pair = []
-            if pair:
-                rows.append(pair)
+            rows = []   # v49.13: WhatsApp/Truecaller/Google jaise bahar wale links hata diye
             card = (
                 "╔═══════════════════════════╗\n"
                 f"📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
@@ -4068,7 +4059,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"ℹ️ <i>{res['note']}</i>\n\n"
-                "👇 Links for further checks:"
+                "👇 Fraud/spam shikayat ke liye (official channels):"
             )
             # v49.9: leaked "public records" button HATA diya — uski jagah legal safety card
             rows.insert(0, [InlineKeyboardButton("🛡️ Safety card + complaint links",
@@ -4082,7 +4073,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "ifsc":
         i_res = lookup_ifsc(raw_text)
         if i_res.get("ok"):
-            rows = [[InlineKeyboardButton("📍 Branch on Google Maps", url=i_res["maps_link"])]]
+            rows = []   # v49.13: Google Maps link nahi
             card = (
                 f"🏦 <b>{to_bold(i_res['bank'])}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -4101,7 +4092,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"IMPS {'✅' if i_res['imps'] else '❌'}",
                 ])
             )
-            await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {i_res.get('error')}", parse_mode=HTML)
         add_use(uid)
@@ -4112,7 +4103,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(cleaned) == 6:
             p_res = lookup_pincode(cleaned)
             if p_res.get("ok"):
-                rows = [[InlineKeyboardButton("📍 See on Map", url=p_res["maps_link"])]] if p_res.get("maps_link") else []
+                rows = []   # v49.13: Map link nahi
                 card = (
                     f"📮 <b>{to_bold('PINCODE DETAILS')}</b> — <code>{p_res['pincode']}</code>\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n"
