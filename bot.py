@@ -245,7 +245,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v49.9 Ultra"  # v49.9: legal cleanup (leaked records band) + premium vehicle card
+BOT_VERSION = "v49.10 Ultra"  # v49.10: vehicle help center (SMS + 1-tap official routes)
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)

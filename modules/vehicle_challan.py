@@ -661,11 +661,11 @@ def plate_breakdown(plate: str) -> dict:
 
 
 def render_unavailable(res: dict) -> str:
-    """Live API band hone par IMANDAAR card — official portal ke direct links."""
+    """Live API band hone par IMANDAAR card — SMS + 1-tap official routes (sab ₹0)."""
     plate = res.get("plate") or ""
     bd = plate_breakdown(plate) if plate else {"ok": False}
     out = ["╔═══════════════════════════╗",
-           "🚘 <b>VEHICLE / RTO INFO</b>",
+           "🚘 <b>VEHICLE HELP CENTER</b>",
            "╚═══════════════════════════╝",
            ""]
     if bd.get("ok"):
@@ -674,19 +674,27 @@ def render_unavailable(res: dict) -> str:
         out.append(f"🗺️ <b>State:</b> {_e(bd['state'])} ({_e(bd['state_code'])})")
         out.append(f"🏢 <b>RTO / District code:</b> {_e(bd['state_code'])}{_e(bd['district_code'])}")
     out.append("━━━━━━━━━━━━━━━━━━━━━━")
-    out.append("⚠️ <b>Live RC / challan data abhi available nahi hai.</b>")
-    out.append("<i>(Data provider side se ye records band hain — bot aapko jhooti "
-               "&quot;koi challan nahi&quot; line nahi dikhayega.)</i>")
+    out.append("⚠️ <b>Live RC / challan auto-check server se possible nahi.</b>")
+    out.append("<i>(Govt sites sirf India ke net se khulti hain + captcha/OTP lagta hai — "
+               "isliye bot jhooti &quot;sab saaf hai&quot; line nahi dikhayega. Neeche 2 tarike "
+               "hain jisse aapko asli result 30-60 sec me mil jayega.)</i>")
     out.append("")
-    out.append("✅ <b>Koi credit nahi kata.</b>")
+    out.append("✅ <b>Sab ₹0 — koi credit nahi kata.</b>")
     out.append("")
-    out.append("👇 Official site par khud check karo (free hai):")
-    out.append("• 🎫 <b>e-Challan status</b> — echallan.parivahan.gov.in")
-    out.append("• 📄 <b>VAHAN RC status</b> — vahan.parivahan.gov.in")
-    out.append("• 📲 <b>mParivahan app</b> — Play Store par official app")
+    out.append("━━━ 📲 <b>TARIKA 1 — SMS (sabse aasan, no website)</b> ━━━")
+    out.append(f"• <b>RC details:</b> SMS karo  <code>VAHAN {(_e(plate) if plate else 'BR30AR0802')}</code>")
+    out.append(f"• <b>Challan:</b> SMS karo  <code>CHALLAN {(_e(plate) if plate else 'BR30AR0802')}</code>")
+    out.append("• <b>Number:</b> <code>7738299899</code> <i>(official MoRTH / NIC gateway)</i>")
+    out.append("<i>Reply SMS me owner (masked), maker, model, reg. date, insurance mil jayega.</i>")
     out.append("")
-    out.append("<i>Tip: e-Challan par plate number daalo (kuch jagah last 5 chassis digit bhi "
-               "maangta hai — wo aapke RC paper par likha hota hai).</i>")
+    out.append("━━━ 🔘 <b>TARIKA 2 — 1-tap buttons (neeche)</b> ━━━")
+    out.append("• 🎫 <b>e-Challan</b> → plate daalo + captcha → pending challan list")
+    out.append("• 🔎 <b>VAHAN RC</b> → plate daalo → poora RC record")
+    out.append("• 🛡️ <b>IIB</b> → insurance company + policy expiry")
+    out.append("• 📄 <b>Sarathi</b> → DL number + DOB se licence details")
+    out.append("")
+    out.append("<i>Tip: e-Challan me kuch jagah last-5 chassis number bhi maangta hai — "
+               "wo apne RC paper par likha hota hai.</i>")
     return "\n".join(out)
 
 
