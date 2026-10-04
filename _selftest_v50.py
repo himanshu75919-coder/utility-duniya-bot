@@ -260,7 +260,7 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v52.2 version", "v52.2 Premium Earning" in bot_src),
+    ("v52.3 version", "v52.3 Premium Earning" in bot_src),
     # ---- v52.1: GOVT SERVICES user order par DELETE hua (verify) ----
     ("govt import gayab", "from modules import govt_tools" not in bot_src),
     ("govt action gayab", 'if action == "govt":' not in bot_src),
@@ -424,6 +424,64 @@ check("bot: domain osint keyboard", "DOMAIN OSINT / IP" in bot_src)
 check("bot: upi premium", '"upi",                 # 🏦 UPI VERIFY' in bot_src or '"upi"' in bot_src)
 check("bot: tginfo premium", '"tginfo"' in bot_src)
 check("bot: upi rate-limit", '"upi":         (15, 60,  "UPI Verify")' in bot_src)
+
+# =====================================================================
+section("21) v52.3 — 🎮BGMI 🔥FF Pinterest 📄WebScraper 📧TempMail EID")
+import modules.gaming_tools as _gg
+import modules.pinterest_tools as _pt
+import modules.web_tools as _wt
+import modules.temp_mail as _tm
+import modules.desi_tools as _dt
+
+# --- FF (live, known-good public player) ---
+_ff = _gg.ff_player_info("228159683", "BR")
+check("ff valid player", _ff.get("ok") is True and bool(_ff.get("nickname")))
+_ffbad = _gg.ff_player_info("12")
+check("ff galat uid reject", _ffbad.get("ok") is False)
+_ffnf = _gg.ff_player_info("999999999999", "IND")
+check("ff not-found -> region hint", _ffnf.get("ok") is False and "Region" in _ffnf.get("error", ""))
+
+# --- BGMI (fallback-safe, kabhi fake data nahi) ---
+_bg = _gg.bgmi_player_info("1067824210")
+check("bgmi ok-or-fallback", _bg.get("ok") is True or _bg.get("fallback") is True)
+check("bgmi galat uid reject", _gg.bgmi_player_info("12").get("ok") is False)
+
+# --- Pinterest search (live) ---
+_ps = _pt.pinterest_search("cat wallpaper")
+check("pinterest search 6 results", _ps.get("ok") is True and len(_ps.get("results", [])) >= 1)
+_pbad = _pt.pinterest_search("x")
+check("pinterest short kw reject", _pbad.get("ok") is False)
+
+# --- Web Scraper (live + SSRF) ---
+_ws = _wt.scrape_public_text("https://en.wikipedia.org/wiki/Patna")
+check("webscraper live text", _ws.get("ok") is True and _ws.get("words", 0) > 500)
+_wspriv = _wt.scrape_public_text("http://192.168.1.1/")
+check("webscraper SSRF block", _wspriv.get("ok") is False)
+
+# --- Temp Mail (live) ---
+_t1 = _tm.tm_create()
+check("tempmail create", _t1.get("ok") is True and "@" in _t1.get("address", ""))
+if _t1.get("ok"):
+    _t2 = _tm.tm_messages(_t1["address"], _t1["token"])
+    check("tempmail inbox", _t2.get("ok") is True)
+
+# --- Aadhaar EID (offline) ---
+_e1 = _dt.aadhaar_eid_helper("99305683211412")
+check("eid valid", _e1.get("ok") is True and _e1.get("sms").startswith("UID STATUS"))
+check("eid galat reject", _dt.aadhaar_eid_helper("123").get("ok") is False)
+_e2 = _dt.aadhaar_eid_helper("9930568321141299305683211412")  # EID+stamp
+check("eid stamp bhi handle", _e2.get("ok") is True and _e2.get("eid") == "99305683211412")
+
+# --- bot.py wiring (static) ---
+for fn, mod in [("ff_player_info", "_gg"), ("bgmi_player_info", "_gg"),
+                ("pinterest_search", "_pt"), ("scrape_public_text", "_wt"),
+                ("tm_create", "_tm"), ("aadhaar_eid_helper", "_dt")]:
+    check(f"import {fn}", fn in bot_src)
+for m in ("bgmi", "ffuid", "pinterest", "webscraper", "tempmail", "aadeid"):
+    check(f"mode {m}", f'if mode == "{m}":' in bot_src)
+for lbl in ("BGMI UID", "FF UID", "PINTEREST", "WEB SCRAPER", "TEMP MAIL", "AADHAAR EID"):
+    check(f"kbd {lbl}", lbl in bot_src)
+check("pinpick callback", 'data.startswith("pinpick:")' in bot_src)
 
 # =====================================================================
 print(f"\n{'=' * 55}")

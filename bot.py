@@ -196,6 +196,10 @@ from modules.osint_tools import (
     upi_verify,
     tg_user_public,
 )
+from modules.gaming_tools import ff_player_info, bgmi_player_info
+from modules.pinterest_tools import pinterest_search, pinterest_from_pin_link
+from modules.web_tools import scrape_public_text
+from modules.temp_mail import tm_create, tm_messages
 from modules.general_tools import (
 
     vcard_data,
@@ -252,6 +256,12 @@ TOOL_RATE_LIMITS = {
     "ip":          (15, 60,  "Domain OSint / IP"),
     "upi":         (15, 60,  "UPI Verify"),
     "tginfo":      (10, 60,  "TG Public Info"),
+    "bgmi":        (8,  60,  "BGMI UID"),
+    "ffuid":       (8,  60,  "FF UID"),
+    "pinterest":   (8,  120, "Pinterest"),
+    "webscraper":  (10, 60,  "Web Scraper"),
+    "tempmail":    (10, 120, "Temp Mail"),
+    "aadeid":      (15, 60,  "Aadhaar EID"),
     "ifsc":        (15, 60,  "IFSC Info"),
     "pin":         (15, 60,  "Pincode Info"),
     "rto":         (8,  60,  "Vehicle Info"),
@@ -292,7 +302,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v52.2 Premium Earning"  # v52.2: 🌍 Domain OSINT (whois+DNS+subdomains) + 🏦 UPI Verify + 📡 TG Public Info
+BOT_VERSION = "v52.3 Premium Earning"  # v52.3: 🎮 BGMI UID + 🔥 FF UID + 📌 Pinterest + 📄 Web Scraper + 📧 Temp Mail + 🪪 Aadhaar EID (sab public/legal)
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -348,6 +358,12 @@ PREMIUM_TOOLS = {
     "ip",                  # 🌐 DOMAIN OSINT / IP
     "upi",                 # 🏦 UPI VERIFY
     "tginfo",              # 📡 TG PUBLIC INFO
+    "bgmi",                # 🎮 BGMI UID
+    "ffuid",               # 🔥 FF UID
+    "pinterest",           # 📌 PINTEREST
+    "webscraper",          # 📄 WEB SCRAPER
+    "tempmail",            # 📧 TEMP MAIL
+    "aadeid",              # 🪪 AADHAAR EID
     "qr",                  # 📷 QR CODE (text/wifi/vcard)
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
@@ -374,6 +390,12 @@ PREMIUM_TOOL_NAMES = {
     "ip": "🌐 Domain OSINT / IP",
     "upi": "🏦 UPI Verify",
     "tginfo": "📡 TG Public Info",
+    "bgmi": "🎮 BGMI UID",
+    "ffuid": "🔥 FF UID",
+    "pinterest": "📌 Pinterest",
+    "webscraper": "📄 Web Scraper",
+    "tempmail": "📧 Temp Mail",
+    "aadeid": "🪪 Aadhaar EID",
     "qr": "📷 QR Code",
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
@@ -754,6 +776,9 @@ KB_BTNS = [
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
     [f"📮 {to_bold('PINCODE INFO')}", f"🌐 {to_bold('DOMAIN OSINT / IP')}"],
     [f"🏦 {to_bold('UPI VERIFY')}", f"📡 {to_bold('TG PUBLIC INFO')}"],
+    [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
+    [f"📌 {to_bold('PINTEREST')}", f"📄 {to_bold('WEB SCRAPER')}"],
+    [f"📧 {to_bold('TEMP MAIL')}", f"🪪 {to_bold('AADHAAR EID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
@@ -799,6 +824,17 @@ BTN_MODE_MAP = {
     "UPI VERIFY": "upi",
     "TG PUBLIC INFO": "tginfo",
     "TG INFO": "tginfo",
+    "BGMI UID": "bgmi",
+    "BGMI": "bgmi",
+    "FF UID": "ffuid",
+    "FREE FIRE UID": "ffuid",
+    "PINTEREST": "pinterest",
+    "PINTEREST DOWNLOADER": "pinterest",
+    "WEB SCRAPER": "webscraper",
+    "TEMP MAIL": "tempmail",
+    "TEMPMAIL": "tempmail",
+    "AADHAAR EID": "aadeid",
+    "AADHAAR STATUS": "aadeid",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -888,6 +924,49 @@ PROMPTS = {
         "📌 Jaise: <code>@telegram</code> ya <code>duaa_channel</code>\n"
         "⚠️ Sirf public info jo t.me par sab dekh sakte hain — private members/phone nahi.\n"
         "👉 <b>Ab @username bhejo:</b>"
+    ),
+    "bgmi": (
+        f"🎮 <b>{to_bold('BGMI UID')}</b>\n"
+        "Dost ka <b>BGMI UID</b> bhejo → player ka naam, level, rank, K/D stats.\n"
+        "📌 UID game me Profile me dikhta hai. Jaise: <code>1067824210</code>\n"
+        "⚠️ Sirf public in-game data — private info nahi.\n"
+        "👉 <b>Ab BGMI UID bhejo:</b>"
+    ),
+    "ffuid": (
+        f"🔥 <b>{to_bold('FF UID')}</b>\n"
+        "Dost ka <b>Free Fire UID</b> bhejo → player ka naam, level, rank, likes.\n"
+        "📌 UID game me Profile me dikhta hai. Jaise: <code>1633864660</code>\n"
+        "🌍 Region alag ho to aise bhejo: <code>UID BR</code> (IND/BR/SG/US/VN...)\n"
+        "⚠️ Sirf public in-game data — private info nahi.\n"
+        "👉 <b>Ab FF UID bhejo:</b>"
+    ),
+    "pinterest": (
+        f"📌 <b>{to_bold('PINTEREST')}</b>\n"
+        "Do cheezein chalti hain:\n"
+        "1️⃣ <b>PIN LINK</b> bhejo (app me pin → ⋯ → Copy link) → HD image download\n"
+        "2️⃣ <b>KEYWORD</b> bhejo (jaise <code>cat wallpaper</code>) → 6 public images dikhaun, tap karke download\n"
+        "⚠️ Sirf public images. Private pins nahi milenge.\n"
+        "👉 <b>Ab pin link ya keyword bhejo:</b>"
+    ),
+    "webscraper": (
+        f"📄 <b>{to_bold('WEB SCRAPER')}</b>\n"
+        "Kisi bhi <b>public page ka link</b> bhejo (article, blog, news) → poora text saaf format me.\n"
+        "📌 Jaise: koi khabar ya Wikipedia page ka link\n"
+        "⚠️ Sirf public pages — login wale / private sites nahi khulti.\n"
+        "👉 <b>Ab page ka link bhejo:</b>"
+    ),
+    "tempmail": (
+        f"📧 <b>{to_bold('TEMP MAIL')}</b>\n"
+        "Ek disposable (ek-baar) ka email ID banata hoon — kisi bhi jagah signup/OTP ke liye.\n"
+        "👉 <b>NEW</b> likh kar bhejo → naya email ban jayega\n"
+        "(inbox check karne ke liye baad me <b>INBOX</b> bhejo)"
+    ),
+    "aadeid": (
+        f"🪪 <b>{to_bold('AADHAAR EID STATUS')}</b>\n"
+        "Aapka <b>APNA 14-digit Enrolment ID (EID/EPIC)</b> bhejo (Aadhaar acknowledgement slip ke top par).\n"
+        "Bot aapko <b>ready SMS</b> bana ke dega jo aap <b>51969</b> pe bhej do — official UIDAI status milega.\n"
+        "⚠️ Ye aapka <b>12-digit Aadhaar number NAHI</b> hai, aur sirf <b>APNA</b> EID daalo.\n"
+        "👉 <b>Ab 14-digit EID bhejo:</b>"
     ),
     "bankpdf": (
         f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b>\n"
@@ -999,6 +1078,11 @@ TUTORIAL_TEXT = (
     "• 🌐 DOMAIN OSINT / IP → domain bhejo → whois+DNS+subdomains+IP location; IP bhejo → ISP/city\n"
     "• 🏦 UPI VERIFY → VPA bhejo → format + kis bank ka handle hai (sirf public info)\n"
     "• 📡 TG PUBLIC INFO → @username bhejo → naam + bio + member count (public channels)\n"
+    "• 🎮 BGMI UID / 🔥 FF UID → dost ka game UID bhejo → naam, level, rank, stats (public)\n"
+    "• 📌 PINTEREST → pin link ya keyword → image HD download\n"
+    "• 📄 WEB SCRAPER → public page ka link → poora text saaf format me\n"
+    "• 📧 TEMP MAIL → NEW bhejo → ek-baar ka email + inbox (OTP/signup ke liye)\n"
+    "• 🪪 AADHAAR EID → apna 14-digit EID → ready SMS 51969 ke liye (official status)\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
     "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
@@ -2007,6 +2091,23 @@ async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- CALLBACK QUERY HANDLER ----------------
+def _pinpick_download(url: str) -> dict:
+    """v52.3: Pinterest search result ka image download karo (sync — to_thread me chalega)."""
+    import io as _pio
+    _ua = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
+    try:
+        r = requests.get(url, timeout=30, headers=_ua)
+        if r.status_code != 200 or len(r.content) < 1500:
+            return {"ok": False}
+        ct = r.headers.get("content-type", "")
+        ext = ".jpg" if "jpeg" in ct or "jpg" in ct else (".png" if "png" in ct else ".webp")
+        return {"ok": True, "stream": _pio.BytesIO(r.content), "bytes": r.content, "ext": ext,
+                "is_img": ct.startswith("image") or ext in (".jpg", ".png", ".webp")}
+    except Exception:
+        return {"ok": False}
+
+
 async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -2830,6 +2931,34 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ---------- v52: 🎞️ YOUTUBE QUALITY PICKER ----------
+    # ---------- v52.3: 📌 PINTEREST — image pick (search results me se tap) ----------
+    if data.startswith("pinpick:"):
+        try:
+            idx = int(data.split(":", 1)[1])
+        except ValueError:
+            idx = -1
+        results = context.user_data.get("pin_results") or []
+        if not (0 <= idx < len(results)):
+            await q.answer("Ye option abhi valid nahi — dobara search karo.", show_alert=True)
+            return
+        target_url = results[idx]
+        await q.answer("Download kar raha hoon…", show_alert=False)
+        _dl = await asyncio.to_thread(_pinpick_download, target_url)
+        if not _dl.get("ok"):
+            await q.message.reply_text("❌ Image download fail ho gayi. Dobara search karke koi aur chuno.")
+            return
+        if _dl.get("is_img"):
+            await q.message.send_photo(
+                chat_id=update.effective_chat.id, photo=_dl["stream"],
+                caption=f"📌 Pinterest download ({len(_dl['bytes'])//1024} KB)")
+        else:
+            await q.message.send_document(
+                chat_id=update.effective_chat.id, document=_dl["stream"],
+                filename=f"image{_dl['ext']}", caption="📌 Pinterest download")
+        await q.message.reply_text(spend_credit_msg(uid, "pinterest") +
+                                   "\n✅ Download ho gaya. Aur chahiye to dobara search karo.")
+        return
+
     if data.startswith("ytq:"):
         hstr = data.split(":", 1)[1]
         try:
@@ -4185,6 +4314,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  f"• <b>Username:</b> <code>@{uname}</code>\n"]
             if desc:
                 L.append(f"• <b>Bio/Description:</b> {hesc(desc[:300])}\n")
+            else:
+                L.append("• <b>Bio/Description:</b> (set nahi hai)\n")
             if mcount is not None:
                 L.append(f"• <b>Members:</b> {mcount:,}\n")
             L.append("━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -4200,16 +4331,241 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
                  f"🎯 <b>{hesc(prof['name'])}</b>\n"
                  "━━━━━━━━━━━━━━━━━━━━━━\n"
-                 f"• <b>Username:</b> <code>@{prof['username']}</code>\n"]
+                 f"• <b>Username:</b> <code>@{prof['username']}</code>\n"
+                 f"• <b>Type:</b> 👤 User Profile\n"]
             if prof.get("bio"):
                 L.append(f"• <b>Public Bio:</b> {hesc(prof['bio'][:300])}\n")
             else:
-                L.append("• <b>Public Bio:</b> (public page par nahi likha)\n")
+                L.append("• <b>Public Bio:</b> (set nahi hai — ye user ne apna 'About' nahi likha)\n")
             L.append("━━━━━━━━━━━━━━━━━━━━━━\n"
                      "<i>Sirf public info (jo t.me par sab dekh sakte hain) — "
-                     "private info nahi dikhata.</i>")
+                     "private info nahi dikhata.\n"
+                     "💡 Bio dikhne ke liye user ko Telegram → Settings → Edit → About me likhna padta hai.</i>")
             card = "\n".join(L)
         await update.message.reply_text(spend_credit_msg(uid, "tginfo") + "\n" + card, parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "bgmi":
+        res = await asyncio.to_thread(bgmi_player_info, raw_text)
+        if res.get("ok"):
+            st = res.get("stats") or {}
+            pr = res.get("profile") or {}
+            await update.message.reply_text(
+                spend_credit_msg(uid, "bgmi") + "\n" +
+                f"🎮 <b>{to_bold('BGMI PLAYER CARD')}</b>\n"
+                f"🎯 <b>{hesc(pr.get('name') or '—')}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• <b>UID:</b> <code>{res.get('uid')}</code>\n"
+                f"• <b>Level:</b> {pr.get('level', '—')}\n"
+                f"• <b>Rank Points:</b> {pr.get('rankPoints', '—')}\n"
+                f"• <b>Games:</b> {st.get('matches', '—')} | <b>Wins:</b> {st.get('wins', '—')}\n"
+                f"• <b>Kills:</b> {st.get('totalKills', '—')} | <b>Deaths:</b> {st.get('totalDeaths', '—')}\n"
+                f"• <b>K/D:</b> {st.get('killsPerMatch', '—')}\n"
+                f"• <b>Top 10:</b> {st.get('top10Finishes', '—')} | <b>Longest Kill:</b> {st.get('longestKill', '—')}m\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "<i>Public in-game stats (official public data). Private info nahi dikhata.</i>",
+                parse_mode=HTML)
+        else:
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "ffuid":
+        _words = (raw_text or "").strip().split()
+        _reg = ""
+        if len(_words) >= 2 and re.fullmatch(r"[A-Z]{2,4}", _words[-1]):
+            _reg = _words[-1]
+            _uid_part = " ".join(_words[:-1])
+        else:
+            _uid_part = raw_text
+        res = await asyncio.to_thread(ff_player_info, _uid_part, _reg)
+        if res.get("ok"):
+            lines = [
+                f"🔥 <b>{to_bold('FREE FIRE PLAYER CARD')}</b>\n"
+                f"🎯 <b>{hesc(res.get('nickname'))}</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"• <b>UID:</b> <code>{res.get('uid')}</code>",
+                f"• <b>Level:</b> {res.get('level', '—')}" + (f" | <b>EXP:</b> {res.get('exp')}" if res.get("exp") else ""),
+                f"• <b>Region:</b> {res.get('region', '—')}" + (f" | <b>Prime:</b> L{res.get('prime')}" if res.get("prime") else ""),
+                f"• <b>BR Rank:</b> {res.get('rank_br')} ({res.get('rp_br')} RP)",
+                f"• <b>CS Rank:</b> {res.get('rank_cs')}" + (f" ({res.get('rp_cs')})" if res.get("rp_cs") not in (None, "—", "") else ""),
+                f"• <b>Max Rank:</b> {res.get('max_rank')}",
+            ]
+            if res.get("liked") not in (None, "—", ""):
+                lines.append(f"• <b>Likes:</b> {res.get('liked')}")
+            if res.get("last_login") not in (None, "—"):
+                lines.append(f"• <b>Last Login:</b> {res.get('last_login')}")
+            if res.get("created") not in (None, "—"):
+                lines.append(f"• <b>Account Created:</b> {res.get('created')}")
+            if res.get("bio"):
+                lines.append(f"• <b>Bio:</b> {hesc(res['bio'][:100])}")
+            lines += ["━━━━━━━━━━━━━━━━━━━━━━",
+                      "<i>Public in-game data (Garena public profile). Private info nahi dikhata.</i>"]
+            await update.message.reply_text(
+                spend_credit_msg(uid, "ffuid") + "\n" + "\n".join(lines), parse_mode=HTML)
+        else:
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "pinterest":
+        txt = (raw_text or "").strip()
+        _is_link = ("pinterest" in txt.lower() or "/pin/" in txt or re.fullmatch(r"\d{9,}", txt)
+                    or txt.startswith("http"))
+        if _is_link:
+            res = await asyncio.to_thread(pinterest_from_pin_link, txt)
+            if res.get("ok"):
+                import io as _io
+                fname = f"pinterest{res.get('ext', '.jpg')}"
+                _cid = update.effective_chat.id
+                await update.message.reply_text(
+                    spend_credit_msg(uid, "pinterest") + "\n"
+                    "📌 <b>PINTEREST IMAGE</b> — original quality download ✅")
+                await update.message.send_photo(
+                    chat_id=_cid, photo=_io.BytesIO(res["bytes"]),
+                    caption=f"📌 Pinterest download ({len(res['bytes'])//1024} KB)")
+            else:
+                await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        # keyword search
+        res = await asyncio.to_thread(pinterest_search, txt)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        context.user_data["pin_results"] = res["results"]
+        rows = []
+        L = [f"📌 <b>PINTEREST SEARCH — '{hesc(txt)}'</b>\n"]
+        if res.get("is_pinterest") and any(res["is_pinterest"]):
+            L.append("✅ Pinterest images mili hain (original quality)\n")
+        else:
+            L.append("⚠️ Pinterest par exact match nahi mila — similar public images dikh rahi hain\n")
+        for i, u in enumerate(res["results"], 1):
+            tag = "🟡 Pinterest" if "pinimg.com" in u else " Web"
+            L.append(f"{i}. {tag}")
+        L.append("\n👇 <b>Jo chahiye wo tap karo (ya number bhejo):</b>")
+        for i in range(0, len(res["results"]), 2):
+            row = []
+            for j in range(i, min(i + 2, len(res["results"]))):
+                row.append(InlineKeyboardButton(f"{j+1} 🖼️", callback_data=f"pinpick:{j}"))
+            rows.append(row)
+        await update.message.reply_text("\n".join(L), parse_mode=HTML,
+                                        reply_markup=InlineKeyboardMarkup(rows))
+        add_use(uid)
+        return
+
+    if mode == "webscraper":
+        res = await asyncio.to_thread(scrape_public_text, raw_text)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        body = res["text"]
+        head = (f"📄 <b>{hesc(res['title'])}</b>\n"
+                f"🔗 <code>{hesc(res['url'])}</code>\n"
+                + (f"ℹ️ {hesc(res['desc'])}\n" if res.get("desc") else "") +
+                "━━━━━━━━━━━━━━━━━━━━━━\n")
+        if len(body) > 3800:
+            import io as _io
+            full = head + body
+            await update.message.reply_text(
+                spend_credit_msg(uid, "webscraper") + "\n"
+                f"📄 <b>{hesc(res['title'])}</b> — {res.get('words')} words mila.\n"
+                "Poora text .txt file me bhej raha hoon 👇")
+            await update.message.send_document(
+                chat_id=update.effective_chat.id, document=_io.BytesIO(full.encode("utf-8")),
+                filename="page-text.txt",
+                caption=f"{res.get('words')} words · {hesc(res['url'][:60])}")
+        else:
+            await update.message.reply_text(
+                spend_credit_msg(uid, "webscraper") + "\n" + head + body[:3900],
+                parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "tempmail":
+        cmd = (raw_text or "").strip().lower()
+        sess = context.user_data.get("tempmail") or {}
+        if cmd in ("inbox", "check", "box") and sess.get("address"):
+            res = await asyncio.to_thread(tm_messages, sess["address"], sess["token"])
+            if res.get("expired"):
+                context.user_data["tempmail"] = {}
+                await update.message.reply_text(
+                    " Ye temp email session expire ho gaya. <b>NEW</b> bhejo — naya ban jayega.",
+                    parse_mode=HTML)
+                add_use(uid)
+                return
+            if not res.get("ok"):
+                await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+                add_use(uid)
+                return
+            if not res.get("messages"):
+                await update.message.reply_text(
+                    f"📭 Inbox abhi khali hai (<code>{hesc(sess['address'])}</code>).\n"
+                    "Message aate hi dobara <b>INBOX</b> bhejo.")
+                add_use(uid)
+                return
+            L = [f"📧 <b>TEMP MAIL INBOX</b> — <code>{hesc(sess['address'])}</code>\n"
+                 f"({res.get('count')} message)\n━━━━━━━━━━━━━━━━━━━━━━"]
+            for i, m in enumerate(res["messages"][:5], 1):
+                L.append(f"\n<b>{i}. {hesc(m['subject'])}</b>\n"
+                         f"📨 Se: <code>{hesc(m['from'])}</code>\n"
+                         f"{hesc(m['body'][:400])}")
+            L.append("\n━━━━━━━━━━━━━━━━━━━━━━\n<i>Messages 10 minute tak cache me rehte hain.</i>")
+            await update.message.reply_text("\n".join(L), parse_mode=HTML)
+            add_use(uid)
+            return
+        # NEW (ya koi bhi input) → naya mailbox
+        res = await asyncio.to_thread(tm_create)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        context.user_data["tempmail"] = {"address": res["address"], "token": res["token"]}
+        # turant pehla inbox check
+        await asyncio.sleep(2)
+        inbox = await asyncio.to_thread(tm_messages, res["address"], res["token"])
+        cnt = inbox.get("count", 0) if inbox.get("ok") else 0
+        await update.message.reply_text(
+            spend_credit_msg(uid, "tempmail") + "\n" +
+            f"📧 <b>{to_bold('TEMP MAIL TAYAR')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📮 <b>Aapka ek-baar email:</b>\n"
+            f"<code>{hesc(res['address'])}</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "✅ Ise kisi bhi jagah daalo — signup, OTP, password reset (jahan real email chahiye wahan nahi).\n"
+            "📬 Message aane ke baad yahan <b>INBOX</b> bhejo → messages yahan dikh jayenge.\n"
+            f"📭 Abhi inbox: {cnt} message\n"
+            "<i>Ye email sirf is chat me dikhta hai (30 din valid). Koi aur nahi dekh sakta.</i>")
+        add_use(uid)
+        return
+
+    if mode == "aadeid":
+        res = await asyncio.to_thread(desi.aadhaar_eid_helper, raw_text)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        await update.message.reply_text(
+            spend_credit_msg(uid, "aadeid") + "\n" +
+            f"🪪 <b>{to_bold('AADHAAR EID STATUS — READY')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"• <b>Aapka EID:</b> <code>{res['eid']}</code>\n"
+            "• <b>Status method:</b> Official UIDAI SMS (CAPTCHA-free)\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            " <b>Ye SMS copy karke</b> <b>51969</b> pe bhejo (free SMS):\n"
+            f"<code>{res['sms']}</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📱 2-3 minute me <b>51969</b> se aapko status ka SMS aa jayega "
+            "(Enrolled / Not Enrolled / Rejection ke saath reason).\n\n"
+            "💻 <b>Web se check karna ho to:</b>\n"
+            f"{res['web']}\n"
+            "(wahan EID + CAPTCHA khud daalna hoga — bot CAPTCHA nahi todta)\n\n"
+            "🔑 <b>EID bhool gaye?</b> (registered mobile + email se mil jayega)\n"
+            f"{res['lost']}\n\n"
+            "<i>⚠️ Sirf APNA EID daalo. Kisi aur ka EID / Aadhaar number bot me kabhi mat daalo.</i>")
         add_use(uid)
         return
 

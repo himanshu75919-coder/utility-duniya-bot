@@ -8,6 +8,47 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v52.3 UPDATE — 6 naye tools (aapke "sab bana do" order par)
+
+**Bhai, aapke baaki 6 tools sab ban gaye hain — ek-ek karke:**
+
+**1. 🔥 FF UID (Free Fire player info)**
+- Dost ka FF UID bhejo (8-10 digit) → **naam, level, BR rank + points, CS rank, max rank, likes, last login, account created date**
+- 13 regions support (IND/BR/SG/US/VN/ID/TH/PK...) — region alag ho to `UID BR` aise bhejo
+- Data **Garena ke public profile** se — 100% public in-game data
+
+**2. 🎮 BGMI UID (honest baat ke saath)**
+- UID bhejo → naam/level/rank/stats (public)
+- ⚠️ **Honest update:** BGMI (India) ke liye officially koi FREE public API nahi hai (Krafton ne nahi diya). Maine best-effort public API rakha hai — agar kaam kare to stats aayenge, agar na kare to bot **official in-game guide** dikhayega (Profile → UID kaise dekhna hai). **Kabhi fake data nahi dikhega.**
+- Jis competitor bot me "private leaderboard" dikhta hai — wo leaked data se kaam karta hai, aapka bot aisa nahi karega
+
+**3. 📌 PINTEREST (image HD download)**
+- Pinterest app me pin par ⋯ → Copy link → bhejo → **original quality image** download
+- Ya **keyword** bhejo (jaise `cat wallpaper`) → 6 public images dikhti hain → jo tap karo wo download
+- Pinterest ke official CDN se direct — koi API key nahi, free
+
+**4. 📄 WEB SCRAPER (public page → text)**
+- Kisi bhi public article/news/blog/Wikipedia page ka link bhejo → **poora text saaf format me**
+- Bada page ho to `.txt` file ban ke milta hai
+- ⚠️ SSRF-protected: private/internal sites kabhi nahi khulti (sirf public pages)
+
+**5. 📧 TEMP MAIL (disposable email + inbox)**
+- `NEW` bhejo → **ek-baar ka email ID** ban jata hai (jaise `udabc123@maxxspace.com`)
+- Ise kisi bhi jagah signup/OTP ke liye daalo — apna real email expose nahi hota
+- `INBOX` bhejo → messages bot me dikhte hain (subject + sender + body)
+- Password bot khud generate karta hai (aapko yaad rakhne ki zaroorat nahi), 30 din valid
+
+**6. 🪪 AADHAAR EID STATUS HELPER (APNA EID)**
+- Apna **14-digit EID/EPIC** bhejo (Aadhaar slip ke top par) → bot **ready SMS** bana deta hai
+- Wo SMS copy karke **51969** pe bhejo (free) → official UIDAI status 2-3 min me aata hai
+- ✅ 100% legal: sirf APNA EID, official CAPTCHA-free SMS service. (Web check CAPTCHA maangta hai — wo user khud karta hai, bot CAPTCHA nahi todta)
+- ❌ Kisi aur ka EID/Aadhaar bot me daalne par warning bhi dikhti hai
+
+**Cost:** Saare 6 **premium (1 credit/use)** · Menu ab **33 buttons**
+**Tests:** **413 checks sab green** (106 + 179 + 128)
+
+---
+
 ## 🆕 v52.2 UPDATE — 3 naye INFO tools (aapke choice par)
 
 **Bhai, aapke bataye "INFO batch" ke 3 tools aa gaye hain:**
