@@ -57,7 +57,7 @@ user profiles t.me public page se). Sirf public info — private members/phone n
 > ⚖️ Teeno **100% legal** — sirf public data + official APIs (RDAP / DNS / Bot API / t.me).
 > Premium hain (1 credit/use) — baaki info tools jaise hi.
 
-### 🧪 Tests (3 suites, **413 checks** — sab green)
+### 🧪 Tests (3 suites, **414 checks** — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
 python3 _selftest_v50.py           # 179 checks — tools + deletion + TTS + GOVT-removed + YT quality + v52.2 tools

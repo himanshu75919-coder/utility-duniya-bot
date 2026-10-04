@@ -45,7 +45,7 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 - ❌ Kisi aur ka EID/Aadhaar bot me daalne par warning bhi dikhti hai
 
 **Cost:** Saare 6 **premium (1 credit/use)** · Menu ab **33 buttons**
-**Tests:** **413 checks sab green** (106 + 179 + 128)
+**Tests:** **413 checks sab green** (106 + 180 + 128)
 
 ---
 

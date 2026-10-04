@@ -11,7 +11,7 @@
 | 📧 **TEMP MAIL (naya)** | NEW → ek-baar ka email + inbox (mail.tm free API, 30 din) |
 | 🪪 **AADHAAR EID (naya)** | APNA 14-digit EID → ready SMS 51969 ke liye (official UIDAI status) |
 | ⚙️ **Cost** | Saare 6 premium (1 credit/use) · Menu ab **33 buttons** |
-| ✅ **Tests** | **413 checks sab green** (106 + 179 + 128) |
+| ✅ **Tests** | **413 checks sab green** (106 + 180 + 128) |
 
 ## 🆕 v52.2 me kya badla
 
