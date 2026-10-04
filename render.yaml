@@ -50,12 +50,6 @@ services:
       # sleep nahi hota -> cold start (30-60s) sirf pehli baar, baad me bot ~instant respond.
       - key: BOT_SELF_URL
         value: https://utility-duniya-bot.onrender.com
-      # ---------- v52: ⚖️ GOVT SERVICES — eCourts API token (optional) ----------
-      # Court Case Status tool ke liye. Free signup: ecourtsindia.com/api (₹200 free credits,
-      # koi card nahi). Token format: eci_live_xxxx... . Khali chhodne par tool "setup pending"
-      # dikhega (baaki 3 govt tools iske bina bhi chalte hain).
-      - key: ECOURTS_API_KEY
-        sync: false
 
       # ---------- OSINT HUB (aapka apna API — isi se data aata hai) ----------
       - key: OSINT_API_BASE

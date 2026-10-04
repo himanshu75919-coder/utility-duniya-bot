@@ -1,14 +1,13 @@
-# 📖 1-PADHO-PEHLE.md — v52.0 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v52.1 Premium Earning (5 minute me poora samajh)
 
-## 🆕 v52.0 me kya badla
+## 🆕 v52.1 me kya badla
 
 | Kya | Detail |
 |---|---|
-| 🏛️ **GOVT SERVICES (naya menu, 4 tools)** | ⚖️ Court Case Status (CNR se) · 📋 Sarkari Result · 🪪 Govt ID Status (CAPTCHA-free SMS) · 🏛️ Job Tracker — sab 100% legal public data se |
-| 🎞️ **YouTube Quality Selector** | Video Downloader me ab YT link par **1080p/720p/480p/360p buttons** — jo chuno wahi milegi |
-| 🚀 **Speed fix** | Self-ping se bot ab **24/7 jaagta** hai (cold start sirf deploy ke baad) + welcome photo CDN cache |
-| ⚙️ **Naye env vars** | `BOT_SELF_URL` (speed) + `ECOURTS_API_KEY` (court case tool, free token) |
-| ✅ **Tests** | **377 checks sab green** (106 + 143 + 128) |
+| 🗑️ **GOVT SERVICES — PERMANENTLY delete** | User ke order par v52.0 ke saare 4 govt tools (Court Case / Result / ID Status / Job Tracker) **poore hataye** — button, engine module, premium entry, env, tests, docs. `ECOURTS_API_KEY` env bhi hata diya. |
+| 🎞️ **YouTube Quality Selector** (abhi bhi hai) | Video Downloader me YT link par **1080p/720p/480p/360p buttons** — jo chuno wahi milegi |
+| 🚀 **Speed fix** (abhi bhi hai) | Self-ping se bot **24/7 jaagta** hai + welcome photo CDN cache |
+| ✅ **Tests** | 3 test suites sab green (verify + selftest + v49) |
 
 ## 🆕 v51.2 me naya tool — 🗣️ TEXT → HINDI VOICE
 
