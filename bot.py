@@ -192,6 +192,9 @@ from modules.osint_tools import (
     lookup_phone_info,
     lookup_pincode,
     lookup_vehicle_rto,
+    domain_osint,
+    upi_verify,
+    tg_user_public,
 )
 from modules.general_tools import (
 
@@ -246,7 +249,9 @@ TOOL_RATE_LIMITS = {
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
     # normal info tools
-    "ip":          (15, 60,  "IP / Domain Info"),
+    "ip":          (15, 60,  "Domain OSint / IP"),
+    "upi":         (15, 60,  "UPI Verify"),
+    "tginfo":      (10, 60,  "TG Public Info"),
     "ifsc":        (15, 60,  "IFSC Info"),
     "pin":         (15, 60,  "Pincode Info"),
     "rto":         (8,  60,  "Vehicle Info"),
@@ -287,7 +292,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v52.1 Premium Earning"  # v52.1: GOVT SERVICES user order par delete + 🎞️ YT quality selector + 🚀 speed fix (v52.0 se)
+BOT_VERSION = "v52.2 Premium Earning"  # v52.2: 🌍 Domain OSINT (whois+DNS+subdomains) + 🏦 UPI Verify + 📡 TG Public Info
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -340,7 +345,9 @@ PREMIUM_TOOLS = {
     "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
     "pin",                 # 📮 PINCODE INFO
-    "ip",                  # 🌐 IP / DOMAIN INFO
+    "ip",                  # 🌐 DOMAIN OSINT / IP
+    "upi",                 # 🏦 UPI VERIFY
+    "tginfo",              # 📡 TG PUBLIC INFO
     "qr",                  # 📷 QR CODE (text/wifi/vcard)
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
@@ -364,7 +371,9 @@ PREMIUM_TOOL_NAMES = {
     "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
     "pin": "📮 Pincode Info",
-    "ip": "🌐 IP / Domain Info",
+    "ip": "🌐 Domain OSINT / IP",
+    "upi": "🏦 UPI Verify",
+    "tginfo": "📡 TG Public Info",
     "qr": "📷 QR Code",
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
@@ -743,7 +752,8 @@ KB_BTNS = [
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
-    [f"📮 {to_bold('PINCODE INFO')}", f"🌐 {to_bold('IP / DOMAIN INFO')}"],
+    [f"📮 {to_bold('PINCODE INFO')}", f"🌐 {to_bold('DOMAIN OSINT / IP')}"],
+    [f"🏦 {to_bold('UPI VERIFY')}", f"📡 {to_bold('TG PUBLIC INFO')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
@@ -783,8 +793,12 @@ BTN_MODE_MAP = {
     "8-IN-1 PRINT SHEET": "print_sheet",
     "DOCUMENT PDF COMPRESS": "doc_compress",
     "DOCUMENT PDF COMPRESSOR": "doc_compress",
+    "DOMAIN OSINT / IP": "ip",
     "IP / DOMAIN INFO": "ip",
     "IP INFO": "ip",
+    "UPI VERIFY": "upi",
+    "TG PUBLIC INFO": "tginfo",
+    "TG INFO": "tginfo",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -855,10 +869,25 @@ PROMPTS = {
         "📸 <b>Ab marksheet ya certificate ki photo bhejo:</b>"
     ),
     "ip": (
-        f"🌐 <b>{to_bold('IP / DOMAIN INFO')}</b>\n"
-        "IP ya website ka location, ISP, company sab milega.\n"
-        "📌 Jaise: <code>8.8.8.8</code> ya <code>google.com</code>\n"
-        "👉 <b>Ab IP ya website ka naam bhejo:</b>"
+        f"🌐 <b>{to_bold('DOMAIN OSINT / IP')}</b>\n"
+        "<b>Domain bhejo</b> → full OSINT report (whois/DNS/subdomains/IP location).\n"
+        "<b>IP bhejo</b> → location, ISP, company, proxy check.\n"
+        "📌 Jaise: <code>google.com</code> (domain OSINT) ya <code>8.8.8.8</code> (IP info)\n"
+        "👉 <b>Ab domain ya IP bhejo:</b>"
+    ),
+    "upi": (
+        f"🏦 <b>{to_bold('UPI VERIFY')}</b>\n"
+        "Koi bhi VPA (UPI ID) bhejo → format valid hai ya nahi + kis bank ka handle hai.\n"
+        "📌 Jaise: <code>rahul@sbi</code>, <code>9876543210@hdfcbank</code>\n"
+        "⚠️ Sirf public info — linked mobile/account number kabhi nahi dikhega.\n"
+        "👉 <b>Ab VPA bhejo:</b>"
+    ),
+    "tginfo": (
+        f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
+        "Koi bhi public @username bhejo → naam, bio/description, member count (agar public channel ho).\n"
+        "📌 Jaise: <code>@telegram</code> ya <code>duaa_channel</code>\n"
+        "⚠️ Sirf public info jo t.me par sab dekh sakte hain — private members/phone nahi.\n"
+        "👉 <b>Ab @username bhejo:</b>"
     ),
     "bankpdf": (
         f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b>\n"
@@ -967,7 +996,9 @@ TUTORIAL_TEXT = (
     "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
-    "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
+    "• 🌐 DOMAIN OSINT / IP → domain bhejo → whois+DNS+subdomains+IP location; IP bhejo → ISP/city\n"
+    "• 🏦 UPI VERIFY → VPA bhejo → format + kis bank ka handle hai (sirf public info)\n"
+    "• 📡 TG PUBLIC INFO → @username bhejo → naam + bio + member count (public channels)\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
     "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
@@ -4016,33 +4047,169 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "ip":
-        # v50: to_thread — IP lookup HTTP karta hai, event loop free rahega
-        res = await asyncio.to_thread(lookup_ip_domain, raw_text)
-        if res.get("ok"):
-            flags = []
-            flags.append("🛡️ Proxy/VPN: " + ("⚠️ Yes (hidden connection)" if res.get("is_proxy") else "✅ No"))
-            flags.append("🏢 Datacenter/Hosting: " + ("✅ Yes (server/VPN line)" if res.get("is_hosting") else "❌ No (normal internet line)"))
-            flags.append("📱 Mobile network: " + ("✅ Yes" if res.get("is_mobile") else "❌ No"))
-            rows = []   # v49.13: koi website/Map link nahi (user ka order)
-            await update.message.reply_text(
-                spend_credit_msg(uid, "ip") + "\n" +
-                f"🌐 <b>{to_bold('IP / DOMAIN INFORMATION')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"• <b>Query:</b> <code>{hesc(res['query'])}</code>\n"
-                f"• <b>IP:</b> <code>{res['ip']}</code>\n"
-                f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
-                f"• <b>State:</b> {res['region']}\n"
-                f"• <b>City:</b> {res['city']} — PIN {res['zip']}\n"
-                f"• <b>Lat/Long:</b> {res['lat']}, {res['lon']}\n"
-                f"• <b>ISP / Company:</b> {res['isp']}\n"
-                f"• <b>Organization:</b> {res['org']}\n"
-                f"• <b>Network:</b> {res.get('as', '—')}\n"
-                f"• <b>Timezone:</b> {res['timezone']}\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(flags) +
-                "\n\n<i>This is public IP information (for websites/servers). It does not show anyone's home address.</i>",
-                reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
-        else:
+        # v52.2: domain hai to FULL OSINT (whois+DNS+subdomains+IP), IP hai to purana IP card
+        _ip_like = re.match(r"^(\d{1,3}\.){3}\d{1,3}$", (raw_text or "").strip())
+        if _ip_like:
+            res = await asyncio.to_thread(lookup_ip_domain, raw_text)
+            if res.get("ok"):
+                flags = []
+                flags.append("🛡️ Proxy/VPN: " + ("⚠️ Yes (hidden connection)" if res.get("is_proxy") else "✅ No"))
+                flags.append("🏢 Datacenter/Hosting: " + ("✅ Yes (server/VPN line)" if res.get("is_hosting") else "❌ No (normal internet line)"))
+                flags.append("📱 Mobile network: " + ("✅ Yes" if res.get("is_mobile") else "❌ No"))
+                rows = []   # v49.13: koi website/Map link nahi (user ka order)
+                await update.message.reply_text(
+                    spend_credit_msg(uid, "ip") + "\n" +
+                    f"🌐 <b>{to_bold('IP INFORMATION')}</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"• <b>Query:</b> <code>{hesc(res['query'])}</code>\n"
+                    f"• <b>IP:</b> <code>{res['ip']}</code>\n"
+                    f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
+                    f"• <b>State:</b> {res['region']}\n"
+                    f"• <b>City:</b> {res['city']} — PIN {res['zip']}\n"
+                    f"• <b>Lat/Long:</b> {res['lat']}, {res['lon']}\n"
+                    f"• <b>ISP / Company:</b> {res['isp']}\n"
+                    f"• <b>Organization:</b> {res['org']}\n"
+                    f"• <b>Network:</b> {res.get('as', '—')}\n"
+                    f"• <b>Timezone:</b> {res['timezone']}\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(flags) +
+                    "\n\n<i>This is public IP information (for websites/servers). It does not show anyone's home address.</i>",
+                    reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
+            else:
+                await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        # ---- v52.2: DOMAIN OSINT (whois + DNS + subdomains + IP location) ----
+        res = await asyncio.to_thread(domain_osint, raw_text)
+        if not res.get("ok"):
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        L = ["🌍 <b>DOMAIN OSINT REPORT</b>\n"
+             f"🎯 <b>{hesc(res['domain'])}</b>\n"
+             "━━━━━━━━━━━━━━━━━━━━━━"]
+        w = res.get("whois")
+        if w:
+            L += ["📝 <b>WHOIS (official RDAP registry)</b>",
+                  f"• <b>Registrar:</b> {w['registrar']}",
+                  f"• <b>Registered:</b> {w['created']}",
+                  f"• <b>Expires:</b> {w['expires']}",
+                  f"• <b>Last updated:</b> {w['updated']}",
+                  f"• <b>Status:</b> {w['status']}"]
+        else:
+            L += ["📝 <b>WHOIS:</b> " + (res.get("whois_error") or "nahi mila")]
+        L.append("━━━━━━━━━━━━━━━━━━━━━━\n📡 <b>DNS RECORDS</b>")
+        L.append(f"• <b>A:</b> " + (", ".join(f"<code>{hesc(a)}</code>" for a in res.get("a", [])) or "nahi mila"))
+        if res.get("aaaa"):
+            L.append(f"• <b>AAAA:</b> " + ", ".join(f"<code>{hesc(a)}</code>" for a in res["aaaa"]))
+        L.append(f"• <b>MX (email):</b> " + (", ".join(f"<code>{hesc(m)}</code>" for m in res.get("mx", [])) or "nahi mila"))
+        L.append(f"• <b>NS:</b> " + (", ".join(f"<code>{hesc(n)}</code>" for n in res.get("ns", [])) or "nahi mila"))
+        if res.get("txt"):
+            L.append(f"• <b>TXT:</b> <code>{hesc(res['txt'][0][:60])}</code>")
+        L.append("━━━━━━━━━━━━━━━━━━━━━━\n🔗 <b>SUBDOMAINS (Certificate Transparency)</b>")
+        subs = res.get("subdomains", [])
+        if subs:
+            L.append("• " + ", ".join(f"<code>{hesc(s)}</code>" for s in subs))
+            tot = res.get("subdomains_total", len(subs))
+            if tot > len(subs):
+                L.append(f"<i>({tot} total me se top {len(subs)} dikhaye)</i>")
+        else:
+            L.append("• " + (res.get("subdomains_error") or "koi public certificate subdomain nahi mila"))
+        ipi = res.get("ip_info")
+        if ipi:
+            L += ["━━━━━━━━━━━━━━━━━━━━━━\n📍 <b>IP LOCATION (primary A-record)</b>",
+                  f"• <b>IP:</b> <code>{ipi['ip']}</code>",
+                  f"• <b>City:</b> {ipi['city']}, {ipi['region']}, {ipi['country']}",
+                  f"• <b>ISP/Org:</b> {ipi['isp']}",
+                  f"• <b>Network:</b> {ipi.get('as', '—')}",
+                  f"• <b>Hosting:</b> " + ("✅ Datacenter/server line" if ipi.get("is_hosting") else "❌ Normal line"),
+                  f"• <b>Proxy/VPN:</b> " + ("⚠️ Yes" if ipi.get("is_proxy") else "✅ No")]
+        L.append("━━━━━━━━━━━━━━━━━━━━━━")
+        L.append("<i>Sab data public/official sources se hai (registry RDAP, public DNS, "
+                 "certificate transparency). Koi private info nahi dikhti.</i>")
+        await update.message.reply_text(
+            spend_credit_msg(uid, "ip") + "\n" + "\n".join(L), parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "upi":
+        # v52.2: UPI VERIFY — VPA format + bank handle (sirf public info)
+        res = await asyncio.to_thread(upi_verify, raw_text)
+        if not res.get("ok"):
+            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            add_use(uid)
+            return
+        bank_line = res.get("bank") or f"Handle <code>@{res['handle']}</code> (known-bank list me nahi)"
+        notes = ("\n".join("⚠️ " + n for n in res.get("notes", []))) or ""
+        await update.message.reply_text(
+            spend_credit_msg(uid, "upi") + "\n" +
+            f"🏦 <b>{to_bold('UPI VERIFY REPORT')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"• <b>VPA:</b> <code>{hesc(res['vpa'])}</code>\n"
+            f"• <b>Format:</b> ✅ Valid UPI ID format\n"
+            f"• <b>Local part:</b> <code>{hesc(res['local'])}</code>\n"
+            f"• <b>Bank handle:</b> <code>@{res['handle']}</code>\n"
+            f"• <b>Bank:</b> {bank_line}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"⚠️ <b>Privacy:</b> Ye sirf public format + bank-handle info hai.\n"
+            "Linked mobile number, account number, ya holder ka naam kisi bhi VPA se\n"
+            "publicly available NAHI hota — isliye ye tool me bhi nahi dikhega.\n"
+            f"{chr(10) if notes else ''}{notes}"
+            .replace(chr(10) + "\n", "\n"), parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "tginfo":
+        # v52.2: TG PUBLIC INFO — Bot API getChat (channels/groups) + t.me fallback (users)
+        uname = (raw_text or "").strip().lower().replace(" ", "")
+        uname = re.sub(r"^https?://(?:t\.me|telegram\.(?:me|dog))/?", "", uname).split("/")[0].lstrip("@")
+        if not re.match(r"^[a-z][a-z0-9_]{3,31}$", uname):
+            await update.message.reply_text(
+                "❌ Valid @username bhejo — jaise <code>@telegram</code> ya "
+                "<code>duaa_channel</code>.\n📌 Public channel ka @username uske profile me dikhta hai.",
+                parse_mode=HTML)
+            add_use(uid)
+            return
+        card = None
+        try:
+            chat = await context.bot.get_chat(f"@{uname}")
+            ctype = chat.type
+            title = getattr(chat, "title", None) or getattr(chat, "first_name", None) or f"@{uname}"
+            desc = getattr(chat, "description", None) or ""
+            mcount = getattr(chat, "member_count", None)
+            kind = {"channel": "📢 Public Channel", "supergroup": "👥 Public Group",
+                    "group": "👥 Group", "user": "👤 User"}.get(ctype, "💬 Chat")
+            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
+                 f"🎯 <b>{hesc(title)}</b>\n"
+                 "━━━━━━━━━━━━━━━━━━━━━━\n"
+                 f"• <b>Type:</b> {kind}\n"
+                 f"• <b>Username:</b> <code>@{uname}</code>\n"]
+            if desc:
+                L.append(f"• <b>Bio/Description:</b> {hesc(desc[:300])}\n")
+            if mcount is not None:
+                L.append(f"• <b>Members:</b> {mcount:,}\n")
+            L.append("━━━━━━━━━━━━━━━━━━━━━━\n"
+                     "<i>Sirf public info (Bot API se) — private members/phone nahi dikhata.</i>")
+            card = "\n".join(L)
+        except Exception:
+            # user profile / non-channel → t.me public page fallback
+            prof = await asyncio.to_thread(tg_user_public, uname)
+            if not prof.get("ok"):
+                await update.message.reply_text(f"❌ {prof.get('error')}", parse_mode=HTML)
+                add_use(uid)
+                return
+            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
+                 f"🎯 <b>{hesc(prof['name'])}</b>\n"
+                 "━━━━━━━━━━━━━━━━━━━━━━\n"
+                 f"• <b>Username:</b> <code>@{prof['username']}</code>\n"]
+            if prof.get("bio"):
+                L.append(f"• <b>Public Bio:</b> {hesc(prof['bio'][:300])}\n")
+            else:
+                L.append("• <b>Public Bio:</b> (public page par nahi likha)\n")
+            L.append("━━━━━━━━━━━━━━━━━━━━━━\n"
+                     "<i>Sirf public info (jo t.me par sab dekh sakte hain) — "
+                     "private info nahi dikhata.</i>")
+            card = "\n".join(L)
+        await update.message.reply_text(spend_credit_msg(uid, "tginfo") + "\n" + card, parse_mode=HTML)
         add_use(uid)
         return
 

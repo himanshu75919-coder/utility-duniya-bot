@@ -1,4 +1,14 @@
-# 📖 1-PADHO-PEHLE.md — v52.1 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v52.2 Premium Earning (5 minute me poora samajh)
+
+## 🆕 v52.2 me kya badla
+
+| Kya | Detail |
+|---|---|
+| 🌍 **DOMAIN OSINT (naya)** | 🌐 IP/DOMAIN tool ab full OSINT deta hai — domain bhejo → whois + DNS records + subdomains + IP location. IP bhejo → wahi purana card |
+| 🏦 **UPI VERIFY (naya)** | VPA bhejo → format valid + kis bank ka handle. Linked mobile kabhi nahi (publicly exist hi nahi karta) |
+| 📡 **TG PUBLIC INFO (naya)** | Public @username bhejo → naam + bio + member count. Private members/phone nahi |
+| ⚙️ **Cost** | Teeno premium (1 credit/use) — baaki info tools jaise hi |
+| ✅ **Tests** | **380 checks sab green** (106 + 146 + 128) |
 
 ## 🆕 v52.1 me kya badla
 

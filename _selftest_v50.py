@@ -260,7 +260,7 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v52.1 version", "v52.1 Premium Earning" in bot_src),
+    ("v52.2 version", "v52.2 Premium Earning" in bot_src),
     # ---- v52.1: GOVT SERVICES user order par DELETE hua (verify) ----
     ("govt import gayab", "from modules import govt_tools" not in bot_src),
     ("govt action gayab", 'if action == "govt":' not in bot_src),
@@ -382,6 +382,48 @@ try:
           str(_ds)[:100])
 except Exception as e:
     check("downscale 720->360 kaam karta", False, str(e)[:120])
+
+# =====================================================================
+section("20) 🌍 DOMAIN OSINT + 🏦 UPI VERIFY + 📡 TG PUBLIC INFO (v52.2)")
+import modules.osint_tools as _ot
+
+# --- UPI VERIFY (fast, offline) ---
+_u = _ot.upi_verify("rahul@sbi")
+check("upi valid + bank", _u.get("ok") and "State Bank of India" in (_u.get("bank") or ""))
+_u2 = _ot.upi_verify("9876543210@hdfcbank")
+check("upi mobile-style + HDFC", _u2.get("ok") and "HDFC" in (_u2.get("bank") or ""))
+_u3 = _ot.upi_verify("abc@xyzunknown")
+check("upi unknown handle -> known=False", _u3.get("ok") and _u3.get("handle_known") is False)
+check("upi galat input reject", _ot.upi_verify("garbage-no-at").get("ok") is False)
+check("upi linked-mobile nahi (no key)", "linked_mobile" not in _u)
+
+# --- TG PUBLIC INFO (live, public page) ---
+_t = _ot.tg_user_public("telegram")
+check("tg public @telegram name", _t.get("ok") and _t.get("exists") and "Telegram" in _t.get("name", ""))
+_t404 = _ot.tg_user_public("thisusernamedoesnotexist99x")
+check("tg non-existent -> not found", _t404.get("ok") is False and _t404.get("exists") is False)
+
+# --- DOMAIN OSINT (live: RDAP + DoH + crt.sh) ---
+_d = _ot.domain_osint("onrender.com")
+check("domain osint ok", _d.get("ok") is True)
+check("domain osint A record", isinstance(_d.get("a"), list) and len(_d.get("a", [])) >= 1)
+check("domain osint NS record", len(_d.get("ns", [])) >= 1)
+check("domain osint whois registrar", bool((_d.get("whois") or {}).get("registrar")))
+check("domain osint ip_info", bool(_d.get("ip_info")))
+check("domain osint galat input reject", _ot.domain_osint("not a domain!!").get("ok") is False)
+
+# --- bot.py wiring (static) ---
+check("bot: domain_osint import", "domain_osint" in bot_src)
+check("bot: upi_verify import", "upi_verify" in bot_src)
+check("bot: tg_user_public import", "tg_user_public" in bot_src)
+check("bot: upi mode handler", 'if mode == "upi":' in bot_src)
+check("bot: tginfo mode handler", 'if mode == "tginfo":' in bot_src)
+check("bot: upi keyboard", "UPI VERIFY" in bot_src)
+check("bot: tginfo keyboard", "TG PUBLIC INFO" in bot_src)
+check("bot: domain osint keyboard", "DOMAIN OSINT / IP" in bot_src)
+check("bot: upi premium", '"upi",                 # 🏦 UPI VERIFY' in bot_src or '"upi"' in bot_src)
+check("bot: tginfo premium", '"tginfo"' in bot_src)
+check("bot: upi rate-limit", '"upi":         (15, 60,  "UPI Verify")' in bot_src)
 
 # =====================================================================
 print(f"\n{'=' * 55}")

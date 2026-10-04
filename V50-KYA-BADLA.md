@@ -8,6 +8,35 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v52.2 UPDATE — 3 naye INFO tools (aapke choice par)
+
+**Bhai, aapke bataye "INFO batch" ke 3 tools aa gaye hain:**
+
+**1. 🌍 DOMAIN OSINT (🌐 IP/DOMAIN tool ka upgrade)**
+- Ab **domain** bhejo (jaise `google.com`) → poora **OSINT report**:
+  - 📝 **Whois** — kaunsa registrar, kab register hua, kab expire hoga (official RDAP registry se)
+  - 📡 **DNS records** — A, AAAA, MX (email servers), NS, TXT
+  - 🔗 **Subdomains** — `www.`, `mail.` jaise saare public subdomains (Certificate Transparency se)
+  - 📍 **IP location** — site kis city/country me hosted hai, kaunsa ISP, hosting ya normal line
+- **IP** bhejo (jaise `8.8.8.8`) → wahi purana IP info card (proxy/hosting check)
+
+**2. 🏦 UPI VERIFY**
+- Koi bhi VPA bhejo (jaise `rahul@sbi`) → bot batata hai:
+  - ✅ Format valid hai ya nahi
+  - 🏦 Kis bank ka handle hai (SBI/HDFC/ICICI/Axis... NPCI public codes se)
+- ⚠️ **Linked mobile kabhi nahi dikhega** — wo data publicly exist hi nahi karta. Bot 100% clean.
+
+**3. 📡 TG PUBLIC INFO**
+- Koi bhi public `@username` bhejo (jaise `@telegram`) →
+  - Naam, bio/description, **member count** (public channel ho to)
+  - User profile ho to t.me public page se naam + public bio
+- ⚠️ **Sirf public info** — private members/phone number nahi. (Private wala version illegal hota hai, wo nahi banaya)
+
+**Cost:** Teeno **premium (1 credit/use)** — baaki info tools jaise hi.
+**Legal:** 100% — sab public data + official sources (RDAP/DNS/Bot API/t.me). Koi leaked data nahi.
+
+---
+
 ## 🆕 v52.1 UPDATE — GOVT SERVICES PERMANENTLY delete (user order) + YouTube Quality + Speed
 
 **Bhai, aapke order par jo v52.0 me GOVT SERVICES aaya tha — wo ab POORA delete ho gaya:**
