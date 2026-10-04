@@ -8,6 +8,31 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v51 UPDATE — 5 tools hataaye + ab saare tools premium (earning)
+
+**Bhai, ye 5 tools poore bot se hata diye gaye hain** (jaisa tumne kaha):
+
+1. 🧮 **EMI / INTEREST CALC** (EMI + gaon-wala vyaaj calculator)
+2. 🖼️ **SITE SCREENSHOT** (website ka screenshot)
+3. 🖼️ **IMAGE→PDF** (photo ko PDF banana)
+4. 🔒 **PRIVATE CHANNEL SETUP** (cloner ka private help)
+5. 🆔 **ID & USERNAME FINDER** (kisi ki ID / @username dhoondhna)
+
+Inka **saara code, menu button, aur tutorial videos** GitHub se bhi delete ho gaye —
+ab kahin nahi rahenge. Agar koi purana user inme se koi purana button dabata hai, to use
+saaf message milta hai "ye tool hata diya gaya hai" (crash nahi).
+
+**Ab saare tools PREMIUM hain (ise earning model kehte hain):**
+- Naye user ko **25 free credits** milte hain (ek baar ke).
+- Har tool chalane par **1 credit** jata hai.
+- Credits khatam hone par user ko **VIP lene** ko kehte hain.
+- **VIP = poora bot unlimited** — 30 din ₹49 se leke Lifetime ₹199 tak.
+
+Isse tumhe **earning** ho sakti hai, kyunki jo user roz tools use karega, use VIP lena
+padega.
+
+---
+
 ## 1) 🚨 Sabse bada problem fix hua: bot FREEZE hona
 
 **Pehle kya hota tha:**

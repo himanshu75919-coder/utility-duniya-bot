@@ -332,9 +332,9 @@ def test_bot_gate():
 
 
 def test_ssrf_wiring():
-    section("7) URL tools me SSRF guard wire hai (expand_url / screenshot)")
+    section("7) URL tools me SSRF guard wire hai (expand_url)")
     from modules.toolkit_extras import expand_url
-    from modules.general_tools import screenshot_url_error, site_screenshot
+    from modules.core.net import is_safe_url
 
     for u in ["http://169.254.169.254/latest/meta-data/", "http://127.0.0.1:8080/admin",
               "http://192.168.1.1", "http://10.0.0.5", "http://localhost:5000"]:
@@ -350,12 +350,10 @@ def test_ssrf_wiring():
     ok("google ke tracking params clean hote hain",
        expand_url("https://www.google.com/?utm_source=x&fbclid=y").get("cleaned", "").count("utm_") == 0)
 
-    ok("screenshot: public URL allowed", screenshot_url_error("github.com") == "")
-    for u in ["http://169.254.169.254/", "http://localhost:5000", "127.0.0.1"]:
-        ok(f"screenshot BLOCK {u[:26]}", screenshot_url_error(u) != "")
-    # site_screenshot ka contract: BytesIO ya None — tuple kabhi nahi
-    ok("site_screenshot internal URL par None deta hai (tuple nahi)",
-       site_screenshot("http://127.0.0.1/") is None)
+    # NOTE v51: site_screenshot tool delete ho gaya — SSRF guard ka test is_safe_url se
+    ok("is_safe_url: public URL allowed", is_safe_url("https://github.com")[0] is True)
+    for u in ["http://169.254.169.254/", "http://localhost:5000", "http://127.0.0.1:8080"]:
+        ok(f"is_safe_url BLOCK {u[:26]}", is_safe_url(u)[0] is False)
 
 
 def test_gst_pan():

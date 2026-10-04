@@ -56,7 +56,8 @@ ok("Menu me 🎬 CLIP MAKER button nahi", "CLIP MAKER')" not in re.search(r"^KB_
 ok("Menu me 🔓 LINK BYPASS button nahi", "LINK BYPASS')" not in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
 # NOTE v50: INTEREST CALC ab naye PRO roop ("EMI / INTEREST CALC") me wapas hai —
 # v49 me ye simple tool hataya gaya tha, v50 me EMI + vyaaj calculator ke saath upgrade karke laaya.
-ok("v50: 🧮 EMI / INTEREST CALC button hai (naya pro tool)", "EMI / INTEREST CALC" in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
+# NOTE v51: EMI / INTEREST CALC PERMANENTLY delete (user order)
+ok("v51: EMI / INTEREST CALC button nahi (permanently delete)", "EMI / INTEREST CALC" not in re.search(r"^KB_BTNS = \[(.*?)^\]", src, re.S | re.M).group(1))
 ok("BTN_MODE_MAP me clips mapping nahi", '"clips":' not in re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1))
 ok("BTN_MODE_MAP me linkbypass mapping nahi", '"linkbypass":' not in re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1))
 ok("BTN_MODE_MAP me interest mapping nahi", '"interest":' not in re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1))
@@ -68,7 +69,7 @@ ok("ai_brain import hataya", "import ai_brain" not in src)
 ok("cmd_clipstatus function nahi", not hasattr(bot, "cmd_clipstatus"))
 ok("cmd_aistatus function nahi", not hasattr(bot, "cmd_aistatus"))
 # NOTE v50: ab vyaaj (chakravritti) tool isay use karta hai — import wapas hona chahiye
-ok("v50: village_compound_interest import hai (vyaaj tool ke liye)", "village_compound_interest" in src)
+ok("v51: village_compound_interest import nahi (vyaaj tool delete)", "village_compound_interest" not in src)
 ok("/clipstatus command registered nahi", 'CommandHandler(["clipstatus"' not in src)
 
 # ======================================================================
@@ -81,7 +82,7 @@ keys = set(re.findall(r'"([^"]+)":\s*"[a-z_0-9]+"', mmap))
 unmapped = [b for b in btns if b not in keys]
 ok(f"Saare {len(btns)} menu buttons mapped", not unmapped, unmapped)
 # NOTE v50: +WEATHER, +EMI/INTEREST CALC = 2 naye buttons (29 → 31)
-ok("Menu me 31 buttons hain (v50: +WEATHER +EMI)", len(btns) == 31, len(btns))
+ok("Menu me 26 buttons hain (v51: 5 tools delete)", len(btns) == 26, len(btns))
 ok("Koi duplicate button nahi", len(btns) == len(set(btns)))
 ok("Menu rows sahi (har row 1-2 button)", all(1 <= len(r) <= 2 for r in [[1, 2]] ))
 
@@ -91,10 +92,9 @@ modal = re.findall(r'mode in \(([^)]*)\)', src)
 for grp in modal:
     modes |= set(re.findall(r'"([^"]+)"', grp))
 vals = set(re.findall(r':\s*"([a-z_0-9]+)"', mmap))
-# NOTE v50: "emi" action-driven hai — `if action == "emi"` do-choice menu dikhata hai,
-# phir emi_calc/emi_vyaaj callbacks se emi_ask_*/vyaaj_ask_* modes chalte hain. Isliye special me.
+# NOTE v51: "emi"/"cloner_private_help" delete ho chuke hain — special se hataye
 special = {"vnum", "cloner", "premium", "refer", "account", "tutorial", "admin", "owner",
-           "sarkari", "kagaz", "mediastudio", "bankpdf", "cloner_private_help", "emi"}
+           "sarkari", "kagaz", "mediastudio", "bankpdf"}
 missing = sorted(v for v in vals if v not in modes and v not in special)
 ok("Har mapped tool ka mode-handler hai", not missing, missing)
 
@@ -188,9 +188,7 @@ ok("🚗 RTO se website links HAT gaye (user ka order)", (r.get("links") or []) 
 ok("🚗 RTO me SMS tarika (VAHAN/CHALLAN -> 7738299899)",
    "7738299899" in str((r.get("sms") or {}).get("number", "")) and "VAHAN" in str((r.get("sms") or {}).get("rc", "")))
 
-r = ot.check_username_platforms("github")
-ok("🆔 Username check live", r.get("ok") and len(r.get("results") or []) >= 3, r.get("error"))
-
+# NOTE v51: ID & USERNAME FINDER tool permanently delete — is live test bhi hata
 r = il.fetch_imei_details("353010111111110")
 ok("📲 IMEI live", r.get("ok"), r.get("error"))
 ok("📲 IMEI me brand+model", bool(r.get("brand")) and bool(r.get("model")))
@@ -217,13 +215,17 @@ section("6) TOOL TEXT / KEYBOARD (bot objects)")
 # ======================================================================
 kb = bot.kb_for(999000111)
 n_btn = sum(len(row) for row in kb.keyboard)
-ok(f"Reply keyboard me {n_btn} button (31 hone chahiye — v50 +WEATHER +EMI)", n_btn == 31, n_btn)
+ok(f"Reply keyboard me {n_btn} button (26 hone chahiye — v51 me 5 tools delete)", n_btn == 26, n_btn)
 labels = [bot.unbold(b.text) for row in kb.keyboard for b in row]
 ok("Keyboard me CLIP MAKER nahi", not any("CLIP MAKER" in bot.unbold(l) for l in labels))
 ok("Keyboard me LINK BYPASS nahi", not any("LINK BYPASS" in bot.unbold(l) for l in labels))
 # NOTE v50: purana standalone "INTEREST CALC" nahi, par naya "EMI / INTEREST CALC" hai
-ok("v50: Keyboard me 🧮 EMI / INTEREST CALC hai", any("EMI / INTEREST CALC" in bot.unbold(l) for l in labels))
-ok("v50: Keyboard me 🌦️ WEATHER hai", any("WEATHER / MAUSAM" in bot.unbold(l) for l in labels))
+ok("v51: Keyboard me 🧮 EMI / INTEREST CALC nahi (delete)", not any("EMI / INTEREST CALC" in bot.unbold(l) for l in labels))
+ok("v51: Keyboard me 🌦️ WEATHER hai", any("WEATHER / MAUSAM" in bot.unbold(l) for l in labels))
+ok("v51: Keyboard me SITE SCREENSHOT nahi (delete)", not any("SITE SCREENSHOT" in bot.unbold(l) for l in labels))
+ok("v51: Keyboard me IMAGE→PDF nahi (delete)", not any("IMAGE→PDF" in bot.unbold(l) for l in labels))
+ok("v51: Keyboard me PRIVATE CHANNEL SETUP nahi (delete)", not any("PRIVATE CHANNEL SETUP" in bot.unbold(l) for l in labels))
+ok("v51: Keyboard me ID & USERNAME FINDER nahi (delete)", not any("ID & USERNAME FINDER" in bot.unbold(l) for l in labels))
 ok("Keyboard me IMEI hai", any("IMEI" in bot.unbold(l) for l in labels))
 
 for act in ("imei", "rto", "ifsc", "pin", "ip", "numinfo", "terabox", "insta_dl", "qr", "short", "linkcheck"):
@@ -287,7 +289,7 @@ except ImportError:
 ok("purane dev-note md gaye", not os.path.exists(os.path.join(HERE, "v48-IMEI-YOUTUBE-1080.md")))
 ok("stale tutorial video gaye", not os.path.exists(os.path.join(HERE, "tutorial_videos", "interest.mp4")))
 _vids = len([f for f in os.listdir(os.path.join(HERE, "tutorial_videos")) if f.endswith(".mp4")])
-ok(f"tutorial videos = 24 (mila {_vids})", _vids == 24, _vids)
+ok(f"tutorial videos = 21 (mila {_vids}) — v51 me 3 delete (shot/pdf/idfind)", _vids == 21, _vids)
 
 
 # ======================================================================

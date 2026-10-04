@@ -62,89 +62,7 @@ def build_upi_link(pa: str, pn: str, amt=None, note: str = "") -> str:
     return base
 
 
-def pages_to_pdf(pages: list, a4: bool = False, quality: int = 90) -> bytes:
-    """Images ko PDF banata hai. a4=True → sab pages A4 size me fit ho jaate hain (print friendly)."""
-    processed = []
-    for b in pages:
-        im = Image.open(io.BytesIO(b)).convert("RGB")
-        if a4:
-            # A4 ratio par fit karo (white padding ke saath) — print par edges nahi katte
-            target_w, target_h = 1654, 2339  # A4 @ 200 DPI
-            im.thumbnail((target_w, target_h), Image.Resampling.LANCZOS)
-            canvas = Image.new("RGB", (target_w, target_h), (255, 255, 255))
-            canvas.paste(im, ((target_w - im.width) // 2, (target_h - im.height) // 2))
-            im = canvas
-        buf = io.BytesIO()
-        im.save(buf, format="JPEG", quality=quality, optimize=True)
-        processed.append(buf.getvalue())
-    if a4:
-        layout = img2pdf.get_layout_fun((img2pdf.mm_to_pt(210), img2pdf.mm_to_pt(297)))
-        return img2pdf.convert(processed, layout_fun=layout)
-    return img2pdf.convert(processed)
 
-
-def screenshot_url_error(url: str) -> str:
-    """v50: screenshot se pehle URL validate karo.
-
-    Returns "" agar URL theek hai, warna user ko dikhane layak reason.
-    (site_screenshot ka return type BytesIO|None hi rakha hai — tuple nahi,
-     warna callers ka `if buf:` check tut jaata kyunki tuple hamesha truthy hota hai.)
-    """
-    u = url if url.startswith(("http://", "https://")) else "https://" + url
-    try:
-        from modules.core.net import is_safe_url
-    except Exception:            # noqa: BLE001
-        return ""
-    ok, why = is_safe_url(u)
-    return "" if ok else why
-
-
-def site_screenshot(url: str, fullpage: bool = False, width: int = 1280, height: int = 800):
-    """
-    Website ka screenshot — 3-engine fallback chain:
-      1) thum.io (fast, HD)   2) thum.io fullpage   3) microlink.io (backup)
-
-    Returns: io.BytesIO (image) ya None.
-    """
-    u = url if url.startswith(("http://", "https://")) else "https://" + url
-    if screenshot_url_error(u):
-        return None
-    candidates = []
-    if fullpage:
-        candidates.append(f"https://image.thum.io/get/width/{width}/crop/3000/noanimate/{u}")
-        candidates.append(f"https://image.thum.io/get/width/{width}/noanimate/{u}")
-    else:
-        candidates.append(f"https://image.thum.io/get/width/{width}/crop/{height}/noanimate/{u}")
-        candidates.append(f"https://image.thum.io/get/width/{width}/noanimate/{u}")
-
-    for api in candidates:
-        try:
-            r = requests.get(api, headers=UA, timeout=15)
-            if r.status_code == 200 and len(r.content) > 3000:
-                return io.BytesIO(r.content)
-        except Exception:
-            continue
-
-    # Backup engine: microlink
-    try:
-        r = requests.get("https://api.microlink.io/", params={"url": u, "screenshot": "true", "meta": "false",
-                                                             "waitUntil": "networkidle0"},
-                         headers=UA, timeout=30)
-        if r.status_code == 200:
-            j = r.json()
-            shot = ((j.get("data") or {}).get("screenshot") or {}).get("url")
-            if shot:
-                r2 = requests.get(shot, headers=UA, timeout=25)
-                if r2.status_code == 200 and len(r2.content) > 3000:
-                    return io.BytesIO(r2.content)
-    except Exception:
-        pass
-    return None
-
-
-# =====================================================================================
-# 🌦️ WEATHER — Open-Meteo (100% FREE, koi API key nahi) — v50
-# =====================================================================================
 WMO_WEATHER = {
     0: ("☀️", "Bilkul saaf aasmaan"),
     1: ("🌤️", "Zyada tar dhoop, thode baadal"),
@@ -175,6 +93,7 @@ WMO_WEATHER = {
     96: ("⛈️", "Baadline + barfdaane"),
     99: ("⛈️", "Tez baadline + barfdaane"),
 }
+
 
 WEATHER_CITY_ALIASES = {
     "gaya": "Gaya", "gaya bihar": "Gaya", "patna": "Patna",

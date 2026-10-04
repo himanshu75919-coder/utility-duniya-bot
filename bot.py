@@ -160,10 +160,8 @@ from modules.media_downloader import (
 )
 from modules.toolkit_extras import (
     analyze_link,
-    emi_calculator,
     expand_url,
     shorten_url,
-    village_compound_interest,
 )
 from modules.vehicle_challan import (
     fetch_vehicle_report,
@@ -186,7 +184,6 @@ from modules.imei_lookup import (
     validate_imei as imei_validate,
 )
 from modules.osint_tools import (
-    check_username_platforms,
     search_by_area_name,
     lookup_ifsc,
     lookup_ip_domain,
@@ -202,11 +199,6 @@ from modules.general_tools import (
 
     get_app_store_links,
     make_qr_bytes,
-
-    pages_to_pdf,
-
-    screenshot_url_error,
-    site_screenshot,
 
 )
 from modules.payguard import (
@@ -246,8 +238,6 @@ INFO_CACHE = TTLCache(maxsize=int(os.getenv("INFO_CACHE_SIZE", "4096")),
 # Override: env me RATE_LIMIT_<MODE>="limit:window" daal do.
 TOOL_RATE_LIMITS = {
     # heavy / mehnga (CPU ya bahut API kharcha)
-    "shot":        (4,  120, "Site Screenshot"),
-    "shot_full":   (3,  180, "Full Page Screenshot"),
     "insta_dl":    (6,  120, "Video Downloader"),
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
@@ -259,7 +249,6 @@ TOOL_RATE_LIMITS = {
     "rto":         (8,  60,  "Vehicle Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
     "numinfo":     (10, 60,  "Number Info"),
-    "idfind":      (10, 60,  "ID & Username Finder"),
     "linkcheck":   (10, 60,  "Link Check"),
     "short":       (10, 60,  "URL Shortener"),
     "appfind":     (15, 60,  "App Finder"),
@@ -268,7 +257,6 @@ TOOL_RATE_LIMITS = {
     "pp_stamp":    (10, 120, "Passport Photo"),
     "print_sheet": (10, 120, "8-in-1 Print Sheet"),
     "doc_compress":(10, 120, "Document PDF"),
-    "pdf":         (10, 120, "Image → PDF"),
     "kagaz":       (15, 120, "Kagaz Suite"),
 }
 
@@ -297,7 +285,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v50.4 Premium Pro"  # v50: 2 naye tools (Weather + EMI/Vyaaj) + core layer (SSRF/cache/rate-limit) + 9 bug fixes + 4x speed
+BOT_VERSION = "v51.0 Premium Earning"  # v51: 5 tools delete (EMI/Screenshot/Image-PDF/Private-Channel/ID-Finder) + SAARE tools premium (earning model)
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -324,38 +312,63 @@ def to_bold(text: str) -> str:
 
 
 # ============================================================
-#  CREDITS SYSTEM (v37)
+#  CREDITS SYSTEM (v37 → v51 FULL PREMIUM)
 #  • Naye user ko 25 credits — EK BAAR KE (daily reset NAHI)
-#  • Premium tools (sirf 4): VIDEO DOWNLOADER, NUMBER INFO,
-#    CHANNEL CLONER, PRIVATE CHANNEL SETUP — 1 use = 1 credit
-#  • Baaki SAARE tools bilkul FREE (koi credit nahi, koi limit nahi)
+#  • v51: AB SAARE tools premium hain (1 use = 1 credit)
 #  • VIP / Owner / Admin = unlimited (credits nahi lagte)
 # ============================================================
 PREMIUM_TOOLS = {
     "insta_dl",            # 📥 VIDEO DOWNLOADER
     "numinfo",             # 📱 NUMBER INFO
     "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
-    "cloner_private_help",  # 🔒 PRIVATE CHANNEL SETUP
     # ---- v38 MARU-TOAD PACK (chhupe tools) ----
     "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
     "kagaz",               # 📜 SARKARI KAGAZ SUITE
     "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
     # ---- v40 VEHICLE INFO + CHALLAN (live API) ----
-    "vehicle",             # 🚗 VEHICLE & CHALLAN REPORT
+    "rto",                 # 🚗 VEHICLE & CHALLAN REPORT (action key = "rto")
     # ---- v41 IMEI / PHONE DETAILS (live API) ----
     "imei",                # 📲 IMEI & PHONE SPEC CARD
+    # ---- v51: baaki saare tools bhi premium (earning model) ----
+    "terabox",             # ⚡ TERABOX / CLOUD DOWNLOADER
+    "vnum",                # 🌐 VIRTUAL NUMBERS (OTP)
+    "pp_stamp",            # 📸 PASSPORT PHOTO (NAME/DOP)
+    "print_sheet",         # 🖨️ 8-IN-1 PRINT SHEET
+    "doc_compress",        # 📄 DOCUMENT PDF COMPRESS
+    "sarkari",             # 🏛️ SARKARI SEVA PORTALS
+    "ifsc",                # 🏦 IFSC INFO
+    "pin",                 # 📮 PINCODE INFO
+    "ip",                  # 🌐 IP / DOMAIN INFO
+    "qr",                  # 📷 QR CODE (text/wifi/vcard)
+    "short",               # 🔗 URL SHORT
+    "linkcheck",           # 🔍 LINK CHECK
+    "appfind",             # 📦 APP FINDER
+    "weather",             # 🌦️ WEATHER / MAUSAM
 }
 
 PREMIUM_TOOL_NAMES = {
     "insta_dl": "📥 Video Downloader",
     "numinfo": "📱 Number Info",
     "cloner": "🔄 Channel Cloner",
-    "cloner_private_help": "🔒 Private Channel Setup",
     "bankpdf": "🏦 Bank Statement → Excel",
     "kagaz": "📜 Sarkari Kagaz Suite",
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
-    "vehicle": "🚗 Vehicle Info + Challan Report",
+    "rto": "🚗 Vehicle Info + Challan Report",
     "imei": "📲 IMEI / Phone Details",
+    "terabox": "⚡ Terabox / Cloud Downloader",
+    "vnum": "🌐 Virtual Numbers (OTP)",
+    "pp_stamp": "📸 Passport Photo (Name/DOP)",
+    "print_sheet": "🖨️ 8-in-1 Print Sheet",
+    "doc_compress": "📄 Document PDF Compress",
+    "sarkari": "🏛️ Sarkari Seva Portals",
+    "ifsc": "🏦 IFSC Info",
+    "pin": "📮 Pincode Info",
+    "ip": "🌐 IP / Domain Info",
+    "qr": "📷 QR Code",
+    "short": "🔗 URL Short",
+    "linkcheck": "🔍 Link Check",
+    "appfind": "📦 App Finder",
+    "weather": "🌦️ Weather / Mausam",
 }
 
 
@@ -397,16 +410,15 @@ def get_credits_over_text(action: str = "") -> str:
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"{tool_name} ek <b>premium tool</b> hai — 1 use = 1 credit.\n"
         f"Aapke <b>{CREDITS_START} free credits khatam ho gaye.</b>\n\n"
-        "✅ <b>Baaki saare tools FREE hain</b> — koi credit nahi, koi limit nahi:\n"
-        "   📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🖼️ Image→PDF • 📜 Kagaz Suite\n"
-        "   🏦 IFSC • 📮 Pincode • 🆔 ID Finder • 🌐 IP Info • 📷 QR • 🔍 Link Check...\n\n"
-        "👑 <b>VIP lene se ye sab UNLIMITED ho jayega:</b>\n"
+        "👑 <b>VIP lene se POORA bot UNLIMITED ho jayega:</b>\n"
         "• 📥 Video Downloader • 📱 Number Info • 🔄 Channel Cloner\n"
-        "• 🔒 Private Channel Setup • 🏦 Bank PDF→Excel • 📜 Kagaz Suite\n"
-        "• ⚡ Media Studio • 📲 IMEI Details\n"
-        "• ♾️ Poora bot unlimited\n\n"
-        "🎁 <i>VIP free chahiye? {n} dost ko share karo (/refer).</i>"
-    ).replace("{n}", str(REFER_NEED))
+        "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
+        "• 🏦 Bank PDF→Excel • 📜 Kagaz Suite • ⚡ Media Studio\n"
+        "• 🚗 Vehicle • 📲 IMEI • 🌦️ Weather • aur saare tools\n"
+        "• ♾️ 30/60/90/120 din ya LIFETIME — sab plans\n\n"
+        f"💎 <b>VIP plans:</b> 30d ₹49 • 60d ₹89 • 90d ₹129 • 120d ₹169 • Lifetime ₹199\n"
+        "👇 Neeche se VIP lo, unlimited use karo:"
+    )
 
 
 # ======================================================================
@@ -560,8 +572,7 @@ def spend_credit_msg(uid: int, action: str = "") -> str:
         return (
             f"⚡ <b>1 credit laga</b> — <b>ab 0 credit bacha!</b>\n\n"
             f"{name} ka ye aakhri free use tha.\n"
-            "Ab ye premium tool lock hai. VIP lene par unlimited chalega. "
-            "Baaki saare free tools bina credit chalte rahenge. → /premium"
+            "Ab poora bot VIP ke saath unlimited chalega. → /premium"
         )
     if left <= 5:
         return (f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>\n"
@@ -732,15 +743,13 @@ KB_BTNS = [
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
-    [f"📮 {to_bold('PINCODE INFO')}", f"🆔 {to_bold('ID & USERNAME FINDER')}"],
-    [f"🌐 {to_bold('IP / DOMAIN INFO')}", f"🔒 {to_bold('PRIVATE CHANNEL SETUP')}"],
-    [f"📷 {to_bold('QR CODE')}", f"🖼️ {to_bold('IMAGE→PDF')}"],
+    [f"📮 {to_bold('PINCODE INFO')}", f"🌐 {to_bold('IP / DOMAIN INFO')}"],
+    [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
-    [f"📦 {to_bold('APP FINDER')}", f"🖼️ {to_bold('SITE SCREENSHOT')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
-    [f"🌦️ {to_bold('WEATHER / MAUSAM')}", f"🧮 {to_bold('EMI / INTEREST CALC')}"],
+    [f"🌦️ {to_bold('WEATHER / MAUSAM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"❓ {to_bold('HELP / TUTORIAL')}"],
 ]
@@ -776,13 +785,10 @@ BTN_MODE_MAP = {
     "DOCUMENT PDF COMPRESS": "doc_compress",
     "DOCUMENT PDF COMPRESSOR": "doc_compress",
     "IP / DOMAIN INFO": "ip",
-    "PRIVATE CHANNEL SETUP": "cloner_private_help",
     "IP INFO": "ip",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
-    "SITE SCREENSHOT (HD)": "shot",
-    "SITE SCREENSHOT (FULL PAGE)": "shot_full",
     "SARKARI SEVA PORTALS": "sarkari",
     "RTO VEHICLE INFO": "rto",
     "VEHICLE INFO + CHALLAN": "rto",
@@ -794,23 +800,13 @@ BTN_MODE_MAP = {
     "NUMBER INFO": "numinfo",
     "IFSC INFO": "ifsc",
     "PINCODE INFO": "pin",
-    "ID & USERNAME FINDER": "idfind",
     "QR CODE": "qr",
-    "IMAGE→PDF": "pdf",
     "URL SHORT": "short",
     "LINK CHECK": "linkcheck",
     "APP FINDER": "appfind",
     "WEATHER / MAUSAM": "weather",
     "WEATHER": "weather",
     "MAUSAM": "weather",
-    "EMI / INTEREST CALC": "emi",
-    "EMI CALC": "emi",
-    "EMI CALCULATOR": "emi",
-    "EMI / VYAAJ CALC": "emi",
-    "INTEREST CALC": "emi",
-    "INTEREST CALCULATOR": "emi",
-    "INTEREST": "emi",
-    "VYAAJ CALC": "emi",
     "BANK STATEMENT → EXCEL": "bankpdf",
     "BANK STATEMENT TO EXCEL": "bankpdf",
     "BANK STATEMENT - EXCEL": "bankpdf",
@@ -820,7 +816,6 @@ BTN_MODE_MAP = {
     "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
-    "SITE SCREENSHOT": "shot",
     "VIP PREMIUM": "premium",
     "REFER & EARN": "refer",
     "MY ACCOUNT": "account",
@@ -916,23 +911,11 @@ PROMPTS = {
         "📌 Jaise: <code>800001</code> ya <code>Rajendra Nagar</code>\n"
         "📮 <b>Ab pincode ya area ka naam bhejo:</b>"
     ),
-    "idfind": (
-        f"🆔 <b>{to_bold('ID & USERNAME FINDER')}</b>\n"
-        "Apni ID, kisi ki ID (message forward karo) ya @username 5 platform par check.\n"
-        "📌 Jaise: <code>me</code> / <code>@username</code> / koi message forward karo\n"
-        "🆔 <b>Ab me / @username bhejo, ya message forward karo:</b>"
-    ),
     "qr": (
         f"📷 <b>{to_bold('QR CODE MAKER')}</b>\n"
         "Link ya text bhejo → HD QR code mil jayega.\n"
         "📌 Jaise: <code>https://t.me/utility_duniya_bot</code>\n"
         "🔗 <b>Ab text ya link bhejo:</b>"
-    ),
-    "pdf": (
-        f"🖼️ <b>{to_bold('IMAGE → PDF')}</b> — 10 photo tak\n"
-        "Photo ek-ek karke bhejo, phir neeche <b>A4 PDF</b> button dabao.\n"
-        "📌 Jaise: 3 marksheet photo, phir A4 PDF dabao\n"
-        "📸 <b>Ab apni photo bhejo:</b>"
     ),
     "short": (
         f"🔗 <b>{to_bold('URL SHORTENER')}</b>\n"
@@ -957,18 +940,6 @@ PROMPTS = {
         "Shehar ka naam bhejo → abhi ka mausam + aage 3 din ka forecast.\n"
         "📌 Jaise: <code>Gaya</code>, <code>Patna</code>, <code>Pune</code>, <code>Ranchi</code>\n"
         "🌦️ <b>Ab shehar ka naam bhejo:</b>"
-    ),
-    "shot": (
-        f"🖼️ <b>{to_bold('SITE SCREENSHOT (HD)')}</b>\n"
-        "Website ka top part ka screenshot.\n"
-        "📌 Jaise: <code>github.com</code>\n"
-        "🌐 <b>Ab website ka URL bhejo:</b>"
-    ),
-    "shot_full": (
-        f"📜 <b>{to_bold('FULL PAGE SCREENSHOT')}</b>\n"
-        "Poori lambi page ka screenshot (10-20 second lagte hain).\n"
-        "📌 Jaise: <code>flipkart.com</code>\n"
-        "📜 <b>Ab website ka URL bhejo:</b>"
     ),
     "qr_wifi": (
         f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n"
@@ -995,7 +966,6 @@ TUTORIAL_TEXT = (
     "• 📸 PASSPORT PHOTO → photo + naam + date bhejo → print ready photo\n"
     "• 🖨️ 8-IN-1 SHEET → ek photo bhejo → 8 copies ki sheet\n"
     "• 📄 DOC PDF → marksheet ki photo bhejo → chhoti size ka PDF\n"
-    "• 🖼️ IMAGE→PDF → 10 photo tak bhejo → ek PDF\n"
     "• 🏦 BANK PDF → EXCEL → statement PDF bhejo → Excel table\n"
     "• 📜 KAGAZ SUITE → kirayanama, affidavit, notice, registry cost\n"
     "\n"
@@ -1006,13 +976,11 @@ TUTORIAL_TEXT = (
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🌐 IP / DOMAIN → IP ya website bhejo → location + ISP\n"
-    "• 🆔 ID FINDER → <code>me</code> ya @username bhejo → check ho jayega\n"
     "• 🌦️ WEATHER → shehar ka naam bhejo → abhi ka mausam + 3 din ka forecast\n"
-    "• 🧮 EMI / INTEREST CALC → EMI kitni hogi, ya gaon-wala vyaaj ka poora hisaab\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim\n"
     "\n"
-    "🧰 <b>Chhote tools:</b> QR code, site screenshot, URL short, link check, app finder\n"
+    "🧰 <b>Chhote tools:</b> QR code, URL short, link check, app finder\n"
     "\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
     "⌨️ <b>Commands:</b> /start /menu /help /cancel\n"
@@ -1131,8 +1099,6 @@ def tool_tutorial_kb(action: str):
 # Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
 ASK_LINES = {
     "pin": "📮 <b>Ab pincode ya area ka naam bhejo:</b>",
-    "idfind": "🆔 <b>Ab</b> <code>me</code> / <code>@username</code> bhejo, ya message forward karo:",
-    "shot_full": "📜 <b>Ab website ka URL bhejo:</b>",
     "qr_wifi": "📶 <b>Ab WiFi ka naam (SSID) bhejo:</b>",
     "qr_vcard": "👤 <b>Ab apna naam bhejo:</b>",
 }
@@ -1288,7 +1254,7 @@ WELCOME_TEXT = (
     f"• ⚡ <b>Terabox</b> — bina ad ke seedha download\n"
     f"• 📸 <b>Photo &amp; PDF</b> — passport photo, marksheet PDF, 8-in-1 sheet\n"
     f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n"
-    f"• 🌦️ <b>Weather</b> + 🧮 <b>EMI/Vyaaj Calculator</b> — ab bot me FREE\n\n"
+    f"• 🌦️ <b>Weather / Mausam</b> — shehar ka naam bhejo, 3 din ka forecast\n\n"
     "👇 <b>Neeche menu se koi bhi tool dabao</b>"
 )
 
@@ -1366,9 +1332,9 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• ⚡ <b>Credits (premium tools ke liye):</b> {cred_line}\n"
         f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "🆓 <b>FREE tools</b> — hamesha free, koi credit nahi (passport photo, PDF, IFSC, QR, link check...)\n"
-        "💎 <b>PREMIUM tools</b> — 1 use = 1 credit: 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · "
-        "🔒 Private Channel Setup · 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio · 📲 IMEI Details\n\n"
+        "💎 <b>AB SAARE tools PREMIUM hain</b> — 1 use = 1 credit\n"
+        "🎁 <b>Naye user ko 25 free credits</b> (ek baar ke) — unke baad VIP lo\n"
+        "👑 <b>VIP = POORA bot UNLIMITED</b> (koi credit nahi, koi limit nahi)\n\n"
         f"🎁 <i>VIP free chahiye? {REFER_NEED} dost ko share karo (/refer) — ya /premium se lo.</i>"
     )
     kb = InlineKeyboardMarkup([
@@ -1647,7 +1613,7 @@ async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if res.get("ok"):
         await st.edit_text(card + f"\n• Live test: ✅ <b>working</b> ({hesc(str(res.get('say'))[:80])})\n"
                                   "• Ab ye tools hub par chal rahe hain: IP · IFSC · PINCODE · TERABOX · "
-                                  "CLIP MAKER (YouTube) · VIDEO DL (X) · ID FINDER · KAGAZ (GST/PAN) · "
+                                  "VIDEO DL (X) · KAGAZ (GST/PAN) · "
                                   "VEHICLE · IMEI · NUMBER INFO", parse_mode=HTML)
     else:
         await st.edit_text(card + f"\n• Live test: ❌ {hesc(str(res.get('error'))[:150])}", parse_mode=HTML)
@@ -2057,8 +2023,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         svc_name = context.user_data.get("vnum_svc", "WhatsApp")
         order_text = f"Hi, I need a Virtual Number:\nService: {svc_name}\nCountry: {ctry_name}"
         contact_url = f"https://t.me/Supermannn_x?text={quote(order_text)}"
+        _vnum_note = "" if is_admin(uid) else spend_credit_msg(uid, "vnum")
         card = (
-            f"🎯 <b>{to_bold('STEP 3: NUMBER LO')}</b>\n"
+            (f"{_vnum_note}\n" if _vnum_note else "")
+            + f"🎯 <b>{to_bold('STEP 3: NUMBER LO')}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📲 <b>Service:</b> {svc_name}\n"
             f"🌍 <b>Desh:</b> {ctry_name}\n"
@@ -2666,29 +2634,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("🧪 <b>TEST RESULT</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines), parse_mode=HTML)
         return
 
-    # ============ PRIVATE CHANNEL SETUP (aasan tareeka) ============
-    if data == "cloner_private":
-        await q.message.reply_text(
-
-            "🔒 <b>PRIVATE CHANNEL SE POST COPY KARNA HAI?</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Bilkul aasan — <b>na login, na password</b>. Sirf 3 kaam:\n"
-            "1️⃣ Apne <b>private channel</b> me jao → <b>Administrators</b> → <b>Add Admin</b> → is bot ko add karo (<code>@utility_duniya_bot</code>) ✅\n"
-            "   <i>(Bas itna hi 'login' hai — bot ko channel ke andar hona chahiye. Ek baar karna hai.)</i>\n"
-            "2️⃣ Us channel se <b>koi ek post forward karo</b> (video/PDF/photo) is bot ko\n"
-            "   → bot khud channel ID pakad lega\n"
-            "3️⃣ Bot ek button dega — <b>📡 Ye SOURCE banao</b> — dabao, source set ho jayega\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "Uske baad <b>Target</b> set karo aur <b>FULL AUTO</b> ON karo. Bas! 🎉\n"
-            "⚠️ Copy-protection wale channel se Telegram forward nahi karta — us case me bot khud post uthata hai (auto mode) kyunki wo wahan <b>admin</b> hai."
-            "",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔙 Back to setup", callback_data="cloner_setup")],
-            ]),
-            parse_mode=HTML,
-        )
-        return
-
     if data.startswith("fc_src:"):
         cid = data.split(":", 1)[1]
         try:
@@ -2863,36 +2808,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(tool_prompt("qr_vcard"), reply_markup=tool_tutorial_kb("qr_vcard"), parse_mode=HTML)
         return
 
-    # ---------- v50: EMI / VYAAJ CALCULATOR (FREE tools) ----------
-    if data in ("emi_calc", "emi_vyaaj"):
-        kind = "emi" if data == "emi_calc" else "vyaaj"
-        context.user_data["mode"] = f"{kind}_ask_amt"
-        txt = (
-            f"🧮 <b>{to_bold('BANK EMI CALCULATOR')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "💰 <b>Step 1/3 — Loan/EMI amount (₹) bhejo:</b>\n"
-            "(jaise <code>500000</code>)"
-        ) if kind == "emi" else (
-            f"🪔 <b>{to_bold('GAON-WALA VYAAJ (CHAKRAVRIDDHI)')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "💰 <b>Step 1/3 — Paisa (₹) bhejo</b> (jitna diya ya liya):\n"
-            "(jaise <code>50000</code>)"
-        )
-        await q.message.reply_text(txt, parse_mode=HTML)
-        return
-
-
     if data == "qr_text":
         context.user_data["mode"] = "qr"
         await q.message.reply_text(tool_prompt("qr"), reply_markup=tool_tutorial_kb("qr"), parse_mode=HTML)
-        return
-    if data == "shot_hd":
-        context.user_data["mode"] = "shot"
-        await q.message.reply_text(tool_prompt("shot"), reply_markup=tool_tutorial_kb("shot"), parse_mode=HTML)
-        return
-    if data == "shot_full":
-        context.user_data["mode"] = "shot_full"
-        await q.message.reply_text(tool_prompt("shot_full"), reply_markup=tool_tutorial_kb("shot_full"), parse_mode=HTML)
         return
 
     # Document compress: size + grayscale + GO
@@ -2919,7 +2837,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             size_kb = len(pdf_buf.getvalue()) / 1024
             await q.message.reply_document(
                 document=pdf_buf,
-                caption=(f"📄 <b>{to_bold('COMPRESSED PDF READY')}</b>\n"
+                caption=(spend_credit_msg(uid, "doc_compress") + "\n" +
+                         f"📄 <b>{to_bold('COMPRESSED PDF READY')}</b>\n"
                          f"• {len(pages)} page • {size_kb:.0f} KB • {kb_target} KB limit me ✅\n"
                          f"• Mode: {'⚫ Black & White' if gray else '🌈 Colour'}\n\n"
                          "Ye file government portal par upload kar sakte ho."),
@@ -2936,6 +2855,14 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # v49.15: purane messages ke bache buttons (numrec/nsafe) - chup-chaap band, koi card nahi
     if data.startswith("numrec:") or data.startswith("nsafe:"):
         await q.answer()
+        return
+
+    # v51: deleted tools ke purane inline buttons — saaf message, koi crash nahi
+    if data in ("shot_hd", "shot_full", "make_pdf_now", "make_pdf_a4", "pdf_clear",
+                "cloner_private", "emi_calc", "emi_vyaaj"):
+        context.user_data.pop("mode", None)
+        context.user_data.pop("pdf_pages", None)
+        await q.answer("Ye tool ab nahi hai (remove kar diya gaya).", show_alert=True)
         return
 
     # Copy buttons (pincode / area results)
@@ -3204,13 +3131,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = BTN_MODE_MAP.get(clean_key) or BTN_MODE_MAP.get(norm_text)
 
     # ---------- v49: purane keyboard ke hata diye gaye buttons ----------
-    # Jo users purane menu par 🎬 CLIP MAKER / 🔓 LINK BYPASS / 📈 INTEREST CALC
-    # daba rahe hain — unko saaf message + naya keyboard mil jaye.
-    # v50: INTEREST CALC wapas aa gaya (naya 🧮 EMI / VYAAJ calculator) — isliye
-    # removed list me ab sirf CLIP MAKER + LINK BYPASS hain.
+    # Jo users purane menu par hata diye gaye hue tools daba rahe hain —
+    # unko saaf message + naya keyboard mil jaye.
     _removed_keys = {
         "CLIP MAKER", "CLIPS MAKER", "VIDEO CLIP MAKER", "CLIPMAKER",
         "LINK BYPASS", "LINKBYPASS", "BYPASS",
+        # v51: permanently delete hue tools
+        "ID & USERNAME FINDER", "ID FINDER", "USERNAME FINDER",
+        "PRIVATE CHANNEL SETUP",
+        "IMAGE→PDF", "IMAGE TO PDF", "IMAGE - PDF", "IMAGE TO PDF ",
+        "SITE SCREENSHOT", "SITE SCREENSHOT (HD)", "SITE SCREENSHOT (FULL PAGE)", "SCREENSHOT",
+        "EMI / INTEREST CALC", "EMI CALC", "EMI CALCULATOR", "EMI / VYAAJ CALC",
+        "INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC",
     }
     if not action and clean_key in _removed_keys:
         _why = {
@@ -3221,6 +3153,25 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "LINK BYPASS": "🔓 Link Bypass",
             "LINKBYPASS": "🔓 Link Bypass",
             "BYPASS": "🔓 Link Bypass",
+            "ID & USERNAME FINDER": "🆔 ID & Username Finder",
+            "ID FINDER": "🆔 ID Finder",
+            "USERNAME FINDER": "🆔 ID & Username Finder",
+            "PRIVATE CHANNEL SETUP": "🔒 Private Channel Setup",
+            "IMAGE→PDF": "🖼️ Image→PDF",
+            "IMAGE TO PDF": "🖼️ Image→PDF",
+            "IMAGE - PDF": "🖼️ Image→PDF",
+            "SITE SCREENSHOT": "🖼️ Site Screenshot",
+            "SITE SCREENSHOT (HD)": "🖼️ Site Screenshot",
+            "SITE SCREENSHOT (FULL PAGE)": "🖼️ Site Screenshot",
+            "SCREENSHOT": "🖼️ Site Screenshot",
+            "EMI / INTEREST CALC": "🧮 EMI / Interest Calc",
+            "EMI CALC": "🧮 EMI / Interest Calc",
+            "EMI CALCULATOR": "🧮 EMI / Interest Calc",
+            "EMI / VYAAJ CALC": "🧮 EMI / Interest Calc",
+            "INTEREST CALC": "🧮 EMI / Interest Calc",
+            "INTEREST CALCULATOR": "🧮 EMI / Interest Calc",
+            "INTEREST": "🧮 EMI / Interest Calc",
+            "VYAAJ CALC": "🧮 EMI / Interest Calc",
         }.get(clean_key, "Ye tool")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
@@ -3233,8 +3184,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if action:
-        # 1. Virtual Numbers Funnel
+        # 1. Virtual Numbers Funnel (v51: premium — 1 credit per use)
         if action == "vnum":
+            _u_v = get_user(uid, user.first_name)
+            if not can_use_premium_tool(_u_v, uid):
+                await update.message.reply_text(get_credits_over_text("vnum"),
+                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                return
+            await update.message.reply_text(credits_line(_u_v, uid), parse_mode=HTML)
             await send_vnum_card(update, context)
             return
 
@@ -3274,13 +3231,24 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
             return
 
-        # 4. Sarkari Portals
+        # 4. Sarkari Portals (v51: premium — 1 credit per use)
         if action == "sarkari":
-            await update.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
+            _u_s = get_user(uid, user.first_name)
+            if not can_use_premium_tool(_u_s, uid):
+                await update.message.reply_text(get_credits_over_text("sarkari"),
+                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                return
+            note = spend_credit_msg(uid, "sarkari")
+            await update.message.reply_text(note + "\n" + SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
             return
 
-        # 6b. QR Code (4 types)
+        # 6b. QR Code (4 types) (v51: premium — 1 credit per QR)
         if action == "qr":
+            _u_qr = get_user(uid, user.first_name)
+            if not can_use_premium_tool(_u_qr, uid):
+                await update.message.reply_text(get_credits_over_text("qr"),
+                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                return
             kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔗 QR of Link / Text", callback_data="qr_text")],
                 [InlineKeyboardButton("📶 WiFi Share QR", callback_data="qr_wifi")],
@@ -3293,49 +3261,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "🔗 <b>Link/Text</b> — website, YouTube, any text\n"
                 "📶 <b>WiFi</b> — guests scan and connect, no password to tell\n"
                 "👤 <b>Contact Card</b> — scan and the contact saves",
-                reply_markup=kb, parse_mode=HTML)
-            return
-
-        # 6c. Site Screenshot (2 types)
-        if action == "shot":
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🖼️ HD Screenshot (top part)", callback_data="shot_hd")],
-                [InlineKeyboardButton("📜 Full Page Screenshot (poori page)", callback_data="shot_full")],
-                [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-            ])
-            await update.message.reply_text(
-                f"🖼️ <b>{to_bold('SITE SCREENSHOT')}</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                "🖼️ <b>HD</b> — website ka upar wala hissa, fast\n"
-                "📜 <b>Full Page</b> — poori lambi page, thoda slow\n\n"
-                "Send the URL first, the screenshot is made for you.",
-                reply_markup=kb, parse_mode=HTML)
-            return
-
-        # 8. Image to PDF
-        if action == "pdf":
-            context.user_data["mode"] = "pdf"
-            context.user_data["pdf_pages"] = []
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Make Normal PDF", callback_data="make_pdf_now"),
-                 InlineKeyboardButton("📄 A4 Print PDF", callback_data="make_pdf_a4")],
-                [InlineKeyboardButton("🗑️ Photos clear karo", callback_data="pdf_clear")],
-            ])
-            await update.message.reply_text(tool_prompt("pdf"), reply_markup=kb, parse_mode=HTML)
-            return
-
-        # 8b. v50: EMI / INTEREST CALCULATOR (FREE — 2 modes)
-        if action == "emi":
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🧮 Bank EMI Calculator", callback_data="emi_calc")],
-                [InlineKeyboardButton("🪔 Gaon-wala Vyaaj (Chakravritti)", callback_data="emi_vyaaj")],
-                [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-            ])
-            await update.message.reply_text(
-                f"🧮 <b>{to_bold('EMI / INTEREST CALCULATOR')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "🧮 <b>Bank EMI</b> — loan ke liye monthly EMI + total interest\n"
-                "🪔 <b>Gaon-wala Vyaaj</b> — chakravritti hisaab (₹100 par ₹X mahina)\n"
-                "👇 <b>Kis ka hisaab chahiye?</b>",
                 reply_markup=kb, parse_mode=HTML)
             return
 
@@ -3379,26 +3304,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ]),
                 parse_mode=HTML,
             )
-            return
-        if action == "cloner_private_help":
-            _u = get_user(uid, update.effective_user.first_name)
-            if not can_use_premium_tool(_u, uid):
-                await update.message.reply_text(get_credits_over_text("cloner_private_help"),
-                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                return
-            await update.message.reply_text(
-
-                "🔒 <b>PRIVATE CHANNEL SE POSTS COPY KARNE HAIN?</b>\n"
-                "Na login, na password — bas 3 kaam:\n"
-                "1️⃣ Is bot <b>@utility_duniya_bot</b> ko apne private channel me <b>Admin</b> banao\n"
-                "2️⃣ Us channel ki <b>koi ek post forward karo</b> (video/PDF) yahan\n"
-                "3️⃣ Bot ek button dega — <b>📡 Ye SOURCE banao</b> par tap karo ✅\n"
-                "Phir Target set karo aur FULL AUTO CHALU. Bas ho gaya!",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📘 Poori Guide", callback_data="cloner_private")],
-                    [InlineKeyboardButton("🚀 Setup Kholo", callback_data="cloner_setup")],
-                ]),
-                parse_mode=HTML)
             return
         if action in ("tutorial", "help"):
             await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
@@ -3754,7 +3659,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 rows = [[InlineKeyboardButton("🚀 Download / Stream", url=res.get("direct_url"))]]
                 if res.get("stream_url") and res.get("stream_url") != res.get("direct_url"):
                     rows[0].append(InlineKeyboardButton("▶️ Web Player", url=res["stream_url"]))
-            await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            await st.edit_text(spend_credit_msg(uid, "terabox") + "\n" + cap, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
             cap = (
                 f"⚠️ <b>{to_bold('DIRECT LINK NOT FOUND')}</b>\n\n"
@@ -3940,6 +3845,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             flags.append("📱 Mobile network: " + ("✅ Yes" if res.get("is_mobile") else "❌ No"))
             rows = []   # v49.13: koi website/Map link nahi (user ka order)
             await update.message.reply_text(
+                spend_credit_msg(uid, "ip") + "\n" +
                 f"🌐 <b>{to_bold('IP / DOMAIN INFORMATION')}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
                 f"• <b>Query:</b> <code>{hesc(res['query'])}</code>\n"
@@ -4149,7 +4055,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         await update.message.reply_photo(
             photo=stamped,
-            caption=(f"📸 <b>{to_bold('OFFICIAL GOVT EXAM PHOTO READY')}</b>\n"
+            caption=(spend_credit_msg(uid, "pp_stamp") + "\n" +
+                     f"📸 <b>{to_bold('OFFICIAL GOVT EXAM PHOTO READY')}</b>\n"
                      f"• <b>Name:</b> {hesc(name.upper())}\n• <b>DOP:</b> {hesc(dop)}\n"
                      f"• <b>Size:</b> {sz} KB (20-50KB ✅)"),
             parse_mode=HTML)
@@ -4222,7 +4129,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"IMPS {'✅' if i_res['imps'] else '❌'}",
                 ])
             )
-            await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
+            await update.message.reply_text(spend_credit_msg(uid, "ifsc") + "\n" + card,
+                                            reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {i_res.get('error')}", parse_mode=HTML)
         add_use(uid)
@@ -4248,7 +4156,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"🏤 <b>Post Offices:</b>\n" + "\n".join(f"   • {n}" for n in p_res['post_offices'])
                 )
-                await update.message.reply_text(card, reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
+                await update.message.reply_text(spend_credit_msg(uid, "pin") + "\n" + card,
+                                                reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
             else:
                 await update.message.reply_text(f"❌ {p_res.get('error')}", parse_mode=HTML)
         else:
@@ -4271,6 +4180,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if a_res.get("cached"):
                     note += "\n⚡ <i>cache se (instant)</i>"
                 await st.edit_text(
+                    spend_credit_msg(uid, "pin") + "\n" +
                     f"📮 <b>{to_bold('AREA SEARCH')}: {hesc(a_res['query'])}</b>\n"
                     f"({a_res['total']} post offices mili){note}\n\n" + "\n".join(lines) +
                     "\n\n💡 Pincode copy karne ke liye neeche button par tap karo:",
@@ -4281,115 +4191,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # ID & USERNAME FINDER — REAL existence check (GitHub/Telegram/YouTube/TikTok/Steam)
-    if mode == "idfind":
-        # v50 FIX: forwarded message PEHLE check karo — pehle ye bottom tak pahunchta hi
-        # nahi tha (help text dikh jata tha), jabki forward karna hi iska main kaam hai
-        fo = getattr(update.message, "forward_origin", None)
-        if fo:
-            fu = getattr(fo, "sender_user", None)
-            fc = getattr(fo, "chat", None)
-            if fu:
-                extra = f"\n• <b>Username:</b> @{fu.username}" if getattr(fu, "username", None) else ""
-                await update.message.reply_text(
-                    f"🆔 <b>Forwarded User ID:</b> <code>{fu.id}</code>\n"
-                    f"• <b>Name:</b> {hesc(getattr(fu, 'first_name', '') or '')}{extra}",
-                    parse_mode=HTML)
-                add_use(uid)
-                return
-            if fc:
-                await update.message.reply_text(
-                    f"🆔 <b>Forwarded Channel:</b> {hesc(str(getattr(fc, 'title', '') or ''))}\n"
-                    f"🆔 <b>ID:</b> <code>{fc.id}</code>",
-                    parse_mode=HTML)
-                add_use(uid)
-                return
-        if raw_text.lower() == "me":
-            await update.message.reply_text(
-                f"🆔 <b>Your Telegram ID:</b> <code>{uid}</code>\n"
-                f"👤 <b>Name:</b> {hesc(update.effective_user.first_name or '')}\n"
-                f"🔗 <b>Username:</b> @{update.effective_user.username or 'not set'}",
-                parse_mode=HTML,
-            )
-            return
-
-        if raw_text.startswith("@") or re.fullmatch(r"[A-Za-z0-9._\-]{2,}", raw_text.strip()):
-            st = await update.message.reply_text("🔍 Checking 5 platforms for the real account...")
-            p_info = check_username_platforms(raw_text)
-            if not p_info.get("ok"):
-                await st.edit_text(f"❌ {p_info.get('error')}", parse_mode=HTML)
-                return
-
-            lines = []
-            for r in p_info["results"]:
-                if r["exists"] is True:
-                    extra = f" — <i>{hesc(str(r['extra'])[:45])}</i>" if r.get("extra") else ""
-                    lines.append(f"✅ <b>{r['label']}</b> — account FOUND{extra}")
-                elif r["exists"] is False:
-                    lines.append(f"❌ <b>{r['label']}</b> — no account found")
-                else:
-                    lines.append(f"❔ <b>{r['label']}</b> — could not check")
-
-            # Lazy search (bot DB) se Telegram ID bhi mil jaye to
-            found = find_by_username("@" + p_info["username"])
-            id_line = f"\n🆔 <b>ID saved with the bot:</b> <code>{found[0]}</code> ({hesc(found[1])})" if found else ""
-
-            # 🆔 v45: hub se asli profile info (Instagram / Snapchat / X)
-            prof_lines = []
-            profs = p_info.get("profiles") or {}
-            ig = profs.get("instagram")
-            if ig:
-                prof_lines.append(
-                    f"📸 <b>Instagram:</b> {hesc(ig.get('full_name') or '')}"
-                    + (f" · {ig.get('followers')} followers" if ig.get("followers") not in (None, "") else "")
-                    + (" · 🔒 private" if ig.get("private") else "")
-                    + (f"\n   <i>{hesc(ig.get('bio'))}</i>" if ig.get("bio") else ""))
-            tw = profs.get()
-            if tw:
-                prof_lines.append(
-                    f"🐦 <b>X (Twitter):</b> {hesc(tw.get('name') or '')}"
-                    + (f" · {tw.get('followers')} followers" if tw.get("followers") not in (None, "") else "")
-                    + (" ✅" if tw.get("verified") else ""))
-            sp = profs.get()
-            if sp:
-                prof_lines.append(f"👻 <b>Snapchat:</b> {sp.get('count')} public stories/highlights mili")
-
-            rows = [[InlineKeyboardButton(f"🔗 {l['label']}", url=l["url"])] for l in p_info["links"][:8]]
-            await st.edit_text(
-                f"🔍 <b>{to_bold('USERNAME CHECK')}:</b> <code>@{p_info['username']}</code>\n"
-                f"(found on {p_info['found']}/5 platforms)\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                + "\n".join(lines) + id_line +
-                (("\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(prof_lines)) if prof_lines else "") +
-                "\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                "👇 Doosre platforms kholne ke direct links:",
-                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
-            )
-            add_use(uid)
-            return
-
-        await update.message.reply_text(
-
-            "🆔 <b>ID & USERNAME FINDER</b>\n"
-            "\n"
-            "Teen tarike:\n"
-            "1️⃣ <code>me</code> bhejo → apni Telegram ID\n"
-            "2️⃣ <b>Koi message forward karo</b> (kisi user/channel se) → uski ID\n"
-            "3️⃣ <code>@username</code> bhejo → 5 platform par check ✅/❌\n"
-            "\n"
-            "<i>Dhyan: private user ki ID tabhi dikhti hai jab message forward ho sake.</i>",
-            parse_mode=HTML,
-        )
-        return
-
-
-
-
     if mode == "qr":
         buf = make_qr_bytes(raw_text)
         await update.message.reply_photo(
             photo=buf,
-            caption=f"📷 <b>{to_bold('HD QR CODE TAYYAR')}</b>\n\n🔗 <code>{hesc(raw_text[:80])}</code>\n\n<i>Scan karte hi link khul jayega.</i>",
+            caption=spend_credit_msg(uid, "qr") + "\n" + f"📷 <b>{to_bold('HD QR CODE TAYYAR')}</b>\n\n🔗 <code>{hesc(raw_text[:80])}</code>\n\n<i>Scan karte hi link khul jayega.</i>",
             parse_mode=HTML)
         add_use(uid)
         return
@@ -4721,7 +4527,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buf = make_qr_bytes(data, box_size=14)
         await update.message.reply_photo(
             photo=buf,
-            caption=(f"📶 <b>{to_bold('WIFI QR READY')}</b>\n\n"
+            caption=(spend_credit_msg(uid, "qr") + "\n" +
+                     f"📶 <b>{to_bold('WIFI QR READY')}</b>\n\n"
                      f"• <b>WiFi:</b> <code>{hesc(ssid)}</code>\n"
                      f"• <b>Password:</b> <code>{hesc(pwd) if pwd.lower() != 'none' else 'Open (no password)'}</code>\n\n"
                      "📱 Guests scan this QR → their phone connects to the WiFi automatically ✅\n"
@@ -4747,7 +4554,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         buf = make_qr_bytes(data, box_size=14)
         await update.message.reply_photo(
             photo=buf,
-            caption=(f"👤 <b>{to_bold('DIGITAL VISITING CARD READY')}</b>\n\n"
+            caption=(spend_credit_msg(uid, "qr") + "\n" +
+                     f"👤 <b>{to_bold('DIGITAL VISITING CARD READY')}</b>\n\n"
                      f"• <b>Name:</b> {hesc(name)}\n"
                      f"• <b>Phone:</b> <code>{hesc(phone)}</code>\n\n"
                      "📱 The contact saves on the phone as soon as it is scanned (name + number) ✅"),
@@ -4769,7 +4577,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if clean and clean != raw_text:
                 extra = f"\n\n🧹 <b>Tracking-free original:</b>\n<code>{clean}</code>"
             rows = [[InlineKeyboardButton(f"🔗 {name}", url=u)] for name, u in links]
-            await st.edit_text(f"🔗 <b>{to_bold('SHORT LINKS READY')}</b>\n\n{body}{extra}", reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            await st.edit_text(spend_credit_msg(uid, "short") + "\n" + f"🔗 <b>{to_bold('SHORT LINKS READY')}</b>\n\n{body}{extra}", reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
             await st.edit_text(
                 "⚠️ <b>Could not make a short link</b> (all providers are busy).\n"
@@ -4798,7 +4606,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💡 <b>What to do:</b> {chk.get('advice')}"
         )
         kb_rows = [[InlineKeyboardButton("🌐 Final link kholo", url=chk.get("final_url"))]]
-        await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(kb_rows), parse_mode=HTML)
+        await st.edit_text(spend_credit_msg(uid, "linkcheck") + "\n" + cap, reply_markup=InlineKeyboardMarkup(kb_rows), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4808,44 +4616,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for s in app_data["stores"]:
             kb_stores.append([InlineKeyboardButton(f"{s['name']}", url=s["url"])])
         await update.message.reply_text(
+            spend_credit_msg(uid, "appfind") + "\n" +
             f"📦 <b>{to_bold('APP STORES FOR')}: {app_data['app_name']}</b>\n\n"
             "Official stores & Top 5 Verified Mod/APK websites available 👇",
             reply_markup=InlineKeyboardMarkup(kb_stores),
             parse_mode=HTML,
         )
-        add_use(uid)
-        return
-
-    if mode in ("shot", "shot_full"):
-        fullpage = (mode == "shot_full")
-        # v50: pehle URL validate — private/internal URL par engine ko call hi na ho
-        _serr = screenshot_url_error(raw_text)
-        if _serr:
-            await update.message.reply_text(
-                f"🚫 <b>{to_bold('SCREENSHOT NAHI BAN SAKTA')}</b>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━━\n{_serr}\n\n"
-                "📌 Public website ka address bhejo, jaise <code>github.com</code>",
-                parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        st = await update.message.reply_text("📸 " + ("Taking the full page screenshot (this takes time)..." if fullpage else "Taking the HD screenshot..."))
-        # v50: to_thread — screenshot engine 15-30s leta hai
-        buf = await asyncio.to_thread(site_screenshot, raw_text, fullpage)
-        if buf:
-            await update.message.reply_photo(
-                photo=buf,
-                caption=(f"📜 <b>{to_bold('FULL PAGE SCREENSHOT')}</b>\n🌐 <code>{hesc(raw_text[:80])}</code>" if fullpage
-                         else f"🖼️ <b>{to_bold('HD SCREENSHOT')}</b>\n🌐 <code>{hesc(raw_text[:80])}</code>\n\n📜 Need the full page? Menu → 'SITE SCREENSHOT' → 📜 Full Page."),
-                parse_mode=HTML)
-            await st.delete()
-        else:
-            await st.edit_text(
-
-                "❌ Could not take the screenshot.\n"
-                "💡 <b>What to do:</b>\n"
-                "• Send the URL with <code>https://</code> in front\n"
-                "• The site may have blocked the bot — try another site\n"
-                "• Try again after 10-20 seconds")
         add_use(uid)
         return
 
@@ -4887,167 +4663,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"{d['icon']} <b>{dname} {str(d['date'])[5:]}</b>: {mx} / {mn}{rain}")
         lines.append("━━━━━━━━━━━━━━━━━━━━━━")
         lines.append("ℹ️ <i>Source: Open-Meteo (free) — har 15 minute update</i>")
-        await update.message.reply_text("\n".join(lines), parse_mode=HTML)
+        await update.message.reply_text(spend_credit_msg(uid, "weather") + "\n" + "\n".join(lines), parse_mode=HTML)
         add_use(uid)
         return
 
-    # ================= v50: 🧮 EMI CALCULATOR (3 step) =================
-    if mode == "emi_ask_amt":
-        num = re.sub(r"[^0-9.]", "", raw_text)
-        try:
-            amt = float(num)
-        except Exception:
-            amt = 0.0
-        if amt <= 0:
-            await update.message.reply_text(
-                "💰 <b>Sirf number bhejo</b> (loan amount ₹), jaise <code>500000</code>", parse_mode=HTML)
-            return
-        context.user_data["emi_amt"] = amt
-        context.user_data["mode"] = "emi_ask_rate"
-        await update.message.reply_text(
-            f"✅ <b>Amount:</b> {inr(amt)}\n\n"
-            "💸 <b>Step 2/3 — Interest rate (per SAAL, %) bhejo:</b>\n"
-            "(jaise <code>11.5</code>) — <i>bank loan aam taur par 9-14% hota hai</i>",
-            parse_mode=HTML)
-        return
-
-    if mode == "emi_ask_rate":
-        num = re.sub(r"[^0-9.]", "", raw_text)
-        try:
-            rate = float(num)
-        except Exception:
-            rate = 0.0
-        if rate <= 0 or rate > 100:
-            await update.message.reply_text(
-                "💸 <b>Sirf rate bhejo</b> (per saal %), jaise <code>11.5</code>", parse_mode=HTML)
-            return
-        context.user_data["emi_rate"] = rate
-        context.user_data["mode"] = "emi_ask_months"
-        await update.message.reply_text(
-            f"✅ <b>Rate:</b> {rate}% / saal\n\n"
-            "📅 <b>Step 3/3 — Kitne MONTHS ke liye? number bhejo:</b>\n"
-            "(jaise <code>60</code> = 5 saal)",
-            parse_mode=HTML)
-        return
-
-    if mode == "emi_ask_months":
-        num = re.sub(r"[^0-9]", "", raw_text)
-        try:
-            months = int(num)
-        except Exception:
-            months = 0
-        if months <= 0:
-            await update.message.reply_text("📅 <b>Sirf months ka number bhejo</b>, jaise <code>60</code>", parse_mode=HTML)
-            return
-        amt = float(context.user_data.get("emi_amt") or 0)
-        rate = float(context.user_data.get("emi_rate") or 0)
-        context.user_data.pop("mode", None)
-        context.user_data.pop("emi_amt", None)
-        context.user_data.pop("emi_rate", None)
-        res = emi_calculator(amt, rate, months)
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            return
-        sched = res["schedule"]
-        sched_lines = "\n".join(
-            f"   • {s['month']} mahine baad: balance <b>{inr(s['balance'])}</b>" for s in sched[-4:])
-        card = (
-            f"🧮 <b>{to_bold('EMI CALCULATION READY')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 <b>Loan:</b> {inr(res['principal'])}\n"
-            f"💸 <b>Rate:</b> {res['rate']}% / saal\n"
-            f"📅 <b>Period:</b> {res['months']} months ({res['months'] / 12:.1f} saal)\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📆 <b>Monthly EMI: <u>{inr(res['emi'])}</u></b>\n"
-            f"🔴 <b>Total interest:</b> {inr(res['total_interest'])}\n"
-            f"💵 <b>Kul dena hoga:</b> {inr(res['total_payable'])}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📉 <b>Balance milestones:</b>\n{sched_lines}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "ℹ️ <i>Standard bank formula (reducing balance). Actual bank EMI ₹10-50 alag "
-            "ho sakti hai (processing fees ke saath).</i>"
-        )
-        await update.message.reply_text(card, parse_mode=HTML)
-        add_use(uid)
-        return
-
-    # ================= v50: 🪔 GAON-WALA VYAAJ (chakravritti, 3 step) =================
-    if mode == "vyaaj_ask_amt":
-        num = re.sub(r"[^0-9.]", "", raw_text)
-        try:
-            amt = float(num)
-        except Exception:
-            amt = 0.0
-        if amt <= 0:
-            await update.message.reply_text(
-                "💰 <b>Sirf number bhejo</b> (paisa ₹), jaise <code>50000</code>", parse_mode=HTML)
-            return
-        context.user_data["vyaaj_amt"] = amt
-        context.user_data["mode"] = "vyaaj_ask_rate"
-        await update.message.reply_text(
-            f"✅ <b>Paisa:</b> {inr(amt)}\n\n"
-            "💸 <b>Step 2/3 — ₹100 par kitne ₹ ka byaaj (har MAHINE)?</b>\n"
-            "(jaise <code>4</code> = ₹100 par ₹4 mahina)",
-            parse_mode=HTML)
-        return
-
-    if mode == "vyaaj_ask_rate":
-        num = re.sub(r"[^0-9.]", "", raw_text)
-        try:
-            rate = float(num)
-        except Exception:
-            rate = 0.0
-        if rate <= 0 or rate > 50:
-            await update.message.reply_text(
-                "💸 <b>₹100 par kitne ₹ mahina?</b> sirf number bhejo, jaise <code>4</code>", parse_mode=HTML)
-            return
-        context.user_data["vyaaj_rate"] = rate
-        context.user_data["mode"] = "vyaaj_ask_months"
-        await update.message.reply_text(
-            f"✅ <b>Rate:</b> ₹{rate:g} per ₹100 har mahina\n\n"
-            "📅 <b>Step 3/3 — Kitne MONTHS ka hisaab chahiye?</b>\n"
-            "(jaise <code>12</code> = 1 saal)",
-            parse_mode=HTML)
-        return
-
-    if mode == "vyaaj_ask_months":
-        num = re.sub(r"[^0-9]", "", raw_text)
-        try:
-            months = int(num)
-        except Exception:
-            months = 0
-        if months <= 0:
-            await update.message.reply_text("📅 <b>Sirf months ka number bhejo</b>, jaise <code>12</code>", parse_mode=HTML)
-            return
-        amt = float(context.user_data.get("vyaaj_amt") or 0)
-        rate = float(context.user_data.get("vyaaj_rate") or 0)
-        context.user_data.pop("mode", None)
-        context.user_data.pop("vyaaj_amt", None)
-        context.user_data.pop("vyaaj_rate", None)
-        res = village_compound_interest(amt, rate, months)
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error', 'Hisaab nahi ho paya')}", parse_mode=HTML)
-            return
-        ms = res.get("milestones") or {}
-        ms_lines = "\n".join(f"   • <b>{k}:</b> {inr(v)}" for k, v in ms.items()) or "   • (months kam hai)"
-        card = (
-            f"🪔 <b>{to_bold('CHAKRAVRIDDHI VYAAJ HISAAB')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"💰 <b>Paisa:</b> {inr(res['principal'])}\n"
-            f"💸 <b>Rate:</b> {res['per_hundred_note']}\n"
-            f"📅 <b>Time:</b> {res['months']} mahine\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"🔴 <b>Kul byaaj:</b> {inr(res['total_interest'])}\n"
-            f"💵 <b>Kul wapas karna:</b> {inr(res['total_payable'])}\n"
-            f"✖️ <b>Paisa double hua:</b> {inr(res['double_amount'])}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"📊 <b>Milestones (utne dena hoga):</b>\n{ms_lines}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"ℹ️ <i>Gaon-wala system — byaaj har mahine principal me joda gaya. "
-            f"Pehla mahine ka byaaj: {inr(res['first_month_interest'])}.</i>"
-        )
-        await update.message.reply_text(card, parse_mode=HTML)
-        add_use(uid)
         return
 
     # Forwarded message for ID Finder + Auto-Forward channel pakadna
@@ -5368,7 +4987,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sheet = make_printable_sheet(buf.getvalue(), 8)
         await update.message.reply_photo(
             photo=sheet,
-            caption=f"🖨️ <b>{to_bold('PRINTABLE 8-IN-1 PASSPORT SHEET READY')}</b>\n\n(4x6 inch lab print sheet @ 300 DPI)",
+            caption=spend_credit_msg(uid, "print_sheet") + "\n" + f"🖨️ <b>{to_bold('PRINTABLE 8-IN-1 PASSPORT SHEET READY')}</b>\n\n(4x6 inch lab print sheet @ 300 DPI)",
             parse_mode=HTML,
         )
         context.user_data.pop("mode", None)
@@ -5398,28 +5017,6 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         return
 
-    # Image to PDF
-    if mode == "pdf":
-        pages = context.user_data.setdefault("pdf_pages", [])
-        # v50: prompt kehta hai "10 photo tak" — ab sach me 10 par ruk jata hai
-        if len(pages) >= 10:
-            await update.message.reply_text(
-                "📸 <b>Max 10 photos!</b> Pehle neeche wale button se PDF bana lo, "
-                "phir /cancel karke naya set bhejo.")
-            return
-        photo_file = await update.message.photo[-1].get_file()
-        buf = io.BytesIO()
-        await photo_file.download_to_memory(buf)
-        pages.append(buf.getvalue())
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"✅ Normal PDF ({len(pages)} photos)", callback_data="make_pdf_now"),
-             InlineKeyboardButton("📄 A4 Print PDF", callback_data="make_pdf_a4")],
-            [InlineKeyboardButton("🗑️ Photos clear karo", callback_data="pdf_clear")],
-        ])
-        await update.message.reply_text(
-            f"📸 {len(pages)}/10 photo add ho gayi! Aur bhejo ya neeche button par tap karo 👇",
-            reply_markup=kb)
-        return
 
 
 # ---------------- FULL AUTO CLONER ENGINE (v31) ----------------
@@ -5571,36 +5168,6 @@ async def on_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ok, res = await clone_messages(context.bot, [msg], uid)
         if not ok:
             log.warning("Auto clone fail (uid=%s): %s", uid, res)
-
-
-async def on_pdf_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    if q.data == "pdf_clear":
-        context.user_data.pop("pdf_pages", None)
-        context.user_data.pop("mode", None)
-        await q.answer("Photos clear ho gayi ✅")
-        await q.message.reply_text(tool_prompt("pdf"), parse_mode=HTML)
-        return
-    if q.data in ("make_pdf_now", "make_pdf_a4"):
-        pages = context.user_data.get("pdf_pages", [])
-        if not pages:
-            await q.answer("Pehle photo bhejo!", show_alert=True)
-            return
-        a4 = (q.data == "make_pdf_a4")
-        await q.answer("Making the A4 PDF..." if a4 else "Making the PDF...")
-        pdf_bytes = pages_to_pdf(pages, a4=a4)
-        buf = io.BytesIO(pdf_bytes)
-        buf.name = "UtilityDuniya_A4_Document.pdf" if a4 else "UtilityDuniya_Document.pdf"
-        await q.message.reply_document(
-            document=buf,
-            caption=(f"📄 <b>{to_bold('A4 PRINT-READY PDF')}</b>\n"
-                     f"• {len(pages)} pages • A4 size (nothing gets cut when printed) ✅\n"
-                     f"• You can print it directly" if a4 else
-                     f"📄 <b>{to_bold('MULTI-PAGE PDF READY')} ({len(pages)} pages)!</b>"),
-            parse_mode=HTML,
-        )
-        context.user_data.pop("pdf_pages", None)
-        context.user_data.pop("mode", None)
 
 
 # ---------------- ERROR HANDLER ----------------
@@ -5788,7 +5355,6 @@ def main():
     app.add_handler(CommandHandler("sarkari", _cmd_sarkari))
 
     # Callbacks
-    app.add_handler(CallbackQueryHandler(on_pdf_cb, pattern="^(make_pdf_now|make_pdf_a4|pdf_clear)$"))
     app.add_handler(CallbackQueryHandler(on_cb))
 
     # Message Handlers

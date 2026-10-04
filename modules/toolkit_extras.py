@@ -8,8 +8,7 @@ Engines that make the older tools professional:
 2.  expand_url()         -> Opens the redirect chain + cleans tracking params (LINK BYPASS upgrade).
 3.  analyze_link()       -> Real multi-signal link checker (OpenPhish live feed + urlscan.io
                             + 15 heuristics).
-4.  rate_from_per_hundred() + village_compound_interest() -> the INTEREST CALC engine.
-5.  file_size_human()    -> bytes to MB/GB.
+4.  file_size_human()    -> bytes to MB/GB.
 """
 
 import re
@@ -461,132 +460,6 @@ def analyze_link(raw_url: str) -> dict:
         "cleaned_url": exp.get("cleaned", target),
         "chain": exp.get("chain", []),
     }
-
-
-# =====================================================================================
-# 4) EMI CALCULATOR — v50 (standard bank formula, reducing balance)
-# =====================================================================================
-def emi_calculator(principal, annual_rate_pct, months) -> dict:
-    """
-    Bank EMI:  EMI = P·r·(1+r)^n / ((1+r)^n − 1)   (r = monthly rate = annual/12/100)
-
-    principal        : loan amount (₹)
-    annual_rate_pct  : interest rate % per SAAL (jaise 11.5)
-    months           : kitne months (jaise 60 = 5 saal)
-
-    Returns {ok, emi, total_interest, total_payable, schedule:[{month,balance}]}
-    """
-    try:
-        P = float(principal)
-        rate = float(annual_rate_pct)
-        n = int(months)
-    except Exception:
-        return {"ok": False, "error": "Sahi number bhejo (amount, rate, months)."}
-    if P <= 0 or n <= 0 or rate < 0 or rate > 100:
-        return {"ok": False, "error": "Amount, rate aur months sab sahi (positive) hone chahiye."}
-    n = min(n, 600)  # 50 saal se upar ka matlab nahi
-    r = rate / 12.0 / 100.0
-    if r == 0:
-        emi = P / n
-        total_interest = 0.0
-    else:
-        f = (1.0 + r) ** n
-        emi = P * r * f / (f - 1.0)
-        total_interest = emi * n - P
-    # reducing-balance schedule — har 6 mahine ka balance (ya aakhri mahine)
-    bal = P
-    schedule = []
-    for m in range(1, n + 1):
-        intr = bal * r
-        prin = max(0.0, emi - intr)
-        bal = max(0.0, bal - prin)
-        if m % 6 == 0 or m == n:
-            schedule.append({"month": m, "balance": round(bal, 2)})
-    return {
-        "ok": True, "principal": P, "rate": rate, "months": n,
-        "emi": round(emi, 2), "total_interest": round(total_interest, 2),
-        "total_payable": round(P + total_interest, 2), "schedule": schedule,
-    }
-
-
-# =====================================================================================
-# 5) EMI flexible input parser
-# =====================================================================================
-
-
-# =====================================================================================
-# 6) GAON WALA VYAAJ (Compound only) — Bihar/UP ka chakravriddhi byaaj system
-# =====================================================================================
-def rate_from_per_hundred(per_hundred: float) -> float:
-    """'₹100 par ₹5 mahina' ko monthly % me badalta hai (5 -> 5%)."""
-    try:
-        return round(float(per_hundred), 4)
-    except Exception:
-        return 0.0
-
-
-def _add_months(d, months: int):
-    """Date me mahine jodta hai (31 Jan + 1 month = 28/29 Feb — safe)."""
-    y, m = divmod((d.month - 1) + months, 12)
-    new_y, new_m = d.year + y, m + 1
-    import calendar
-    last_day = calendar.monthrange(new_y, new_m)[1]
-    return d.replace(year=new_y, month=new_m, day=min(d.day, last_day))
-
-
-def village_compound_interest(principal: float, monthly_rate_pct: float, months: int) -> dict:
-    """
-    CHAKRAVRIDDHI (compound) byaaj — jaisa gaon/kasbe me vyaaj lene wale ka hisaab hota hai:
-    jo byaaj har mahine nahi diya jata, wo principal me jud kar agle mahine byaaj bhi deta hai.
-
-    principal        : jitna paisa liya (₹)
-    monthly_rate_pct : mahine ka byaaj % (₹100 par ₹5 = 5)
-    months           : kitne mahine ka hisaab
-    """
-    months = max(1, int(months))
-    r = max(0.0, float(monthly_rate_pct)) / 100.0
-
-    rows = []
-    balance = float(principal)
-    total_interest = 0.0
-    for m in range(1, months + 1):
-        interest = balance * r                      # is mahine ka byaaj
-        balance = balance + interest                # byaaj principal me jud gaya
-        total_interest += interest
-        rows.append({
-            "month": m,
-            "opening": balance - interest,
-            "interest": interest,
-            "closing": balance,
-        })
-
-    # Milestones (jaldi samajh aane ke liye)
-    def at(m):
-        return rows[m - 1]["closing"] if 0 < m <= len(rows) else None
-
-    return {
-        "ok": True,
-        "principal": float(principal),
-        "monthly_rate": float(monthly_rate_pct),
-        "months": months,
-        "per_hundred_note": f"₹{monthly_rate_pct:g} per ₹100 every month",
-        "first_month_interest": rows[0]["interest"] if rows else 0.0,
-        "total_interest": total_interest,
-        "total_payable": principal + total_interest,
-        "double_amount": principal * 2,
-        "rows": rows,
-        "milestones": {k: v for k, v in {
-            "6 months": at(6) if months >= 6 else None,
-            "12 months": at(12) if months >= 12 else None,
-            "24 months": at(24) if months >= 24 else None,
-            "36 months": at(36) if months >= 36 else None,
-        }.items() if v is not None},
-    }
-
-
-# =====================================================================================
-# 7) EMI FULL REPORT — "kitne mahine / kitne din me poora chukega"
-# =====================================================================================
 
 
 # =====================================================================================
