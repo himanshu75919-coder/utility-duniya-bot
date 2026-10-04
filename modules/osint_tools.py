@@ -751,6 +751,7 @@ def tg_user_public(username: str) -> dict:
         page = r.text
         title = re.search(r'property="og:title"\s+content="([^"]+)"', page)
         desc = re.search(r'class="tgme_page_description[^"]*"[^>]*>(.*?)</div>', page, re.S)
+        og_img = re.search(r'og:image"\s+content="([^"]+)"', page)
         name = (title.group(1) if title else "").strip()
         # t.me: user milne par actual naam aata hai; na milne par generic "Telegram: Contact @x"
         if name.startswith("Telegram: Contact"):
@@ -761,6 +762,7 @@ def tg_user_public(username: str) -> dict:
         if desc:
             bio = re.sub(r"<[^>]+>", "", desc.group(1)).strip()
         return {"ok": True, "exists": True, "type": "public_page",
-                "username": uname, "name": name or f"@{uname}", "bio": bio}
+                "username": uname, "name": name or f"@{uname}", "bio": bio,
+                "photo": (og_img.group(1) if og_img else "")}
     except Exception:
         return {"ok": False, "error": "Telegram public page abhi jawab nahi diya — 1 minute baad try karo."}

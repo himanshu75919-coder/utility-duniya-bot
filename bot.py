@@ -4299,12 +4299,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
         card = None
+        _photo = ""
         try:
             chat = await context.bot.get_chat(f"@{uname}")
             ctype = chat.type
             title = getattr(chat, "title", None) or getattr(chat, "first_name", None) or f"@{uname}"
             desc = getattr(chat, "description", None) or ""
             mcount = getattr(chat, "member_count", None)
+            _ph = getattr(chat, "photo", None)
+            if _ph is not None and getattr(_ph, "url", None):
+                _photo = _ph.url
             kind = {"channel": "📢 Public Channel", "supergroup": "👥 Public Group",
                     "group": "👥 Group", "user": "👤 User"}.get(ctype, "💬 Chat")
             L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
@@ -4328,6 +4332,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"❌ {prof.get('error')}", parse_mode=HTML)
                 add_use(uid)
                 return
+            _photo = prof.get("photo") or ""
             L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
                  f"🎯 <b>{hesc(prof['name'])}</b>\n"
                  "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -4342,7 +4347,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      "private info nahi dikhata.\n"
                      "💡 Bio dikhne ke liye user ko Telegram → Settings → Edit → About me likhna padta hai.</i>")
             card = "\n".join(L)
-        await update.message.reply_text(spend_credit_msg(uid, "tginfo") + "\n" + card, parse_mode=HTML)
+        _tg_msg = spend_credit_msg(uid, "tginfo") + "\n" + card
+        if _photo:
+            # v52.3: profile photo + card ek saath (photo = t.me/Bot API se public photo)
+            try:
+                await update.message.send_photo(
+                    chat_id=update.effective_chat.id, photo=_photo,
+                    caption=_tg_msg, parse_mode=HTML)
+                add_use(uid)
+                return
+            except Exception:
+                pass  # photo fail ho to text hi chala jayega
+        await update.message.reply_text(_tg_msg, parse_mode=HTML)
         add_use(uid)
         return
 

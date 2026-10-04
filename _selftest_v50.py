@@ -400,6 +400,7 @@ check("upi linked-mobile nahi (no key)", "linked_mobile" not in _u)
 # --- TG PUBLIC INFO (live, public page) ---
 _t = _ot.tg_user_public("telegram")
 check("tg public @telegram name", _t.get("ok") and _t.get("exists") and "Telegram" in _t.get("name", ""))
+check("tg public photo field", isinstance(_t.get("photo"), str) and _t.get("photo", "").startswith("http"))
 _t404 = _ot.tg_user_public("thisusernamedoesnotexist99x")
 check("tg non-existent -> not found", _t404.get("ok") is False and _t404.get("exists") is False)
 
