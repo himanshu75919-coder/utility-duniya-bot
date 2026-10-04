@@ -296,21 +296,26 @@ _lines = _bot_src.splitlines()
 _forbidden_url_bits = ("maps_link", "imei.info", "truecaller", "wa.me/", "google.com/search",
                        "echallan", "vahan.parivahan", "iib.gov", "sarathi.parivahan",
                        "sancharsaathi", "cybercrime.gov.in", "tafcop")
-# SAFETY CARD (nsafe) ke complaint links allowed hain — wo alag legal tool hai
-_safety_start = next((_i for _i, _l in enumerate(_lines) if "NUMBER SAFETY CARD" in _l), None)
+# v49.14: safety card ke links bhi hataye — ab EXEMPTION nahi, poora strict check
 _bad = []
 for _i, _ln in enumerate(_lines, 1):
     if "url=" not in _ln:
         continue
-    if _safety_start is not None and _safety_start <= _i <= _safety_start + 60:
-        continue      # safety card = pure complaint-links tool (allowed)
     for _b in _forbidden_url_bits:
         if _b in _ln:
             _bad.append(f"line {_i}: {_ln.strip()[:90]}")
-ok("bot.py me info-tool ke bahar wale link buttons nahi", not _bad, _bad[:4])
+ok("bot.py me info-tool ke bahar wale link buttons nahi (safety card bhi saaf)", not _bad, _bad[:4])
 
-# safety card ke complaint links (nsafe) allowed hain — wo alag button hai
-ok("safety card (nsafe) me complaint links allowed", 'nsafe' not in _bot_src or True)
+# v49.14: safety card me bhi koi link nahi — sirf helpline numbers (plain text)
+from modules.osint_tools import number_safety_info as _nsf
+_sf = _nsf("9876543210")
+ok("SAFETY CARD me koi link nahi (user ka order)", _sf.get("ok") and (_sf.get("links") or []) == [],
+   _sf.get("links"))
+ok("SAFETY CARD me helpline numbers (1930 / 155260) plain text me",
+   any("1930" in a for a in (_sf.get("advice") or [])) and any("155260" in a for a in (_sf.get("advice") or [])),
+   _sf.get("advice"))
+ok("SAFETY CARD me koi URL text me bhi nahi",
+   not any("http" in str(a).lower() or ".gov.in" in str(a).lower() for a in (_sf.get("advice") or [])))
 
 # IMEI walon ke liye: bot.py me imei.info ka koi url= button nahi
 ok("bot.py me imei.info url button nahi",

@@ -152,14 +152,17 @@ class SafePhoneInfoTests(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertEqual(result["links"], [])
 
-    @unittest.skipIf(lookup_phone_info is None, "phonenumbers dependency is not installed")
-    def test_safety_card_keeps_official_complaint_links(self):
+    def test_safety_card_has_no_links_only_helpline_text(self):
+        # v49.14: user ka order — safety card me bhi koi link nahi, sirf helpline numbers (text)
         from modules.osint_tools import number_safety_info
         sf = number_safety_info("+919876543210")
         self.assertTrue(sf["ok"])
-        urls = [url for _, url in sf["links"]]
-        self.assertTrue(any("sancharsaathi.gov.in" in url for url in urls))
-        self.assertTrue(any("cybercrime.gov.in" in url for url in urls))
+        self.assertEqual(sf["links"], [])
+        advice = " ".join(sf["advice"])
+        self.assertIn("1930", advice)
+        self.assertIn("155260", advice)
+        self.assertNotIn("http", advice.lower())
+        self.assertNotIn(".gov.in", advice.lower())
 
 
 try:
