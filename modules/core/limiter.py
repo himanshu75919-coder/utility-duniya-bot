@@ -126,8 +126,11 @@ class RateLimiter:
                 self._buckets.pop((int(uid), action), None)
 
     def clear(self) -> None:
+        """Sab buckets + counters saaf karo (admin reset / test isolation)."""
         with self._lock:
             self._buckets.clear()
+            self.blocked = 0
+            self.allowed = 0
 
     # ---------------------------------------------------------- internals
     def _maybe_cleanup(self, now: float) -> None:

@@ -1702,6 +1702,78 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await admin_panel_send(update.message, context, update.effective_user.id)
 
 
+# ============================================================================
+#  v50: SYSTEM HEALTH — admin ko live internal stats
+# ============================================================================
+_BOOT_TS = time.time()
+
+
+def _uptime_str() -> str:
+    s = int(time.time() - _BOOT_TS)
+    d, r = divmod(s, 86400)
+    h, r = divmod(r, 3600)
+    m, sec = divmod(r, 60)
+    if d:
+        return f"{d}d {h}h {m}m"
+    if h:
+        return f"{h}h {m}m {sec}s"
+    if m:
+        return f"{m}m {sec}s"
+    return f"{sec}s"
+
+
+def system_stats_text() -> str:
+    """Admin ke liye live system report — cache, rate-limit, memory, uptime."""
+    import gc
+
+    cs = INFO_CACHE.snapshot()
+    ls = limiter_stats()
+
+    # memory (best-effort — Render par /proc available hota hai)
+    mem = ""
+    try:
+        with open("/proc/self/status", "r", encoding="utf-8") as fh:
+            for line in fh:
+                if line.startswith("VmRSS:"):
+                    mem = f"{int(line.split()[1]) / 1024:.0f} MB"
+                    break
+    except Exception:  # noqa: BLE001
+        mem = "n/a"
+
+    threads = threading.active_count()
+    objs = len(gc.get_objects())
+
+    hit = cs["hit_rate"]
+    hit_icon = "🟢" if hit >= 40 else ("🟡" if hit > 0 else "⚪")
+    blk = ls["blocked"]
+    blk_icon = "🔴" if blk > 50 else ("🟡" if blk > 0 else "🟢")
+
+    return (
+        f"📡 <b>{to_bold('SYSTEM HEALTH')}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"⏱️ <b>Uptime:</b> {_uptime_str()}\n"
+        f"🧵 <b>Threads:</b> {threads}   |   🧠 <b>RAM:</b> {mem}\n"
+        f"📦 <b>Python objects:</b> {objs:,}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🗃️ <b>Cache entries:</b> {cs['entries']} / {cs['maxsize']}\n"
+        f"   {hit_icon} <b>Hit rate:</b> {hit}%  "
+        f"(hits {cs['hits']} · miss {cs['misses']})\n"
+        f"   💡 jitna zyada hit, utni kam API call = fast + free\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🚦 <b>Rate limiter:</b>\n"
+        f"   ✅ allowed: {ls['allowed']:,}   "
+        f"{blk_icon} blocked: {blk:,}\n"
+        f"   🔑 active users tracked: {ls['active_buckets']}\n"
+        f"   ⚙️ default: {ls['default_limit']} req / {ls['default_window']}s\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🌐 <b>Mode:</b> {'WEBHOOK' if webhook_url_from_env() else 'POLLING'}\n"
+        f"🔌 <b>Premium-only:</b> {'ON' if PREMIUM_ONLY else 'OFF'}\n"
+        f"👑 <b>Admins:</b> {len(ADMIN_IDS)}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<i>Ye stats live hain — /admin dobara dabao to refresh ho jayenge.</i>"
+    )
+
+
 async def admin_panel_send(message, context, uid: int):
     """Naya advanced admin panel (buttons ke saath)."""
     st = stats()
@@ -1731,9 +1803,17 @@ async def admin_panel_send(message, context, uid: int):
          InlineKeyboardButton("📢 Broadcast", callback_data="admbcmenu")],
         [InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
          InlineKeyboardButton("📖 Text tutorial page (admin)", callback_data="admtut")],
-        [InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
+        [InlineKeyboardButton("📡 System Health (live)", callback_data="admsys"),
+         InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
     ])
     await message.reply_text(text, reply_markup=kb, parse_mode=HTML)
+
+
+async def cmd_sys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/sys — admin only: live system health (cache / rate-limit / uptime)."""
+    if not is_admin(update.effective_user.id):
+        return
+    await update.message.reply_text(system_stats_text(), parse_mode=HTML)
 
 
 async def cmd_payments(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2340,6 +2420,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         users = recent_users(10)
         lines = [f"• <code>{u[0]}</code> — {hesc(str(u[1] or '')[:20])}" for u in users]
         await q.message.reply_text("👥 <b>Recent Users</b>\n\n" + "\n".join(lines), parse_mode=HTML)
+        return
+
+    if data == "admsys":
+        if not is_admin(uid):
+            return
+        await q.message.reply_text(system_stats_text(), parse_mode=HTML)
         return
 
     if data == "admcmds":
@@ -5412,6 +5498,7 @@ def main():
     app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))
     app.add_handler(CommandHandler("admin", cmd_admin))
+    app.add_handler(CommandHandler(["sys", "system", "health"], cmd_sys))
     app.add_handler(CommandHandler(["payments", "pending"], cmd_payments))
     app.add_handler(CommandHandler("mypay", cmd_mypay))
     app.add_handler(CommandHandler("revoke", cmd_revoke))
