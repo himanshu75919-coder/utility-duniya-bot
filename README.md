@@ -19,10 +19,10 @@ ffmpeg downscale** (360p waghera). 1080p = original (koi re-encode nahi).
 | ⚡ **Self-ping keepalive** | Bot ab apna hi public `/health` ping karta hai (Render LB ke through) → 15-min sleep **nahi** hota → **cold start sirf pehli baar**, baad me bot ~instant respond |
 | 🖼️ **Welcome photo cache** | `/start` par welcome photo ab file_id (CDN) se turant aati hai — har baar dobara upload nahi |
 
-### 🧪 Tests (3 suites, **377 checks** — sab green)
+### 🧪 Tests (3 suites, **356 checks** — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 143 checks — tools + 6-tool deletion + TTS + GOVT + YT quality
+python3 _selftest_v50.py           # 122 checks — tools + 6-tool deletion + TTS + GOVT-removed + YT quality
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -82,10 +82,10 @@ padhe samajh jaye.
 |  **Vehicle key fix** | Ab `rto` action premium gate se sahi pass hota hai (pehle key mismatch thi). |
 | 🛡️ **Credit spend** | Har tool ke result par 1 credit deduct (fail hone par credit nahi jata). |
 
-### 🧪 Tests (3 suites, 377 checks — sab green)
+### 🧪 Tests (3 suites, 356 checks — sab green)
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 143 checks — tools + 6-tool deletion + TTS + GOVT + YT quality + DB/credits
+python3 _selftest_v50.py           # 122 checks — tools + 6-tool deletion + TTS + GOVT-removed + YT quality + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -137,7 +137,7 @@ NET_MAX_MB=150
 
 ```bash
 python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 143 checks — tools + 6-tool deletion + TTS + GOVT + YT quality + DB/credits
+python3 _selftest_v50.py           # 122 checks — tools + 6-tool deletion + TTS + GOVT-removed + YT quality + DB/credits
 python3 _verify_v49.py             # 128 checks — purana regression suite
 ```
 
@@ -168,7 +168,7 @@ python3 _verify_v49.py             # 128 checks — purana regression suite
 | 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
 | 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
 
-✅ **Test suite:** `_selftest_v50.py` = **143 checks** (tools, 6-tool deletion, TTS, GOVT, YT quality, conflict-fix, DB/credits)
+✅ **Test suite:** `_selftest_v50.py` = **122 checks** (tools, 6-tool deletion, TTS, GOVT, YT quality, conflict-fix, DB/credits)
 
 ---
 
