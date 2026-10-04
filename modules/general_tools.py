@@ -81,12 +81,32 @@ def pages_to_pdf(pages: list, a4: bool = False, quality: int = 90) -> bytes:
     return img2pdf.convert(processed)
 
 
+def screenshot_url_error(url: str) -> str:
+    """v50: screenshot se pehle URL validate karo.
+
+    Returns "" agar URL theek hai, warna user ko dikhane layak reason.
+    (site_screenshot ka return type BytesIO|None hi rakha hai — tuple nahi,
+     warna callers ka `if buf:` check tut jaata kyunki tuple hamesha truthy hota hai.)
+    """
+    u = url if url.startswith(("http://", "https://")) else "https://" + url
+    try:
+        from modules.core.net import is_safe_url
+    except Exception:            # noqa: BLE001
+        return ""
+    ok, why = is_safe_url(u)
+    return "" if ok else why
+
+
 def site_screenshot(url: str, fullpage: bool = False, width: int = 1280, height: int = 800):
     """
     Website ka screenshot — 3-engine fallback chain:
       1) thum.io (fast, HD)   2) thum.io fullpage   3) microlink.io (backup)
+
+    Returns: io.BytesIO (image) ya None.
     """
     u = url if url.startswith(("http://", "https://")) else "https://" + url
+    if screenshot_url_error(u):
+        return None
     candidates = []
     if fullpage:
         candidates.append(f"https://image.thum.io/get/width/{width}/crop/3000/noanimate/{u}")

@@ -201,6 +201,7 @@ from modules.general_tools import (
 
     pages_to_pdf,
 
+    screenshot_url_error,
     site_screenshot,
 
 )
@@ -218,6 +219,53 @@ from modules.vip_payment import (
 
     get_premium_plans_kb,
 )
+
+# ---------------- v50: CORE LAYER (cache + rate-limit + safe HTTP) ----------------
+from modules.core import check_limit, limiter_stats
+from modules.core.cache import TTLCache
+
+# Info-tools ka shared cache (IFSC / pincode / IP / area) — same sawaal par
+# API call dobara nahi hoti. 30 min TTL: ye data din bhar change nahi hota.
+INFO_CACHE = TTLCache(maxsize=int(os.getenv("INFO_CACHE_SIZE", "4096")),
+                      default_ttl=int(os.getenv("INFO_CACHE_TTL", "1800")))
+
+# ---------------------------------------------------------------------------
+# v50: PER-TOOL RATE LIMITS
+# mode: (max uses, window seconds, tool ka naam jo message me dikhega)
+#
+# Kyun zaroori tha: pehle koi bhi user kisi bhi tool ko jitna chahe spam kar
+# sakta tha. Isse (a) aapki API quota khatam hoti thi, (b) upstream providers
+# (razorpay / postalpincode / ip-api / thum.io) aapka server IP block kar dete
+# the, (c) Render free plan ka CPU limit hit hota tha → bot sab ke liye slow.
+#
+# Limits jaan-boojh kar generous hain — normal user kabhi nahi takrayega.
+# Override: env me RATE_LIMIT_<MODE>="limit:window" daal do.
+TOOL_RATE_LIMITS = {
+    # heavy / mehnga (CPU ya bahut API kharcha)
+    "shot":        (4,  120, "Site Screenshot"),
+    "shot_full":   (3,  180, "Full Page Screenshot"),
+    "insta_dl":    (6,  120, "Video Downloader"),
+    "terabox":     (6,  120, "Terabox Downloader"),
+    "bankpdf":     (5,  180, "Bank Statement → Excel"),
+    "media_ytmp3": (5,  120, "YouTube → MP3"),
+    # normal info tools
+    "ip":          (15, 60,  "IP / Domain Info"),
+    "ifsc":        (15, 60,  "IFSC Info"),
+    "pin":         (15, 60,  "Pincode Info"),
+    "rto":         (8,  60,  "Vehicle Info"),
+    "imei":        (8,  60,  "IMEI Lookup"),
+    "numinfo":     (10, 60,  "Number Info"),
+    "idfind":      (10, 60,  "ID & Username Finder"),
+    "linkcheck":   (10, 60,  "Link Check"),
+    "short":       (10, 60,  "URL Shortener"),
+    "appfind":     (15, 60,  "App Finder"),
+    # document tools (local CPU)
+    "pp_stamp":    (10, 120, "Passport Photo"),
+    "print_sheet": (10, 120, "8-in-1 Print Sheet"),
+    "doc_compress":(10, 120, "Document PDF"),
+    "pdf":         (10, 120, "Image → PDF"),
+    "kagaz":       (15, 120, "Kagaz Suite"),
+}
 
 # ---------------- CONFIG ----------------
 BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
@@ -393,6 +441,21 @@ def vip_ok(uid: int) -> bool:
     """VIP / owner / admin — tool chala sakte hain? (PREMIUM_ONLY=off par sab allowed)."""
     if not PREMIUM_ONLY:
         return True
+    if uid and is_admin(uid):
+        return True
+    try:
+        return bool(is_premium(get_user(uid, "")))
+    except Exception:
+        return False
+
+
+def has_unlimited(uid: int) -> bool:
+    """ASLI premium/owner check — rate-limit aur unlimited-use ke liye.
+
+    ⚠️ `vip_ok()` iske liye use MAT karo: PREMIUM_ONLY=off (normal mode) me
+    wo SABKE liye True deta hai, kyunki wo ek *mode gate* hai, premium check nahi.
+    Ye function hamesha actual DB status dekhta hai.
+    """
     if uid and is_admin(uid):
         return True
     try:
@@ -1501,7 +1564,8 @@ async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     args = [a.strip() for a in (context.args or []) if a.strip()]
     plate = args[0] if args else "BR30AR0802"
     st = await update.message.reply_text(f"🔎 Testing the API with <code>{plate}</code>…", parse_mode=HTML)
-    res = fetch_vehicle_report(plate)
+    # v50: to_thread — vehicle API 5-70s leta hai; direct call poora bot freeze kar deta tha
+    res = await asyncio.to_thread(fetch_vehicle_report, plate)
     if res.get("ok"):
         await st.edit_text(f"✅ <b>API is working</b> — RC fields: {len(res.get('rc') or {})}, "
                            f"challans: {len(res.get('challans') or [])}\n\n"
@@ -2176,7 +2240,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.answer("Credits khatam — VIP lo, unlimited checks milenge.", show_alert=True)
             return
         await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
-        live = fetch_vehicle_report(plate)
+        # v50: to_thread — event loop block nahi hoga
+        live = await asyncio.to_thread(fetch_vehicle_report, plate)
         if live.get("ok") and not _veh_has_rc_data(live):
             await q.answer("Is number ka RC / challan record nahi mila — koi credit nahi kata.", show_alert=True)
             add_use(uid)
@@ -3210,6 +3275,29 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check Active Working Modes
     mode = context.user_data.get("mode")
 
+    # ---------- v50: CENTRAL RATE-LIMIT GATE ----------
+    # Ek hi jagah se SAARE tools par limit lagti hai — har tool me alag code
+    # likhne ki zaroorat nahi. Admin ko bypass; VIP ko bhi bypass.
+    # Sub-steps (jaise "pp_stamp_text") apne parent tool ("pp_stamp") ki limit
+    # share karte hain, taaki multi-step tool ek hi use me 5 baar na gina jaye.
+    if mode and not is_admin(uid):
+        _mstr = str(mode)
+        _rl_key = _mstr if _mstr in TOOL_RATE_LIMITS else None
+        if _rl_key is None:
+            for _k in TOOL_RATE_LIMITS:
+                if _mstr.startswith(_k + "_") and (_rl_key is None or len(_k) > len(_rl_key)):
+                    _rl_key = _k
+        if _rl_key:
+            _lim, _win, _tname = TOOL_RATE_LIMITS[_rl_key]
+            # NOTE: bypass ke liye has_unlimited() use hota hai, vip_ok() NAHI —
+            # vip_ok() PREMIUM_ONLY=off me sabke liye True deta hai, jisse
+            # rate-limit kabhi lagta hi nahi.
+            _rlmsg = check_limit(uid, _rl_key, limit=_lim, window=_win,
+                                 bypass=has_unlimited(uid), tool_name=_tname)
+            if _rlmsg:
+                await update.message.reply_text(_rlmsg, parse_mode=HTML)
+                return
+
     # Cloner Mode Active
     if mode == "cloning_active":
         ok, msg_res = await forward_cloned_message(context.bot, update.message, uid)
@@ -3759,7 +3847,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "ip":
-        res = lookup_ip_domain(raw_text)
+        # v50: to_thread — IP lookup HTTP karta hai, event loop free rahega
+        res = await asyncio.to_thread(lookup_ip_domain, raw_text)
         if res.get("ok"):
             flags = []
             flags.append("🛡️ Proxy/VPN: " + ("⚠️ Yes (hidden connection)" if res.get("is_proxy") else "✅ No"))
@@ -3831,7 +3920,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             wait = await update.message.reply_text("🔎 <b>Checking live RC + challan record…</b>\n<i>Please wait 5-20 seconds.</i>",
                                                    parse_mode=HTML)
-            live = fetch_vehicle_report(raw_text)
+            # v50: to_thread — 5-70s wala call, bot freeze nahi hoga
+            live = await asyncio.to_thread(fetch_vehicle_report, raw_text)
             try:
                 await wait.delete()
             except Exception:
@@ -4026,7 +4116,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "ifsc":
-        i_res = lookup_ifsc(raw_text)
+        # v50: to_thread — event loop block nahi hoga (rate-limit central gate se lagta hai)
+        i_res = await asyncio.to_thread(lookup_ifsc, raw_text)
         if i_res.get("ok"):
             rows = []   # v49.13: Google Maps link nahi
             card = (
@@ -4056,7 +4147,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "pin":
         cleaned = re.sub(r"[^\d]", "", raw_text)
         if len(cleaned) == 6:
-            p_res = lookup_pincode(cleaned)
+            p_res = await asyncio.to_thread(lookup_pincode, cleaned)
             if p_res.get("ok"):
                 rows = []   # v49.13: Map link nahi
                 card = (
@@ -4079,16 +4170,25 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             # Area / post-office ke naam se pincode dhoondo
             st = await update.message.reply_text("🔍 Area ke naam se pincode dhoondh raha hoon...")
-            a_res = search_by_area_name(raw_text)
+            a_res = await asyncio.to_thread(search_by_area_name, raw_text)
             if a_res.get("ok"):
                 lines = []
                 rows = []
                 for r in a_res["results"][:8]:
                     lines.append(f"• <b>{hesc(r['name'])}</b> — <code>{r['pincode']}</code> ({hesc(r['district'])}, {hesc(r['state'])})")
                     rows.append([InlineKeyboardButton(f"📋 {r['pincode']} — {r['name'][:28]}", callback_data=f"copy_{r['pincode']}")])
+                # v50: honest header — agar naam strip karke match hua to batao
+                note = ""
+                if a_res.get("approximate"):
+                    note = (f"\n⚠️ <i>'{hesc(a_res.get('matched_via') or a_res['query'])}' se match hua — "
+                            "apna district/state confirm kar lena.</i>")
+                elif a_res.get("total", 0) > 1:
+                    note = "\n💡 <i>Ek hi naam kai jagah hota hai — apna district dekh kar chuno.</i>"
+                if a_res.get("cached"):
+                    note += "\n⚡ <i>cache se (instant)</i>"
                 await st.edit_text(
                     f"📮 <b>{to_bold('AREA SEARCH')}: {hesc(a_res['query'])}</b>\n"
-                    f"({a_res['total']} post offices mili)\n\n" + "\n".join(lines) +
+                    f"({a_res['total']} post offices mili){note}\n\n" + "\n".join(lines) +
                     "\n\n💡 Pincode copy karne ke liye neeche button par tap karo:",
                     reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
                 )
@@ -4552,8 +4652,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "short":
         st = await update.message.reply_text("🔗 Making short links (6 providers)...")
-        links = shorten_url(raw_text, want=3)
-        exp = expand_url(raw_text)
+        # v50: dono HTTP-heavy hain — thread me chalao, ek saath (parallel = 2x fast)
+        links, exp = await asyncio.gather(
+            asyncio.to_thread(shorten_url, raw_text, 3),
+            asyncio.to_thread(expand_url, raw_text),
+        )
         clean = exp.get("cleaned", raw_text)
         if links:
             body = "\n\n".join(f"{i}️⃣ <b>{name}</b> → <code>{u}</code>" for i, (name, u) in enumerate(links, 1))
@@ -4610,8 +4713,19 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode in ("shot", "shot_full"):
         fullpage = (mode == "shot_full")
+        # v50: pehle URL validate — private/internal URL par engine ko call hi na ho
+        _serr = screenshot_url_error(raw_text)
+        if _serr:
+            await update.message.reply_text(
+                f"🚫 <b>{to_bold('SCREENSHOT NAHI BAN SAKTA')}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━\n{_serr}\n\n"
+                "📌 Public website ka address bhejo, jaise <code>github.com</code>",
+                parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
         st = await update.message.reply_text("📸 " + ("Taking the full page screenshot (this takes time)..." if fullpage else "Taking the HD screenshot..."))
-        buf = site_screenshot(raw_text, fullpage=fullpage)
+        # v50: to_thread — screenshot engine 15-30s leta hai
+        buf = await asyncio.to_thread(site_screenshot, raw_text, fullpage)
         if buf:
             await update.message.reply_photo(
                 photo=buf,

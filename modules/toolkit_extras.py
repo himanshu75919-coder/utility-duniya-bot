@@ -138,10 +138,35 @@ def expand_url(url: str, max_hops: int = 6):
     """Redirect chain follow karta hai aur final + cleaned URL deta hai.
     Returns dict: {ok, original, final, cleaned, chain: [...], hops, is_shortener}"""
     if not url.startswith(("http://", "https://")):
+        # v50: "file:///etc/passwd" jaise input par blindly "https://" mat jodo —
+        # wo "https://file:///etc/passwd" ban kar hostname="file" ke roop me
+        # guard ke paar nikal jaata tha. Pehle scheme dekho.
+        if "://" in url:
+            _sch = url.split("://", 1)[0].lower()
+            if _sch not in ("http", "https"):
+                return {"ok": False, "error": f"🚫 '{_sch}' scheme allowed nahi hai (sirf http/https).",
+                        "original": url, "final": url, "cleaned": url, "chain": [url],
+                        "hops": 0, "is_shortener": False}
         url = "https://" + url
+    # v50: SSRF guard — ye function user ke diye URL ko SEEDHA fetch karta hai.
+    # Bina guard ke koi bhi http://169.254.169.254/ (Render/AWS metadata) ya
+    # http://127.0.0.1:PORT/ (internal service) hit karwa sakta tha.
+    try:
+        from modules.core.net import is_safe_url as _safe
+        _ok, _why = _safe(url)
+        if not _ok:
+            return {"ok": False, "error": f"🚫 {_why}", "original": url,
+                    "final": url, "cleaned": url, "chain": [url],
+                    "hops": 0, "is_shortener": False}
+    except Exception:            # noqa: BLE001 - core na ho to purana behaviour
+        pass
     chain = []
     cur = url
     is_short = False
+    try:
+        from modules.core.net import is_safe_url as _safe_hop
+    except Exception:            # noqa: BLE001
+        _safe_hop = None
     try:
         s = requests.Session()
         for _ in range(max_hops):
@@ -156,6 +181,16 @@ def expand_url(url: str, max_hops: int = 6):
                     nxt = f"{p.scheme}://{p.netloc}{nxt}"
                 if nxt in chain:
                     break
+                # v50: har hop validate karo — redirect chain andar se
+                # internal address par mud sakti hai (classic SSRF bypass).
+                if _safe_hop is not None:
+                    _s, _w = _safe_hop(nxt)
+                    if not _s:
+                        chain.append(nxt)
+                        return {"ok": False, "error": f"🚫 Redirect internal address par ja raha tha: {_w}",
+                                "original": url, "final": nxt, "cleaned": nxt,
+                                "chain": chain, "hops": len(chain) - 1,
+                                "is_shortener": is_short}
                 cur = nxt
                 continue
             break
