@@ -358,8 +358,96 @@ def test_ssrf_wiring():
        site_screenshot("http://127.0.0.1/") is None)
 
 
+def test_gst_pan():
+    section("9) api_hub — GST/PAN local validation + cache")
+    import time
+    from modules.api_hub import gstin_format_ok, pan_format_ok, hub_gst, hub_pan
+
+    gst_cases = [("19BOKPS7056D1ZI", True), ("27AAPFU0939F1ZV", True),
+                 ("38AAACT2727Q1ZW", True), ("97AAACT2727Q1ZW", True),
+                 ("99AAACT2727Q1ZW", True), ("00AAACT2727Q1ZW", False),
+                 ("39AAACT2727Q1ZW", False), ("98AAACT2727Q1ZW", False),
+                 ("19BOKPS7056D1Z", False), ("ABCDEFGHIJKLMN1", False),
+                 ("123456789012345", False)]
+    bad = [g for g, w in gst_cases if gstin_format_ok(g) != w]
+    ok("GSTIN validator 11/11 sahi", not bad, str(bad))
+
+    pan_cases = [("AAYFK4129N", True), ("AAAPL1234C", True), ("ABCPC1234K", True),
+                 ("ABCTT1234K", True), ("ABCHH1234K", True), ("ABCLL1234K", True),
+                 ("ABCJJ1234K", True), ("ABCGG1234K", True), ("ABCAA1234K", True),
+                 ("ABCBF1234K", True), ("ABCMC1234K", True),
+                 ("AAYFK4129", False), ("AAYFK4129NN", False),
+                 ("1234567890", False), ("ABCXZ1234K", False), ("AAYFK412N9", False)]
+    bad = [p for p, w in pan_cases if pan_format_ok(p) != w]
+    ok("PAN validator 16/16 sahi (4th char = holder category)", not bad, str(bad))
+
+    # galat input par 60s wala hub call NAHI jana chahiye
+    t = time.time(); r = hub_gst("ABCDEFGHIJKLMN1"); el = time.time() - t
+    ok("galat GSTIN turant reject (no network)", r.get("ok") is False and el < 0.05, f"{el:.3f}s")
+    t = time.time(); r = hub_pan("1234567890"); el = time.time() - t
+    ok("galat PAN turant reject (no network)", r.get("ok") is False and el < 0.05, f"{el:.3f}s")
+    t = time.time(); r = hub_gst("SHORT"); el = time.time() - t
+    ok("chhota GSTIN reject", r.get("ok") is False and el < 0.05, f"{el:.3f}s")
+
+    # live GST + cache
+    r1 = hub_gst("19BOKPS7056D1ZI")
+    ok("GST live lookup chalta hai", isinstance(r1, dict) and "error" not in r1 or r1.get("ok"),
+       str(r1)[:100])
+    if r1.get("ok"):
+        t = time.time(); r2 = hub_gst("19BOKPS7056D1ZI"); el = time.time() - t
+        ok("GST doosri baar cache se", r2.get("cached") is True)
+        ok("GST cache instant", el < 0.05, f"{el:.3f}s")
+        ok("GST cached result same state deta hai", r2.get("state") == r1.get("state"))
+    else:
+        print("     (hub ne GST data nahi diya — cache check skip)")
+
+    p1 = hub_pan("AAYFK4129N")
+    ok("PAN live lookup chalta hai", isinstance(p1, dict))
+    if p1.get("ok"):
+        t = time.time(); p2 = hub_pan("AAYFK4129N"); el = time.time() - t
+        ok("PAN doosri baar cache se", p2.get("cached") is True)
+        ok("PAN cache instant", el < 0.05, f"{el:.3f}s")
+
+
+def test_system_stats():
+    section("10) bot.system_stats_text — admin live health card")
+    import re
+    import bot
+    from modules.core.limiter import limiter
+
+    limiter.clear()
+    before = limiter.blocked
+    bot.lookup_ifsc("SBIN0000001")
+    bot.lookup_ifsc("SBIN0000001")          # cache hit banane ke liye
+    for i in range(3):
+        bot.INFO_CACHE.put(f"probe{i}", {"x": i}, 300)
+    for u in (1, 2, 3):
+        for _ in range(2):
+            limiter.allow(u, "probe", limit=1, window=60)
+    expect = limiter.blocked - before        # 3 users x 2nd call = 3 blocks
+
+    txt = bot.system_stats_text()
+    plain = bot.unbold(txt)                  # to_bold() Unicode bold karta hai
+    ok("card banta hai", bool(txt))
+    ok("header hai", "SYSTEM HEALTH" in plain)
+    ok("uptime dikhta hai", "Uptime:" in plain)
+    ok("cache entries dikhti hain", "Cache entries:" in plain)
+    ok("hit rate dikhta hai", "Hit rate:" in plain)
+    ok(f"rate-limit blocked count card me dikhta hai ({expect})",
+       f"blocked: {expect}" in plain,
+       plain[plain.find("blocked"):plain.find("blocked") + 18])
+    ok("mode dikhta hai", "Mode:" in plain)
+    ok("RAM dikhta hai", "RAM:" in plain)
+
+    tags = re.findall(r"</?(?:b|i|code)>", txt)
+    opens = sum(1 for t in tags if not t.startswith("</"))
+    closes = sum(1 for t in tags if t.startswith("</"))
+    ok("HTML balanced hai (Telegram parse fail nahi hoga)", opens == closes,
+       f"opens={opens} closes={closes}")
+
+
 def test_no_blocking():
-    section("8) STATIC: koi blocking call async handler me nahi")
+    section("11) STATIC: koi blocking call async handler me nahi")
     import ast
 
     def has_blocking(node):
@@ -429,6 +517,8 @@ def main():
     test_info_caching()
     test_bot_gate()
     test_ssrf_wiring()
+    test_gst_pan()
+    test_system_stats()
     test_no_blocking()
     print("\n" + "=" * 62)
     print(f"  PASS: {len(PASS)} | FAIL: {len(FAIL)}")
