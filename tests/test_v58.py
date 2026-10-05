@@ -35,11 +35,10 @@ v58 me kya hua:
      Prompt me likha tha "Device Model Name / Code bhejein" par code sirf
      15-digit IMEI leta tha! Ab naya search_device() hai.
 
-  5. 🏦 UPI VERIFY — naam (aapki API se, legal)
-     naya modules/upi_provider.py + /upiapi command. API lagi ho to card me
-     "👤 Account Holder Name: ANIL KUMAR" (screenshot jaisa) aata hai.
-     ⚠️ API nahi lagayi to jhootha naam NAHI dikhate — saaf batate hain ki
-     holder naam public nahi hota + legal rasta kya hai.
+  5. 🏦 UPI VERIFY — naam (aapki API se, legal)  [⚠️ v59 me DELETE ho gaya]
+     v58 me naya modules/upi_provider.py + /upiapi command aaya tha.
+     v59 me user ne ise reverse kar diya — tool + poori code hata di gayi.
+     Is suite ke section 5 me ab "v59 me UPI poori tarah gaya" ke checks hain.
 
   6. 📱 NUMBER INFO — 👤 OWNER PANEL
      Agar aapki API response me name/father/alt/region/govt-id/address aayein
@@ -96,7 +95,7 @@ section("1) 🎨 NAYA PROMPT SYSTEM (head + ✨ ask + 📝 Examples)")
 # =====================================================================
 import bot  # noqa: E402
 
-check("BOT_VERSION v58 par hai", 'BOT_VERSION = "v58.' in BOT_SRC)
+check("BOT_VERSION v58+ par hai", re.search(r'BOT_VERSION = "v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
 check("PROMPT_DATA maujood hai (naya system)", hasattr(bot, "PROMPT_DATA"))
 check("PROMPT_DATA me behaviour: har entry me head/ask/ex", all(
     isinstance(v, dict) and v.get("head") and v.get("ask")
@@ -125,9 +124,8 @@ check("Examples '📝 Examples:' heading ke saath aate hain",
 _np = bot.tool_prompt("numinfo")
 check("NUMBER INFO ask line '10 Digit Number bhejein:' hai",
       "✨ 10 Digit Number bhejein:" in _np, _np[:120])
-_up = bot.tool_prompt("upi")
-check("UPI ask me 'Valid UPI ID ya 10 digit Mobile Number bhejein:' hai",
-      "✨ Valid UPI ID ya 10 digit Mobile Number bhejein:" in _up, _up[:120])
+# v59: UPI tool poora delete — uska prompt bhi nahi bachna chahiye
+check("v59: UPI prompt ab gayab (tool delete ho gaya)", bot.tool_prompt("upi") == "")
 
 # ---- VIDEO DOWNLOADER: 5 apps ----
 _vd = bot.tool_prompt("insta_dl")
@@ -254,45 +252,34 @@ check("render_caption bhi wahi karta hai",
       IMP_SRC.count('🔎 <b>Search:</b>') >= 2)
 
 # =====================================================================
-section("5) 🏦 UPI VERIFY — naam API (legal, opt-in)")
+section("5) 🏦 UPI VERIFY — v59 me POORI TARAH DELETE (user ka order)")
 # =====================================================================
-import modules.upi_provider as UP  # noqa: E402
+# v58 me UPI naam-API (upi_provider.py + /upiapi) aayi thi.
+# v59: user ne reverse kar diya — "phle upi verify tools delete karo and uska code".
+# Ab: tool, prompt, handler, callbacks, keyboard, rate-limit, premium list,
+# tool-name map, dono callbacks, /upiapi, module file — sab khatam.
+check("modules/upi_provider.py file DELETE ho gayi",
+      not os.path.exists(os.path.join(ROOT, "modules", "upi_provider.py")))
+check("bot.py me upi_provider ka import nahi",
+      "upi_provider" not in BOT_SRC and "upiprov" not in BOT_SRC)
+check("UPI mode handler gayab", 'if mode == "upi":' not in BOT_SRC)
+check("UPI prompt gayab (PROMPT_DATA / PROMPTS me 'upi' key nahi)",
+      "upi" not in {k.lower() for k in bot.PROMPT_DATA})
+check("UPI VERIFY text kahin nahi", "UPI VERIFY" not in BOT_SRC)
+check("UPI ke callbacks gaye", "upi_to_num" not in BOT_SRC and "upi_to_vpa" not in BOT_SRC)
+check("/upiapi command gayi", "upiapi" not in BOT_SRC.lower())
+check("UPI premium/rate-limit list me nahi",
+      "upi" not in {str(x).lower() for x in bot.PREMIUM_TOOLS}
+      and "upi" not in {str(x).lower() for x in bot.TOOL_RATE_LIMITS})
+check("UPI env vars (UPI_VERIFY_*) code me nahi", "UPI_VERIFY" not in BOT_SRC)
+check("render.yaml se UPI_VERIFY_* hata",
+      "UPI_VERIFY" not in open(os.path.join(ROOT, "render.yaml"), encoding="utf-8").read())
+check(".env.example se UPI_VERIFY_* hata",
+      "UPI_VERIFY" not in open(os.path.join(ROOT, ".env.example"), encoding="utf-8").read())
+check("UPI-NAAM-API-SETUP.md doc hata diya",
+      not os.path.exists(os.path.join(ROOT, "UPI-NAAM-API-SETUP.md")))
 
-check("modules/upi_provider.py bana hai", True)
-for _fn in ("is_configured", "verify", "status", "status_card",
-            "provider_url", "provider_key"):
-    check(f"upi_provider.{_fn}() maujood hai", hasattr(UP, _fn))
-check("API set na ho to crash nahi (dict milta hai)", isinstance(UP.verify("a@b"), dict))
-check("API set na ho to not_configured flag aata hai",
-      UP.verify("a@b").get("not_configured") is True)
-check("galat VPA par saaf error", UP.verify("junk").get("ok") is False)
-check("is_configured() False deta hai (abhi)",
-      UP.is_configured() is False)
-check("status_card me legal rasta likha hai (paid KYC APIs)",
-      "Eko" in UP.status_card() and "InstantPay" in UP.status_card())
-check("status_card me consent ka zikr hai",
-      "consent" in UP.status_card().lower() or "UPI_VERIFY_PARAM" in UP.status_card())
-check("UPI_VERIFY_* env vars support hain",
-      all(v in open(os.path.join(ROOT, "modules", "upi_provider.py"),
-                    encoding="utf-8").read()
-          for v in ("UPI_VERIFY_URL", "UPI_VERIFY_KEY", "UPI_VERIFY_PARAM",
-                    "UPI_VERIFY_AUTH", "UPI_VERIFY_METHOD")))
-check("bot.py me upi_provider import hai", "from modules import upi_provider" in BOT_SRC)
-check("UPI card me Account Holder Name block hai",
-      "👤 <b>Account Holder Name</b>" in BOT_SRC)
-check("UPI handler me provider PARALLEL chalta hai (gather)",
-      "asyncio.to_thread(upiprov.verify, raw_text)" in BOT_SRC)
-check("/upiapi command registered",
-      'CommandHandler(["upiapi", "upiverifyapi"], cmd_upiapi)' in BOT_SRC)
-check("/upiapi admin-only hai",
-      BOT_SRC[BOT_SRC.index("async def cmd_upiapi"):][:400].count("is_admin") >= 1)
-check("API na ho to jhootha naam NAHI dikhata (⚪ source + hint)",
-      "Name Source:</b> ⚪ API set nahi" in BOT_SRC.replace('"\n                     "', "")
-      or "API set nahi (holder naam public" in BOT_SRC)
-check("API ho to naam source saaf likha aata hai",
-      "aapki UPI API se (consented)" in BOT_SRC)
 
-# =====================================================================
 section("6) 📱 NUMBER INFO — 👤 OWNER PANEL (aapke format me)")
 # =====================================================================
 import modules.numinfo_provider as NP  # noqa: E402
@@ -303,16 +290,18 @@ check("provider response me 'owner' dict hota hai",
 for _f in ("name", "father", "alt", "region", "govt_id", "address"):
     check(f"owner field '{_f}' parse hota hai", f'"{_f}": _clean_name' in open(
         os.path.join(ROOT, "modules", "numinfo_provider.py"), encoding="utf-8").read())
-check("card me OWNER panel rendering hai (_owner_line)", "_owner_line" in BOT_SRC)
+check("card me OWNER panel rendering hai (_obits)", "_obits" in BOT_SRC)
 for _lbl in ("👤 <b>Name:", "👨 <b>Father:", "📱 <b>Phones/Alt:",
              "🌐 <b>Region:", "🆔 <b>Govt ID:", "🏠 <b>Address(es):"):
     check(f"panel me '{_lbl}' line hai", _lbl in BOT_SRC)
-check("panel ka band karne wala switch hai (NUMINFO_SHOW_OWNER)",
-      "NUMINFO_SHOW_OWNER" in BOT_SRC)
-check("panel sirf tab dikhta hai jab data aaye (warna gayab)",
-      "if _lines:" in BOT_SRC and "_owner_line = \"──────────────────────────────" in BOT_SRC)
-check("privacy line conditional hai (API se aaya to alag baat)",
-      "Ye naam/address <b>aapki API</b> ke jawab me aaya hai" in BOT_SRC)
+check("v59: owner card seedha dikhta hai (koi NUMINFO_SHOW_OWNER gate nahi)",
+      "NUMINFO_SHOW_OWNER" not in BOT_SRC)
+check("panel sirf tab dikhta hai jab data aaye (warna fallback card)",
+      "_obits" in BOT_SRC and "if _obits:" in BOT_SRC and "else:" in BOT_SRC)
+check("v59: numinfo card me koi privacy line NAHI hai",
+      "aapki API</b> ke jawab me aaya hai" not in BOT_SRC and "leaked" not in BOT_SRC.lower())
+check("v59: fallback card me API setup hint aata hai (privacy lecture nahi)",
+      "NUMINFO_PROVIDER_URL" in BOT_SRC and "/numapi" in BOT_SRC)
 
 # parse check (offline)
 _flat = NP._flatten({"name": "Sanjay Sah", "fatherName": "Ram Akwal Sah",
@@ -360,17 +349,19 @@ for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limi
             "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
             "general_tools", "imei_lookup", "media_downloader", "numinfo_provider",
             "osint_hub", "osint_tools", "payguard", "render_health", "sarkari_hub",
-            "temp_mail", "toolkit_extras", "tutorial_hub", "upi_provider", "vip_payment"):
+            "temp_mail", "toolkit_extras", "tutorial_hub", "vip_payment"):
     try:
         _il.import_module(f"modules.{_mn}")
     except Exception as _e:                                    # noqa: BLE001
         _ghost.append(f"{_mn}: {_e}")
-check("saare 24 modules import hote hain", not _ghost, "; ".join(_ghost[:3]))
+check("saare modules import hote hain (upi_provider ke bina)", not _ghost,
+      "; ".join(_ghost[:3]))
 
 # =====================================================================
 section("8) ⚡ /version — deploy check command")
 # =====================================================================
-check("/version command function hai", "async def cmd_version(" in BOT_SRC)
+check("/version command FUNCTION maujood hai (patch15 ise galti se uda deta tha)",
+      "async def cmd_version(" in BOT_SRC)
 check("/version registered hai (version/ver/v)",
       'CommandHandler(["version", "ver", "v"], cmd_version)' in BOT_SRC)
 check("/version sabke liye khula hai (admin-only nahi — deploy check ke liye)",

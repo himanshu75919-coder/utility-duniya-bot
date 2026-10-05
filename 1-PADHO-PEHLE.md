@@ -117,7 +117,7 @@ UPI_NAME    = Utility Duniya
 ```
 
 Baaki optional: `FORCE_CHANNEL`, `FORCE_CHANNEL_LINK`, `REFER_NEED=5`, `FREE_CREDITS=25`,
-`TUTORIAL_URL`, `HUB_API_KEY=Demo`, `NUM_LEAK_ENABLED=off`.
+`TUTORIAL_URL`, `HUB_API_KEY=Demo`.
 
 ---
 
@@ -163,5 +163,6 @@ python3 -m pytest tests/ -q   # privacy tests
 
 1. **Koi AI tool nahi** — jo bhi bana hai, sab offline/deterministic hai (Render 512MB me aaram se chalega).
 2. **Copyright:** downloader public links ke liye hai — kisi ka paid content bechna galat hai.
-3. **Legal line:** sarkar ka public data ✅ · kisi ki niji jaankari ❌
-   (public-records feature `NUM_LEAK_ENABLED=off` se band ho jata hai).
+3. **Legal line:** sirf public/sarkari data ✅ · kisi ki niji jaankari ❌
+   (bot khud kahin se personal record nahi uthata — Number Info me data
+   sirf aapki apni API se aata hai).

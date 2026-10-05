@@ -617,10 +617,10 @@ def hub_insta_posts(username: str) -> dict:
 
 
 def hub_carrier_info(number: str) -> dict:
-    """v49.6: hub ka num-info — LEGAL carrier/HLR lookup (operator, circle, type).
+    """v49.6: hub ka num-info — carrier/HLR lookup (operator, circle, type).
 
-    Ye leaked personal records NAHI hai. Aapki hub par NUMINFO_PROVIDER_URL set ho
-    to live carrier data aata hai; warna hub local analysis deta hai.
+    Aapki hub par NUMINFO_PROVIDER_URL set ho to live carrier data aata hai;
+    warna hub local analysis deta hai.
     """
     digits = re.sub(r"\D", "", number or "")
     if len(digits) == 10:

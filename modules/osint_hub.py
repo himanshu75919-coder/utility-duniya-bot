@@ -153,7 +153,7 @@ def num_info_report(number: str) -> dict:
         "ok": False,
         "has_data": False,
         "disabled": True,
-        "error": "Privacy ke liye leaked personal records retrieve nahi hote. Sirf safe phone metadata available hai.",
+        "error": "Is number ka carrier data abhi nahi mila. Thodi der baad dobara try karein.",
     }
 
 

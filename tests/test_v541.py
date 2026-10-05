@@ -26,6 +26,7 @@ Chalane ka tarika:
 from __future__ import annotations
 
 import os
+import re
 import sys
 import warnings
 
@@ -170,80 +171,40 @@ check("ffuid handler soft-fail par credit NAHI katta",
 
 
 # =====================================================================
-section("2) 🏦 UPI VERIFY — boxed card (public only) + privacy refusal")
-# SCREENSHOT (competitor "OSINT Lookup"): mobile number se account-holder ka
-# NAAM. Wo NPCI/bank ka leaked private data hai — ye bot wo kabhi nahi karega.
-# Humne sirf CARD KA FORMAT copy kiya hai, private fields nahi.
-from modules.osint_tools import upi_verify  # noqa: E402
-
-_u1 = upi_verify("rahul@sbi")
-check("VPA verify chalta hai (rahul@sbi)", _u1.get("ok") is True)
-check("bank handle map hota hai (@sbi → State Bank of India)",
-      "State Bank of India" in str(_u1.get("bank") or ""))
-check("local part nikalta hai", _u1.get("local") == "rahul")
-_u2 = upi_verify("7260889792@ybl")
-check("numeric-VPA (@ybl) bhi verify hota hai", _u2.get("ok") is True)
-check("galat VPA par ok=False (crash nahi)", upi_verify("bad@@x").get("ok") is False)
-check("khaali input par ok=False", upi_verify("").get("ok") is False)
-
-_upiseg_start = _bot_src.index('if mode == "upi":')
-_upiseg = _bot_src[_upiseg_start:_bot_src.index('if mode == "bgmi":', _upiseg_start)]
-
-check("boxed card hai (┌ / └ box characters)", "┌──" in _upiseg and "└──" in _upiseg)
-check("card ka title 'UPI VERIFY REPORT' hai", "UPI VERIFY REPORT" in _upiseg)
-check("card me VPA / Format / Bank / Local fields hain",
-      all(k in _upiseg for k in ("VPA / UPI ID", "Format Status",
-                                 "Bank Handle", "Associated Bank", "Local Part")))
-check("brand tag laga hai (@Supermannn_x)", "@Supermannn_x" in _upiseg)
-check("card me privacy note hai", "Privacy (zaroori baat)" in _upiseg)
-check("holder ka NAAM kisi field me nahi maanga jata (private data nahi)",
-      "holder_name" not in _upiseg and "account_holder" not in _upiseg)
-
-_mob = _upiseg[_upiseg.index("10-digit MOBILE number path"):]
-_mob = _mob[:_mob.index("VPA verify (public format")]
-check("10-digit mobile path hai", r're.fullmatch(r"\d{10}"' in _mob)
-check("+91 wala mobile bhi pakda jata hai", r"(?:\+91)?[6-9]\d{9}" in _mob)
-check("mobile path par credit NAHI katta (spend_credit_msg absent)",
-      "spend_credit_msg" not in _mob)
-check("mobile path par rate-limit counter phir bhi chalta hai (add_use)",
-      "add_use(uid)" in _mob)
-check("mobile path refusal me 'leaked private data' saaf bolta hai",
-      "leaked private data" in _mob)
-check("mobile path legal alternatives offer karta hai",
-      "Number Info" in _mob and "VPA Verify" in _mob)
-check("mobile path ke buttons wired hain",
-      'callback_data="upi_to_num"' in _mob and 'callback_data="upi_to_vpa"' in _mob)
-
-# on_cb me wo buttons actually mode set karte hain (warna dead buttons)
-check("on_cb upi_to_num handle karta hai", 'if data == "upi_to_num":' in _bot_src)
-check("on_cb upi_to_vpa handle karta hai", 'if data == "upi_to_vpa":' in _bot_src)
-_n = _bot_src.index('if data == "upi_to_num":')
-check("upi_to_num → mode 'numinfo' set hota hai",
-      'context.user_data["mode"] = "numinfo"' in _bot_src[_n:_n + 400])
-_v = _bot_src.index('if data == "upi_to_vpa":')
-check("upi_to_vpa → mode 'upi' set hota hai",
-      'context.user_data["mode"] = "upi"' in _bot_src[_v:_v + 400])
+section("2) 🏦 UPI VERIFY — v59 me POORI TARAH DELETE (user ka order)")
+# =====================================================================
+# User ka order (v59): "phle upi verify tools delete karo and uska code".
+# Isliye purana UPI verify tool + uska boxed card + privacy refusal +
+# _VPA_RE + UPI_BANK_HANDLES + dono callbacks (upi_to_num / upi_to_vpa) +
+# /upiapi command + modules/upi_provider.py — sab gaya.
+check('bot.py me "if mode == \'upi\':" handler hi nahi bacha',
+      'if mode == "upi":' not in _bot_src)
+check("UPI VERIFY prompt gaya", "UPI VERIFY" not in _bot_src)
+_bot_user = "\n".join(_l for _l in _bot_src.split("\n") if "BOT_VERSION =" not in _l)
+check("keyboard/help me UPI Verify / UPI-IFSC mention nahi (version line chhod ke)",
+      "UPI Verify" not in _bot_user and "UPI/IFSC" not in _bot_user)
+check("upi_to_num / upi_to_vpa callbacks gaye",
+      "upi_to_num" not in _bot_src and "upi_to_vpa" not in _bot_src)
+check("/upiapi command gaya", "upiapi" not in _bot_src.lower())
+import modules.osint_tools as _OT  # noqa: E402
+check("osint_tools se upi_verify() gaya", not hasattr(_OT, "upi_verify"))
+check("osint_tools se UPI_BANK_HANDLES gaya", not hasattr(_OT, "UPI_BANK_HANDLES"))
+check("modules/upi_provider.py file gayi",
+      not os.path.exists(os.path.join(ROOT, "modules", "upi_provider.py")))
+check("keyboard me IFSC button duplicate nahi",
+      sum(1 for _r in __import__("bot").KB_BTNS for _b in _r
+          if "IFSC" in __import__("bot").unbold(_b).upper()) == 1)
 
 
 # =====================================================================
 section("3) 🧾 Version + overall sanity")
-check("BOT_VERSION v56+ par hai", 'BOT_VERSION = "v58.' in _bot_src)
+check("BOT_VERSION v56+ par hai",
+      re.search(r'BOT_VERSION = "v(?:5[6-9]|[6-9][0-9])', _bot_src) is not None)
 
-# --- v54.2: UPI status section (public-only, jhootha 'ACTIVE' nahi) ---
-_up2 = _bot_src[_bot_src.index('if mode == "upi":'):]
-_up2 = _up2[:_up2.index('if mode == "bgmi":')]
-check("UPI card me ACCOUNT DETAILS & STATUS section hai",
-      "ACCOUNT DETAILS & STATUS" in _up2)
-check("status section me Source Type + Query Entity hai",
-      "Source Type" in _up2 and "Query Entity" in _up2)
-# v58: "VALID / ACTIVE" ab SIRF tab dikhta hai jab AAPKI UPI/KYC API confirm kare
-# (_up_live branch). Bina API par jhootha claim nahi hota — tab "FORMAT VALID".
-check("'VALID / ACTIVE' sirf API-confirmed branch me hai (bina API jhootha claim nahi)",
-      'if _up_live else' in _up2 and "_up_live" in _up2)
-check("bina API par 'FORMAT VALID' + honest note dikhta hai",
-      "FORMAT VALID" in _up2 and "sirf bank jaanta hai" in _up2)
-check("API lagi ho to Source Type 'YOUR UPI/KYC API (consented)' likhta hai",
-      "YOUR UPI/KYC API (consented)" in _up2)
+# --- v59: purana UPI card/status block bhi poori tarah gaya ---
+check("UPI ka purana card/status section nahi bacha",
+      "ACCOUNT DETAILS & STATUS" not in _bot_src and "FORMAT VALID" not in _bot_src)
+check("UPI ke env var naam code me nahi", "UPI_VERIFY" not in _bot_src)
 import bot as _bot  # noqa: E402
 _cot = _bot.get_credits_over_text("imei")
 check("credits-over text me hata hua 'Vehicle' tool advertise NAHI hota",

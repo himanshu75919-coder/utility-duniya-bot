@@ -82,21 +82,6 @@ services:
       #                 KEY_PARAM=access_key   PARAM=number
       #   abstractapi → URL=https://phonevalidation.abstractapi.com/v1/
       #                 KEY_PARAM=api_key      PARAM=phone
-      # ---------- v58: 🏦 UPI VERIFY — naam API (OPTIONAL, legal) ----------
-      # Ye lagate hi UPI card me "Account Holder Name" aayega (screenshot jaisa).
-      # Legal B2B APIs chahiye: Eko / InstantPay / Surepay / PayU (paid + KYC).
-      # Poori jankari: UPI-NAAM-API-SETUP.md
-      - key: UPI_VERIFY_URL
-        sync: false            # khali = naam API band (tool phir bhi chalta hai)
-      - key: UPI_VERIFY_KEY
-        sync: false            # SECRET — sirf Render me rakho
-      - key: UPI_VERIFY_PARAM
-        value: vpa             # VPA jis param me jaata hai
-      - key: UPI_VERIFY_AUTH
-        value: query           # query | header | bearer
-      - key: UPI_VERIFY_METHOD
-        value: GET             # GET | POST
-
       - key: NUMINFO_PROVIDER_URL
         sync: false            # aapki carrier API ka endpoint (khali = offline mode)
       - key: NUMINFO_PROVIDER_KEY

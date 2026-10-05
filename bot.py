@@ -156,7 +156,9 @@ from modules.media_downloader import (
 
     is_supported_video_url,
     platform_name,
-    yt_available_qualities,
+    YT_QUALITY_OPTIONS,
+    yt_cached_qualities,
+    yt_warm_qualities,
     _yt_quality_download,
     friendly_dl_error,
 )
@@ -180,13 +182,11 @@ from modules.imei_lookup import (
     validate_imei as imei_validate,
 )
 from modules import numinfo_provider as numprov
-from modules import upi_provider as upiprov
 from modules.osint_tools import (
     search_by_area_name,
     lookup_ifsc,
     lookup_phone_info,
     lookup_pincode,
-    upi_verify,
 )
 from modules.gaming_tools import (
     ff_player_info,
@@ -256,7 +256,6 @@ TOOL_RATE_LIMITS = {
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
     # normal info tools
-    "upi":         (15, 60,  "UPI Verify"),
     "bgmi":        (8,  60,  "BGMI UID"),
     "ffuid":       (8,  60,  "FF UID"),
     "tempmail":    (10, 120, "Temp Mail"),
@@ -303,7 +302,7 @@ BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v58.0 Naya Prompt System + IMEI Photo + API Panels"  # v58: 📱 NUMBER INFO me AAPKI API (NUMINFO_PROVIDER_URL/KEY — Render Environment se, key kabhi print nahi hoti) + /numapi status & live-test command · provider+hub PARALLEL (2x fast) · 6-ghante cache · provider→hub→offline fallback (kabhi band nahi) · 🚨 BRAND_TAG NameError crash fix (bot.py me define hi nahi tha) · 🖼️ premium boxed cards (IFSC·PINCODE·BGMI·FF·APP FINDER·LINK CHECK) + 📡Source/⚡time/🔥brand footer · ⚡ LINK CHECK ka analyze_link blocking call → to_thread (event loop ab nahi rukta) · khali pincode fields skip
+BOT_VERSION = "v59.0 UPI Verify Removed + Deep Clean + Fast YouTube"  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands) · 🧹 saare lecture/note lines gaye (BGMI·FF·numinfo) · 📱 Number Info ab aapke diye format me (Name/Father/Phones/Region/GovtID/Address) — data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s wait) · 📥 download progressive 18/22 (merge avoid = 3x fast) + parallel chunks 4 · /version v59
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -354,7 +353,6 @@ PREMIUM_TOOLS = {
     "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
     "pin",                 # 📮 PINCODE INFO
-    "upi",                 # 🏦 UPI VERIFY
     "bgmi",                # 🎮 BGMI UID
     "ffuid",               # 🔥 FF UID
     "tempmail",            # 📧 TEMP MAIL
@@ -380,7 +378,6 @@ PREMIUM_TOOL_NAMES = {
     "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
     "pin": "📮 Pincode Info",
-    "upi": "🏦 UPI Verify",
     "bgmi": "🎮 BGMI UID",
     "ffuid": "🔥 FF UID",
     "tempmail": "📧 Temp Mail",
@@ -457,7 +454,7 @@ VIP_WALL_TEXT = (
     "Aapka account <b>free</b> hai — is liye premium tools band hain.\n\n"
     "💎 <b>VIP lene par aapko milega:</b>\n"
     "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
-    "• 📱 Number Info + 📲 IMEI full spec-sheet + 🏦 UPI/IFSC verify\n"
+    "• 📱 Number Info + 📲 IMEI full spec-sheet + 🏦 IFSC Info\n"
     "• 🔄 Channel Cloner (auto-forward) + 📡 TG Public Info + 🔥 FF/BGMI\n"
     "• 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
     "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
@@ -766,9 +763,8 @@ KB_BTNS = [
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
-    [f"🏦 {to_bold('UPI VERIFY')}", f"📮 {to_bold('PINCODE INFO')}"],
+    [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
-    [f"📧 {to_bold('TEMP MAIL')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
@@ -808,7 +804,6 @@ BTN_MODE_MAP = {
     "8-IN-1 PRINT SHEET": "print_sheet",
     "DOCUMENT PDF COMPRESS": "doc_compress",
     "DOCUMENT PDF COMPRESSOR": "doc_compress",
-    "UPI VERIFY": "upi",
     "BGMI UID": "bgmi",
     "BGMI": "bgmi",
     "FF UID": "ffuid",
@@ -902,13 +897,6 @@ PROMPT_DATA = {
                ("Bank passbook page", "")],
     },
     # ------------------------------------------------------------- FINANCE
-    "upi": {
-        "head": "🏦 UPI VERIFY V2 ENGINE",
-        "ask": "Valid UPI ID ya 10 digit Mobile Number bhejein:",
-        "ex": [("rahul@sbi", "UPI ID"),
-               ("9876543210@ybl", "Mobile UPI"),
-               ("9876543210", "10 digit number")],
-    },
     "bankpdf": {
         "head": "🏦 BANK STATEMENT PDF → EXCEL",
         "ask": "Bank statement ka PDF bhejein (photo nahi, asli PDF):",
@@ -1060,7 +1048,7 @@ TUTORIAL_TEXT = (
     "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
-    "• 🏦 UPI VERIFY → VPA bhejo → format + kis bank ka handle hai (sirf public info)\n"
+    "• 🏦 IFSC INFO → IFSC code bhejo → bank + branch + MICR mil jaata hai\n"
     "• 🎮 BGMI UID / 🔥 FF UID → dost ka game UID bhejo → naam, level, rank, stats (public)\n"
     "• 📧 TEMP MAIL → NEW bhejo → ek-baar ka email + inbox (OTP/signup ke liye)\n"
     "\n"
@@ -1794,61 +1782,14 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 _BOOT_TS = time.time()
 
 
-# ---------------- v58: /upiapi — UPI naam-API ka status (admin) ----------------
-async def cmd_upiapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/upiapi — UPI name API lagi hai ya nahi + live test (key kabhi print nahi)."""
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
-        return
-    card = upiprov.status_card()
-    args = [a.strip() for a in (context.args or []) if a.strip()]
-    if not upiprov.is_configured() or not args:
-        if upiprov.is_configured() and not args:
-            card += "\n\n🧪 <b>Live test:</b> <code>/upiapi rahul@sbi</code>"
-        await update.message.reply_text(card, parse_mode=HTML)
-        return
-    st = await update.message.reply_text(
-        f"🔎 Aapki API se <code>{hesc(args[0][:40])}</code> test kar raha hoon…",
-        parse_mode=HTML)
-    res = await asyncio.to_thread(upiprov.verify, args[0])
-    if res.get("ok"):
-        await st.edit_text(
-            "✅ <b>UPI API CHAL RAHI HAI!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"👤 <b>Name:</b> {hesc(str(res.get('name') or '—'))}\n"
-            f"🎯 <b>VPA:</b> <code>{hesc(str(res.get('vpa') or ''))}</code>\n"
-            f"🏛️ <b>Bank:</b> {hesc(str(res.get('bank') or '—'))}\n"
-            f"⚡ <b>Status:</b> {hesc(str(res.get('status') or '—')[:60])}\n"
-            f"📊 <b>Valid:</b> {'✅ Haan' if res.get('valid') else '⚪ Pata nahi'}\n"
-            f"⏱️ <b>Latency:</b> {res.get('latency_ms')}ms\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "📱 Ab UPI Verify card me naiv naam live aayega. 🔥",
-            parse_mode=HTML)
-        return
-    await st.edit_text(
-        "❌ <b>UPI API test fail</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:200])}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<b>Ye 4 check karo:</b>\n"
-        "1️⃣ <code>UPI_VERIFY_URL</code> poori hai? (https:// se)\n"
-        "2️⃣ <code>UPI_VERIFY_KEY</code> sahi hai?\n"
-        "3️⃣ <code>UPI_VERIFY_PARAM</code> — VPA jis param me jaata hai "
-        "(jaise <code>vpa</code> / <code>accountNumber</code>)?\n"
-        "4️⃣ <code>UPI_VERIFY_METHOD</code> — GET ya POST?\n\n"
-        "ℹ️ <i>Tab tak UPI tool purane tarike se chal raha hai — band nahi hai.</i>",
-        parse_mode=HTML)
-
-
-# ---------------- v58: /version — deploy hua hai ya nahi, turant pata karo ----------------
+# ---------------- v59: /version — deploy hua hai ya nahi, turant pata karo ----------------
 async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/version — bot ka version + deploy check (sabke liye khula)."""
+    """/version — bot ka version + naye features ka status (sabke liye khula)."""
     _n_tools = len(PROMPT_DATA)
     _two_lines_gone = ("Credits: ♾️ Unlimited" not in PROMPTS.get("terabox", "")
                        and "cancel" not in PROMPTS.get("terabox", "").lower())
     _prompt_ok = "📝 <b>Examples:</b>" in PROMPTS.get("imei", "")
     _numpanel = bool(numprov.is_configured())
-    _upiapi = bool(upiprov.is_configured())
     await update.message.reply_text(
         f"⚡ <b>{hesc(BOT_VERSION)}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1857,9 +1798,11 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🚫 <b>Credits/cancel line:</b> {'✅ poori tarah gayi' if _two_lines_gone else '❌ abhi hai'}\n"
         "📸 <b>IMEI photo:</b> ✅ chalu (device naam/code bhi chalta hai)\n"
         f"📱 <b>Number Info API:</b> {'🟢 lagi hui' if _numpanel else '⚪ set nahi (/numapi)'}\n"
-        f"🏦 <b>UPI naam API:</b> {'🟢 lagi hui' if _upiapi else '⚪ set nahi (/upiapi)'}\n"
+        "🏦 <b>UPI tool:</b> 🗑️ hata diya gaya (poori code gayi)\n"
+        "⚡ <b>YouTube quality buttons:</b> ✅ instant (cache + background warm)\n"
+        "🧹 <b>Purane lecture/note lines:</b> ✅ saare tools se gayi\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Agar yahan v58 nahi dikh raha to Render me deploy pending hai — "
+        "<i>Agar yahan v59 nahi dikh raha to Render me deploy pending hai — "
         "2 minute baad dobara bhejo.</i>",
         parse_mode=HTML)
 
@@ -3426,18 +3369,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if data == "upi_to_num":
-        context.user_data["mode"] = "numinfo"
-        await q.message.reply_text(tool_prompt("numinfo"),
-                                 reply_markup=tool_tutorial_kb("numinfo"), parse_mode=HTML)
-        return
-
-    if data == "upi_to_vpa":
-        context.user_data["mode"] = "upi"
-        await q.message.reply_text(tool_prompt("upi"),
-                                 reply_markup=tool_tutorial_kb("upi"), parse_mode=HTML)
-        return
-
     if data.startswith("ffimg:"):
         # v54.0: FF character portrait / outfit breakdown on-demand
         kind = data.split(":", 1)[1]
@@ -3945,14 +3876,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
             # ---------------- v56.0: 5 tools permanently deleted ----------------
             # (ye "kya use karo" suggestion line hai — label _why me hai)
-            "DOMAIN OSINT / IP": "🌐 Domain OSINT / IP ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> / 🏦 <b>UPI Verify</b> use karo",
-            "DOMAIN OSINT": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> / 🏦 <b>UPI Verify</b> use karo",
-            "OSINT": "🌐 OSINT tools ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> / 🏦 <b>UPI Verify</b> use karo",
-            "DOMAIN INFO": "🌐 Domain info ki jagah → 🏦 <b>UPI Verify</b> / 📮 <b>Pincode Info</b> use karo",
+            "DOMAIN OSINT / IP": "🌐 Domain OSINT / IP ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
+            "DOMAIN OSINT": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
+            "OSINT": "🌐 OSINT tools ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
+            "DOMAIN INFO": "🌐 Domain info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
             "IP INFO": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
             "IP / DOMAIN INFO": "🌐 IP / Domain info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
             "IP": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "DOMAIN": "🌐 Domain OSINT ki jagah → 🏦 <b>UPI Verify</b> / 📮 <b>Pincode Info</b> use karo",
+            "DOMAIN": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
             "PINTEREST": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> (status/ringtone/MP3) use karo",
             "PINTEREST DOWNLOADER": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> use karo",
             "PINTEREST SEARCH": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> use karo",
@@ -4488,8 +4419,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         st = await update.message.reply_text(f"📥 {plat} — fetching the media (best quality + full audio)...")
         # v52: YouTube link → user khud quality chunta hai (360/480/720/1080)
         if re.search(r"(youtube\.com|youtu\.be)/", raw_text):
-            heights = await asyncio.to_thread(yt_available_qualities, raw_text)
-            opts = heights if heights else [1080]
+            # v59: INSTANT quality buttons.
+            # PEHLE: poora metadata fetch hota tha (5-20 second!) phir buttons
+            #        dikhte the — user ko lagta tha bot so gaya.
+            # AB: cache ho to usse, warna standard options TURANT dikhte hain
+            #     (1080/720/480/360). Background me cache bhar jaata hai taaki
+            #     agli baar asli available qualities instantly dikhein.
+            heights = yt_cached_qualities(raw_text)
+            opts = heights if heights else list(YT_QUALITY_OPTIONS)
+            if not heights:
+                yt_warm_qualities(raw_text)      # background — block nahi karta
             rows = []
             for i in range(0, len(opts), 2):
                 rows.append([InlineKeyboardButton(f"🎞️ {h}p" + (" ⭐" if h == opts[0] else ""),
@@ -4649,115 +4588,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
         return
 
-    if mode == "upi":
-        _upi_in = (raw_text or "").strip()
-        # ── v54.1: 10-digit MOBILE number path ────────────────────────────
-        # Kuch competitor bots mobile number se UPI **account-holder ka naam**
-        # nikaal dete hain. Wo NPCI/bank ka PRIVATE data hai (leaked ya
-        # unauthorized proxy se) — India me ye privacy-law ke khilaaf hai aur
-        # fraud me use hota hai. Is bot me ye KABHI nahi hoga.
-        # Yahan hum saaf batate hain + jo LEGAL/public hai wo offer karte hain.
-        if re.fullmatch(r"\d{10}", _upi_in) or re.fullmatch(r"(?:\+91)?[6-9]\d{9}", _upi_in):
-            _num = re.sub(r"\D", "", _upi_in)[-10:]
-            await update.message.reply_text(
-                "🔒 <b>UPI account-holder ka naam private hota hai.</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"Aapne mobile number bheja: <code>{_num}</code>\n\n"
-                "Kuch bots number se <b>holder ka naam / VPA</b> nikaal dete hain —\n"
-                "wo <b>bank/NPCI ka leaked private data</b> hota hai (unauthorized).\n"
-                "Ye bot sirf <b>public + legal</b> data deta hai, isliye wo kabhi nahi karega.\n\n"
-                "✅ <b>Jo main LEGAL tarike se kar sakta hoon:</b>\n"
-                "• 📱 <b>Number Info</b> → operator + circle (public telecom data)\n"
-                "• 🏦 <b>VPA Verify</b> → agar UPI ID pata ho to uska bank + format\n\n"
-                "❌ <b>Koi credit nahi kata.</b> Neeche se chuno:",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📱 Number Info (operator/circle)",
-                                          callback_data="upi_to_num")],
-                    [InlineKeyboardButton("🏦 VPA verify karo", callback_data="upi_to_vpa")],
-                ]), parse_mode=HTML)
-            add_use(uid)
-            return
-        # ── VPA verify (public format + bank handle) ──
-        # v58: saath me AAPKI UPI/KYC API bhi chalti hai (agar lagi ho) —
-        # dono PARALLEL (asyncio.gather) taaki response fast rahe.
-        _t0 = time.perf_counter()
-        res, _up = await asyncio.gather(
-            asyncio.to_thread(upi_verify, raw_text),
-            asyncio.to_thread(upiprov.verify, raw_text),
-        )
-        _ms = (time.perf_counter() - _t0) * 1000
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            add_use(uid)
-            return
-        # ---- v58: aapki API ka naam/status (agar lagi ho) ----
-        _up_name = str(_up.get("name") or "") if _up.get("ok") else ""
-        _up_bank = str(_up.get("bank") or "") if _up.get("ok") else ""
-        _up_stat = str(_up.get("status") or "") if _up.get("ok") else ""
-        _up_live = bool(_up.get("ok"))
-        bank_line = (_up_bank or res.get("bank")
-                     or "Known-bank list me nahi (handle phir bhi valid ho sakta hai)")
-        notes = ("\n".join("⚠️ " + n for n in res.get("notes", []))) or ""
-        # naam mila to screenshot jaisa sabse upar dikhao
-        _name_block = (
-            "👤 <b>Account Holder Name</b>\n"
-            f"   └ 💳 <b>{hesc(_up_name.upper())}</b>\n"
-        ) if _up_name else ""
-        _status_line = (
-            f"⚡ <b>VPA Status:</b> ✅ VALID / ACTIVE"
-            + (f" ({hesc(_up_stat[:40])})" if _up_stat else "")
-            + "\n"
-        ) if _up_live else (
-            "⚡ <b>VPA Status:</b> ✅ FORMAT VALID\n"
-            "   <i>(active/inactive sirf bank jaanta hai — public nahi hota)</i>\n"
-        )
-        # v54.1: competitor-jaisa saaf BOXED card — par sirf PUBLIC fields.
-        card = (
-            "┌──────────────────────────────\n"
-            f"│ 🏦 <b>{to_bold('UPI VERIFY REPORT')}</b>\n"
-            "└──────────────────────────────\n"
-            + _name_block
-            + f"💳 <b>VPA / UPI ID:</b> <code>{hesc(res['vpa'])}</code>\n"
-            "✅ <b>Format Status:</b> VALID / sahi UPI format\n"
-            f"🏷️ <b>Bank Handle:</b> <code>@{hesc(res['handle'])}</code>\n"
-            f"🏛️ <b>Associated Bank:</b> {hesc(bank_line)}\n"
-            f"🧩 <b>Local Part:</b> <code>{hesc(res['local'])}</code>\n"
-            "──────────────────────────────\n"
-            "📊 <b>ACCOUNT DETAILS & STATUS</b>\n"
-            + _status_line
-            + ("🔒 <b>Account Category:</b> public nahi (individual/business bank ke paas)\n"
-               "🔍 <b>Source Type:</b> YOUR UPI/KYC API (consented)\n"
-               if _up_live else
-               "🔒 <b>Account Category:</b> public nahi (individual/business bank ke paas)\n"
-               "🔍 <b>Source Type:</b> PUBLIC VPA-FORMAT + BANK-HANDLE DB\n")
-            + f"🎯 <b>Query Entity:</b> <code>{hesc(res['vpa'])}</code>\n"
-            "──────────────────────────────\n"
-            + ("🔒 <b>Privacy:</b> Ye naam <b>aapki UPI/KYC API</b> se aaya hai —\n"
-               "consent ke saath, legal tarike se (leaked data nahi).\n"
-               if _up_live else
-               "🔒 <b>Privacy (zaroori baat):</b> holder ka naam, linked mobile ya\n"
-               "account number kisi bhi VPA se <b>publicly available NAHI</b> hota —\n"
-               "jo bot wo dikhaye wo leaked/private data use kar raha hai.\n"
-               "Is bot me sirf public format + bank-handle info milta hai.\n"
-               "💡 Legal naam ke liye apni UPI/KYC API lagao: <code>/upiapi</code>\n")
-            + (notes + "\n" if notes else "")
-            + "🔥 Powered by @Supermannn_x"
-        ).replace(chr(10) + "\n", "\n")
-        # v58: naam API se aaya hai ya nahi — footer me saaf likho + response time
-        if _up_live:
-            card += ("\n──────────────────────────────\n"
-                     "📡 <b>Name Source:</b> 🟢 aapki UPI API se (consented)\n")
-        else:
-            card += ("\n──────────────────────────────\n"
-                     "📡 <b>Name Source:</b> ⚪ API set nahi (holder naam public "
-                     "nahi hota)\n"
-                     "💡 Legal API lagane ka tarika: <code>/upiapi</code>\n")
-        card += f"⚡ <b>Response:</b> {int(_ms)}ms\n"
-        await update.message.reply_text(spend_credit_msg(uid, "upi") + "\n" + card,
-                                        parse_mode=HTML)
-        add_use(uid)
-        return
-
     if mode == "bgmi":
         _t0 = time.perf_counter()
         res = await asyncio.to_thread(bgmi_player_info, raw_text)
@@ -4784,7 +4614,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + (f"• <b>Title:</b> {hesc(str(pr.get('title')))[:40]}\n" if pr.get("title") else "")
                 + pcard_foot(ms=_ms,
                              source=f"<code>{hesc(str(res.get('source') or 'public'))}</code>",
-                             note="<i>Public in-game stats. Private info nahi dikhata.</i>"),
+                             ),
                 parse_mode=HTML)
         else:
             # ⚠️ v53.0: `service_busy` = SERVICE ki galti (BGMI ke public stats
@@ -4841,7 +4671,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lines.append(f"• <b>Bio:</b> {hesc(str(res['bio'])[:100])}")
             lines += [pcard_foot(ms=_ms,
                                  source="<code>Garena public profile</code>",
-                                 note="<i>Public in-game data. Private info nahi dikhata.</i>")]
+                                 )]
             # ── v54.0: IMAGES ─────────────────────────────────────
             # Official profile banner (avatar + naam + level) photo ke roop me
             # jata hai — pehle sirf text card milta tha. Character portrait aur
@@ -5251,8 +5081,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             if _pv in ("true", "1", "yes", "haan", "y") else
                             f"• <b>MNP (ported):</b> {hesc(str(_ported))}\n")
 
-        # ---------- v58: 👤 OWNER PANEL (agar AAPKI API ye fields bheje) ----------
-        # Aapke diye format me — bilkul waisa hi:
+        # ---------- v59: 👤 AAPKE DIYE FORMAT ME CARD ----------
+        # Ye card aapki API (Render me NUMINFO_PROVIDER_URL/KEY) ke response se
+        # banta hai. Aapke format me — bilkul waisa hi:
         #     👤 Name: Sanjay Sah
         #     👨 Father: Ram Akwal Sah
         #     📱 Phones/Alt: 7305190526
@@ -5260,61 +5091,67 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         #     🆔 Govt ID: 401635555849
         #     🏠 Address(es):
         #        └ S/O  Ram Akwal Sah, ...
-        # ⚠️ Ye data hum KAHIN SE NAHI LAATE — sirf aapki API ke response me jo
-        #    aaya wahi dikhata hai. API na bheje to ye panel gayab rehta hai
-        #    (aur tool waise hi chalta rehta hai).
-        _owner_line = ""
-        if str(os.getenv("NUMINFO_SHOW_OWNER", "on")).strip().lower() not in ("off", "0", "false", "no"):
-            _ow = (_live.get("owner") or {}) if isinstance(_live, dict) else {}
-            _lines = []
-            if _ow.get("name"):
-                _lines.append(f"👤 <b>Name:</b> {hesc(str(_ow['name']))}")
-            if _ow.get("father"):
-                _lines.append(f"👨 <b>Father:</b> {hesc(str(_ow['father']))}")
-            if _ow.get("alt"):
-                _lines.append(f"📱 <b>Phones/Alt:</b> {hesc(str(_ow['alt']))}")
-            if _ow.get("region"):
-                _lines.append(f"🌐 <b>Region:</b> {hesc(str(_ow['region']))}")
-            if _ow.get("govt_id"):
-                _lines.append(f"🆔 <b>Govt ID:</b> {hesc(str(_ow['govt_id']))}")
-            _ad = str(_ow.get("address") or "").strip()
-            if _ad:
-                _lines.append("🏠 <b>Address(es):</b>")
-                for _i2, _apart in enumerate([x.strip() for x in _ad.split("|") if x.strip()][:4]):
-                    _lines.append(("   └ " if _i2 == 0 else "   └ ") + hesc(_apart[:220]))
-            if _lines:
-                _owner_line = "──────────────────────────────\n" + "\n".join(_lines) + "\n"
+        #     ────────────────────────
+        _ow = (_live.get("owner") or {}) if isinstance(_live, dict) else {}
+        _obits = []
+        if _ow.get("name"):
+            _obits.append(f"👤 <b>Name:</b> {hesc(str(_ow['name']))}")
+        if _ow.get("father"):
+            _obits.append(f"👨 <b>Father:</b> {hesc(str(_ow['father']))}")
+        if _ow.get("alt"):
+            _obits.append(f"📱 <b>Phones/Alt:</b> {hesc(str(_ow['alt']))}")
+        if _ow.get("region"):
+            _obits.append(f"🌐 <b>Region:</b> {hesc(str(_ow['region']))}")
+        if _ow.get("govt_id"):
+            _obits.append(f"🆔 <b>Govt ID:</b> {hesc(str(_ow['govt_id']))}")
+        _addr = str(_ow.get("address") or "").strip()
+        if _addr:
+            _obits.append("🏠 <b>Address(es):</b>")
+            for _ap in [x.strip() for x in _addr.split("|") if x.strip()][:4]:
+                _obits.append(f"   └ {hesc(_ap[:300])}")
+        # extra address list (agar API array bheje)
+        _extra = (_live.get("extra") or {}) if isinstance(_live, dict) else {}
+        for _k in ("addresses", "address_list"):
+            for _a2 in (_extra.get(_k) or [])[:4]:
+                if _a2 and hesc(str(_a2))[:300] not in _addr:
+                    _obits.append(f"   └ {hesc(str(_a2)[:300])}")
 
-        card = (
-            "┌──────────────────────────────\n"
-            f"│ 📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
-            "└──────────────────────────────\n"
-            f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>\n"
-            f"🔢 <b>National:</b> {hesc(res['national'])}\n"
-            f"📱 <b>Line Type:</b> {hesc(res['type'])}{(' ' + hesc(res['series_note'])) if res.get('series_note') else ''}\n"
-            "──────────────────────────────\n"
-            f"🏢 <b>Operator:</b> {hesc(_operator)}\n"
-            f"📍 <b>Circle / Region:</b> {hesc(_circle)}\n"
-            + (f"🔎 <b>Live Line Type:</b> {hesc(_ltype)}\n" if _ltype else "")
-            + _ported_line
-            + f"🌍 <b>Country:</b> {hesc(res['country'])} ({hesc(str(res.get('country_code') or '—'))})\n"
-            f"🕐 <b>Timezone:</b> {hesc(res['timezones'])}\n"
-            f"✅ <b>Format Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
-            "──────────────────────────────\n"
-            + _owner_line
-            + f"📡 <b>Data Source:</b> {_src_line}\n"
-            f"⚡ <b>Response:</b> {int(_ms)}ms\n"
-            "──────────────────────────────\n"
-            + ("🔒 <b>Privacy:</b> Ye naam/address <b>aapki API</b> ke jawab me aaya hai\n"
-               "(aapke apne consented source se). Bot khud ye data kahin se nahi laata.\n"
-               if _owner_line else
-               "🔒 <b>Privacy:</b> Is bot me <b>koi leaked/private record</b> nahi hai.\n"
-               "Yahan sirf public carrier + circle + line-type metadata milta hai.\n"
-               "Holder ka naam / address public API se nahi milta (aur illegal source hum use nahi karte).\n")
-            + "──────────────────────────────\n"
-            f"ℹ️ <i>{hesc(res['note'])}</i>\n"
-            f"🔥 Powered by {BRAND_TAG}"
-        ).replace(chr(10) + "\n", "\n")
+        if _obits:
+            # AAPKA FORMAT — owner details sabse upar, seedha
+            card = ("\n".join(_obits) + "\n" + pcard_sep() + "\n"
+                    f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>\n")
+            if _operator or _circle:
+                card += (f"🏢 <b>Operator:</b> {hesc(_operator)}"
+                         + (f"  •  📍 {hesc(_circle)}" if _circle else "") + "\n")
+            card += (f"📡 <b>Source:</b> {_src_line}\n"
+                     f"⚡ <b>Response:</b> {int(_ms)}ms\n"
+                     + pcard_sep() + "\n"
+                     f"🔥 Powered by {BRAND_TAG}")
+        else:
+            # API se owner-data nahi aaya — normal card + setup hint (koi lecture line nahi)
+            card = (
+                pcard_title("📱", "NUMBER INFO REPORT") + "\n"
+                f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>\n"
+                f"🔢 <b>National:</b> {hesc(res['national'])}\n"
+                f"📱 <b>Line Type:</b> {hesc(res['type'])}"
+                + (f" {hesc(res['series_note'])}" if res.get("series_note") else "") + "\n"
+                + pcard_sep() + "\n"
+                f"🏢 <b>Operator:</b> {hesc(_operator)}\n"
+                f"📍 <b>Circle / Region:</b> {hesc(_circle)}\n"
+                + (f"🔎 <b>Live Line Type:</b> {hesc(_ltype)}\n" if _ltype else "")
+                + _ported_line
+                + f"🌍 <b>Country:</b> {hesc(res['country'])} ({hesc(str(res.get('country_code') or '—'))})\n"
+                f"🕐 <b>Timezone:</b> {hesc(res['timezones'])}\n"
+                + pcard_sep() + "\n"
+                f"📡 <b>Source:</b> {_src_line}\n"
+                f"⚡ <b>Response:</b> {int(_ms)}ms\n"
+                + pcard_sep() + "\n"
+                "👤 <b>Name / Father / Address wala data</b> aapki API se aayega.\n"
+                "💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> +\n"
+                "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.\n"
+                + pcard_sep() + "\n"
+                f"🔥 Powered by {BRAND_TAG}"
+            ).replace(chr(10) + "\n", "\n")
 
         tel_note("numinfo", True, _ms, credit=True)
         await update.message.reply_text(
@@ -6815,7 +6652,6 @@ def main():
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["version", "ver", "v"], cmd_version))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
-    app.add_handler(CommandHandler(["upiapi", "upiverifyapi"], cmd_upiapi))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
