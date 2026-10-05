@@ -1909,6 +1909,7 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🔖 <b>Code commit:</b> <code>{hesc(_GIT_COMMIT or 'unknown')}</code>\n"
         f"🌐 <b>Mode:</b> {_mode} | ⏱️ <b>chal raha:</b> {_uptime_str()}\n"
         f"🩺 <b>Crashes:</b> {_CRASH_STATE['count']} (self-heal ON)\n"
+        f"🌐 <b>Webhook check:</b> {hesc(_WEBHOOK_DIAG['decision'])}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎨 <b>Naya prompt system:</b> {'✅ CHALU' if _prompt_ok else '❌ purana'}\n"
         f"  • {_n_tools} tools me header + ✨ ask + 📝 Examples\n"
@@ -6851,6 +6852,9 @@ try:
 except Exception:
     _KEEPALIVE_MINUTES = 4.0
 _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
+# v59.9.2: webhook kyun on/off hua — /health par saaf dikhe (secret kabhi nahi).
+_WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not set",
+                 "decision": "abhi decide nahi hua", "why": "-"}
 
 # v54.1: /health par **git commit SHA** bhi dikhao.
 # Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
@@ -6908,6 +6912,9 @@ def health_html() -> str:
             f"<p style='font-family:monospace'>{_ka}</p>"
             f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
             f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
+            f"<p style='font-family:monospace'>webhook: mode_env={_WEBHOOK_DIAG['mode_env']}"
+            f" | url_env={_WEBHOOK_DIAG['url_env']} | render_url={_WEBHOOK_DIAG['ext_env']}"
+            f" | decision={_WEBHOOK_DIAG['decision']} | why: {_WEBHOOK_DIAG['why']}</p>"
             f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
 
 
@@ -6954,6 +6961,9 @@ def main():
     # free plan par deploy ke waqt DNS ready nahi hota tha aur bot
     # "Bad webhook: failed to resolve host" par CRASH ho jata tha (aapka deploy fail).
     global WEBHOOK_URL
+    _WEBHOOK_DIAG["mode_env"] = str(os.environ.get("WEBHOOK_MODE") or "(not set)")
+    _WEBHOOK_DIAG["url_env"] = "set" if os.environ.get("WEBHOOK_URL") else "not set"
+    _WEBHOOK_DIAG["ext_env"] = "set" if os.environ.get("RENDER_EXTERNAL_URL") else "not set"
     _wh_ok, _wh_why = (False, "polling mode (WEBHOOK_MODE=off ya koi URL nahi)")
     if WEBHOOK_URL:
         _wh_ok, _wh_why = webhook_url_usable(WEBHOOK_URL)
@@ -6967,12 +6977,16 @@ def main():
             _pf_ok, _pf_why = webhook_preflight(WEBHOOK_URL, f"/webhook/{_secret}", BOT_TOKEN,
                                                 os.environ.get("WEBHOOK_SECRET_TOKEN") or None)
             if _pf_ok:
+                _WEBHOOK_DIAG.update({"decision": "WEBHOOK", "why": "Telegram ne URL maan liya ✅"})
                 log.info("WEBHOOK MODE confirm (Telegram ne URL maan liya) — koi Conflict nahi hoga")
             else:
+                _WEBHOOK_DIAG.update({"decision": "POLLING (preflight fail)", "why": _pf_why})
                 log.warning("WEBHOOK preflight fail (%s) — POLLING par chalega", _pf_why)
                 WEBHOOK_URL = ""
     if not WEBHOOK_URL:
         log.warning("MODE = POLLING (safe default) | %s", _wh_why)
+        if _WEBHOOK_DIAG["decision"].startswith("abhi"):
+            _WEBHOOK_DIAG.update({"decision": "POLLING (safe)", "why": _wh_why})
 
     # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
     if not WEBHOOK_URL:

@@ -725,6 +725,13 @@ check("v59.9: BOT_VERSION v59.9 hai", "v59.9" in bot.BOT_VERSION, bot.BOT_VERSIO
 check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
       webhook_url_from_env({"WEBHOOK_MODE": "polling",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
+check("v59.9.2: /health par webhook ki asli wajah dikhti hai (mode_env/url_env/decision)",
+      "mode_env={_WEBHOOK_DIAG['mode_env']}" in BOT_SRC
+      and "decision={_WEBHOOK_DIAG['decision']}" in BOT_SRC)
+check("v59.9.2: /version par bhi webhook check line hai",
+      "Webhook check:</b>" in BOT_SRC)
+check("v59.9.2: diag me koi secret (token/webhook path) nahi jaata",
+      "WEBHOOK_SECRET" not in BOT_SRC[BOT_SRC.index("_WEBHOOK_DIAG = {"):][:400])
 check("v59.9.1: WEBHOOK_MODE=off hi zabardasti polling karta hai",
       webhook_url_from_env({"WEBHOOK_MODE": "off",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "")
