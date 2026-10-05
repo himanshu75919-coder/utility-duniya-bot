@@ -465,7 +465,7 @@ def get_credits_over_text(action: str = "") -> str:
         "• 📥 Video Downloader • 📱 Number Info • 🔄 Channel Cloner\n"
         "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
         "• 🏦 Bank PDF→Excel • 📜 Kagaz Suite • ⚡ Media Studio\n"
-        "• 🚗 Vehicle • 📲 IMEI • 📦 App Finder • aur saare tools\n"
+        "• 📲 IMEI • 📦 App Finder • 📌 Pinterest Download • aur saare tools\n"
         "• ♾️ 30/60/90/120 din ya LIFETIME — sab plans\n\n"
         f"💎 <b>VIP plans:</b> 30d ₹49 • 60d ₹89 • 90d ₹129 • 120d ₹169 • Lifetime ₹199\n"
         "👇 Neeche se VIP lo, unlimited use karo:"
@@ -485,8 +485,8 @@ VIP_WALL_TEXT = (
     "Aapka account <b>free</b> hai — is liye premium tools band hain.\n\n"
     "💎 <b>VIP lene par aapko milega:</b>\n"
     "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
-    "• 📱 Number Info + 🚗 Vehicle/Challan + 📲 IMEI full details\n"
-    "• 🔄 Channel Cloner (auto-forward) + 🔒 Private Channel Setup\n"
+    "• 📱 Number Info + 📲 IMEI full spec-sheet + 🏦 UPI/IFSC verify\n"
+    "• 🔄 Channel Cloner (auto-forward) + 📡 TG Public Info + 🔥 FF/BGMI\n"
     "• 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
     "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
     "• ♾️ <b>Sab kuch unlimited</b> — koi credit, koi limit nahi\n"
@@ -3099,6 +3099,15 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # v53.0: results ab rich pin dicts hain (title/dimensions/pinner/video).
         # Purana plain-URL string bhi accept hota hai (_pinpick_download sambhalta hai).
         target = results[idx]
+        # v54.1: CREDIT GATE — pehle yahan gate tha hi nahi, isliye 0-credit user
+        # bhi Pinterest download kar leta tha (spend_credits 0 par clamp hota hai).
+        _u_pp = get_user(uid, (q.from_user.first_name if q.from_user else ""))
+        if not can_use_premium_tool(_u_pp, uid):
+            await q.answer("Credits khatam!", show_alert=True)
+            await q.message.reply_text(get_credits_over_text("pinterest"),
+                                       reply_markup=get_limit_exceeded_kb(),
+                                       parse_mode=HTML)
+            return
         _is_vid = isinstance(target, dict) and bool(target.get("is_video")
                                                    and target.get("video_kind") == "mp4")
         await q.answer("🎬 Video download ho rahi hai…" if _is_vid
