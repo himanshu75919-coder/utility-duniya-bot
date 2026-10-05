@@ -227,6 +227,14 @@ check("fallback card me privacy/leaked shabd nahi",
       "leaked" not in NI.lower() and "Privacy" not in NI)
 check("extra address list (addresses / address_list) support hai",
       "address_list" in NI and "addresses" in NI)
+# user ka exact format: 🏠 Address(es): ke baad ek khali line, phir "   └ ..."
+check("Address(es) label ke baad blank line aati hai (aapka exact format)",
+      '"🏠 <b>Address(es):</b>\\n"' in NI)
+check("address line '└' se shuru hoti hai", 'f"   └ {hesc(' in NI)
+check("purana '🔒 Private Setup' ad nahi (hata diya gaya tool)",
+      "Private Setup" not in BOT_SRC)
+check("TEMP MAIL card me privacy line nahi",
+      "sirf isi chat me hai" not in BOT_SRC)
 
 # provider module: owner fields parse (offline, fake API response)
 _flat = NP._flatten({"name": "Sanjay Sah", "fatherName": "Ram Akwal Sah",
