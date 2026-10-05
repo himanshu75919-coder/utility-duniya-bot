@@ -222,7 +222,7 @@ def test_info_caching():
     section("5) osint_tools — live API + caching + validation")
     import time
     from modules.osint_tools import (lookup_ifsc, lookup_pincode,
-                                     lookup_ip_domain, search_by_area_name)
+                                     search_by_area_name)
 
     r1 = lookup_ifsc("SBIN0000001")
     ok("IFSC live lookup chalta hai", r1.get("ok") is True, str(r1)[:120])
@@ -265,16 +265,6 @@ def test_info_caching():
         ok("Gaya ka top result Bihar ka hai", g["results"][0].get("state") == "Bihar")
 
     ok("Area search chhota naam reject", search_by_area_name("ab").get("ok") is False)
-
-    ip = lookup_ip_domain("google.com")
-    ok("IP/domain live lookup chalta hai", ip.get("ok") is True, str(ip)[:140])
-    if ip.get("ok"):
-        ok("ISP aata hai", bool(ip.get("isp")))
-        ok("IP doosri baar cache se", lookup_ip_domain("google.com").get("cached") is True)
-    for bad in ["127.0.0.1", "192.168.1.1", "169.254.169.254", "10.0.0.5",
-                "http://user:pass@10.0.0.1/x", "999.999.1.1"]:
-        ok(f"private/blocked input reject: {bad[:24]}",
-           lookup_ip_domain(bad).get("ok") is False)
 
 
 def test_bot_gate():

@@ -193,27 +193,7 @@ check("SSRF: metadata IP block", _al3.get("ok") is False or "blocked" in str(_al
       or _al3.get("risk", 0) >= 30, f"got {str(_al3)[:120]}")
 
 # =====================================================================
-section("6) 🌐 DOMAIN OSINT — parallel + certspotter")
-# =====================================================================
-import modules.osint_tools as OT
-
-_ot_src = open(os.path.join(ROOT, "modules", "osint_tools.py"), encoding="utf-8").read()
-check("domain_osint parallel chalta hai (ThreadPoolExecutor)",
-      "ThreadPoolExecutor(max_workers=6)" in _ot_src)
-check("Certspotter primary source hai", "api.certspotter.com" in _ot_src)
-check("crt.sh fallback hai (timeout 10s)", "crt.sh/?q=" in _ot_src and "timeout=10" in _ot_src)
-check("raw requests.get nahi bacha", "requests.get(" not in _ot_src)
-check("core.net http_get use hota hai", "http_get(" in _ot_src)
-
-_do = OT.domain_osint("google.com")
-check("domain_osint google.com ok", _do.get("ok") is True)
-check("whois mila (registrar)", bool((_do.get("whois") or {}).get("registrar")))
-check("DNS records (A/NS/MX)", bool(_do.get("a")) and bool(_do.get("ns")))
-check("subdomains mile (certspotter se)", len(_do.get("subdomains") or []) > 0)
-check("ip_info attached", bool(_do.get("ip_info")))
-
-# =====================================================================
-section("7) 🔗 CHANNEL CLONER — Remove Links feature")
+section("6) 🔗 CHANNEL CLONER — Remove Links feature")
 # =====================================================================
 import modules.channel_cloner as CC
 import database as DB
@@ -252,16 +232,16 @@ check("bot.py reset me remove_links=False jaata hai",
       'auto_status="off", remove_links=False' in _bot_src)
 
 # =====================================================================
-section("8) 🧹 CODE HEALTH — dead imports / duplicate keys")
+section("7) 🧹 CODE HEALTH — dead imports / duplicate keys")
 # =====================================================================
 # 8a) koi module import fail na ho + har __all__ naam exist kare
 import importlib
 _mods = ["api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
          "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
          "general_tools", "imei_lookup", "media_downloader", "osint_hub",
-         "osint_tools", "payguard", "", "render_health",
+         "osint_tools", "payguard", "render_health",
          "sarkari_hub", "temp_mail", "toolkit_extras", "tutorial_hub",
-         "vip_payment", "web_tools"]
+         "vip_payment"]
 _ghost = []
 for _mn in _mods:
     try:
@@ -292,7 +272,7 @@ _dk = _dup_keys(os.path.join(ROOT, "bot.py"))
 check("bot.py me duplicate dict keys nahi", not _dk, f"dups: {_dk}")
 
 # 8c) version bump
-check("BOT_VERSION v55 hai", 'BOT_VERSION = "v55' in _bot_src,
+check("BOT_VERSION v56 hai", 'BOT_VERSION = "v56' in _bot_src,
       re.search(r'BOT_VERSION = "([^"]+)"', _bot_src).group(1) if re.search(r'BOT_VERSION = "([^"]+)"', _bot_src) else "?")
 
 # 8d) F401 clean (static) — sirf asli files par

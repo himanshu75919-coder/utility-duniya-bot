@@ -182,6 +182,42 @@ SHORTENER_HOSTS = (
 )
 
 
+
+# ===========================================================================
+#  v56: FRIENDLY NETWORK ERRORS
+#  Live audit me dikha ki expand_url() user ko raw requests/urllib3 ka wall of
+#  text dikha deta tha:
+#     "HTTPSConnectionPool(host='junk', port=443): Max retries exceeded with
+#      url: / (Caused by NameResolutionError(...getaddrinfo failed...))"
+#  Ye technical hai, user ko solution nahi milta. Neeche wala helper har tarah
+#  ki connection failure ko ek saaf Hindi line me badal deta hai.
+# ===========================================================================
+_NET_ERR_PATTERNS = (
+    ("name resolution", "getaddrinfo failed", "name or service not known",
+     "nodename nor servname", "temporary failure in name resolution",
+     "name resolution error"),
+    ("max retries exceeded", "connection refused", "connection reset",
+     "connection aborted", "connectionerror", "newconnectionerror",
+     "failed to establish a new connection"),
+    ("timed out", "timeout", "readtimeout", "connecttimeout"),
+)
+
+
+def friendly_net_error(exc, host: str = "") -> str:
+    """Raw network exception → saaf Hindi line (technical kabhi leak na ho)."""
+    low = str(exc).lower()
+    h = f" (<code>{host}</code>)" if host else ""
+    for grp, text in zip(_NET_ERR_PATTERNS, (
+        f"🔌 <b>Ye website ka pata hi nahi chala</b>{h} — domain exist nahi karta "
+        "ya spelling galat hai.",
+        f"🔌 <b>Ye website khul nahi rahi</b>{h} — server band hai ya link dead hai.",
+        f"⏳ <b>Server ne time par jawab nahi diya</b>{h} — 10 second baad dobara try karo.",
+    )):
+        if any(k in low for k in grp):
+            return text
+    return f"🔌 <b>Ye link abhi khul nahi paya</b>{h} — link dead hai ya server busy hai."
+
+
 def expand_url(url: str, max_hops: int = 6):
     """Redirect chain follow karta hai aur final + cleaned URL deta hai.
     Returns dict: {ok, original, final, cleaned, chain: [...], hops, is_shortener}"""
@@ -246,13 +282,18 @@ def expand_url(url: str, max_hops: int = 6):
             "is_shortener": is_short,
         }
     except NetError as e:
-        # SSRF block ya internal-address redirect — user ko saaf reason do
+        # SSRF block ya internal-address redirect — user ko saaf reason do.
+        # v56: non-blocked NetError me raw requests/urllib3 text jaa raha tha
+        # ("HTTPSConnectionPool(host=...): Max retries exceeded with url: ...").
+        # Ab friendly_net_error() se saaf line jaati hai.
         final = chain[-1] if chain else url
         blocked = e.kind == "blocked"
+        _host = urlparse(final).netloc or urlparse(url).netloc
         return {
             "ok": False,
             "original": url,
-            "error": (f"🚫 {e.message}" if blocked else str(e.message)[:120]),
+            "error": (f"🚫 {e.message}" if blocked
+                      else friendly_net_error(e.message, _host)),
             "final": final,
             "cleaned": clean_tracking(final),
             "chain": chain or [url],
@@ -260,12 +301,12 @@ def expand_url(url: str, max_hops: int = 6):
             "is_shortener": is_short,
             "blocked": blocked,
         }
-    except Exception as e:
+    except Exception as e:                                    # noqa: BLE001
         final = chain[-1] if chain else url
         return {
             "ok": False,
             "original": url,
-            "error": str(e)[:120],
+            "error": friendly_net_error(e, urlparse(final).netloc),
             "final": final,
             "cleaned": clean_tracking(final),
             "chain": chain or [url],
@@ -354,7 +395,19 @@ def analyze_link(raw_url: str) -> dict:
         "final_url": target,
         "https": p.scheme == "https",
         "host": host_no_port or "?",
+        # v56: link zinda hai ya nahi — pehle "junk.nonexistent-xyz.com" jaise
+        # dead domain par bhi "SAFE ✅ 0/100" aa jaata tha (misleading).
+        "reachable": exp.get("ok") is not False,
     }
+
+    # --- A0) LINK ZINDA HAI YA NAHI (v56) ---
+    # Dead / non-existent domain par pehle "SAFE ✅" verdict aata tha — user
+    # sochta tha "theek hai" jabki link kholta hi nahi. Ab ye saaf dikhta hai.
+    if exp.get("ok") is False:
+        risk += 10
+        reasons.append("🔌 <b>Ye link khulta nahi</b> — domain exist nahi karta, "
+                       "server band hai, ya link dead hai. "
+                       "(Aise link par OTP/password bilkul na daalo.)")
 
     # --- A) redirect chain (shorteners chhupate hain asli destination) ---
     if exp.get("is_shortener"):
@@ -497,6 +550,13 @@ def analyze_link(raw_url: str) -> dict:
         verdict, level, advice = "LOW RISK ✅", "low", "Only minor signals. Normal browsing is fine."
     else:
         verdict, level, advice = "SAFE ✅", "safe", "No suspicious signal found. Still, never share an OTP or PIN."
+
+    # v56: dead link ke liye "SAFE" kehna galat tha — jhootha bharosa deta tha.
+    if exp.get("ok") is False and level in ("safe", "low"):
+        verdict = "LINK KHULTA NAHI 🔌"
+        advice = ("Ye link abhi kaam nahi kar raha (domain galat / server band). "
+                  "Kisi aur se mila ho to source se dobara verify karo. "
+                  "OTP / password / UPI PIN kabhi na dalo.")
 
     if not reasons:
         reasons.append("✅ No redirect, IP, punycode, lure-word or phishing-feed match found.")

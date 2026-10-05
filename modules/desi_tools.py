@@ -1125,33 +1125,3 @@ async def hindi_tts(text: str, voice: str = "male", rate: str = "+0%") -> dict:
 # ============================================================
 #  5) (BONUS) 🪔 RUHU KAAL + DIN SHUBH MUHURAT (offline hisaab)
 # ============================================================
-
-
-# ============================================================
-#  v52.3: 🪪 AADHAAR EID STATUS HELPER (14-digit Enrolment ID)
-#  Sirf APNA EID — official UIDAI SMS (51969) + web link ka ready guide.
-#  Koi data fetch nahi hota — koi CAPTCHA bypass nahi, koi leak nahi.
-# ============================================================
-def aadhaar_eid_helper(target: str) -> dict:
-    """14-digit Aadhaar Enrolment ID (EID/EPIC) validate karo + official
-    status-check ka ready SMS (51969) + official web link bana ke do.
-    NOTE: official UIDAI web check CAPTCHA maangta hai (user khud karega);
-    SMS service CAPTCHA-free official hai."""
-    digits = re.sub(r"\D", "", (target or ""))
-    # user kabhi-kabhi EID + stamp (14+14 digit) bhejta hai
-    if len(digits) >= 28:
-        digits = digits[:14]
-    if len(digits) != 14:
-        return {"ok": False,
-                "error": ("Valid <b>14-digit Enrolment ID (EID/EPIC)</b> bhejo.\n"
-                          "📌 Ye aapki <b>Aadhaar acknowledgement slip</b> ke top par hota hai\n"
-                          "(enrolment centre se slip ke saath mila tha).\n"
-                          "Jaise: <code>99305683211412</code>\n"
-                          "⚠️ Ye aapka <b>12-digit Aadhaar number NAHI</b> hai — EID alag cheez hai.")}
-    sms = f"UID STATUS {digits}"
-    return {"ok": True,
-            "eid": digits,
-            "sms": sms,
-            "sms_to": "51969",
-            "web": "https://resident.uidai.gov.in/check-aadhaar",
-            "lost": "https://resident.uidai.gov.in/lost-uideid"}
