@@ -35,12 +35,15 @@ services:
         sync: false            # payment ke liye: yourname@upi
       - key: TUTORIAL_URL
         sync: false            # apna tutorial link (khali = bot khud banayega)
-      # ---------- MODE (v49.4) ----------
-      # Default POLLING hai — sabse safe. Render ke free plan par deploy ke waqt DNS
-      # ready nahi hota tha, isliye webhook "failed to resolve host" deta tha aur bot
-      # crash ho jata tha. Webhook chahiye to WEBHOOK_MODE=on + WEBHOOK_URL do.
+      # ---------- MODE (v59.9) ----------
+      # DEFAULT = auto (webhook) — Render par sabse reliable. POLLING me deploy ke
+      # waqt 10-20 second do instance ek saath getUpdates karte hain aur Telegram
+      # "Conflict: terminated by other getUpdates request" deta hai (us waqt bot
+      # jawab nahi deta). Webhook me Telegram khud update bhejta hai -> Conflict 0.
+      # Safety: DNS check + Telegram preflight fail ho to bot chup-chaap POLLING
+      # par chalta hai (crash nahi hota). Zabardasti polling chahiye to WEBHOOK_MODE=polling
       - key: WEBHOOK_MODE
-        value: polling         # polling | on  (on karne par webhook URL bhi dena hoga)
+        value: auto            # auto | on | polling | off
       - key: WEBHOOK_URL
         sync: false            # khali rakho = polling. Webhook ke liye service ka pura URL
       - key: WEBHOOK_SECRET

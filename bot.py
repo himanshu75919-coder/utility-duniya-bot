@@ -169,7 +169,8 @@ from modules.toolkit_extras import (
     shorten_url,
 )
 from modules import api_hub as hubapi
-from modules.render_health import webhook_url_from_env, webhook_url_usable
+from modules.render_health import (webhook_url_from_env, webhook_url_usable,
+                                   webhook_preflight)
 from modules.imei_lookup import (
     device_title as imei_title,
     fetch_imei_details,
@@ -312,7 +313,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v59.7 Support Clickable + Crash-Proof + UPI Gaya + Num Info (ek format)"  # v59: 🏦 UPI tool + poori code DELETE · 🧹 saare lecture/note text gaye · 📱 Number Info ek hi layout (aapka format, data sirf aapki API se) + 3 examples · /numdemo + /numtest preview · ⚡ YouTube instant + tez · 📲 IMEI photo · 🛡️ crash-proof core (self-check+self-heal) · 💬 v59.7 SUPPORT CLICKABLE: har card/prompt me @Supermannn_x tap = seedha owner se chat (env OWNER_USERNAME se badal sakte ho) + /support command
+BOT_VERSION = "v59.9 Auto-Webhook (Conflict-Free) + Live Version Proof + Support Clickable"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1853,7 +1854,7 @@ def _startup_selfcheck() -> bool:
     print(f"   🛡️  self-heal: crashes={_CRASH_STATE['count']}")
     _db = os.environ.get("DB_PATH") or os.environ.get("DATA_DIR") or "default (auto)"
     print(f"   🗄️  storage: {_db}"
-          f" | 🌐 mode: {'WEBHOOK' if os.environ.get('WEBHOOK_URL') else 'POLLING'}"
+          f" | 🌐 mode: {'WEBHOOK' if webhook_url_from_env() else 'POLLING'}"
           f" | 🔄 keepalive: {'ON' if os.environ.get('KEEPALIVE_ENABLED', '1') != '0' else 'OFF'}")
     print("=" * 64)
     return ok
@@ -1901,8 +1902,13 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
                        and "cancel" not in PROMPTS.get("terabox", "").lower())
     _prompt_ok = "📝 <b>Examples:</b>" in PROMPTS.get("imei", "")
     _numpanel = bool(numprov.is_configured())
+    _mode = "WEBHOOK (Conflict-free)" if webhook_url_from_env() else "POLLING"
     await update.message.reply_text(
         f"⚡ <b>{hesc(BOT_VERSION)}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🔖 <b>Code commit:</b> <code>{hesc(_GIT_COMMIT or 'unknown')}</code>\n"
+        f"🌐 <b>Mode:</b> {_mode} | ⏱️ <b>chal raha:</b> {_uptime_str()}\n"
+        f"🩺 <b>Crashes:</b> {_CRASH_STATE['count']} (self-heal ON)\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎨 <b>Naya prompt system:</b> {'✅ CHALU' if _prompt_ok else '❌ purana'}\n"
         f"  • {_n_tools} tools me header + ✨ ask + 📝 Examples\n"
@@ -1913,8 +1919,13 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "⚡ <b>YouTube quality buttons:</b> ✅ instant (cache + background warm)\n"
         "🧹 <b>Purane lecture/note lines:</b> ✅ saare tools se gayi\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
-        "<i>Agar yahan v59 nahi dikh raha to Render me deploy pending hai — "
-        "2 minute baad dobara bhejo.</i>",
+        "<b>Naya version live hai ya nahi — kaise pakdo:</b>\n"
+        "1. Upar wala 🔖 commit Render ke latest commit jaisa hai = ✅ naya code LIVE\n"
+        "2. Alag hai = deploy abhi chal raha hai, 2 minute baad /version dobara bhejo\n"
+        "3. Browser me <b>/health</b> kholo: "
+        "https://utility-duniya-bot.onrender.com/health\n"
+        "<i>(v59.9: /version aur /health me ab commit + mode dono dikhte hain — "
+        "pehle purana label chipka rehta tha, isliye confusion hoti thi.)</i>",
         parse_mode=HTML)
 
 
@@ -6880,6 +6891,26 @@ def _keepalive_pinger():
                 log.debug("keepalive ping fail: %s", e)
 
 
+def health_html() -> str:
+    """/health ka poora report — POLLING (keepalive server) aur WEBHOOK dono me same.
+
+    v59.9: pehle webhook mode me /health sirf chhota JSON deta tha, isliye user
+    ko version/commit dikh hi nahi raha tha.
+    """
+    _ka = (f"keepalive pinger: last {_KEEPALIVE_STATE.get('last_run')} | ok={_KEEPALIVE_STATE.get('last_ok')}"
+           f" | runs={_KEEPALIVE_STATE.get('runs')}")
+    return ("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"
+            f"<p style='font-family:monospace'>version: {BOT_VERSION}</p>"
+            f"<p style='font-family:monospace'>commit: {_GIT_COMMIT or 'unknown'}"
+            f" | branch: {_GIT_BRANCH or 'unknown'}"
+            f" | mode: {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}"
+            f" | up: {int(time.time() - _START_TS) // 60}m</p>"
+            f"<p style='font-family:monospace'>{_ka}</p>"
+            f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
+            f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
+            f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
+
+
 # ---------------- KEEPALIVE WEB SERVER ON RENDER PORT 10000 ----------------
 def _keepalive():
     import http.server
@@ -6892,18 +6923,7 @@ def _keepalive():
             self.send_response(200)
             self.send_header("Content-type", "text/html")
             self.end_headers()
-            _ka = (f"keepalive pinger: last {_KEEPALIVE_STATE.get('last_run')} | ok={_KEEPALIVE_STATE.get('last_ok')}"
-                   f" | runs={_KEEPALIVE_STATE.get('runs')}")
-            html = ("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"
-                    f"<p style='font-family:monospace'>version: {BOT_VERSION}</p>"
-                    f"<p style='font-family:monospace'>commit: {_GIT_COMMIT or 'unknown'}"
-                    f" | branch: {_GIT_BRANCH or 'unknown'}"
-                    f" | up: {int(time.time() - _START_TS) // 60}m</p>"
-                    f"<p style='font-family:monospace'>{_ka}</p>"
-                    f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
-                    f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
-                    f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
-            self.wfile.write(html.encode("utf-8"))
+            self.wfile.write(health_html().encode("utf-8"))
 
         def do_HEAD(self):
             self.send_response(200)
@@ -6934,12 +6954,23 @@ def main():
     # free plan par deploy ke waqt DNS ready nahi hota tha aur bot
     # "Bad webhook: failed to resolve host" par CRASH ho jata tha (aapka deploy fail).
     global WEBHOOK_URL
-    _wh_ok, _wh_why = (False, "polling mode")
+    _wh_ok, _wh_why = (False, "polling mode (WEBHOOK_MODE=off ya koi URL nahi)")
     if WEBHOOK_URL:
         _wh_ok, _wh_why = webhook_url_usable(WEBHOOK_URL)
         if not _wh_ok:
             log.warning("WEBHOOK chalu nahi ho sakta (%s) — ab POLLING par chalega", _wh_why)
             WEBHOOK_URL = ""
+        else:
+            # v59.9: Telegram se ek baar pooch lo — setWebhook maan gaya tabhi webhook.
+            # Fail hua to chup-chaap POLLING (bot kabhi nahi rukta, koi crash nahi).
+            _secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
+            _pf_ok, _pf_why = webhook_preflight(WEBHOOK_URL, f"/webhook/{_secret}", BOT_TOKEN,
+                                                os.environ.get("WEBHOOK_SECRET_TOKEN") or None)
+            if _pf_ok:
+                log.info("WEBHOOK MODE confirm (Telegram ne URL maan liya) — koi Conflict nahi hoga")
+            else:
+                log.warning("WEBHOOK preflight fail (%s) — POLLING par chalega", _pf_why)
+                WEBHOOK_URL = ""
     if not WEBHOOK_URL:
         log.warning("MODE = POLLING (safe default) | %s", _wh_why)
 
@@ -7048,7 +7079,7 @@ def main():
     # Webhook me Telegram khud update bhejta hai, getUpdates hota hi nahi -> Conflict kabhi nahi.
     if WEBHOOK_URL:
         from modules.render_health import install_webhook_health_routes
-        install_webhook_health_routes()
+        install_webhook_health_routes(health_html)
         port = int(os.environ.get("PORT", "10000"))
         secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
         path = f"/webhook/{secret}"
@@ -7075,6 +7106,15 @@ def main():
                 app.bot.delete_webhook(drop_pending_updates=True)
             except Exception:                                   # noqa: BLE001
                 pass
+
+    # v59.9: agar pehle webhook lagi thi to hata do — warna getUpdates
+    # "Conflict: can't use getUpdates method while webhook is active" dega.
+    try:
+        from telegram import Bot as _Bot
+        _Bot(BOT_TOKEN).delete_webhook(drop_pending_updates=True)
+        log.info("Purani webhook (agar thi) hata di — safai OK")
+    except Exception as _e:                                      # noqa: BLE001
+        log.debug("webhook cleanup skip: %s", str(_e)[:80])
 
     log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
                 socket.gethostname(), os.getpid())

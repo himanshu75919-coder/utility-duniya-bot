@@ -12,15 +12,21 @@ import os
 
 
 def webhook_url_from_env(env=None) -> str:
-    """Webhook URL — sirf jab WEBHOOK_MODE on ho (default: POLLING, sabse safe).
+    """Webhook URL — Render par default AUTO (WEBHOOK_MODE=off karo to POLLING).
 
-    Pehle yahi RENDER_EXTERNAL_URL se apne aap webhook on kar deta tha. Render ke
-    free plan par deploy ke waqt DNS kabhi kabhi ready nahi hota -> Telegram
-    "Bad webhook: failed to resolve host" deta hai aur bot crash ho jata tha.
-    Ab: WEBHOOK_MODE=on + WEBHOOK_URL (ya RENDER_EXTERNAL_URL) ho to hi webhook.
+    v59.9: ab AUTO hai — RENDER_EXTERNAL_URL (ya WEBHOOK_URL) mila to webhook.
+    Kyun: POLLING me har deploy par 10-20 second do instance ek saath getUpdates
+    karte hain -> Telegram "Conflict: terminated by other getUpdates request"
+    -> us waqt bot jawab nahi deta. Webhook me Telegram khud update bhejta hai,
+    getUpdates hota hi nahi -> Conflict kabhi nahi.
+
+    Crash se bachav: webhook_url_usable() (DNS check) + webhook_preflight()
+    (Telegram se setWebhook ek baar pooch lo) — dono fail ho to chup-chaap
+    POLLING par chalta hai, bot band nahi hota. WEBHOOK_MODE=off = zabardasti
+    polling.
     """
     values = os.environ if env is None else env
-    mode = str(values.get("WEBHOOK_MODE") or "polling").strip().lower()
+    mode = str(values.get("WEBHOOK_MODE") or "auto").strip().lower()
     if mode in ("off", "polling", "0", "false", "no"):
         return ""
     return str(values.get("WEBHOOK_URL") or values.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
@@ -57,8 +63,50 @@ def webhook_url_usable(url: str) -> tuple:
     return True, ""
 
 
-def install_webhook_health_routes() -> None:
-    """Add GET/HEAD `/` and `/health` routes to PTB's webhook app once."""
+def webhook_preflight(url: str, path: str, token: str, secret_token=None,
+                      timeout: float = 12.0) -> tuple:
+    """Telegram khud is webhook ko maanta hai? (setWebhook ek baar try karo)
+
+    Returns (ok: bool, reason: str). Isse pehle hi pata chal jaata hai ki
+    webhook chalega ya nahi — phir polling par chup-chaap switch ho jaate hain,
+    bot crash nahi hota. Token/path kabhi log me nahi jaate.
+    """
+    import json as _json
+    import urllib.parse as _up
+    import urllib.request as _ur
+
+    base = str(url or "").strip().rstrip("/")
+    if not base or not token:
+        return False, "URL ya token nahi mila"
+    full = base + (path if str(path).startswith("/") else "/" + str(path))
+    payload = {"url": full, "drop_pending_updates": "true"}
+    if secret_token:
+        payload["secret_token"] = str(secret_token)
+    try:
+        req = _ur.Request(
+            "https://api.telegram.org/bot" + str(token) + "/setWebhook",
+            data=_up.urlencode(payload).encode(),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        with _ur.urlopen(req, timeout=timeout) as r:
+            body = _json.loads(r.read().decode("utf-8", "replace"))
+    except Exception as e:                                        # noqa: BLE001
+        return False, f"Telegram se baat nahi hui ({type(e).__name__})"
+    if isinstance(body, dict) and body.get("ok"):
+        return True, ""
+    why = ""
+    if isinstance(body, dict):
+        why = str(body.get("description") or body.get("error_code") or "")
+    return False, f"Telegram ne webhook maana nahi: {why[:90]}"
+
+
+def install_webhook_health_routes(status_provider=None) -> None:
+    """Add GET/HEAD `/` and `/health` routes to PTB's webhook app once.
+
+    status_provider (optional) — callable jo HTML/text deta hai. Bot isse apni
+    poori /health report (version, commit, crashes, keepalive) webhook mode me
+    bhi dikhata hai — pehle webhook mode me sirf chhota JSON aata tha.
+    """
     import telegram.ext._updater as updater_module
     from tornado.web import RequestHandler
 
@@ -70,11 +118,18 @@ def install_webhook_health_routes() -> None:
         def _respond(self) -> None:
             self.set_header("Cache-Control", "no-store")
             self.set_header("X-Content-Type-Options", "nosniff")
+            if callable(status_provider):
+                try:
+                    self.set_header("Content-Type", "text/html; charset=utf-8")
+                    self.write(status_provider())
+                    return
+                except Exception:                                 # noqa: BLE001
+                    pass
+            self.set_header("Content-Type", "application/json; charset=utf-8")
             self.write({
                 "status": "ok",
                 "service": "utility-duniya-bot",
                 "mode": "webhook",
-                "powered_by": "@Supermannn_x",
             })
 
         def get(self) -> None:

@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from modules import imei_lookup
 from modules import osint_hub
-from modules.render_health import webhook_url_from_env, webhook_url_usable
+from modules.render_health import (webhook_url_from_env, webhook_url_usable,
+                                   webhook_preflight)
 
 try:
     from modules.osint_tools import lookup_phone_info
@@ -111,8 +112,17 @@ class RenderWebhookConfigTests(unittest.TestCase):
     "Bad webhook: failed to resolve host" deta tha aur bot crash ho jata tha.
     """
 
-    def test_default_mode_is_polling(self):
-        self.assertEqual(webhook_url_from_env({"WEBHOOK_URL": "https://x.onrender.com"}), "")
+    def test_default_mode_is_auto_webhook_on_render(self):
+        # v59.9: default AUTO — Render URL mila to webhook (Conflict-free)
+        self.assertEqual(webhook_url_from_env({"WEBHOOK_URL": "https://x.onrender.com"}),
+                         "https://x.onrender.com")
+        self.assertEqual(webhook_url_from_env({"RENDER_EXTERNAL_URL": "https://y.onrender.com/"}),
+                         "https://y.onrender.com")
+        # khaali env / local machine = polling (kuch nahi mila to "")
+        self.assertEqual(webhook_url_from_env({}), "")
+        # WEBHOOK_MODE=off = zabardasti polling (escape hatch)
+        self.assertEqual(webhook_url_from_env({"WEBHOOK_MODE": "off",
+                                               "RENDER_EXTERNAL_URL": "https://z.onrender.com"}), "")
 
     def test_explicit_webhook_url_wins_and_is_normalized(self):
         self.assertEqual(
@@ -131,11 +141,17 @@ class RenderWebhookConfigTests(unittest.TestCase):
             "https://bot.onrender.com",
         )
 
-    def test_render_blueprint_keeps_polling_default(self):
+    def test_render_blueprint_has_no_hardcoded_webhook_url(self):
         render_yaml = (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
-        self.assertIn("- key: WEBHOOK_MODE\n        value: polling", render_yaml)
         # WEBHOOK_URL me hard-coded value nahi honi chahiye (warna deploy crash)
         self.assertNotIn("- key: WEBHOOK_URL\n        value: https://utility-duniya-bot.onrender.com", render_yaml)
+        # v59.9: WEBHOOK_MODE ab auto hai — file use zabardasti polling par lock na kare
+        self.assertNotIn("- key: WEBHOOK_MODE\n        value: polling", render_yaml)
+        self.assertIn("- key: WEBHOOK_MODE\n        value: auto", render_yaml)
+
+    def test_webhook_preflight_handles_missing_inputs_and_bad_host(self):
+        self.assertEqual(webhook_preflight("", "/webhook/x", "1:t")[0], False)
+        self.assertEqual(webhook_preflight("https://x.onrender.com", "/webhook/x", "")[0], False)
 
     def test_webhook_url_usable_rejects_bad_hosts(self):
         ok, _why = webhook_url_usable("")
