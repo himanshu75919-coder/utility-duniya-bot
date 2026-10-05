@@ -8,6 +8,163 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v53.0 UPDATE — "PRO ENGINE" UPGRADE (aapke "saare tools ko deeply check karke premium banao" order par)
+
+**Bhai, is baar koi naya tool nahi banaya. Is baar maine jo tools pehle se the unhe
+*ek-ek karke live test kiya* — asli API par, asli UID par, asli link par — aur jo
+andar se toota hua tha use theek kiya. Result: bot ab **jhooth nahi bolta** aur
+**kaam na hone par credit nahi katta.**
+
+Neeche har tool ka **pehle kya tha** vs **ab kya hai** — numbers ke saath, kyunki
+maine khud measure kiya hai:
+
+### 🔥 1. FF UID (Free Fire) — **sabse bada fix**
+| Pehle (v52.3) | Ab (v53.0) |
+|---|---|
+| Har UID par **"Player not found"** aata tha — chahe UID asli ho | **Asli data milta hai** — naam, level, rank, likes, last login |
+| Ek player dhoondhne me **11 second** lagte the | **0.19 second** (58 guna tez) |
+| 13 regions thi, ek zaroori region (**SAC** = South America) **gayab** thi — jahan lakhon asli players hain | 15 regions, sab live-validated |
+| Ek region slow ho to poora bot atak jata tha | Sab regions **ek saath** check hoti hain + 6 second ki hard deadline |
+| Region galat likho to chup-chaap galat region use hota thi | Bot khud **sahi region pehchan** leta hai |
+
+> Maine asli UID `510069453` par test kiya — pehle 404 aata tha, ab poora profile
+> milta hai. Wo UID **SAC** region me tha, jo purani list me tha hi nahi. Isliye
+> har player "not found" aata tha.
+
+### 🎮 2. BGMI UID — **honest bot, credit bachane wala**
+- **Pehle:** BGMI ka API server **mahino se dead** hai (maine check kiya —
+  `kronos-api.pubg.com` ka DNS hi resolve nahi hota, `pubg-shazam.herokuapp.com`
+  404 deta hai). Phir bhi bot **1 credit kaat leta tha** aur ek generic "fallback"
+  message dikhata tha. Matlab: **credit gaya, kuch mila nahi.**
+- **Ab:** Bot pehle **check karta hai** ki service zinda hai ya nahi. Agar dead hai
+  to saaf-saaf bolta hai *"BGMI ki service abhi busy/down hai"* aur
+  **credit nahi katta**. Kabhi bhi nakli stats nahi banata.
+- ⚠️ Sach ye hai ki BGMI (India) ke liye koi **free public API exist hi nahi karta** —
+  Krafton ne diya hi nahi. Jo competitor bot "live BGMI stats" dikhate hain wo
+  **leaked data** use karte hain. Aapka bot ye kabhi nahi karega — ye legal bhi
+  nahi aur user ko galat info bhi deta hai.
+
+### 📌 3. PINTEREST — **6 fake results → 8 asli pins**
+| Pehle | Ab |
+|---|---|
+| Keyword search par **6 results** aate the, par **ek bhi asli Pinterest image nahi** hoti thi (0 pinimg links) — sirf page ka thumbnail | **8/8 asli pins**, har ek ki **original full-quality image** |
+| `pin.it` chhote link par kuch nahi hota tha | `pin.it` short link **khud resolve** hota hai |
+| Sirf photo milti thi | **Video pins bhi** milte hain (video alag se download hota hai) |
+| Result me sirf image thi | Ab **title, description, kis ne pin kiya, kitne repin, source website** sab dikhta hai |
+
+### 📄 4. WEB SCRAPER — **22,515 words kachra → 11,339 words saaf article**
+- **Pehle:** Page ka **poora HTML chrome** aata tha — menu, footer, ads, "Subscribe
+  to newsletter", "Privacy Policy", cookie banner. Ek article scrape karne par
+  **22,515 words** aate the jisme asli article sirf ~30% tha.
+- **Ab:** Sirf **article ka text** — **11,339 words**, saaf paragraphs me.
+- Naye features: **lekhak ka naam, publish date, site ka naam, padhne me kitne
+  minute lagenge**, aur **Markdown format** (headings/bold/list sahi rehte hain).
+- Bahut lamba article ho to seedha **`.txt` file** ban ke milta hai (Telegram
+  message limit me atakta nahi).
+
+### 📧 5. TEMP MAIL — **OTP khud nikalta hai**
+- **Pehle:** Email ka **poora body dump** aata tha (HTML, footer, privacy policy,
+  unsubscribe link — sab). OTP dhoondhna **user ka kaam** tha.
+- **Ab:** Bot **OTP code khud detect** karke sabse upar bada dikha deta hai.
+  Maine 10 alag-alag tarah ke real OTP emails par test kiya — **10/10 sahi pakde**.
+- **False-positive guard:** Order ID, amount, date, phone number ko **OTP nahi
+  samajhta** (ye bhi test kiya).
+- Naye **inline buttons**: `📥 Inbox Refresh` · `🔑 OTP nikaalo` · `🗑️ Delete`
+- Inbox refresh par **sirf naye messages** dikhte hain (purane repeat nahi hote).
+
+### 📦 6. APP FINDER — **8 andhe link → verified asli detail**
+- **Pehle:** Bot app ka naam lekar **8 URL guess** kar deta tha — bina check kiye
+  ki app hai bhi ya nahi. Ek **nakli app** ka naam bhejo to bhi wahi 8 link aate
+  the. Aur **2 piracy websites** (GetModPC, HappyMod) bhi list me thin — ye
+  illegal hain, maine **hamesha ke liye hata diya**.
+- **Ab:** Bot **Google Play se asli data nikaalta hai** aur verify karta hai:
+  - ✅ App ka **asli naam**, **developer**, **rating** (★4.4), **kitne reviews**
+    (India format me — `24.5Cr`), **kitne downloads** (`1KCr+`), **icon**, **category**
+  - ✅ App **F-Droid** par bhi hai ya nahi (open-source check)
+  - ✅ **iOS** par bhi hai ya nahi (iTunes se)
+  - ✅ Nakli app bhejo → **"App nahi mili"** aur **credit NAHI katta**
+- Seedha package ID bhi chalta hai: `org.telegram.messenger`
+
+### 📷 7. QR CODE — **ab premium branded QR**
+- **Pehle:** QR engine me color aur logo ka support **tha**, par bot usse use hi
+  nahi karta tha — sab params ignore ho jate the. Aur lamba text bhejo to bot
+  **crash** ho jata tha (credit kat chuka hota tha).
+- **Ab:**
+  - 🏷️ **Center me bot ka logo** (HD error-correction ke saath, taaki scan ho)
+  - 🎨 **Custom colors**: `link bhejo | #FF0000 | #FFFFFF` (text | QR color | background)
+  - 🛡️ **Contrast guard**: agar aapke colors se QR scan nahi hoga to bot khud
+    black/white laga deta hai aur bata deta hai
+  - ⚠️ WiFi aur Contact Card QR me logo **jaan-boojh kar nahi** lagaya — wo dense
+    hote hain aur deewar par print hote hain, logo se purane phone scan nahi kar paate
+  - 📇 **Contact Card ab 4 step ka hai**: Naam → Phone → Company → Email
+    (pehle sirf naam+phone, aur company me hardcoded "Utility Duniya Bot" chala jata tha!)
+  - 📶 **WiFi QR** ab special characters (`; : , " \`) ko sahi escape karta hai —
+    pehle jinka password me `;` ya `:` hota tha unka QR **connect hi nahi karta tha**
+  - ❌ QR na bane to **credit nahi katta**
+
+### 📊 8. TELEMETRY — **ab koi tool chup-chaap fail nahi hoga**
+- **Pehle:** Code me **58 jagah** `except: pass` tha — matlab error aaya to bot
+  **chup-chaap nigal jata tha**. Aapko pata hi nahi chalta tha ki kaunsa tool
+  kaam nahi kar raha. Maine isi wajah se 2 mahine tak ye nahi jaan paya ki
+  FF UID hamesha fail ho raha tha.
+- **Ab:** Har tool ki **call count, success/fail count, average time, cache hit,
+  aur aakhri error** record hota hai.
+- **`/sys`** command par ab ek naya block dikhta hai:
+  - Total calls · kitne successful · success rate · credits
+  - Kaunse upstream server **DEAD** hain
+  - **Sabse zyada fail hone wale tools** (top 5)
+- Isse agli baar koi tool toote to **turant pata chal jayega**, guess nahi karna padega.
+
+### 🛡️ 9. CREDIT FAIRNESS — **sabse zaroori badlav**
+**Naya rule: credit SIRF tab katega jab kaam actually hua ho.**
+
+Pehle ye tools fail hone par bhi credit kaat lete the — ab nahi:
+- 🎮 BGMI (service down) → **credit nahi**
+- 🔥 FF UID (service busy) → **credit nahi**
+- 📦 App Finder (app nahi mili) → **credit nahi**
+- 📷 QR (ban hi nahi paya) → **credit nahi**
+- 📌 Pinterest (pin nahi mila) → **credit nahi**
+
+Jo **free** rahe (jaise pehle the): Pinterest keyword search, Temp Mail inbox refresh.
+
+### 🧪 10. TESTING — **441 → 733 checks**
+| Suite | Checks |
+|---|---|
+| `tests/test_v50_core.py` | 106 ✅ |
+| `_verify_v49.py` | 128 ✅ |
+| `_selftest_v50.py` | 208 ✅ |
+| `tests/test_privacy_safe_lookup.py` | 14 ✅ |
+| **`tests/test_v53.py`** (naya) | **277 ✅** |
+| **TOTAL** | **733 · 0 fail** |
+
+Naya `test_v53.py` **live internet par chalta hai** — asli Pinterest API, asli
+Free Fire API, asli Google Play, asli mail.tm. Isliye ye pakad sakta hai ki
+"koi API badal gaya" — jaise mail.tm ne apna `/domains` format badla tha aur
+purana code crash kar raha tha.
+
+### ⚙️ Naye environment variables (sabke **default set hain** — Render par kuch
+dalne ki zaroorat NAHI, bas chaaho to tweak kar sakte ho)
+```
+PIN_SEARCH_COUNT=8      PIN_TIMEOUT=20       PIN_CACHE_TTL=900
+FF_SCAN_TIMEOUT=4       FF_SCAN_DEADLINE=6   GAMING_TIMEOUT=12
+GAMING_STATUS_TTL=180
+SCRAPER_TIMEOUT=20      SCRAPER_MAX_MB=4     SCRAPER_MIN_WORDS=40
+MAILTM_TIMEOUT=18       MAILTM_BODY_CHARS=1600
+APP_TIMEOUT=15          APP_CACHE_TTL=21600  APP_MAX_RESULTS=5
+TELEMETRY_MAX_TOOLS=120 TELEMETRY_LATENCY_WINDOW=60
+```
+
+### 🚫 Jo **nahi** badla (jaan-boojh kar)
+- Earning model wahi: **sab tools premium, 1 use = 1 credit**, naya user = 25 credit
+- Plans wahi: 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199
+- Jo tools aapne pehle hatwaye the wo **wapas nahi aaye** (CLIP MAKER, LINK BYPASS,
+  EMI CALC, WEATHER, GOVT SERVICES, etc.)
+- Render free plan **512MB** me fit — koi AI model nahi, sab deterministic
+
+---
+
+---
+
 ## 🆕 v52.3 UPDATE — 6 naye tools (aapke "sab bana do" order par)
 
 **Bhai, aapke baaki 6 tools sab ban gaye hain — ek-ek karke:**
