@@ -15,6 +15,8 @@ NUMINFO_PROVIDER_AUTH  = query | header | bearer | none   (default: query)
 NUMINFO_PROVIDER_KEY_PARAM = key wale param ka naam (default: key)
 NUMINFO_PROVIDER_HEADER    = header ka naam (auth=header par, default: X-Api-Key)
 NUMINFO_PROVIDER_METHOD    = GET (default) | POST
+NUMINFO_DEMO               = on karne par SAMPLE (dummy) card dikhta hai —
+                             bina API bhi dekh sakte ho ki kaisa aayega
 ------------------------------------------------------------------
 
 URL me `{number}` placeholder bhi chalta hai — jaise:
@@ -189,9 +191,55 @@ def _clean_name(v) -> str:
 
 
 # --------------------------------------------------------------------------- lookup
+DEMO_NOTE = ("Ye DEMO/sample data hai — kisi asli vyakti ka nahi. "
+             "Asli data ke liye apni API lagao.")
+
+
+def demo_mode() -> bool:
+    """NUMINFO_DEMO=on → Number Info card SAMPLE (dummy) data ke saath dikhta hai.
+
+    Isse aap bina API dekh sakte ho ki card kaisa aayega. Koi asli vyakti ka
+    data nahi hota — sab clearly nakli values hain.
+    """
+    return _env("NUMINFO_DEMO", "").strip().lower() in ("1", "on", "true", "yes", "haan", "y")
+
+
+def demo_result(number: str = "") -> dict:
+    """Sample (dummy) result — bilkul wahi shape jo asli API deti hai."""
+    digits = _digits(number) or "9000000001"
+    _intl = "+91 " + (digits[-10:] if len(digits) >= 10 else digits)
+    return {
+        "ok": True,
+        "source": "demo",
+        "demo": True,
+        "operator": "Jio",
+        "circle": "Bihar",
+        "type": "📱 Mobile",
+        "ported": None,
+        "country": "India",
+        "country_code": "+91",
+        "owner": {
+            "name": "RAHUL KUMAR (SAMPLE)",
+            "father": "MOHAN LAL KUMAR (SAMPLE)",
+            "alt": "9000000001",
+            "region": "BIHAR JIO",
+            "govt_id": "000000000000 (SAMPLE)",
+            "address": ("S/O MOHAN LAL KUMAR, Ward 02, SAMPLE NAGAR, Post SAMPLE, "
+                        "Dist. SAMPLE, Bihar, 000000 (SAMPLE)"),
+        },
+        "extra": {},
+        "latency_ms": 0,
+        "provider_live": False,
+        "note": DEMO_NOTE,
+    }
+
+
 def lookup(number: str) -> dict:
     """Provider se carrier data laao. Kabhi raise nahi karta."""
     if not is_configured():
+        # v59.5: URL set nahi, par DEMO mode ON → sample card dikhao (dummy data)
+        if demo_mode():
+            return demo_result(number)
         return {"ok": False, "not_configured": True,
                 "error": "NUMINFO_PROVIDER_URL set nahi hai (Number Info apne sources se chalega)."}
 

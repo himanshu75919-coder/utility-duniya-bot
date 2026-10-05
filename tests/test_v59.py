@@ -197,6 +197,9 @@ section("3) 📱 NUMBER INFO — aapke diye format ka card")
 _ni_i = BOT_SRC.index('if mode == "numinfo":')
 _ni_j = BOT_SRC.index('if mode == "ifsc":', _ni_i)
 NI = BOT_SRC[_ni_i:_ni_j]
+# v59.5: card ka layout ab module-level renderer `numinfo_card()` me hai
+_CARD_I = BOT_SRC.index("def numinfo_card(")
+CARD_SRC = BOT_SRC[_CARD_I:BOT_SRC.index("\ndef build_qr_image(", _CARD_I)]
 
 check("naya card block hai (_obits)", "_obits" in NI)
 check("purana 'NUMBER INFO REPORT' card POORA DELETE ho gaya",
@@ -204,25 +207,25 @@ check("purana 'NUMBER INFO REPORT' card POORA DELETE ho gaya",
 check("numinfo me pcard_title ka use hi nahi (ek hi layout)",
       "pcard_title" not in NI)
 check("ek hi card builder hai (_card) — owner lines optional",
-      "_card = list(_obits)" in NI and "if not _obits:" in NI)
+      "_card = list(_obits)" in CARD_SRC and "if not _obits:" in CARD_SRC)
 for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
              "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>", "🏠 <b>Address(es):</b>"):
-    check(f"card me line '{_lbl}'", _lbl in NI)
+    check(f"card me line '{_lbl}'", _lbl in CARD_SRC)
 # user ke format ka order: Name → Father → Phones → Region → Govt ID → Address
-_pos = [NI.index(x) for x in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
-                             "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>",
-                             "🏠 <b>Address(es):</b>")]
+_pos = [CARD_SRC.index(x) for x in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
+                                  "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>",
+                                  "🏠 <b>Address(es):</b>")]
 check("lines user ke diye ORDER me hain", _pos == sorted(_pos))
 check("address bullet '└' se aata hai (max 4 line)",
-      '_obits.append(f"   └ ' in NI or "   └ " in NI)
-check("address 300 char par kata jaata hai (Telegram limit safe)", "_ap[:300]" in NI)
+      '_obits.append(f"   └ ' in CARD_SRC or "   └ " in CARD_SRC)
+check("address 300 char par kata jaata hai (Telegram limit safe)", "_ap[:300]" in CARD_SRC)
 check("separator (pcard_sep) owner block ke baad aata hai",
-      "pcard_sep()" in NI and "👤" in NI)
-check("card me Number line hai", "📞 <b>Number:</b>" in NI)
-check("card me Operator + Circle line hai", "🏢 <b>Operator:</b>" in NI and "📍" in NI)
+      "pcard_sep()" in CARD_SRC and "👤" in CARD_SRC)
+check("card me Number line hai", "📞 <b>Number:</b>" in CARD_SRC)
+check("card me Operator + Circle line hai", "🏢 <b>Operator:</b>" in CARD_SRC and "📍" in CARD_SRC)
 check("card me Source + Response line hai",
-      "📡 <b>Source:</b>" in NI and "⚡ <b>Response:</b>" in NI)
-check("card ke aakhir me brand footer", "Powered by" in NI and "BRAND_TAG" in NI)
+      "📡 <b>Source:</b>" in CARD_SRC and "⚡ <b>Response:</b>" in CARD_SRC)
+check("card ke aakhir me brand footer", "Powered by" in CARD_SRC and "BRAND_TAG" in CARD_SRC)
 check("NUMINFO_SHOW_OWNER gate hata diya (card seedha dimaghta hai)",
       "NUMINFO_SHOW_OWNER" not in BOT_SRC)
 check("API na ho to sirf chhota setup hint (koi lecture line nahi)",
@@ -230,11 +233,11 @@ check("API na ho to sirf chhota setup hint (koi lecture line nahi)",
 check("card me privacy/leaked shabd nahi",
       "leaked" not in NI.lower() and "Privacy" not in NI and "privacy" not in NI)
 check("extra address list (addresses / address_list) support hai",
-      "address_list" in NI and "addresses" in NI)
+      "address_list" in CARD_SRC and "addresses" in CARD_SRC)
 # user ka exact format: 🏠 Address(es): ke baad ek khali line, phir "   └ ..."
 check("Address(es) label ke baad blank line aati hai (aapka exact format)",
-      '"🏠 <b>Address(es):</b>\\n"' in NI)
-check("address line '└' se shuru hoti hai", 'f"   └ {hesc(' in NI)
+      '"🏠 <b>Address(es):</b>\\n"' in CARD_SRC)
+check("address line '└' se shuru hoti hai", 'f"   └ {hesc(' in CARD_SRC)
 check("purana '🔒 Private Setup' ad nahi (hata diya gaya tool)",
       "Private Setup" not in BOT_SRC)
 check("TEMP MAIL card me privacy line nahi",
@@ -434,6 +437,60 @@ check("NUMBER INFO me koi banned line nahi (credits/cancel)",
       "Credits:" not in _np_p and "cancel" not in _np_p.lower())
 check("BOT_VERSION comment stack nahi hua (ek hi # v59: note)",
       BOT_SRC[BOT_SRC.index("BOT_VERSION ="):][:400].count("# v59:") <= 1)
+# --- 🧪 DEMO mode + /numdemo (v59.5) ---
+check("numinfo_card() renderer module-level hai (ek hi layout, do jagah use)",
+      callable(getattr(bot, "numinfo_card", None)))
+check("handler bhi numinfo_card() use karta hai (duplicate layout nahi)",
+      "card = numinfo_card(res, _ow, _extra" in NI)
+check("/numdemo command hai", callable(getattr(bot, "cmd_numdemo", None)))
+check("/numdemo registered hai", '["numdemo", "numinfodemo", "numpreview"], cmd_numdemo' in BOT_SRC)
+check("/numdemo admin-only hai", BOT_SRC[BOT_SRC.index("async def cmd_numdemo"):][:420].count("is_admin") >= 1)
+check("/numdemo me credit NAHI katta", "spend_credit_msg" not in
+      BOT_SRC[BOT_SRC.index("async def cmd_numdemo"):][:1500])
+check("/numdemo card SAMPLE bolta hai (asli data jaisa confusion nahi)",
+      "SAMPLE PREVIEW" in BOT_SRC and "nakli values" in BOT_SRC)
+check("demo source line bot.py me hai (🧪 DEMO SAMPLE)",
+      'if _src == "demo":' in BOT_SRC and "DEMO SAMPLE" in BOT_SRC)
+
+import modules.numinfo_provider as _NP2  # noqa: E402
+check("provider me demo_mode() hai", callable(getattr(_NP2, "demo_mode", None)))
+check("provider me demo_result() hai", callable(getattr(_NP2, "demo_result", None)))
+_d = _NP2.demo_result("9000000001")
+check("demo_result asli shape deta hai (ok/source/owner)",
+      _d.get("ok") is True and _d.get("source") == "demo" and bool(_d.get("owner")))
+check("demo data clearly SAMPLE likha hua hai (real person nahi)",
+      "SAMPLE" in str(_d.get("owner")))
+
+# LIVE: env ON → lookup demo data deta hai; OFF → not_configured
+import importlib as _il2  # noqa: E402
+_il2.reload(_NP2)
+_old_url = os.environ.pop("NUMINFO_PROVIDER_URL", None)
+_old_key = os.environ.pop("NUMINFO_PROVIDER_KEY", None)
+os.environ["NUMINFO_DEMO"] = "on"
+_il2.reload(_NP2)
+_r_demo = _NP2.lookup("9876543210")
+check("LIVE: DEMO=on par lookup sample card deta hai (ok=True, source=demo)",
+      _r_demo.get("ok") is True and _r_demo.get("source") == "demo", str(_r_demo)[:90])
+os.environ["NUMINFO_DEMO"] = "off"
+_il2.reload(_NP2)
+_r_off = _NP2.lookup("9876543210")
+check("LIVE: DEMO=off par not_configured (jhootha sample nahi)",
+      _r_off.get("not_configured") is True, str(_r_off)[:90])
+os.environ.pop("NUMINFO_DEMO", None)
+if _old_url:
+    os.environ["NUMINFO_PROVIDER_URL"] = _old_url
+if _old_key:
+    os.environ["NUMINFO_PROVIDER_KEY"] = _old_key
+_il2.reload(_NP2)
+
+# /numdemo card me saari 6 owner line + separator aate hain (renderer check)
+_demo_card = bot.numinfo_card({"international": "+91 90000 00001", "country": "India"},
+                              _NP2.demo_result().get("owner"), {}, "Jio", "Bihar",
+                              "📱 Mobile", "", "🧪 SAMPLE", 240)
+for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
+             "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>", "🏠 <b>Address(es):</b>"):
+    check(f"demo card me '{_lbl}' aata hai", _lbl in _demo_card)
+
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))
 check("IMEI tool zinda hai (photo + device search)", hasattr(bot, "cmd_imeistatus"))

@@ -249,7 +249,8 @@ check("NUMBER INFO: fallback chain hai (provider → hub → offline)",
       '"source" or "offline"' in _ni or "or \"offline\"" in _ni)
 check("NUMBER INFO: live source line dikhti hai",
       "LIVE" in _ni and "OFFLINE" in _ni)
-check("NUMBER INFO: response time card me hai", 'int(_ms)}ms' in _ni)
+check("NUMBER INFO: response time card me hai (renderer me)",
+      "int(ms)}ms" in BOT_SRC or "int(_ms)}ms" in _ni)
 check("NUMBER INFO: v59 me privacy lecture line NAHI hai (user ka order)",
       "leaked" not in _ni.lower() and "Privacy" not in _ni)
 check("NUMBER INFO: aapke diye format ka owner card hai (_obits)",

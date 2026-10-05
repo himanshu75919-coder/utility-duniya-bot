@@ -38,6 +38,48 @@ main exact baaki values 1 minute me bana dunga:
 
 ---
 
+## 🎬 PEHLE DEKHO "KAISA HOTA HAI" — bina API, 10 second me
+
+**Do tarike (dono ab bot me ready hain):**
+
+**Tarika 1 — Telegram command (turant):**
+```
+/numdemo
+```
+→ Bot turant wahi card bhejega jo **aapki API lagne par aayega** — bas usme
+**SAMPLE (nakli) data** hoga, taaki koi asli vyakti ka data na dikhe.
+
+**Tarika 2 — poora tool flow dekhna hai:**
+Render → Environment → ye line daalo → Save:
+| Key | Value |
+|---|---|
+| `NUMINFO_DEMO` | `on` |
+
+Ab Telegram me 📱 **Number Info** daba ke koi bhi number bhejo → **wahi card**
+aayega (Source line par saaf likha hoga `🧪 DEMO SAMPLE — ye dummy data hai`).
+Dekhne ke baad wapas `off` kar dena.
+
+---
+
+## ⛔ AISE API MAT LAGAO (jaise "…-leak-num-api…" wale)
+
+Kuch log aisi "free API" bhejte hain jinke naam me hi **leak** likha hota hai
+(jaise `x-trace-...-leak-num-api`). Wo **chori ka data** deti hai — kisi ki
+Aadhaar/number/address database se nikala hua. Aapke bot me lagane ka matlab:
+
+| Problem | Kya hoga |
+|---|---|
+| ⚖️ **DPDP Act 2023** | ₹250 crore tak jurmana, aur aapka naam bhi juड़ta hai (bot aapka hai) |
+| 🚫 **Telegram ban** | Aise bots report hote hi **permanent ban** — poora kaam khatam |
+| 🪤 **Trap** | `key=DEMO` sirf dikhane ke liye hoti hai. Aisi API 2-4 din me band ho jaati hai, ya paise maangti hai, ya aapke bot ke **users ke numbers chura leti hai** |
+| 📉 **Sab kuch band** | Jab wo API band hogi, tool band — users ka gussa aap par. Render/GitHub bhi risk me |
+
+**Isliye:** wo API main bot me **nahi lagata** — aur kabhi nahi lagaunga.
+Aapka bot aaj bhi wahi card dikhata hai, bas usme **nakli sample** data aata hai;
+asli data ke liye neeche wala **legal** tarika hai. 🙏
+
+---
+
 ## STEP 1 — Render me kahan daalna hai
 
 1. Kholo 👉 **dashboard.render.com** → **`utility-duniya-bot`**
@@ -163,6 +205,7 @@ bot khud andar chala jaata hai.
 | `/numapi` | API lagi hai ya nahi + 6 env var ka status (key kabhi print nahi hoti) |
 | `/numapi 9876543210` | **Live test** — aapki API se asli data maangta hai |
 | 📱 **Number Info** daba ke `9876543210` | 10-digit number → aapke format ka card |
+| `/numdemo` | **SAMPLE card** — koi API lagaye bina dekh lo kaisa aayega (admin) |
 
 > ⚠️ **`/numapi` ek private command hai** — sirf aap (admin) chala sakte ho.
 
