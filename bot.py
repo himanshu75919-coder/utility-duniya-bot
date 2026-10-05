@@ -1812,6 +1812,30 @@ async def cmd_upiapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=HTML)
 
 
+# ---------------- v58: /version — deploy hua hai ya nahi, turant pata karo ----------------
+async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/version — bot ka version + deploy check (sabke liye khula)."""
+    _n_tools = len(PROMPT_DATA)
+    _two_lines_gone = ("Credits: ♾️ Unlimited" not in PROMPTS.get("terabox", "")
+                       and "cancel" not in PROMPTS.get("terabox", "").lower())
+    _prompt_ok = "📝 <b>Examples:</b>" in PROMPTS.get("imei", "")
+    _numpanel = bool(numprov.is_configured())
+    _upiapi = bool(upiprov.is_configured())
+    await update.message.reply_text(
+        f"⚡ <b>{hesc(BOT_VERSION)}</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"🎨 <b>Naya prompt system:</b> {'✅ CHALU' if _prompt_ok else '❌ purana'}\n"
+        f"  • {_n_tools} tools me header + ✨ ask + 📝 Examples\n"
+        f"🚫 <b>Credits/cancel line:</b> {'✅ poori tarah gayi' if _two_lines_gone else '❌ abhi hai'}\n"
+        "📸 <b>IMEI photo:</b> ✅ chalu (device naam/code bhi chalta hai)\n"
+        f"📱 <b>Number Info API:</b> {'🟢 lagi hui' if _numpanel else '⚪ set nahi (/numapi)'}\n"
+        f"🏦 <b>UPI naam API:</b> {'🟢 lagi hui' if _upiapi else '⚪ set nahi (/upiapi)'}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<i>Agar yahan v58 nahi dikh raha to Render me deploy pending hai — "
+        "2 minute baad dobara bhejo.</i>",
+        parse_mode=HTML)
+
+
 # ---------------- v57: /numapi — Number Info provider status (key kabhi nahi print hoti) ----------------
 async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/numapi — admin: Number Info ki apni API lagi hai ya nahi (live test bhi)."""
@@ -6761,6 +6785,7 @@ def main():
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
+    app.add_handler(CommandHandler(["version", "ver", "v"], cmd_version))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
     app.add_handler(CommandHandler(["upiapi", "upiverifyapi"], cmd_upiapi))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
