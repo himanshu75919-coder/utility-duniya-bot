@@ -35,6 +35,42 @@
 
 ---
 
+## ⭐ STEP 2.5 — READY-MADE VALUES (copy-paste, kuch soch-na nahi)
+
+### (A) Agar aapki demo API **numverify** (apilayer) hai — free 100/month
+
+| Key | Value |
+|---|---|
+| `NUMINFO_PROVIDER_URL` | `https://apilayer.net/api/validate` |
+| `NUMINFO_PROVIDER_KEY` | *(aapki key — apilayer dashboard se)* |
+| `NUMINFO_PROVIDER_KEY_PARAM` | `access_key` |
+| `NUMINFO_PROVIDER_PARAM` | `number` |
+
+### (B) Agar aapki demo API **abstractapi** hai — free 250/month
+
+| Key | Value |
+|---|---|
+| `NUMINFO_PROVIDER_URL` | `https://phonevalidation.abstractapi.com/v1/` |
+| `NUMINFO_PROVIDER_KEY` | *(aapki key — abstractapi dashboard se)* |
+| `NUMINFO_PROVIDER_KEY_PARAM` | `api_key` |
+| `NUMINFO_PROVIDER_PARAM` | `phone` |
+
+### (C) Agar koi **aur API** hai (jo aapko naam/pata bhi deti hai)
+
+Bas **2 line** daalo, aur mujhe us API ka **naam ya link** bhejo — main exact baaki values bana dunga:
+
+| Key | Value |
+|---|---|
+| `NUMINFO_PROVIDER_URL` | aapki API ka URL (aakh me `{number}` laga do) |
+| `NUMINFO_PROVIDER_KEY` | aapki key |
+
+> ⚠️ **Dhyan rakho:** numverify / abstractapi jaise demo APIs sirf **operator, circle
+> aur line-type** dete hain — **naam/pita/pata NAHI dete** (wo personal data nahi hota
+> unke paas). Naam-Father-Address wali 6 line sirf usi API se aayengi jo aapko wo
+> data de rahi hai. Dono halat me bot ka card wahi ek format rehta hai ✅
+
+---
+
 ## STEP 3 — `NUMINFO_PROVIDER_URL` me kya likhein? (APNI API ke hisaab se)
 
 Aapki API ka URL jaisa hai, waisa hi daalo — bas number ki jagah `{number}` likh do:
