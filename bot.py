@@ -16,6 +16,7 @@
 
 import asyncio
 import io
+import sys
 import json
 import logging
 import os
@@ -302,7 +303,7 @@ BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v59.2 UPI Gaya + Number Info (ek format) + Fast YouTube"  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands/env) · 🧹 saare lecture/note text gaye (BGMI·FF·numinfo·UPI·temp-mail·ads) · 📱 Number Info me AB SIRF EK LAYOUT (aapka format: Name/Father/Phones/Region/GovtID/Address + Number/Operator/Source) — purana boxed card POORA DELETE, data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s) · 📥 download progressive 18/22 + parallel chunks 4 · 📲 IMEI photo + naam/code search · /version v59  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands) · 🧹 saare lecture/note lines gaye (BGMI·FF·numinfo) · 📱 Number Info ab aapke diye format me (Name/Father/Phones/Region/GovtID/Address) — data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s wait) · 📥 download progressive 18/22 (merge avoid = 3x fast) + parallel chunks 4 · /version v59
+BOT_VERSION = "v59.3 Crash-Proof Core + UPI Gaya + Number Info (ek format)"  # v59: 🏦 UPI tool + poori code DELETE · 🧹 saare lecture/note text gaye · 📱 Number Info me AB SIRF EK LAYOUT (aapka format, data sirf aapki API se) · ⚡ YouTube buttons INSTANT + tez download · 📲 IMEI photo · 🛡️ v59.3 HARDCORE CRASH-PROOF CORE: self-check boot par (version+commit+modules+API status, key kabhi print nahi) + SELF-HEAL supervisor (main() crash ho to khud restart, Render ko 502 nahi) + loop exception guard + crash counter /health par + test_v59 me regression lock  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands/env) · 🧹 saare lecture/note text gaye (BGMI·FF·numinfo·UPI·temp-mail·ads) · 📱 Number Info me AB SIRF EK LAYOUT (aapka format: Name/Father/Phones/Region/GovtID/Address + Number/Operator/Source) — purana boxed card POORA DELETE, data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s) · 📥 download progressive 18/22 + parallel chunks 4 · 📲 IMEI photo + naam/code search · /version v59  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands) · 🧹 saare lecture/note lines gaye (BGMI·FF·numinfo) · 📱 Number Info ab aapke diye format me (Name/Father/Phones/Region/GovtID/Address) — data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s wait) · 📥 download progressive 18/22 (merge avoid = 3x fast) + parallel chunks 4 · /version v59
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1780,6 +1781,100 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #  v50: SYSTEM HEALTH — admin ko live internal stats
 # ============================================================================
 _BOOT_TS = time.time()
+
+# =====================================================================
+# v59.3: 🛡️ HARDCORE CRASH-PROOF CORE
+# ---------------------------------------------------------------
+# 1) _startup_selfcheck()  — boot par saaf report: version, commit, modules,
+#                            kaunsi API lagi hai (key KABHI print nahi hoti)
+# 2) _supervise()          — process-level self-heal: main() crash ho to
+#                            khud restart (Render ko 502 nahi milta)
+# 3) loop exception guard  — background task crash bhi process ko nahi giraata
+# =====================================================================
+_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "")[:7] or "local"
+_CRASH_STATE = {"count": 0, "last": "", "why": ""}   # self-heal counter (health me dikhta hai)
+
+
+def _startup_selfcheck() -> bool:
+    """Boot par checks chalao aur saaf report print karo. Kabhi crash nahi karta."""
+    ok = True
+    print("=" * 64)
+    print(f"🩺 SELF-CHECK | {BOT_VERSION}")
+    print(f"   commit: {_GIT_COMMIT} | python: {sys.version.split()[0]}")
+    # --- modules ---
+    import importlib as _il
+    _bad = []
+    for _mn in ("api_hub", "channel_cloner", "desi_tools", "general_tools", "gaming_tools",
+                "imei_lookup", "media_downloader", "numinfo_provider", "osint_hub",
+                "osint_tools", "payguard", "render_health", "sarkari_hub", "temp_mail",
+                "toolkit_extras", "tutorial_hub", "vip_payment"):
+        try:
+            _il.import_module(f"modules.{_mn}")
+        except Exception as _e:                                  # noqa: BLE001
+            _bad.append(f"{_mn}: {type(_e).__name__}")
+    if _bad:
+        ok = False
+        print(f"   ❌ modules FAIL ({len(_bad)}): {', '.join(_bad[:4])}")
+    else:
+        print("   ✅ modules: sab OK")
+    # --- optional deps (jo bina bhi bot chalta hai) ---
+    _miss = []
+    for _dep in ("telegram", "requests", "PIL", "qrcode", "phonenumbers",
+                 "yt_dlp", "bs4", "pypdf", "img2pdf", "edge_tts"):
+        try:
+            _il.import_module(_dep)
+        except Exception:                                        # noqa: BLE001
+            _miss.append(_dep)
+    print(f"   ✅ optional deps: {'sab OK' if not _miss else 'missing ' + ', '.join(_miss)}")
+    # --- config (sirf set/not-set — key kabhi print nahi) ---
+    print(f"   🔑 BOT_TOKEN: {'set' if BOT_TOKEN else 'MISSING'}"
+          f" | 👑 ADMIN_ID: {'set' if os.environ.get('ADMIN_ID') else 'not set'}")
+    try:
+        print(f"   📱 Number Info API: {'🟢 set' if numprov.is_configured() else '⚪ not set'}"
+              f" | 🏦 hub key: {'🟢 set' if os.environ.get('HUB_API_KEY') else '⚪ not set'}")
+    except Exception:                                            # noqa: BLE001
+        pass
+    print(f"   🛡️  self-heal: crashes={_CRASH_STATE['count']}")
+    _db = os.environ.get("DB_PATH") or os.environ.get("DATA_DIR") or "default (auto)"
+    print(f"   🗄️  storage: {_db}"
+          f" | 🌐 mode: {'WEBHOOK' if os.environ.get('WEBHOOK_URL') else 'POLLING'}"
+          f" | 🔄 keepalive: {'ON' if os.environ.get('KEEPALIVE_ENABLED', '1') != '0' else 'OFF'}")
+    print("=" * 64)
+    return ok
+
+
+def _supervise() -> None:
+    """main() ko chalao; crash ho to KHUD restart karo (Render ko 502 na mile)."""
+    _tries, _fast = 0, []
+    while True:
+        _tries += 1
+        try:
+            main()
+            print("ℹ️ main() normal band hua (koi crash nahi) — process exit")
+            return
+        except KeyboardInterrupt:
+            print("⛔ Manually band kiya gaya (KeyboardInterrupt) — exit")
+            return
+        except SystemExit:
+            raise
+        except BaseException as e:                               # noqa: BLE001
+            _now = time.time()
+            _fast = [t for t in _fast if _now - t < 600] + [_now]
+            _CRASH_STATE["count"] += 1
+            _CRASH_STATE["last"] = time.strftime("%d-%m-%Y %H:%M")
+            _CRASH_STATE["why"] = f"{type(e).__name__}: {str(e)[:80]}"
+            log.error("💥 CRASH #%s (%s: %s)", _tries, type(e).__name__, str(e)[:220])
+            try:
+                import traceback
+                traceback.print_exc()
+            except Exception:                                    # noqa: BLE001
+                pass
+            _wait = 60 if len(_fast) >= 8 else 5
+            log.warning("🔁 SELF-HEAL: %ss baad khud restart kar raha hoon (try #%s)",
+                        _wait, _tries + 1)
+            time.sleep(_wait)
+
+
 
 
 # ---------------- v59: /version — deploy hua hai ya nahi, turant pata karo ----------------
@@ -6488,6 +6583,18 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- POST INIT ----------------
 async def _post_init(app: Application):
+    # v59.3: 🛡️ background task crash bhi process ko na giraaye — sirf log ho
+    try:
+        import asyncio as _aio
+        _loop = _aio.get_running_loop()
+
+        def _loop_err(_loop2, _ctx):
+            _ex = _ctx.get("exception")
+            log.error("🛡️ background task error (bot chalta rahega): %s: %s",
+                      type(_ex).__name__ if _ex else "?", str(_ex)[:200] if _ex else "")
+        _loop.set_exception_handler(_loop_err)
+    except Exception:                                            # noqa: BLE001
+        pass
     commands = [
         BotCommand("start", "Bot chalu karo / menu kholo"),
         BotCommand("menu", "Saare tools ka menu"),
@@ -6585,6 +6692,8 @@ def _keepalive():
                     f" | branch: {_GIT_BRANCH or 'unknown'}"
                     f" | up: {int(time.time() - _START_TS) // 60}m</p>"
                     f"<p style='font-family:monospace'>{_ka}</p>"
+                    f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
+                    f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
                     f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
             self.wfile.write(html.encode("utf-8"))
 
@@ -6714,7 +6823,14 @@ def main():
     app.add_error_handler(on_error)
 
     # v51.3: purana "v30 Ultra" hardcode text the — ab asli version dikhta hai logs me
-    print(f"🚀 Starting ToolVault / Utility Duniya Super Bot ({BOT_VERSION})...")
+    # v59.3: version + commit + self-check — ek nazar me pata chal jaye ki KAUNSA
+    #        code chal raha hai (v58/v59 ka confusion khatam).
+    print(f"🚀 Starting ToolVault / Utility Duniya Super Bot ({BOT_VERSION})")
+    print(f"   commit {_GIT_COMMIT} | pid {os.getpid()} | {socket.gethostname()}")
+    try:
+        _startup_selfcheck()
+    except Exception as _e:                                      # noqa: BLE001
+        log.warning("self-check skip (crash nahi): %s", str(_e)[:120])
     # ---------- v47+: WEBHOOK MODE (Render par sabse safe) ----------
     # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
     # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
@@ -6773,4 +6889,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # --check = sirf self-check chalao (deploy verify ke liye), warna supervisor
+    if "--check" in sys.argv:
+        _startup_selfcheck()
+        sys.exit(0)
+    _supervise()

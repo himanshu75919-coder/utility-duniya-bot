@@ -23,6 +23,28 @@
 
 ---
 
+## STEP 1.5 — Render Logs me SELF-CHECK dekho (naya)
+
+**Logs** tab kholo. Naya boot par ye block aayega:
+
+```
+🩺 SELF-CHECK | v59.3 Crash-Proof Core + ...
+   commit: <7-letter> | python: 3.x
+   ✅ modules: sab OK
+   ✅ optional deps: sab OK
+   🔑 BOT_TOKEN: set | 👑 ADMIN_ID: set
+   📱 Number Info API: 🟢 set   (ya ⚪ not set)
+   🛡️  self-heal: crashes=0
+   🗄️  storage: ... | 🌐 mode: POLLING | 🔄 keepalive: ON
+```
+
+- `modules: sab OK` = saara code theek load hua ✅
+- `self-heal: crashes=0` = ek baar bhi crash nahi hua ✅
+- Agar kabhi crash ho bhi jaye to bot **khud restart** ho jaata hai (aapko 502 nahi milega)
+  aur `/health` page par `self-heal: crashes=N` dikh jaayega.
+
+---
+
 ## STEP 2 — Telegram me bhejo:
 
 ```
@@ -118,7 +140,8 @@ Aapki apni API lagani hai to — **5 minute ka kaam**:
 > API na lagayi ho to tool **phir bhi chalta hai** (operator/circle/type
 > offline database se) — bas Name/Father/Address wale 6 line nahi aate.
 >
-> 📖 Poori guide: **`NUMBER-INFO-API-SETUP.md`**
+> 📖 Poori guide: **`DEMO-API-SETUP.md`** (Render me key/value exact kya likhna hai)
+> aur **`NUMBER-INFO-API-SETUP.md`**
 
 ---
 
