@@ -195,6 +195,95 @@ DEMO_NOTE = ("Ye DEMO/sample data hai — kisi asli vyakti ka nahi. "
              "Asli data ke liye apni API lagao.")
 
 
+def parse_payload(data: dict, ms: int = 0) -> dict:
+    """Provider ke JSON response ko bot ke samajh wale shape me badlo.
+
+    v59.6: yehi hissa lookup() bhi use karta hai — aur `/numtest` (mapping
+    preview) bhi, taaki jo bot dikhata hai wahi user ko dikhe.
+    """
+    flat = _flatten(data)
+
+    # provider kabhi kabhi galat number par valid:false deta hai
+    valid = _pick(flat, "valid", "isvalid", "validnumber", "status")
+    if isinstance(valid, bool) and valid is False and _pick(flat, "valid") is False:
+        _msg = _clean_name(_pick(flat, "message", "error", "reason")) or \
+            "Provider ke hisaab se ye number valid nahi hai."
+        return {"ok": False, "invalid_number": True, "error": _msg, "latency_ms": ms}
+
+    # kabhi response error-only hota hai
+    if not valid and _pick(flat, "error", "errormessage") and not _pick(
+            flat, "carrier", "operator", "network", "networkname"):
+        return {"ok": False,
+                "error": _clean_name(_pick(flat, "error", "errormessage"))[:120]}
+
+    operator = _clean_name(_pick(flat, "carrier", "carrier_name", "carriername",
+                                 "operator", "operatorname", "network",
+                                 "network_name", "networkname", "provider",
+                                 "providername"))
+    circle = _clean_name(_pick(flat, "location", "circle", "region", "state",
+                               "zone", "geolocation", "area",
+                               "carrier_region", "carrierregion"))
+    line_type = _nice_line_type(_pick(flat, "linetype", "line_type", "type",
+                                      "numbertype", "phonetype", "carrier_type",
+                                      "carrier_type_raw", "carriertype"))
+    ported = _clean_name(_pick(flat, "ported", "mnp", "isported", "portability"))
+    country = _clean_name(_pick(flat, "countryname", "country", "countryname_en"))
+    country_code = _clean_name(_pick(flat, "countrycode", "countryprefix", "dialcode"))
+
+    # ---------- v58: OWNER / EXTRA fields (agar AAPKI API bheje) ----------
+    # Ye sirf tab bharte hain jab aapki API response me ye fields hon.
+    # Hum khud kahin se ye data NAHI laate — jo API deti hai wahi dikhate hain.
+    _owner = {
+        "name": _clean_name(_pick(flat, "name", "ownername", "ownername",
+                                  "subscribername", "customername", "fullname",
+                                  "holdername", "username")),
+        "father": _clean_name(_pick(flat, "father", "fathername", "fathersname",
+                                    "guardian", "guardianname", "sonof", "so")),
+        "alt": _clean_name(_pick(flat, "alt", "altmobile", "alternate",
+                                 "altnumber", "phones", "altphones",
+                                 "othernumbers", "linkednumbers")),
+        "region": _clean_name(_pick(flat, "region", "state", "circle",
+                                    "telecomcircle", "location", "area")),
+        "govt_id": _clean_name(_pick(flat, "govtid", "idnumber", "aadhaar",
+                                     "uid", "documentid", "idproof")),
+        "address": _clean_name(_pick(flat, "address", "addresses", "fulladdress",
+                                     "permanentaddress", "addr")),
+    }
+    # v59.3: agar aapki API sirf owner data (naam/pita/pata) bhejti hai aur
+    # operator/circle nahi — to bhi kaam kare (pehle "format match nahi hua"
+    # bolta tha, jabki naam aa gaya tha). Ab dono me se kuch bhi ho to OK.
+    if not any((operator, circle, line_type)) and not any(_owner.values()):
+        return {"ok": False, "error": ("Provider ne carrier/owner data nahi diya — response "
+                                       "ka format match nahi hua. URL/params check karo.")}
+
+    _extra = {}
+    if isinstance(data, dict):
+        for _k in ("addresses", "address_list", "alt_numbers", "numbers",
+                   "phones_list", "other_numbers"):
+            if isinstance(data.get(_k), list):
+                _extra[_k] = [str(x) for x in data[_k][:6] if x]
+            _flatk = _k.replace("_", "").lower()
+            if _flatk in flat and isinstance(flat.get(_flatk), list):
+                _extra[_k] = [str(x) for x in flat[_flatk][:6] if x]
+
+    out = {
+        "ok": True,
+        "source": "provider",
+        "operator": operator,
+        "circle": circle,
+        "type": line_type,
+        "ported": ported,
+        "country": country,
+        "country_code": country_code,
+        "owner": {k: v for k, v in _owner.items() if v},
+        "extra": _extra,
+        "latency_ms": ms,
+        "provider_live": True,
+        "provider_host": re.sub(r"^https?://", "", provider_url()).split("/")[0][:40],
+    }
+    return out
+
+
 def demo_mode() -> bool:
     """NUMINFO_DEMO=on → Number Info card SAMPLE (dummy) data ke saath dikhta hai.
 
@@ -305,86 +394,7 @@ def lookup(number: str) -> dict:
         return {"ok": False, "error": f"Provider se connect nahi hua: {str(e)[:90]}",
                 "soft": True}
 
-    flat = _flatten(data)
-
-    # provider kabhi kabhi galat number par valid:false deta hai
-    valid = _pick(flat, "valid", "isvalid", "validnumber", "status")
-    if isinstance(valid, bool) and valid is False and _pick(flat, "valid") is False:
-        _msg = _clean_name(_pick(flat, "message", "error", "reason")) or \
-            "Provider ke hisaab se ye number valid nahi hai."
-        return {"ok": False, "invalid_number": True, "error": _msg, "latency_ms": ms}
-
-    # kabhi response error-only hota hai
-    if not valid and _pick(flat, "error", "errormessage") and not _pick(
-            flat, "carrier", "operator", "network", "networkname"):
-        return {"ok": False,
-                "error": _clean_name(_pick(flat, "error", "errormessage"))[:120]}
-
-    operator = _clean_name(_pick(flat, "carrier", "carrier_name", "carriername",
-                                 "operator", "operatorname", "network",
-                                 "network_name", "networkname", "provider",
-                                 "providername"))
-    circle = _clean_name(_pick(flat, "location", "circle", "region", "state",
-                               "zone", "geolocation", "area",
-                               "carrier_region", "carrierregion"))
-    line_type = _nice_line_type(_pick(flat, "linetype", "line_type", "type",
-                                      "numbertype", "phonetype", "carrier_type",
-                                      "carrier_type_raw", "carriertype"))
-    ported = _clean_name(_pick(flat, "ported", "mnp", "isported", "portability"))
-    country = _clean_name(_pick(flat, "countryname", "country", "countryname_en"))
-    country_code = _clean_name(_pick(flat, "countrycode", "countryprefix", "dialcode"))
-
-    # ---------- v58: OWNER / EXTRA fields (agar AAPKI API bheje) ----------
-    # Ye sirf tab bharte hain jab aapki API response me ye fields hon.
-    # Hum khud kahin se ye data NAHI laate — jo API deti hai wahi dikhate hain.
-    _owner = {
-        "name": _clean_name(_pick(flat, "name", "ownername", "ownername",
-                                  "subscribername", "customername", "fullname",
-                                  "holdername", "username")),
-        "father": _clean_name(_pick(flat, "father", "fathername", "fathersname",
-                                    "guardian", "guardianname", "sonof", "so")),
-        "alt": _clean_name(_pick(flat, "alt", "altmobile", "alternate",
-                                 "altnumber", "phones", "altphones",
-                                 "othernumbers", "linkednumbers")),
-        "region": _clean_name(_pick(flat, "region", "state", "circle",
-                                    "telecomcircle", "location", "area")),
-        "govt_id": _clean_name(_pick(flat, "govtid", "idnumber", "aadhaar",
-                                     "uid", "documentid", "idproof")),
-        "address": _clean_name(_pick(flat, "address", "addresses", "fulladdress",
-                                     "permanentaddress", "addr")),
-    }
-    # v59.3: agar aapki API sirf owner data (naam/pita/pata) bhejti hai aur
-    # operator/circle nahi — to bhi kaam kare (pehle "format match nahi hua"
-    # bolta tha, jabki naam aa gaya tha). Ab dono me se kuch bhi ho to OK.
-    if not any((operator, circle, line_type)) and not any(_owner.values()):
-        return {"ok": False, "error": ("Provider ne carrier/owner data nahi diya — response "
-                                       "ka format match nahi hua. URL/params check karo.")}
-
-    _extra = {}
-    if isinstance(data, dict):
-        for _k in ("addresses", "address_list", "alt_numbers", "numbers",
-                   "phones_list", "other_numbers"):
-            if isinstance(data.get(_k), list):
-                _extra[_k] = [str(x) for x in data[_k][:6] if x]
-            _flatk = _k.replace("_", "").lower()
-            if _flatk in flat and isinstance(flat.get(_flatk), list):
-                _extra[_k] = [str(x) for x in flat[_flatk][:6] if x]
-
-    out = {
-        "ok": True,
-        "source": "provider",
-        "operator": operator,
-        "circle": circle,
-        "type": line_type,
-        "ported": ported,
-        "country": country,
-        "country_code": country_code,
-        "owner": {k: v for k, v in _owner.items() if v},
-        "extra": _extra,
-        "latency_ms": ms,
-        "provider_live": True,
-        "provider_host": re.sub(r"^https?://", "", provider_url()).split("/")[0][:40],
-    }
+    out = parse_payload(data)
     if _CACHE is not None:
         _CACHE.put(ck, out, 21600)                            # 6 ghante
     return out

@@ -1942,6 +1942,81 @@ async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=HTML)
 
 
+# ---------------- v59.6: /numtest — kisi bhi API ka sample response → card preview ----------------
+async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/numtest <JSON> — apni API ke docs wala SAMPLE response paste karo → card dikhega.
+
+    Isse aap bina API lagaye dekh sakte ho ki aapki API ka jawab bot ke card me
+    kaise badlega. Koi API call nahi hoti, koi credit nahi katta, kuch save nahi hota.
+    """
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    _raw = (update.message.text or "")
+    for _pfx in ("/numtest", "/numcheck", "/numinfotest"):
+        if _raw.lower().startswith(_pfx):
+            _raw = _raw[len(_pfx):]
+            break
+    _raw = _raw.strip().strip("`")
+    if not _raw:
+        await update.message.reply_text(
+            "🧪 <b>/numtest — MAPPING PREVIEW</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Apni API ke docs wala <b>sample JSON response</b> is command ke saath\n"
+            "paste karo → main dikha dunga ki bot ka card <b>kaisa banega</b>.\n\n"
+            "<b>Jaise:</b>\n"
+            "<code>/numtest {\"carrier\": \"Jio\", \"location\": \"Bihar\", "
+            "\"name\": \"Rahul Kumar\"}</code>\n\n"
+            "ℹ️ Koi API call nahi hoti, koi credit nahi katta, kuch save nahi hota.",
+            parse_mode=HTML)
+        return
+    try:
+        _data = json.loads(_raw)
+    except Exception:                                        # noqa: BLE001
+        await update.message.reply_text(
+            "❌ Ye valid JSON nahi hai. Docs se sample response <b>jaisa hai waisa</b> "
+            "paste karo (curly brackets <code>{ }</code> ke saath).\n"
+            "📌 Tip: JSON ek line me paste karna sabse aasan hai.", parse_mode=HTML)
+        return
+    if not isinstance(_data, dict):
+        await update.message.reply_text("❌ JSON ka top part <code>{ }</code> hona chahiye.",
+                                        parse_mode=HTML)
+        return
+    _parsed = await asyncio.to_thread(numprov.parse_payload, _data, 0)
+    if not _parsed.get("ok"):
+        await update.message.reply_text(
+            "⚠️ <b>Is response se card nahi bana.</b>\n"
+            f"📄 <b>Wajah:</b> {safe_html_err(str(_parsed.get('error') or 'unknown')[:200])}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Bot in naam se fields dhoondhta hai:\n"
+            "• naam → <code>name</code> / <code>ownerName</code> / <code>subscriberName</code>\n"
+            "• pita → <code>father</code> / <code>fatherName</code> / <code>guardian</code>\n"
+            "• operator → <code>carrier</code> / <code>operator</code> / <code>network</code>\n"
+            "• circle → <code>location</code> / <code>circle</code> / <code>region</code>\n\n"
+            "Agar aapki API inme se alag naam bhejti hai — mujhe ye response bhejo, "
+            "main 1 minute me map kar dunga.",
+            parse_mode=HTML)
+        return
+    _owner = _parsed.get("owner") or {}
+    _digits = re.sub(r"\D", "", str(_parsed.get("number") or "")) or "9000000001"
+    _res = {"international": "+91 " + (_digits[-10:] if len(_digits) >= 10 else _digits),
+            "national": _digits[-10:], "type": _parsed.get("type") or "Mobile",
+            "country": _parsed.get("country") or "India", "country_code": "+91"}
+    _card = numinfo_card(_res, _owner, _parsed.get("extra") or {},
+                         str(_parsed.get("operator") or ""), str(_parsed.get("circle") or ""),
+                         str(_parsed.get("type") or ""), "",
+                         "🧪 <b>MAPPING PREVIEW</b> — aapke paste kiye response se "
+                         "(koi API call nahi hui)", 0)
+    await update.message.reply_text(
+        "🧪 <b>MAPPING PREVIEW</b> — aapki API ka jawab aise card me badlega:\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        + _card
+        + "\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        "📌 Jo fields aapke JSON me nahi thi, unki line card me nahi aayi.\n"
+        "💡 Asli API lagane ke liye: <code>/numapi</code> dekho.",
+        parse_mode=HTML)
+
+
 # ---------------- v57: /numapi — Number Info provider status (key kabhi nahi print hoti) ----------------
 async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/numapi — admin: Number Info ki apni API lagi hai ya nahi (live test bhi)."""
@@ -6835,6 +6910,7 @@ def main():
     app.add_handler(CommandHandler(["version", "ver", "v"], cmd_version))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
     app.add_handler(CommandHandler(["numdemo", "numinfodemo", "numpreview"], cmd_numdemo))
+    app.add_handler(CommandHandler(["numtest", "numcheck", "numinfotest"], cmd_numtest))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))

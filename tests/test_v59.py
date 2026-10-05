@@ -35,6 +35,7 @@ import os
 import re
 import sys
 import threading
+import types
 import warnings
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -490,6 +491,84 @@ _demo_card = bot.numinfo_card({"international": "+91 90000 00001", "country": "I
 for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
              "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>", "🏠 <b>Address(es):</b>"):
     check(f"demo card me '{_lbl}' aata hai", _lbl in _demo_card)
+
+# --- 🔎 /numtest — MAPPING PREVIEW (JSON paste karo → card dikhao) ---
+check("provider.parse_payload() hai (mapping ek jagah)",
+      callable(getattr(NP, "parse_payload", None)))
+check("lookup() bhi wahi parse_payload use karta hai (duplicate mapping nahi)",
+      "out = parse_payload(data)" in NP_SRC)
+check("/numtest command hai", callable(getattr(bot, "cmd_numtest", None)))
+check("/numtest registered hai",
+      '["numtest", "numcheck", "numinfotest"], cmd_numtest' in BOT_SRC)
+check("/numtest admin-only hai",
+      BOT_SRC[BOT_SRC.index("async def cmd_numtest"):][:420].count("is_admin") >= 1)
+check("/numtest credit NAHI katta",
+      "spend_credit_msg" not in BOT_SRC[BOT_SRC.index("async def cmd_numtest"):][:2500])
+check("/numtest batata hai ki koi API call nahi hoti",
+      "koi API call nahi hui" in BOT_SRC or "koi API call nahi hoti" in BOT_SRC)
+
+_p = NP.parse_payload({"carrier": "Jio", "location": "Bihar", "name": "Rahul Kumar",
+                       "fatherName": "Mohan Lal", "altMobile": "9000000001",
+                       "address": "Ward 2, Sitamarhi", "govtId": "123456789012"})
+check("parse_payload: carrier JSON ko samajhta hai",
+      _p.get("ok") is True and _p.get("operator") == "Jio", str(_p)[:90])
+check("parse_payload: owner fields map hote hain",
+      (_p.get("owner") or {}).get("name") == "Rahul Kumar"
+      and (_p.get("owner") or {}).get("father") == "Mohan Lal")
+check("parse_payload: galat shape par saaf error (crash nahi)",
+      NP.parse_payload({"kuch": "aur"}).get("ok") is False)
+
+# LIVE: /numtest ka poora flow (mock update se)
+import asyncio as _aio  # noqa: E402
+
+
+class _TM:
+    message_id = 1
+
+    def __init__(self, t=""):
+        self.text = t
+
+    async def reply_text(self, t, **k):
+        _TM.last = t
+        return self
+
+    async def edit_text(self, t, **k):
+        _TM.last = t
+        return self
+
+
+class _TU:
+    id = int(os.environ.get("ADMIN_ID", "1"))   # test harness admin hi hai
+    first_name = "T"
+    username = "t"
+
+
+class _TUp:
+    def __init__(self, t):
+        self.message = _TM(t)
+        self.effective_user = _TU()
+        self.effective_chat = types.SimpleNamespace(id=888)
+        self.callback_query = None
+        self.effective_message = self.message
+
+
+def _run_numtest(txt):
+    _TM.last = ""
+    _aio.run(bot.cmd_numtest(_TUp(txt),
+                             types.SimpleNamespace(user_data={}, bot=None, args=None)))
+    return _TM.last
+
+
+_out = _run_numtest('/numtest {"carrier":"Jio","location":"Bihar","name":"Rahul Kumar","address":"Ward 2, Sitamarhi"}')
+check("LIVE /numtest: card bana (Name line aayi)", "👤 <b>Name:</b> Rahul Kumar" in _out)
+check("LIVE /numtest: MAPPING PREVIEW likha hai", "MAPPING PREVIEW" in _out)
+check("LIVE /numtest: operator line aayi", "🏢 <b>Operator:</b> Jio" in _out)
+_help = _run_numtest("/numtest")
+check("LIVE /numtest (bina JSON): help message aata hai, crash nahi",
+      "paste karo" in _help and "Koi API call nahi hoti" in _help)
+_bad = _run_numtest("/numtest haan bhai ye json nahi hai")
+check("LIVE /numtest (galat JSON): saaf error, crash nahi",
+      "valid JSON nahi" in _bad)
 
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))
