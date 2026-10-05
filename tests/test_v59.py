@@ -639,6 +639,63 @@ check("LIVE /support: URL button laga hai",
       any(b.url and "t.me/" in b.url
           for _r in _SM.kw["reply_markup"].inline_keyboard for b in _r))
 
+# --- 💬 MENU BUTTON (v59.7) — reply keyboard se bhi support ---
+_labs = [bot.unbold(_b) for _r in bot.KB_BTNS for _b in _r]
+check("menu me '💬 SUPPORT / MADAD' button hai",
+      any("SUPPORT / MADAD" in x for x in _labs), str([x for x in _labs if "SUPPORT" in x]))
+check("BTN_MODE_MAP me SUPPORT / MADAD → support",
+      bot.BTN_MODE_MAP.get("SUPPORT / MADAD") == "support")
+check("support_card() helper hai (command + menu button dono ek hi card)",
+      callable(getattr(bot, "support_card", None)))
+_t2, _k2 = bot.support_card()
+check("support_card me URL button hai", any(b.url and "t.me/" in b.url
+                                            for _r in _k2.inline_keyboard for b in _r))
+check("support branch VIP gate se PEHLE hai (free user ko bhi madad mile)",
+      BOT_SRC.index("v59.7: madad/support sabke liye khula")
+      < BOT_SRC.index("if PREMIUM_ONLY and not vip_ok(uid) and not _mode_now.startswith"))
+check("keyboard ki ek row me HELP + SUPPORT dono hain",
+      any("SUPPORT / MADAD" in _x
+          for _x in [bot.unbold(_b2) for _b2 in bot.KB_BTNS[-1]]))
+
+# LIVE: menu button dabane par support card aata hai
+class _BB:
+    message_id = 1
+
+    def __init__(self, t=""):
+        self.text = t
+
+    async def reply_text(self, t, **k):
+        _BB.last, _BB.kw = t, k
+        return self
+
+    async def edit_text(self, t, **k):
+        _BB.last, _BB.kw = t, k
+        return self
+
+
+class _BU:
+    id = 888
+    first_name = "T"
+    username = "t"
+
+
+class _BUp:
+    def __init__(self, t):
+        self.message = _BB(t)
+        self.effective_user = _BU()
+        self.effective_chat = types.SimpleNamespace(id=888)
+        self.callback_query = None
+        self.effective_message = self.message
+
+
+_aio.run(bot.on_text(_BUp("💬 𝐒𝐔𝐏𝐏𝐎𝐑𝐓 / 𝐌𝐀𝐃𝐀𝐃"),
+                     types.SimpleNamespace(user_data={}, bot=None, args=None)))
+check("LIVE: menu se SUPPORT dabane par card aaya (clickable link ke saath)",
+      "t.me/" in getattr(_BB, "last", ""))
+check("LIVE: us card me 📩 Message button bhi hai",
+      any(b.url and "t.me/" in b.url
+          for _r in _BB.kw["reply_markup"].inline_keyboard for b in _r))
+
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))
 check("IMEI tool zinda hai (photo + device search)", hasattr(bot, "cmd_imeistatus"))

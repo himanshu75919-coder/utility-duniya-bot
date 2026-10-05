@@ -779,7 +779,7 @@ KB_BTNS = [
     [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
-    [f"❓ {to_bold('HELP / TUTORIAL')}"],
+    [f"❓ {to_bold('HELP / TUTORIAL')}", f"💬 {to_bold('SUPPORT / MADAD')}"],
 ]
 
 
@@ -846,6 +846,7 @@ BTN_MODE_MAP = {
     "REFER & EARN": "refer",
     "MY ACCOUNT": "account",
     "HELP / TUTORIAL": "tutorial",
+    "SUPPORT / MADAD": "support",
     "MADAD / TUTORIAL": "tutorial",
     "MADAD": "tutorial",
     "ADMIN PANEL": "admin",
@@ -1956,15 +1957,8 @@ async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- v59.7: /support — seedha owner se baat karo (clickable) ----------------
-async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/support — owner se seedha baat karne ka card (ek tap me chat khul jaati hai)."""
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"📩 Message karo {SUPPORT_USERNAME}", url=SUPPORT_URL)],
-        [InlineKeyboardButton("👑 VIP lo", callback_data="open_vip_menu"),
-         InlineKeyboardButton("❓ Help", callback_data="back_home")],
-    ])
-    await update.message.reply_text(
-        "💬 <b>SUPPORT / MADAD</b>\n"
+SUPPORT_TEXT = (
+    "💬 <b>SUPPORT / MADAD</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"Owner: {SUPPORT_LINK}\n\n"
         "Neeche wala button dabao → seedha owner ki chat khul jaayegi → "
@@ -1974,7 +1968,24 @@ async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• VIP payment ka sawaal\n"
         "• Koi naya tool chahiye\n"
         "• Kuch bhi samajh na aaye\n\n"
-        "<i>Screenshot bhejo to sabse jaldi solve hota hai.</i>",
+    "<i>Screenshot bhejo to sabse jaldi solve hota hai.</i>"
+)
+
+
+def support_card() -> tuple:
+    """Support card ka (text, keyboard) — command aur menu button dono use karte hain."""
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"📩 Message karo {SUPPORT_USERNAME}", url=SUPPORT_URL)],
+        [InlineKeyboardButton("👑 VIP lo", callback_data="open_vip_menu"),
+         InlineKeyboardButton("❓ Help", callback_data="back_home")],
+    ])
+    return (SUPPORT_TEXT, kb)
+
+
+async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/support — owner se seedha baat karne ka card (ek tap me chat khul jaati hai)."""
+    _txt, kb = support_card()
+    await update.message.reply_text(_txt,
         parse_mode=HTML, reply_markup=kb)
 
 
@@ -4040,6 +4051,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v49.4: VIP-ONLY GATE ----------
     # Payment proof (pay_*) aur admin flows sabke liye khule rehte hain.
     _mode_now = str(context.user_data.get("mode") or "")
+    # v59.7: madad/support sabke liye khula (VIP ho ya na ho — help chahiye to mile)
+    if norm_text in ("💬 SUPPORT / MADAD", "SUPPORT / MADAD", "❓ HELP / TUTORIAL",
+                     "HELP / TUTORIAL", "MADAD"):
+        _txt, _kb = support_card() if "SUPPORT" in norm_text else (TUTORIAL_NOTICE, tutorial_kb())
+        await update.message.reply_text(_txt, reply_markup=_kb, parse_mode=HTML)
+        return
     if PREMIUM_ONLY and not vip_ok(uid) and not _mode_now.startswith(("pay_", "adm_")):
         context.user_data.pop("mode", None)
         await send_vip_wall(update, context)
@@ -4338,6 +4355,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         if action in ("tutorial", "help"):
             await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
+            return
+        if action == "support":
+            # v59.7: menu ka "💬 SUPPORT / MADAD" button — ek tap me owner se baat
+            _txt, _kb = support_card()
+            await update.message.reply_text(_txt, reply_markup=_kb, parse_mode=HTML)
             return
 
         # Standard prompt modes
