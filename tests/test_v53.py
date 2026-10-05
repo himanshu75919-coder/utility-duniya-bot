@@ -618,7 +618,7 @@ check("App Finder not-found par credit nahi katta",
 # =====================================================================
 section("12) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
 # =====================================================================
-check("bot.py version v54.0 par bump hua", 'BOT_VERSION = "v54.0 Premium Earning"' in _bot_src)
+check("bot.py version v54.x par bump hua", 'BOT_VERSION = "v54.' in _bot_src)
 check("build_qr_image helper maujood hai", "def build_qr_image(" in _bot_src)
 check("teeno QR handler build_qr_image use karte hain",
       _bot_src.count("build_qr_image") >= 4)

@@ -325,7 +325,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v54.0 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
+BOT_VERSION = "v54.1 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -3114,27 +3114,56 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + (f" ({hesc(str(_dl.get('error'))[:60])})" if _dl.get("error") else "")
                 + "\n🔍 Dobara search karke koi aur option chuno.", parse_mode=HTML)
             return
-        tel_note("pinterest.download", True, _ms, credit=True)
         _cid = update.effective_chat.id
         _kb = len(_dl["bytes"]) // 1024
         _cap_meta = _pin_meta_line(target) if isinstance(target, dict) else ""
         _cap_meta = ("\n" + _cap_meta) if _cap_meta else ""
-        if _dl.get("is_video"):
-            await q.message.send_video(
-                chat_id=_cid, video=_dl["stream"], supports_streaming=True,
-                caption=(f"🎬 Pinterest video ({_kb} KB){_cap_meta}")[:1000],
-                parse_mode=HTML)
-        elif _dl.get("is_img"):
-            await q.message.send_photo(
-                chat_id=_cid, photo=_dl["stream"],
-                caption=(f"📌 Pinterest · original quality ({_kb} KB){_cap_meta}")[:1000],
-                parse_mode=HTML)
-        else:
-            await q.message.send_document(
-                chat_id=_cid, document=_dl["stream"],
-                filename=f"pinterest{_dl.get('ext', '')}",
-                caption=(f"📌 Pinterest download ({_kb} KB){_cap_meta}")[:1000],
-                parse_mode=HTML)
+        # v54.1: BytesIO par filename set karo — PTB InputFile bina name ke
+        # upload me atak sakta tha (live par "Chhota sa ghatna" crash yahi tha).
+        try:
+            _dl["stream"].name = f"pinterest{_dl.get('ext', '.jpg')}"
+        except Exception:                                       # noqa: BLE001
+            pass
+        _fname = f"pinterest{_dl.get('ext', '.jpg')}"
+        _sent = False
+        try:
+            if _dl.get("is_video"):
+                await q.message.send_video(
+                    chat_id=_cid, video=_dl["stream"], supports_streaming=True,
+                    caption=(f"🎬 Pinterest video ({_kb} KB){_cap_meta}")[:1000],
+                    parse_mode=HTML)
+            elif _dl.get("is_img"):
+                await q.message.send_photo(
+                    chat_id=_cid, photo=_dl["stream"],
+                    caption=(f"📌 Pinterest · original quality ({_kb} KB){_cap_meta}")[:1000],
+                    parse_mode=HTML)
+            else:
+                await q.message.send_document(
+                    chat_id=_cid, document=_dl["stream"], filename=_fname,
+                    caption=(f"📌 Pinterest download ({_kb} KB){_cap_meta}")[:1000],
+                    parse_mode=HTML)
+            _sent = True
+        except Exception as e:                                  # noqa: BLE001
+            # photo/video reject ho (format/size) to document se bhejo
+            log.warning("pinpick send fail, document fallback: %s", str(e)[:100])
+            try:
+                _dl["stream"].seek(0)
+                await q.message.send_document(
+                    chat_id=_cid, document=_dl["stream"], filename=_fname,
+                    caption=(f"📌 Pinterest file ({_kb} KB){_cap_meta}")[:1000],
+                    parse_mode=HTML)
+                _sent = True
+            except Exception as e2:                             # noqa: BLE001
+                tel_note("pinterest.download", False, _ms,
+                         error=f"send:{str(e2)[:80]}")
+                await q.message.reply_text(
+                    "❌ Media Telegram par bhej nahi paya "
+                    f"(<code>{hesc(str(e2)[:60])}</code>).\n"
+                    "✅ <b>Koi credit nahi kata.</b> Dobara try karo.",
+                    parse_mode=HTML)
+        if not _sent:
+            return
+        tel_note("pinterest.download", True, _ms, credit=True)
         await q.message.reply_text(spend_credit_msg(uid, "pinterest") +
                                    "\n✅ Download ho gaya. Aur chahiye to dobara search karo.",
                                    parse_mode=HTML)
@@ -3254,6 +3283,18 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      + spend_credit_msg(uid, "mediastudio")),
             parse_mode=HTML)
         add_use(uid)
+        return
+
+    if data == "upi_to_num":
+        context.user_data["mode"] = "numinfo"
+        await q.message.reply_text(tool_prompt("numinfo"),
+                                 reply_markup=tool_tutorial_kb("numinfo"), parse_mode=HTML)
+        return
+
+    if data == "upi_to_vpa":
+        context.user_data["mode"] = "upi"
+        await q.message.reply_text(tool_prompt("upi"),
+                                 reply_markup=tool_tutorial_kb("upi"), parse_mode=HTML)
         return
 
     if data.startswith("ffimg:"):
@@ -4489,29 +4530,61 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "upi":
-        # v52.2: UPI VERIFY — VPA format + bank handle (sirf public info)
+        _upi_in = (raw_text or "").strip()
+        # ── v54.1: 10-digit MOBILE number path ────────────────────────────
+        # Kuch competitor bots mobile number se UPI **account-holder ka naam**
+        # nikaal dete hain. Wo NPCI/bank ka PRIVATE data hai (leaked ya
+        # unauthorized proxy se) — India me ye privacy-law ke khilaaf hai aur
+        # fraud me use hota hai. Is bot me ye KABHI nahi hoga.
+        # Yahan hum saaf batate hain + jo LEGAL/public hai wo offer karte hain.
+        if re.fullmatch(r"\d{10}", _upi_in) or re.fullmatch(r"(?:\+91)?[6-9]\d{9}", _upi_in):
+            _num = re.sub(r"\D", "", _upi_in)[-10:]
+            await update.message.reply_text(
+                "🔒 <b>UPI account-holder ka naam private hota hai.</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"Aapne mobile number bheja: <code>{_num}</code>\n\n"
+                "Kuch bots number se <b>holder ka naam / VPA</b> nikaal dete hain —\n"
+                "wo <b>bank/NPCI ka leaked private data</b> hota hai (unauthorized).\n"
+                "Ye bot sirf <b>public + legal</b> data deta hai, isliye wo kabhi nahi karega.\n\n"
+                "✅ <b>Jo main LEGAL tarike se kar sakta hoon:</b>\n"
+                "• 📱 <b>Number Info</b> → operator + circle (public telecom data)\n"
+                "• 🏦 <b>VPA Verify</b> → agar UPI ID pata ho to uska bank + format\n\n"
+                "❌ <b>Koi credit nahi kata.</b> Neeche se chuno:",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📱 Number Info (operator/circle)",
+                                          callback_data="upi_to_num")],
+                    [InlineKeyboardButton("🏦 VPA verify karo", callback_data="upi_to_vpa")],
+                ]), parse_mode=HTML)
+            add_use(uid)
+            return
+        # ── VPA verify (public format + bank handle) ──
         res = await asyncio.to_thread(upi_verify, raw_text)
         if not res.get("ok"):
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
             add_use(uid)
             return
-        bank_line = res.get("bank") or f"Handle <code>@{res['handle']}</code> (known-bank list me nahi)"
+        bank_line = res.get("bank") or "Known-bank list me nahi (handle phir bhi valid ho sakta hai)"
         notes = ("\n".join("⚠️ " + n for n in res.get("notes", []))) or ""
-        await update.message.reply_text(
-            spend_credit_msg(uid, "upi") + "\n" +
-            f"🏦 <b>{to_bold('UPI VERIFY REPORT')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"• <b>VPA:</b> <code>{hesc(res['vpa'])}</code>\n"
-            f"• <b>Format:</b> ✅ Valid UPI ID format\n"
-            f"• <b>Local part:</b> <code>{hesc(res['local'])}</code>\n"
-            f"• <b>Bank handle:</b> <code>@{res['handle']}</code>\n"
-            f"• <b>Bank:</b> {bank_line}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"⚠️ <b>Privacy:</b> Ye sirf public format + bank-handle info hai.\n"
-            "Linked mobile number, account number, ya holder ka naam kisi bhi VPA se\n"
-            "publicly available NAHI hota — isliye ye tool me bhi nahi dikhega.\n"
-            f"{chr(10) if notes else ''}{notes}"
-            .replace(chr(10) + "\n", "\n"), parse_mode=HTML)
+        # v54.1: competitor-jaisa saaf BOXED card — par sirf PUBLIC fields.
+        card = (
+            "┌──────────────────────────────\n"
+            f"│ 🏦 <b>{to_bold('UPI VERIFY REPORT')}</b>\n"
+            "└──────────────────────────────\n"
+            f"💳 <b>VPA / UPI ID:</b> <code>{hesc(res['vpa'])}</code>\n"
+            "✅ <b>Format Status:</b> VALID / sahi UPI format\n"
+            f" <b>Bank Handle:</b> <code>@{hesc(res['handle'])}</code>\n"
+            f"🏛️ <b>Associated Bank:</b> {hesc(bank_line)}\n"
+            f"🧩 <b>Local Part:</b> <code>{hesc(res['local'])}</code>\n"
+            "──────────────────────────────\n"
+            "🔒 <b>Privacy (zaroori baat):</b> holder ka naam, linked mobile ya\n"
+            "account number kisi bhi VPA se <b>publicly available NAHI</b> hota —\n"
+            "jo bot wo dikhaye wo leaked/private data use kar raha hai.\n"
+            "Is bot me sirf public format + bank-handle info milta hai.\n"
+            + (notes + "\n" if notes else "")
+            + "🔥 Powered by @Supermannn_x"
+        ).replace(chr(10) + "\n", "\n")
+        await update.message.reply_text(spend_credit_msg(uid, "upi") + "\n" + card,
+                                        parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4539,19 +4612,20 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _photo = _ph.url
             kind = {"channel": "📢 Public Channel", "supergroup": "👥 Public Group",
                     "group": "👥 Group", "user": "👤 User"}.get(ctype, "💬 Chat")
-            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
-                 f"🎯 <b>{hesc(title)}</b>\n"
-                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                 f"• <b>Type:</b> {kind}\n"
-                 f"• <b>Username:</b> <code>@{uname}</code>\n"]
-            if desc:
-                L.append(f"• <b>Bio/Description:</b> {hesc(desc[:300])}\n")
-            else:
-                L.append("• <b>Bio/Description:</b> (set nahi hai)\n")
+            # v54.1: har item ke end me extra "\n" tha + join bhi "\n" se →
+            # beech me khali separator lines banti thin (screenshot me dikha).
+            # Ab sirf join ka newline, koi double newline nahi.
+            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>",
+                 f"🎯 <b>{hesc(title)}</b>",
+                 "━━━━━━━━━━━━━━━━━━━━━━",
+                 f"• <b>Type:</b> {kind}",
+                 f"• <b>Username:</b> <code>@{uname}</code>"]
+            L.append(f"• <b>Bio/Description:</b> "
+                     + (hesc(desc[:300]) if desc else "<i>(public page par nahi likha)</i>"))
             if mcount is not None:
-                L.append(f"• <b>Members:</b> {mcount:,}\n")
-            L.append("━━━━━━━━━━━━━━━━━━━━━━\n"
-                     "<i>Sirf public info (Bot API se) — private members/phone nahi dikhata.</i>")
+                L.append(f"• <b>Members:</b> {mcount:,}")
+            L.append("━━━━━━━━━━━━━━━━━━━━━━")
+            L.append("<i>Sirf public info (Bot API se) — private members/phone nahi dikhata.</i>")
             card = "\n".join(L)
         except Exception:
             # user profile / non-channel → t.me public page fallback
