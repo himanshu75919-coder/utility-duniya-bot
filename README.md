@@ -1,4 +1,21 @@
-# ⚡ Utility Duniya Super-Bot — **v54.3 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v55.0 Deep Audit + Pro Upgrade**
+
+## 🆕 v55.0 — "DEEP AUDIT + PRO UPGRADE" (saare 24 tools live-test kiye)
+
+Is baar koi naya tool nahi — **saare tools ek-ek karke asli API par chala ke check kiye**.
+6 asli bugs fix, 2 tools 7-18x fast, 1 naya feature. Poore numbers: **`V55-KYA-BADLA.md`**
+
+| Kya | Pehle | Ab |
+|---|---|---|
+| 📧 Temp-mail mailbox delete | POST bhejta tha → **kabhi delete nahi hua** | DELETE method → sach me delete |
+| 💳 UPI payment link | `pa=name%40upi` → kuch apps "invalid VPA" | raw `pa=name@upi` (NPCI spec) |
+| 🎮 FF/BGMI region | `7860944073 (BR)` → region pakda hi nahi | `(BR)`, `- BR`, `, br` — sab chalte hain |
+| 📄 Doc→PDF (1 photo) | **crash** (TypeError) | auto-handle + saaf error |
+| 🔗 Link Check | **5.4s** | **0.7s** (parallel + pooled) |
+| 🌐 Domain OSINT | **27.7s** (crt.sh 502) | **1.5s** (Certspotter + parallel) |
+| 🔗 Cloner | links manually hatane padte the | naya **🔗 Links Hatao ON/OFF** button |
+
+**Tests: 548 static + 59 live checks · 0 fail** · Naya suite: `tests/test_v55.py`
 
 ## 🆕 v54.1 me kya badla — **"LIVE SCREENSHOTS WALE BUGS FIX"**
 
@@ -36,7 +53,7 @@ Kuch bots 10-digit mobile se **account-holder ka naam** nikaalte hain. Wo NPCI/b
 Ye bot wo kabhi nahi karega. Mobile bhejoge to saaf refusal + 2 legal options
 (Number Info → operator/circle, VPA Verify → bank/format), **bina credit kaate**.
 
-**Tests: 828 checks · 0 fail** (106+127+208+14+279+94).
+**Tests: 828 checks · 0 fail** (106+127+208+14+279+94) · **v55: +73 regression + 59 live = 960 checks, 0 fail.**
 > 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
 
 ---

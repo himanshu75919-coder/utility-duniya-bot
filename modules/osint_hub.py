@@ -28,7 +28,6 @@ import os
 import re
 import threading
 import time
-from html import escape
 
 import requests
 
@@ -329,6 +328,6 @@ def hub_status(sample_plate: str = "", sample_number: str = "") -> str:
     return "\n".join(lines)
 
 
-def e(v) -> str:
-    """bot.py ke hesc() jaisa — HTML safe."""
-    return escape(str(v if v is not None else ""))
+# ⚠️ v55: yahan pehle ek `e()` helper tha (bot.py ke hesc() jaisa HTML-escape),
+# par wo kahin use nahi hota tha — dead code hata diya. HTML escaping ke liye
+# bot.py ka `hesc()` ya modules.api_hub ka `hesc()` use karo.

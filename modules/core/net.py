@@ -38,7 +38,8 @@ from requests.adapters import HTTPAdapter
 log = logging.getLogger("ud.net")
 
 __all__ = [
-    "NetError", "session", "http_get", "http_get_json", "http_post",
+    "NetError", "session", "pooled_session", "http_get", "http_get_json",
+    "http_post", "http_delete",
     "http_post_json", "http_head", "http_bytes", "is_safe_url",
     "DEFAULT_TIMEOUT", "DEFAULT_UA",
 ]
@@ -105,6 +106,28 @@ def close_session() -> None:
         except Exception:  # noqa: BLE001
             pass
         _session = None
+
+
+def pooled_session(headers: Dict[str, str] = None) -> requests.Session:
+    """Ek NAYA session jisme connection-pool adapter mount hai (v55).
+
+    Kab chahiye: jab flow ko apni **cookies** set karni pade (jaise Terabox
+    ndus login-cookie). Shared `session()` par cookie set karna DO users ke
+    beech cookie leak karwaata (ek ka login dusre ki request me chala jata) —
+    wo security bug hai. Ye har baar fresh session deta hai (isolated cookies),
+    par andar bhi connection pooling rehti hai (multi-request flows fast).
+    """
+    s = requests.Session()
+    if headers:
+        s.headers.update(headers)
+    else:
+        s.headers.update({"User-Agent": DEFAULT_UA, "Accept-Language": "en-IN,en;q=0.9"})
+    try:
+        s.mount("https://", _PoolAdapter())
+        s.mount("http://", _PoolAdapter())
+    except Exception:  # noqa: BLE001 - adapter fail ho to plain session chalega
+        pass
+    return s
 
 
 # ------------------------------------------------------------ SSRF guard
@@ -225,7 +248,7 @@ def _request(method: str, url: str, *, params: Dict[str, Any] = None,
                 method, url, params=params, data=data, json=json,
                 headers=h, timeout=tmo, allow_redirects=allow_redirects, stream=True,
             )
-        except requests.Timeout as e:
+        except requests.Timeout:
             last = NetError("Server ne jawab dene me bahut time laga diya.", kind="timeout")
             log.debug("timeout %s (attempt %s/%s)", url, attempt + 1, tries)
         except requests.ConnectionError as e:
@@ -288,6 +311,16 @@ def http_head(url: str, **kw) -> requests.Response:
 
 def http_post(url: str, **kw) -> requests.Response:
     return _request("POST", url, **kw)
+
+
+def http_delete(url: str, **kw) -> requests.Response:
+    """DELETE request (mail.tm account delete jaise endpoints ke liye).
+
+    ⚠️ v55 fix: temp-mail ka `tm_delete()` pehle POST se account delete karne ki
+    koshish karta tha — mail.tm sirf DELETE method accept karta hai, isliye
+    mailbox hamesha "delete nahi ho paya" ke saath fail hota tha (feature broken).
+    """
+    return _request("DELETE", url, **kw)
 
 
 def http_get_json(url: str, **kw) -> Any:

@@ -36,19 +36,21 @@ import logging
 import os
 import re
 import secrets
-import string
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from bs4 import BeautifulSoup
 
-from modules.core.net import NetError, http_get_json, http_post_json, http_post, http_get
+from modules.core.net import NetError, http_get_json, http_post_json, http_delete
 from modules.core.telemetry import tracked as _tracked
 
 log = logging.getLogger("ud.tempmail")
 
+# ⚠️ v55 fix: `tm_otp_codes` is list me tha par function exist hi nahi karta
+# (asli naam `extract_codes` hai) — `from modules.temp_mail import *` par
+# AttributeError aata tha. Ghost entry hata di.
 __all__ = [
-    "tm_create", "tm_messages", "tm_delete", "tm_otp_codes", "tm_poll",
+    "tm_create", "tm_messages", "tm_delete", "tm_poll",
     "tm_domains", "extract_codes", "clean_body", "is_expired",
 ]
 
@@ -195,7 +197,14 @@ def tm_create(preferred_domain: str = "") -> Dict[str, Any]:
 
 
 def tm_delete(address: str, token: str) -> Dict[str, Any]:
-    """Mailbox band karo (account delete). Best-effort."""
+    """Mailbox band karo (account delete). Best-effort.
+
+    ⚠️ v55 REAL BUG FIX: pehle ye `http_post()` se DELETE endpoint hit karta tha.
+    mail.tm ka account-delete endpoint sirf **HTTP DELETE** accept karta hai —
+    POST par 405 Method Not Allowed aata tha, isliye ye feature KABHI kaam nahi
+    kiya (hamesha "Delete nahi ho paya" keh kar chup ho jata tha). Ab core.net
+    ka naya `http_delete()` use hota hai.
+    """
     if not token:
         return {"ok": False, "error": "Session nahi hai."}
     try:
@@ -204,7 +213,7 @@ def tm_delete(address: str, token: str) -> Dict[str, Any]:
         aid = (me or {}).get("id")
         if not aid:
             return {"ok": False, "error": "Account ID nahi mili."}
-        r = http_post(f"{API}/accounts/{aid}", headers=_auth(token), timeout=_TIMEOUT, retries=0)
+        http_delete(f"{API}/accounts/{aid}", headers=_auth(token), timeout=_TIMEOUT, retries=0)
         return {"ok": True}
     except Exception:                                               # noqa: BLE001
         return {"ok": False, "error": "Delete nahi ho paya (session khud expire ho jayega)."}
@@ -467,12 +476,13 @@ def tm_messages(address: str, token: str, limit: int = 10,
     out: List[Dict[str, Any]] = []
     all_codes: List[Dict[str, Any]] = []
 
-    # Naye (unseen) messages pehle — OTP wahi hote hain
+    # Naye (unseen) messages pehle, phir latest pehle — do-level sort:
+    # pehle createdAt (latest upar), phir seen flag (unseen upar).
+    # ⚠️ v55: pehle yahan do back-to-back `sorted()` calls thi jisme pehla
+    # turant overwrite ho jata tha (dead code) — ab ek hi stable sort.
     try:
-        items = sorted(items, key=lambda x: (bool(x.get("seen")),
-                                             str(x.get("createdAt") or "")),
-                       reverse=False)
         items = sorted(items, key=lambda x: str(x.get("createdAt") or ""), reverse=True)
+        items = sorted(items, key=lambda x: bool(x.get("seen")))
     except Exception:                                               # noqa: BLE001
         pass
 

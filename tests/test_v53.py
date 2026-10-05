@@ -563,13 +563,25 @@ _bot_src = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 # bot.py khud import karke helper ko live test karte hain (source-grep se aage)
 import bot  # noqa: E402
 
-for _fn in ["pinterest_search", "pinterest_from_pin_link", "pinterest_pin_detail",
+for _fn in ["pinterest_search", "pinterest_from_pin_link",
             "pin_download_media", "ff_player_info", "bgmi_player_info",
-            "ff_service_status", "scrape_public_text",
-            "web_cache_snapshot", "tm_create", "tm_messages", "tm_poll",
-            "tm_delete", "tm_extract_codes", "app_lookup", "make_branded_qr",
-            "build_upi_link", "tel_note", "tel_health_card", "tel_snapshot"]:
+            "scrape_public_text",
+            "tm_create", "tm_poll",
+            "tm_delete", "app_lookup", "make_branded_qr",
+            "tel_note", "tel_snapshot"]:
     check(f"bot.py me import/usage: {_fn}", _fn in _bot_src)
+# v55: ye 7 naam bot.py me sirf DEAD imports the — ruff F401 cleanup me hate:
+#   web_cache_snapshot, tm_messages, tm_extract_codes, build_upi_link,
+#   tel_health_card, pinterest_pin_detail, ff_service_status, gaming_cache_snapshot,
+#   imei_fallback_links, tel_is_soft_fail, tel_tool_stats, tel_upstream_status,
+#   tel_reset, tm_domains, get_app_store_links, domain_age_days, RetryAfter, tempfile
+# In engines ka asli use module-level par hota hai (vip_payment.build_upi_link,
+# tm_poll inbox refresh, _telemetry_block, pinterest_tools.download_media).
+check("v55: dead imports hat gaye (F401 clean)", "extract_codes as tm_extract_codes" not in _bot_src)
+check("v55: UPI link vip_payment module se banta hai",
+      "build_upi_link" in open(os.path.join(ROOT, "modules", "vip_payment.py"), encoding="utf-8").read())
+check("v55: temp-mail inbox tm_poll se refresh hota hai", "tm_poll" in _bot_src)
+check("v55: telemetry card bot.py ke apne _telemetry_block se banti hai", "_telemetry_block" in _bot_src)
 
 check("tempmail inline buttons wired (tm_inbox)", 'data in ("tm_inbox", "tm_otp")' in _bot_src)
 check("tempmail delete button wired", 'data == "tm_del"' in _bot_src)
@@ -618,7 +630,7 @@ check("App Finder not-found par credit nahi katta",
 # =====================================================================
 section("12) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
 # =====================================================================
-check("bot.py version v54.x par bump hua", 'BOT_VERSION = "v54.' in _bot_src)
+check("bot.py version v55 par hai", 'BOT_VERSION = "v55.' in _bot_src)
 check("build_qr_image helper maujood hai", "def build_qr_image(" in _bot_src)
 check("teeno QR handler build_qr_image use karte hain",
       _bot_src.count("build_qr_image") >= 4)
@@ -684,7 +696,7 @@ check("build_qr_image: WiFi QR data se banta hai", _q8.get("ok") is True)
 _q9 = bot.build_qr_image(bot.vcard_data("R K", "9876543210", org="Shop", email="r@x.com"),
                          logo=False, tool="qr_vcard")
 check("build_qr_image: vCard data se banta hai", _q9.get("ok") is True)
-_q10 = bot.build_qr_image(bot.build_upi_link("shop@upi", "Shop", 250, "Order"),
+_q10 = bot.build_qr_image(GEN.build_upi_link("shop@upi", "Shop", 250, "Order"),
                           label="Scan & Pay", tool="qr")
 check("build_qr_image: UPI QR + label strip banta hai", _q10.get("ok") is True)
 _q11 = bot.build_qr_image("   ", tool="qr")

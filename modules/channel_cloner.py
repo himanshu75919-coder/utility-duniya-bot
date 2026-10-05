@@ -64,6 +64,7 @@ def cloner_summary_text(cfg: dict) -> str:
     auto = "🟢 ON (running)" if cfg.get("auto_status") == "on" else "🔴 OFF"
     tag = cfg.get("rename_tag") or "—"
     wm = cfg.get("watermark") or "—"
+    links = "🟢 ON (URLs/@ hata deta hai)" if cfg.get("remove_links") else "🔴 OFF"
     return (
         "📋 <b>TUMHARI AUTO FORWARD SETTING</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -72,6 +73,7 @@ def cloner_summary_text(cfg: dict) -> str:
         f"3️⃣ 🤖 <b>Full Auto:</b> {auto}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🏷️ Tag: {tag}\n💧 Watermark: {wm}\n"
+        f"🔗 Links Hatao: {links}\n"
         f"🖼️ Thumbnail: {'✅ set' if cfg.get('thumbnail_file_id') else '❌ no'}"
     )
 
@@ -88,6 +90,9 @@ def get_cloner_settings_kb(uid: int):
     source_txt = f"{source[:16]}" if source else "Not set ❌"
     auto_on = cfg.get("auto_status") == "on"
     auto_txt = "ON 🟢" if auto_on else "OFF 🔴"
+    # v55: Remove Links toggle
+    links_on = bool(cfg.get("remove_links"))
+    links_txt = "ON 🟢" if links_on else "OFF 🔴"
 
     buttons = [
         [InlineKeyboardButton("🚀 AUTO FORWARD SETUP (3 Step)", callback_data="cloner_setup")],
@@ -111,14 +116,17 @@ def get_cloner_settings_kb(uid: int):
             InlineKeyboardButton("🗑️ Remove Words", callback_data="cloner_set_remove"),
         ],
         [
-            InlineKeyboardButton("🖼️ Thumbnail", callback_data="cloner_set_thumb"),
+            InlineKeyboardButton(f"🔗 Links Hatao: {links_txt}", callback_data="cloner_toggle_links"),
             InlineKeyboardButton("💧 Watermark", callback_data="cloner_set_wm"),
         ],
         [
+            InlineKeyboardButton("🖼️ Thumbnail", callback_data="cloner_set_thumb"),
             InlineKeyboardButton("❌ Thumbnail Hatao", callback_data="cloner_clear_thumb"),
-            InlineKeyboardButton("🔄 Reset Settings", callback_data="cloner_reset"),
         ],
-        [InlineKeyboardButton("📊 My Settings", callback_data="cloner_status")],
+        [
+            InlineKeyboardButton("🔄 Reset Settings", callback_data="cloner_reset"),
+            InlineKeyboardButton("📊 My Settings", callback_data="cloner_status"),
+        ],
         [InlineKeyboardButton("🔙 Back to Main Menu", callback_data="back_home")],
     ]
     return InlineKeyboardMarkup(buttons)
@@ -128,7 +136,13 @@ def get_cloner_settings_kb(uid: int):
 # CAPTION PROCESSING
 # --------------------------------------------------------------------------------
 def process_cloned_caption(text: str, cfg: dict) -> str:
-    """Applies word replacement, word removal, custom caption, rename tag and watermark rules"""
+    """Applies word replacement, word removal, custom caption, rename tag and watermark rules
+
+    v55 naya: `remove_links` (cfg me True) — caption se saare URLs nikaal deta hai.
+    Channel cloner ke users ki sabse common demand thi: "original channel ke
+    links/username forward na ho". Pehle ye feature thi hi nahi (user ko manually
+    remove_words me har link daalna padta tha).
+    """
     custom_cap = (cfg.get("custom_caption") or "").strip()
     replace_rules = (cfg.get("replace_words") or "").strip()
     remove_rules = (cfg.get("remove_words") or "").strip()
@@ -139,6 +153,10 @@ def process_cloned_caption(text: str, cfg: dict) -> str:
         result = custom_cap
     else:
         result = text or ""
+
+    # 0. v55: Links hatao (agar user ne ON kiya ho)
+    if cfg.get("remove_links"):
+        result = _strip_links(result)
 
     # 1. Apply Remove Words
     if remove_rules:
@@ -194,6 +212,27 @@ async def _safe_call(func, **kwargs):
             kwargs.pop("parse_mode", None)
             return await func(**kwargs)
         raise
+
+
+# v55: caption se URLs/@mentions hatao (Remove Links feature)
+_URL_RE = re.compile(
+    r"(?:https?://|www\.)\S+"
+    r"|(?:t\.me|telegram\.me)/\S+"
+    r"|@[A-Za-z0-9_]{4,32}\b"
+)
+
+
+def _strip_links(text: str) -> str:
+    """Caption se URLs, t.me links aur @usernames hatao.
+
+    Sirf links/username hatta hai — normal text jaisa hai waisa rehta hai.
+    Multiple spaces/newlines cleanup ho jaate hain taaki caption saaf dikhe.
+    """
+    t = str(text or "")
+    t = _URL_RE.sub(" ", t)
+    t = re.sub(r"[ \t]{2,}", " ", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
 
 
 def message_kind(msg: Message) -> str:

@@ -46,15 +46,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from html import unescape as _html_unescape
-from urllib.parse import quote, urlparse
+from urllib.parse import quote
 
 import qrcode
-import requests
 from PIL import Image
-import img2pdf
 
 from modules.core.cache import TTLCache, cached_call
-from modules.core.net import NetError, http_bytes, http_get, http_get_json
+from modules.core.net import NetError, http_get, http_get_json
 from modules.core.telemetry import tracked as _tracked
 
 log = logging.getLogger("ud.general")
@@ -275,7 +273,13 @@ def build_upi_link(pa: str, pn: str, amt=None, note: str = "",
     # "a@upi" jaise chhote par valid VPA reject ho jaate the.
     if not re.match(r"^[a-z0-9._\-]{1,256}@[a-z][a-z0-9]{1,63}$", pa):
         raise ValueError("Galat UPI ID format")
-    base = f"upi://pay?pa={quote(pa)}&pn={quote(str(pn or '')[:40])}"
+    # ⚠️ v55 REAL BUG FIX: `pa` (VPA) ko quote() karne se `@` → `%40` ho jata tha
+    # (`upi://pay?pa=himanshu%40upi`). NPCI deep-link spec me pa RAW VPA hota hai
+    # (Google Pay/PhonePay/Paytm sab aise hi link banate hain). Kuch strict UPI
+    # apps / QR scanner `%40` ko decode nahi karte → "invalid VPA" error. Regex
+    # ne already guarantee kar di hai ki pa me sirf URL-safe chars hain, isliye
+    # encode karna hi zyada safe nahi tha — ab raw jaata hai.
+    base = f"upi://pay?pa={pa}&pn={quote(str(pn or '')[:40])}"
     if amt:
         try:
             a = round(float(amt), 2)
