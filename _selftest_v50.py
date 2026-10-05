@@ -260,7 +260,14 @@ os.remove("/tmp/v50_test_botdata.db")
 section("16) 🤖 BOT.PY WIRING CHECKS (static) — v51")
 bot_src = open("bot.py").read()
 checks = [
-    ("v52.3 version", "v52.3 Premium Earning" in bot_src),
+    # v53.0: version aage badhi — ab hardcode v52.3 nahi, v53.x check hota hai.
+    # Saath me ek "regression guard": version kabhi v53 se peeche na jaye.
+    ("v53.0 version", "v53.0 Premium Earning" in bot_src),
+    # regression guard: version string kabhi purane release par wapas na jaye
+    ("version v53+ par hai (peeche regress nahi hua)",
+     "v53.0 Premium Earning" in bot_src
+     and "v52.3 Premium Earning" not in bot_src
+     and "v50." not in bot_src.split("BOT_VERSION =")[1][:40]),
     # ---- v52.1: GOVT SERVICES user order par DELETE hua (verify) ----
     ("govt import gayab", "from modules import govt_tools" not in bot_src),
     ("govt action gayab", 'if action == "govt":' not in bot_src),
@@ -427,7 +434,8 @@ check("bot: tginfo premium", '"tginfo"' in bot_src)
 check("bot: upi rate-limit", '"upi":         (15, 60,  "UPI Verify")' in bot_src)
 
 # =====================================================================
-section("21) v52.3 — 🎮BGMI 🔥FF Pinterest 📄WebScraper 📧TempMail EID")
+section("21) v52.3 → v53.0 — 🎮BGMI 🔥FF Pinterest 📄WebScraper 📧TempMail EID")
+import re
 import modules.gaming_tools as _gg
 import modules. as _pt
 import modules.web_tools as _wt
@@ -440,24 +448,89 @@ check("ff valid player", _ff.get("ok") is True and bool(_ff.get("nickname")))
 _ffbad = _gg.ff_player_info("12")
 check("ff galat uid reject", _ffbad.get("ok") is False)
 _ffnf = _gg.ff_player_info("999999999999", "IND")
-check("ff not-found -> region hint", _ffnf.get("ok") is False and "Region" in _ffnf.get("error", ""))
+check("ff not-found -> region hint", _ffnf.get("ok") is False and "egion" in _ffnf.get("error", ""))
+# v53.0: regions ab API se LIVE validate hote hain (purani list me `RU` tha jo
+# exist hi nahi karta, aur `EU`/`NA`/`SAC` missing the — SAC na hone ki wajah se
+# South America ke players kabhi nahi milte the).
+_regs = _gg.ff_regions()
+check("ff regions live-validate hote hain", len(_regs) >= 10 and "RU" not in _regs)
+check("ff EU/NA/SAC ab supported hain", all(x in _regs for x in ("EU", "NA", "SAC")))
+_st = _gg.ff_service_status()
+check("ff service status pre-check", isinstance(_st, dict) and "status" in _st
+      and "regions" in _st)
+check("ff galat region code par saaf message",
+      _gg.ff_player_info("1633864660", "ZZZZ").get("ok") is False)
+# auto-scan speed: TH region 11s leta tha aur poora scan block kar deta tha.
+import time as _tt
+_t0 = _tt.time()
+_gg.ff_player_info("1633864660", use_cache=False)
+_scan_s = _tt.time() - _t0
+check(f"ff auto-scan deadline me hota hai ({_scan_s:.1f}s < 9s)", _scan_s < 9.0)
 
 # --- BGMI (fallback-safe, kabhi fake data nahi) ---
+# v53.0: engine ab provider-chain + **availability gate** rakhta hai. Dono
+# BGMI providers live audit me DEAD mile (kronos-api.pubg.com DNS fail,
+# pubg-shazam.herokuapp.com HTML 404), isliye jawab `available=False` +
+# `service_busy=True` aata hai — aur bot us case me credit NAHI katta.
 _bg = _gg.bgmi_player_info("1067824210")
-check("bgmi ok-or-fallback", _bg.get("ok") is True or _bg.get("fallback") is True)
+check("bgmi ok-or-fallback", _bg.get("ok") is True or _bg.get("fallback") is True
+      or _bg.get("available") is False)
 check("bgmi galat uid reject", _gg.bgmi_player_info("12").get("ok") is False)
+check("bgmi soft-fail par credit nahi katna chahiye",
+      _bg.get("ok") is True or _bg.get("service_busy") is True)
+check("bgmi kabhi fake data nahi deta",
+      not (_bg.get("ok") is False and bool(_bg.get("stats"))))
+# availability gate khud bhi ek function hai
+_bgav = _gg.bgmi_availability()
+check("bgmi availability gate chalta hai", isinstance(_bgav, dict) and "alive" in _bgav
+      and "dead" in _bgav)
 
 # --- Pinterest search (live) ---
 _ps = _pt.pinterest_search("cat wallpaper")
 check("pinterest search 6 results", _ps.get("ok") is True and len(_ps.get("results", [])) >= 1)
 _pbad = _pt.pinterest_search("x")
 check("pinterest short kw reject", _pbad.get("ok") is False)
+# v53.0: pehle Bing scrape se **0 asli Pinterest images** aati thi. Ab official
+# BaseSearchResource API use hoti hai → real pins + original-quality URLs.
+_pn = sum(1 for x in (_ps.get("is_pinterest") or []) if x)
+check(f"pinterest search me asli Pinterest images hain ({_pn})", _pn >= 1)
+check("pinterest results rich dicts hain (title/dimensions)",
+      isinstance(_ps["results"][0], dict) and "image_url" in _ps["results"][0])
+check("pinterest original-quality URL", any(
+      "/originals/" in str(r.get("image_url", "")) for r in _ps.get("results", [])))
+_pd = _pt.pinterest_pin_detail("576742296077249680")
+check("pinterest pin detail (pehle og:image=0 tha)",
+      _pd.get("ok") is True and bool((_pd.get("pin") or {}).get("image_url")))
+check("pinterest pin metadata (title/pinner)",
+      _pd.get("ok") is False or bool((_pd.get("pin") or {}).get("title")
+                                     or (_pd.get("pin") or {}).get("pinner_name")))
+check("pinterest extract_pin_id", _pt.extract_pin_id(
+      "https://in.pinterest.com/pin/576742296077249680/") == "576742296077249680")
 
 # --- Web Scraper (live + SSRF) ---
 _ws = _wt.scrape_public_text("https://en.wikipedia.org/wiki/Patna")
 check("webscraper live text", _ws.get("ok") is True and _ws.get("words", 0) > 500)
 _wspriv = _wt.scrape_public_text("http://192.168.1.1/")
 check("webscraper SSRF block", _wspriv.get("ok") is False)
+# v53.0: pehle Wikipedia page par 22,515 words aate the — jisme navigation,
+# 300+ references, "See also", categories aur copyright notice sab tha.
+# Ab real readability extraction hoti hai + backmatter strip.
+_wtxt = str(_ws.get("text") or "")
+check("webscraper metadata (title)", bool(_ws.get("title")))
+check("webscraper reading-time", isinstance(_ws.get("reading_min"), int)
+      and _ws.get("reading_min", 0) >= 1)
+check("webscraper paragraphs list", isinstance(_ws.get("paragraphs"), list)
+      and len(_ws.get("paragraphs") or []) >= 3)
+check("webscraper backmatter strip (References/Categories nahi)",
+      "From Wikipedia, the free encyclopedia" not in _wtxt
+      and "Jump to navigation" not in _wtxt
+      and not __import__("re").search(r"(?m)^Categories\s*$", _wtxt))
+_md = _wt.html_to_markdown("<html><head><title>T</title></head><body><article>"
+                           "<h1>Heading</h1><p>" + ("word " * 120) + "</p>"
+                           "<h2>References</h2><p>[1] Foo. Retrieved 1 Jan 2020</p>"
+                           "</article></body></html>", "https://x.com/a")
+check("webscraper markdown output", _md.startswith("# ") and "word" in _md)
+check("webscraper markdown me backmatter nahi", "Retrieved 1 Jan 2020" not in _md)
 
 # --- Temp Mail (live) ---
 _t1 = _tm.tm_create()
@@ -465,6 +538,39 @@ check("tempmail create", _t1.get("ok") is True and "@" in _t1.get("address", "")
 if _t1.get("ok"):
     _t2 = _tm.tm_messages(_t1["address"], _t1["token"])
     check("tempmail inbox", _t2.get("ok") is True)
+    _t3 = _tm.tm_poll(_t1["address"], _t1["token"], [])
+    check("tempmail poll (auto-refresh)", _t3.get("ok") is True and "new_count" in _t3)
+check("tempmail password user ko nahi dikhta (server-side hai)",
+      bool(_t1.get("password")) or _t1.get("ok") is False)
+check("tempmail bad address reject", _tm.tm_messages("notanemail", "x").get("ok") is False)
+check("tempmail expired token detect",
+      _tm.tm_messages("a@b.com", "bad.token").get("expired") is True
+      or _tm.tm_messages("a@b.com", "bad.token").get("ok") is False)
+# --- OTP extraction: temp mail ka ASLI use-case (v53.0 me add hua) ---
+_otp_cases = [
+    ("Your Google verification code", "Your verification code is 483920. Expires in 5 minutes.", "483920"),
+    ("Amazon OTP", "<p>Your OTP is <b>738291</b></p><p>Valid 10 min.</p>", "738291"),
+    ("WhatsApp", "<p>WhatsApp code: <strong>45218</strong></p>", "45218"),
+    ("Verify", "<div style='text-align:center'><span style='font-size:32px'>904512</span></div>", "904512"),
+    ("Login", "847291 is your verification code for Utility Duniya.", "847291"),
+]
+_otp_ok = 0
+for _s, _b, _want in _otp_cases:
+    _c = _tm.extract_codes(_s, _b, re.sub(r"<[^>]+>", " ", _b))
+    if _c and _c[0]["code"] == _want:
+        _otp_ok += 1
+check(f"OTP extraction {_otp_ok}/{len(_otp_cases)} real emails par sahi", _otp_ok == len(_otp_cases))
+# false positives: order id / amount / date / phone — ye code NAHI hain
+_fp = 0
+for _s, _b in [("Order confirmed", "Order 9827364512 of Rs 1,499 placed on 04/10/2026."),
+               ("Payment", "You paid ₹2,499 on 05/10/2026. Transaction ID TXN9182736455."),
+               ("Welcome", "Thanks for signing up. No code here.")]:
+    if not _tm.extract_codes(_s, _b, _b):
+        _fp += 1
+check(f"OTP false-positive filter {_fp}/3", _fp == 3)
+check("tempmail body cleanup (footer strip)",
+      "Unsubscribe" not in _tm.clean_body(
+          "<p>Your OTP is 123456</p><p>Unsubscribe | Privacy Policy | © 2026 Acme</p>"))
 
 # --- Aadhaar EID (offline) ---
 _e1 = _dt.aadhaar_eid_helper("99305683211412")

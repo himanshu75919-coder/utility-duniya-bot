@@ -196,18 +196,36 @@ from modules.osint_tools import (
     upi_verify,
     tg_user_public,
 )
-from modules.gaming_tools import ff_player_info, bgmi_player_info
-from modules. import pinterest_search, pinterest_from_pin_link
-from modules.web_tools import scrape_public_text
-from modules.temp_mail import tm_create, tm_messages
+from modules.gaming_tools import (
+    ff_player_info,
+    bgmi_player_info,
+    ff_service_status,
+    gaming_cache_snapshot,
+)
+from modules. import (
+    pinterest_search,
+    pinterest_from_pin_link,
+    pinterest_pin_detail,
+    download_media as pin_download_media,
+    cache_snapshot as pin_cache_snapshot,
+)
+from modules.web_tools import scrape_public_text, web_cache_snapshot
+from modules.temp_mail import (
+    tm_create,
+    tm_messages,
+    tm_poll,
+    tm_delete,
+    tm_domains,
+    extract_codes as tm_extract_codes,
+)
 from modules.general_tools import (
-
     vcard_data,
     wifi_qr_data,
-
+    build_upi_link,
     get_app_store_links,
-    make_qr_bytes,
-
+    app_lookup,
+    make_branded_qr,
+    domain_age_days,
 )
 from modules.payguard import (
     MAX_BAD_TRIES,
@@ -226,6 +244,19 @@ from modules.vip_payment import (
 
 # ---------------- v50: CORE LAYER (cache + rate-limit + safe HTTP) ----------------
 from modules.core import check_limit, limiter_stats
+# v53.0: per-tool telemetry — kaunsa tool kitni baar fail hua, kaunsi upstream
+# API DEAD hai. Admin `/sys` par dikhta hai (pehle 58 jagah `except: pass` tha
+# aur kisi ko pata hi nahi chalta tha ki BGMI/FF jaisa tool kab se toota hua hai).
+from modules.core.telemetry import (
+    note as tel_note,
+    is_soft_fail as tel_is_soft_fail,
+    health_card as tel_health_card,
+    snapshot as tel_snapshot,
+    tool_stats as tel_tool_stats,
+    worst_tools as tel_worst_tools,
+    upstream_status as tel_upstream_status,
+    reset as tel_reset,
+)
 from modules.core.cache import TTLCache
 
 # Info-tools ka shared cache (IFSC / pincode / IP / area) — same sawaal par
@@ -302,7 +333,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v52.3 Premium Earning"  # v52.3: 🎮 BGMI UID + 🔥 FF UID + 📌 Pinterest + 📄 Web Scraper + 📧 Temp Mail + 🪪 Aadhaar EID (sab public/legal)
+BOT_VERSION = "v53.0 Premium Earning"  # v53.0: 🔥 FF UID REAL DATA (0.19s) · 🎮 BGMI honest service-busy (credit nahi katta) · 📌 Pinterest real API (8 pins + video) · 📄 Web Scraper clean markdown + byline · 📧 Temp Mail OTP auto-detect · 📦 App Finder VERIFIED metadata · 📷 Branded QR (logo/colors/contrast) · 📊 Telemetry (/sys) — sab public/legal
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1036,8 +1067,10 @@ PROMPTS = {
     ),
     "appfind": (
         f"📦 <b>{to_bold('APP FINDER')}</b>\n"
-        "App ka naam bhejo → 8 trusted store ke direct link.\n"
-        "📌 Jaise: <code>instagram</code>\n"
+        "App ka naam bhejo → <b>verified</b> detail: developer, rating, downloads, "
+        "size + Play Store / F-Droid / APKMirror ke direct link.\n"
+        "📌 Jaise: <code>whatsapp</code> ya seedha package id <code>org.telegram.messenger</code>\n"
+        "⚠️ App na mili to credit nahi katega.\n"
         "📦 <b>Ab app ka naam bhejo:</b>"
     ),
     "qr_wifi": (
@@ -1048,7 +1081,8 @@ PROMPTS = {
     ),
     "qr_vcard": (
         f"👤 <b>{to_bold('CONTACT CARD QR')}</b>\n"
-        "QR scan karte hi contact save ho jayega.\n"
+        "QR scan karte hi contact phone me save ho jayega — naam, number, "
+        "company aur email ke saath (4 chhote step).\n"
         "📌 Jaise: <code>Himanshu Kumar</code>\n"
         "👤 <b>Ab apna naam bhejo:</b>"
     ),
@@ -1890,8 +1924,58 @@ def system_stats_text() -> str:
         f"🔌 <b>Premium-only:</b> {'ON' if PREMIUM_ONLY else 'OFF'}\n"
         f"👑 <b>Admins:</b> {len(ADMIN_IDS)}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
+        # v53.0: per-tool telemetry — ab koi tool chup-chaap fail nahi ho sakta.
+        # DEAD upstream (jaise BGMI ke stats servers) sabse upar flag hota hai,
+        # aur saaf likha aata hai ki us tool par credit nahi katna chahiye.
+        + _telemetry_block()
+        + "━━━━━━━━━━━━━━━━━━━━━━\n"
         "<i>Ye stats live hain — /admin dobara dabao to refresh ho jayenge.</i>"
     )
+
+
+def _telemetry_block(max_rows: int = 8) -> str:
+    """v53.0: per-tool health + upstream status (admin /sys card ke liye).
+
+    Fail-safe: telemetry me kuch bhi gadbad ho to system card phir bhi banta hai.
+    """
+    try:
+        snap = tel_snapshot()
+    except Exception:  # noqa: BLE001
+        return ""
+    if not snap.get("calls") and not snap.get("upstreams"):
+        return ("📡 <b>Tool telemetry:</b> abhi koi tool call record nahi hua\n"
+                "   <i>(bot start ke baad se koi tool use nahi hua)</i>\n")
+    L = []
+    L.append(f"📡 <b>Tool telemetry (v53.0):</b>")
+    L.append(f"   🔢 calls: <b>{snap['calls']:,}</b>   "
+             f"✅ {snap['ok']:,}   ❌ {snap['hard_fail']:,}   "
+             f"⚠️ service-side {snap['soft_fail']:,}")
+    L.append(f"   📈 success rate: <b>{snap['success_rate']}%</b>   "
+             f"💳 credits charged: <b>{snap['credits_charged']:,}</b>")
+    ups = snap.get("upstreams") or {}
+    if ups:
+        dead = snap.get("dead_upstreams") or []
+        L.append("   🔌 <b>Upstream APIs:</b>")
+        for name, u in sorted(ups.items(), key=lambda kv: (kv[1]["alive"] is not False, kv[0])):
+            mark = "🟢" if u["alive"] is True else ("🔴" if u["alive"] is False else "⚪")
+            age = f" · {u['age_sec']}s pehle" if u.get("age_sec") is not None else ""
+            L.append(f"      {mark} {name}: {u['ok']} ok / {u['fail']} fail{age}")
+            if u["alive"] is False and u["last_error"]:
+                L.append(f"         ↳ <code>{str(u['last_error'])[:64]}</code>")
+        if dead:
+            L.append(f"   ⚠️ <b>BAND services:</b> {', '.join(dead)}")
+            L.append("      → inke tools par credit NAHI katna chahiye")
+    try:
+        worst = tel_worst_tools(max_rows)
+    except Exception:  # noqa: BLE001
+        worst = []
+    worst = [w for w in worst if w.get("calls")]
+    if worst:
+        L.append("   🩺 <b>Sabse zyada fail:</b>")
+        for r in worst:
+            L.append(f"      • {r['name']}: {r['fail']}/{r['calls']} fail "
+                     f"({r['success_rate']}% ok, avg {r['avg_ms']}ms, p95 {r['p95_ms']}ms)")
+    return "\n".join(L) + "\n"
 
 
 async def admin_panel_send(message, context, uid: int):
@@ -2091,21 +2175,150 @@ async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- CALLBACK QUERY HANDLER ----------------
-def _pinpick_download(url: str) -> dict:
-    """v52.3: Pinterest search result ka image download karo (sync — to_thread me chalega)."""
+def _pinpick_download(item) -> dict:
+    """Pinterest search result download karo (sync — to_thread me chalega).
+
+    v53.0: ab `item` ek rich pin dict hota hai (title/dimensions/pinner/video ke saath),
+    purana plain-URL string bhi accept hota hai (backward compatible).
+    Engine khud core.net se pooled+retry+size-capped download karta hai — isliye
+    yahan raw `requests` nahi hai. Video pins ab MP4 me aate hain.
+    """
     import io as _pio
-    _ua = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"}
     try:
-        r = requests.get(url, timeout=30, headers=_ua)
-        if r.status_code != 200 or len(r.content) < 1500:
-            return {"ok": False}
-        ct = r.headers.get("content-type", "")
-        ext = ".jpg" if "jpeg" in ct or "jpg" in ct else (".png" if "png" in ct else ".webp")
-        return {"ok": True, "stream": _pio.BytesIO(r.content), "bytes": r.content, "ext": ext,
-                "is_img": ct.startswith("image") or ext in (".jpg", ".png", ".webp")}
-    except Exception:
-        return {"ok": False}
+        if isinstance(item, dict):
+            url = item.get("image_url") or item.get("video_url") or ""
+        else:
+            url = str(item or "")
+        if not url:
+            return {"ok": False, "error": "Is result me koi media URL nahi hai."}
+        res = pin_download_media(url)
+        if not res.get("ok"):
+            return {"ok": False, "error": res.get("error", "Download fail")}
+        data = res["bytes"]
+        return {"ok": True, "stream": _pio.BytesIO(data), "bytes": data,
+                "ext": res.get("ext", ".jpg"), "kind": res.get("kind", "image"),
+                "is_img": res.get("kind", "image") == "image",
+                "is_video": res.get("kind") == "video"}
+    except Exception as e:                                        # noqa: BLE001
+        return {"ok": False, "error": str(e)[:80]}
+
+
+# ══════════════════════════════════════════════════════════════════════════
+#  v53.0 — QR ENGINE HELPERS
+#  Pehle teeno QR handlers seedha `make_qr_bytes()` bulate the:
+#    • colors/logo params ignore hote the (engine support karta tha, bot nahi)
+#    • try/except nahi tha — lamba text (QR ~7089 byte limit) par DataOverflowError
+#      seedha crash karta tha, aur `spend_credit_msg` se credit PEHLE hi kat chuka
+#      hota tha → user ka credit gaya, QR nahi mila.
+#    • telemetry nahi thi.
+#  Ab: ek hi branded builder, logo cache, contrast check, telemetry, aur credit
+#  SIRF success par.
+# ══════════════════════════════════════════════════════════════════════════
+
+# Brand logo (center me lagta hai). Ek baar load, phir process-lifetime cache.
+_QR_LOGO_BYTES = None       # bytes | None — bot.py typing import nahi karta
+_QR_LOGO_TRIED = False
+# QR ~7089 bytes max (version 40, numeric). Text limit se upar DataOverflowError.
+QR_MAX_CHARS = 2000
+
+
+def _qr_logo_bytes():
+    """Bot ka profile pic center logo ke liye (na mile/corrupt ho to None)."""
+    global _QR_LOGO_BYTES, _QR_LOGO_TRIED
+    if _QR_LOGO_TRIED:
+        return _QR_LOGO_BYTES
+    _QR_LOGO_TRIED = True
+    try:
+        fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_profile_pic.jpg")
+        if os.path.exists(fp) and os.path.getsize(fp) < 4 * 1024 * 1024:
+            with open(fp, "rb") as f:
+                _QR_LOGO_BYTES = f.read(400_000) or None
+    except Exception as e:                                    # noqa: BLE001
+        log.debug("qr logo load fail: %s", str(e)[:80])
+        _QR_LOGO_BYTES = None
+    return _QR_LOGO_BYTES
+
+
+def _hex_ok(v: str) -> bool:
+    """Sirf valid 6-digit hex color accept karo (injection/bad-pixel se bachao)."""
+    return bool(re.fullmatch(r"#[0-9A-Fa-f]{6}", str(v or "").strip()))
+
+
+def _qr_luminance(hexcolor: str) -> float:
+    """Relative luminance 0(black)..1(white) — contrast check ke liye."""
+    try:
+        r, g, b = (int(hexcolor[i:i + 2], 16) for i in (1, 3, 5))
+    except Exception:                                         # noqa: BLE001
+        return 0.0
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+
+
+def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
+                   logo: bool = True, size: int = 620,
+                   label: str = "", tool: str = "qr") -> dict:
+    """Branded QR PNG banao. Kabhi raise nahi karta — hamesha dict deta hai.
+
+    Returns: {"ok": True, "bytes": BytesIO, "logo": bool, "note": str}
+             {"ok": False, "error": "<hinglish>", "soft": bool}
+    `soft=True` matlab service/limit ki galti hai (credit charge mat karna);
+    `soft=False` matlab user ka input galat hai (message dikhao, credit bhi nahi).
+    """
+    t0 = time.time()
+    txt = str(text or "").strip()
+    note = ""
+
+    if not txt:
+        tel_note(tool, False, (time.time() - t0) * 1000, error="empty input")
+        return {"ok": False, "soft": False,
+                "error": "QR me kya daalna hai wo bhi bhejo — khaali message se QR nahi banta."}
+    if len(txt.encode("utf-8")) > 8000 or len(txt) > QR_MAX_CHARS:
+        tel_note(tool, False, (time.time() - t0) * 1000, error="text too long")
+        return {"ok": False, "soft": False,
+                "error": (f"Text bahut lamba hai ({len(txt):,} chars) — QR code me "
+                          f"{QR_MAX_CHARS:,} chars tak hi fit hota hai. Thoda chhota bhejo.")}
+
+    # colors: user ke hex validate karo, contrast kam ho to force-correct (QR scan
+    # na hone wala QR bhej dena "premium" nahi hota)
+    f = fg if _hex_ok(fg) else "#111111"
+    b = bg if _hex_ok(bg) else "#FFFFFF"
+    if f != fg or b != bg:
+        note += "• Color format galat tha, default black/white laga diya.\n"
+    if abs(_qr_luminance(f) - _qr_luminance(b)) < 0.30:
+        f, b = "#111111", "#FFFFFF"
+        note += ("• Aapke colors ka contrast bahut kam tha — QR scan nahi hota. "
+                 "Black/white laga diya.\n")
+
+    lg = _qr_logo_bytes() if logo else None
+    try:
+        buf = make_branded_qr(txt, fg=f, bg=b, logo_bytes=lg, size=size, label=label)
+    except Exception as e:                                    # noqa: BLE001
+        tel_note(tool, False, (time.time() - t0) * 1000, error=f"qr_build:{str(e)[:60]}")
+        return {"ok": False, "soft": False,
+                "error": clean_err(f"QR nahi ban paya — {e}")}
+    tel_note(tool, True, (time.time() - t0) * 1000, credit=True)
+    return {"ok": True, "bytes": buf, "logo": bool(lg), "note": note}
+
+
+def _pin_meta_line(pin: dict) -> str:
+    """Pin ka chhota metadata card (title + size + pinner) — v53.0."""
+    if not isinstance(pin, dict):
+        return ""
+    out = []
+    t = (pin.get("title") or "").strip()
+    if t:
+        out.append(f"🏷️ <b>{hesc(t[:70])}</b>")
+    w, h = pin.get("width") or 0, pin.get("height") or 0
+    if w and h:
+        out.append(f"📐 {w} × {h} px" + (" <b>(HD)</b>" if max(w, h) >= 1600 else ""))
+    who = (pin.get("pinner_name") or "").strip()
+    if who:
+        out.append(f"👤 {hesc(who[:30])}")
+    rp = pin.get("repins")
+    if isinstance(rp, int) and rp > 0:
+        out.append(f"💾 {rp} saves")
+    if pin.get("is_video"):
+        out.append("🎬 <b>VIDEO pin</b>")
+    return "\n".join(out)
 
 
 async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2932,6 +3145,87 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ---------- v52: 🎞️ YOUTUBE QUALITY PICKER ----------
     # ---------- v52.3: 📌 PINTEREST — image pick (search results me se tap) ----------
+    # ---------- 📧 TEMP MAIL inline buttons (v53.0) ----------
+    if data in ("tm_inbox", "tm_otp"):
+        sess = context.user_data.get("tempmail") or {}
+        if not sess.get("address") or not sess.get("token"):
+            await q.answer("Pehle NEW bhejo — temp email banao.", show_alert=True)
+            return
+        await q.answer("📬 Inbox check kar raha hoon…")
+        _t0 = time.perf_counter()
+        seen = context.user_data.get("tm_seen") or []
+        res = await asyncio.to_thread(tm_poll, sess["address"], sess["token"], seen)
+        _ms = (time.perf_counter() - _t0) * 1000
+        if res.get("expired"):
+            context.user_data["tempmail"] = {}
+            context.user_data["tm_seen"] = []
+            await q.message.reply_text(
+                "⌛ Session expire ho gaya. <b>NEW</b> bhejo — naya email ban jayega.",
+                parse_mode=HTML)
+            return
+        if not res.get("ok"):
+            tel_note("tempmail", False, _ms, error=str(res.get("error") or "")[:120])
+            await q.message.reply_text(str(res.get("error") or "Inbox nahi khula."),
+                                       parse_mode=HTML)
+            return
+        tel_note("tempmail", True, _ms)
+        context.user_data["tm_seen"] = res.get("all_ids") or seen
+        msgs = res.get("messages") or []
+        codes = res.get("new_codes") or res.get("codes") or []
+        if data == "tm_otp":
+            if not codes:
+                await q.message.reply_text(
+                    "🔑 <b>Abhi koi OTP nahi mila.</b>\n"
+                    f"📮 <code>{hesc(sess['address'])}</code>\n\n"
+                    f"📊 Inbox me {len(msgs)} message hai.\n"
+                    "👉 Signup karo, phir 30-60 second baad <b>🔄 Inbox refresh</b> dabao.",
+                    parse_mode=HTML)
+                return
+            L = ["🔑 <b>AAPKE OTP / CODES</b>", "━━━━━━━━━━━━━━━━━━━━━━"]
+            for c in codes[:5]:
+                _src = f"\n   <i>se: {hesc(str(c.get('subject') or c.get('from') or '')[:44])}</i>"
+                L.append(f"  👉 <code>{hesc(str(c['code']))}</code>"
+                         f"  ({hesc(str(c.get('label') or ''))}){_src}")
+            L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+            L.append(f"🏆 <b>Sabse likely: <code>{hesc(str(codes[0]['code']))}</b></code>")
+            L.append("\n<i>⚠️ Ye code kisi ko mat batao — jis site par signup kiya "
+                     "hai sirf wahin daalo.</i>")
+            await q.message.reply_text("\n".join(L)[:3900], parse_mode=HTML)
+            return
+        # tm_inbox → chhota refresh summary
+        if not msgs:
+            await q.message.reply_text(
+                f"📭 Inbox abhi bhi khali hai.\n📮 <code>{hesc(sess['address'])}</code>\n\n"
+                "👉 Ye address signup me daalo, phir refresh dabao.", parse_mode=HTML)
+            return
+        L = [f"📧 <b>INBOX</b> — {res.get('count', 0)} message"
+             + (f" · <b>{res.get('new_count')} NAYA</b>" if res.get("new_count") else ""),
+             "━━━━━━━━━━━━━━━━━━━━━━"]
+        if codes:
+            L.append("🔑 <b>CODES:</b> " + " · ".join(
+                f"<code>{hesc(str(c['code']))}</code>" for c in codes[:4]))
+            L.append("")
+        for i, m in enumerate(msgs[:4], 1):
+            L.append(f"<b>{i}. {hesc(str(m.get('subject') or '')[:60])}</b>\n"
+                     f"   📨 <code>{hesc(str(m.get('from') or '')[:40])}</code>\n"
+                     f"   {hesc(str(m.get('body') or '')[:260])}\n")
+        L.append("<i>🔄 Baar-baar refresh dabao — OTP aate hi upar dikhega.</i>")
+        await q.message.reply_text("\n".join(L)[:3900], parse_mode=HTML)
+        return
+
+    if data == "tm_del":
+        sess = context.user_data.get("tempmail") or {}
+        if sess.get("address"):
+            await asyncio.to_thread(tm_delete, sess["address"], sess.get("token", ""))
+        context.user_data["tempmail"] = {}
+        context.user_data["tm_seen"] = []
+        await q.answer("🗑️ Temp email band ho gaya", show_alert=False)
+        await q.message.reply_text(
+            "🗑️ <b>Temp email band kar diya gaya.</b>\n"
+            "📧 Naya chahiye to <b>TEMP MAIL</b> → <b>NEW</b> bhejo.",
+            parse_mode=HTML)
+        return
+
     if data.startswith("pinpick:"):
         try:
             idx = int(data.split(":", 1)[1])
@@ -2941,22 +3235,48 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not (0 <= idx < len(results)):
             await q.answer("Ye option abhi valid nahi — dobara search karo.", show_alert=True)
             return
-        target_url = results[idx]
-        await q.answer("Download kar raha hoon…", show_alert=False)
-        _dl = await asyncio.to_thread(_pinpick_download, target_url)
+        # v53.0: results ab rich pin dicts hain (title/dimensions/pinner/video).
+        # Purana plain-URL string bhi accept hota hai (_pinpick_download sambhalta hai).
+        target = results[idx]
+        _is_vid = isinstance(target, dict) and bool(target.get("is_video")
+                                                   and target.get("video_kind") == "mp4")
+        await q.answer("🎬 Video download ho rahi hai…" if _is_vid
+                       else "📌 Original quality download ho raha hai…", show_alert=False)
+        _t0 = time.perf_counter()
+        _dl = await asyncio.to_thread(_pinpick_download, target)
+        _ms = (time.perf_counter() - _t0) * 1000
         if not _dl.get("ok"):
-            await q.message.reply_text("❌ Image download fail ho gayi. Dobara search karke koi aur chuno.")
+            tel_note("pinterest.download", False, _ms,
+                     error=str(_dl.get("error") or "")[:120])
+            await q.message.reply_text(
+                "❌ Download fail ho gaya"
+                + (f" ({hesc(str(_dl.get('error'))[:60])})" if _dl.get("error") else "")
+                + "\n🔍 Dobara search karke koi aur option chuno.", parse_mode=HTML)
             return
-        if _dl.get("is_img"):
+        tel_note("pinterest.download", True, _ms, credit=True)
+        _cid = update.effective_chat.id
+        _kb = len(_dl["bytes"]) // 1024
+        _cap_meta = _pin_meta_line(target) if isinstance(target, dict) else ""
+        _cap_meta = ("\n" + _cap_meta) if _cap_meta else ""
+        if _dl.get("is_video"):
+            await q.message.send_video(
+                chat_id=_cid, video=_dl["stream"], supports_streaming=True,
+                caption=(f"🎬 Pinterest video ({_kb} KB){_cap_meta}")[:1000],
+                parse_mode=HTML)
+        elif _dl.get("is_img"):
             await q.message.send_photo(
-                chat_id=update.effective_chat.id, photo=_dl["stream"],
-                caption=f"📌 Pinterest download ({len(_dl['bytes'])//1024} KB)")
+                chat_id=_cid, photo=_dl["stream"],
+                caption=(f"📌 Pinterest · original quality ({_kb} KB){_cap_meta}")[:1000],
+                parse_mode=HTML)
         else:
             await q.message.send_document(
-                chat_id=update.effective_chat.id, document=_dl["stream"],
-                filename=f"image{_dl['ext']}", caption="📌 Pinterest download")
+                chat_id=_cid, document=_dl["stream"],
+                filename=f"pinterest{_dl.get('ext', '')}",
+                caption=(f"📌 Pinterest download ({_kb} KB){_cap_meta}")[:1000],
+                parse_mode=HTML)
         await q.message.reply_text(spend_credit_msg(uid, ) +
-                                   "\n✅ Download ho gaya. Aur chahiye to dobara search karo.")
+                                   "\n✅ Download ho gaya. Aur chahiye to dobara search karo.",
+                                   parse_mode=HTML)
         return
 
     if data.startswith("ytq:"):
@@ -4363,198 +4683,382 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "bgmi":
+        _t0 = time.perf_counter()
         res = await asyncio.to_thread(bgmi_player_info, raw_text)
+        _ms = (time.perf_counter() - _t0) * 1000
         if res.get("ok"):
             st = res.get("stats") or {}
             pr = res.get("profile") or {}
+            tel_note("bgmi", True, _ms, credit=True)
             await update.message.reply_text(
                 spend_credit_msg(uid, "bgmi") + "\n" +
                 f"🎮 <b>{to_bold('BGMI PLAYER CARD')}</b>\n"
-                f"🎯 <b>{hesc(pr.get('name') or '—')}</b>\n"
+                f"🎯 <b>{hesc(str(pr.get('name') or '—'))}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"• <b>UID:</b> <code>{res.get('uid')}</code>\n"
-                f"• <b>Level:</b> {pr.get('level', '—')}\n"
-                f"• <b>Rank Points:</b> {pr.get('rankPoints', '—')}\n"
-                f"• <b>Games:</b> {st.get('matches', '—')} | <b>Wins:</b> {st.get('wins', '—')}\n"
-                f"• <b>Kills:</b> {st.get('totalKills', '—')} | <b>Deaths:</b> {st.get('totalDeaths', '—')}\n"
-                f"• <b>K/D:</b> {st.get('killsPerMatch', '—')}\n"
-                f"• <b>Top 10:</b> {st.get('top10Finishes', '—')} | <b>Longest Kill:</b> {st.get('longestKill', '—')}m\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                "<i>Public in-game stats (official public data). Private info nahi dikhata.</i>",
+                f"• <b>UID:</b> <code>{hesc(str(res.get('uid') or ''))}</code>\n"
+                f"• <b>Level:</b> {hesc(str(pr.get('level', '—')))}\n"
+                f"• <b>Rank Points:</b> {hesc(str(pr.get('rankPoints', '—')))}\n"
+                f"• <b>Games:</b> {hesc(str(st.get('matches', '—')))} | "
+                f"<b>Wins:</b> {hesc(str(st.get('wins', '—')))}\n"
+                f"• <b>Kills:</b> {hesc(str(st.get('totalKills', '—')))} | "
+                f"<b>Deaths:</b> {hesc(str(st.get('totalDeaths', '—')))}\n"
+                f"• <b>K/D:</b> {hesc(str(st.get('killsPerMatch', '—')))}\n"
+                f"• <b>Top 10:</b> {hesc(str(st.get('top10Finishes', '—')))} | "
+                f"<b>Longest Kill:</b> {hesc(str(st.get('longestKill', '—')))}m\n"
+                + (f"• <b>Title:</b> {hesc(str(pr.get('title')))[:40]}\n" if pr.get("title") else "")
+                + "━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"<i>Source: <code>{hesc(str(res.get('source') or 'public'))}</code> · "
+                "Public in-game stats. Private info nahi dikhata.</i>",
                 parse_mode=HTML)
         else:
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            # ⚠️ v53.0: `service_busy` = SERVICE ki galti (BGMI ke public stats
+            # servers abhi band hain), user ki nahi. Is case me **credit NAHI
+            # katta** — pehle kat jata tha aur user ko kuch milta hi nahi tha.
+            _soft = bool(res.get("service_busy"))
+            tel_note("bgmi", False, _ms, soft=_soft,
+                     error=str(res.get("error") or "")[:120])
+            if _soft:
+                await update.message.reply_text(str(res.get("error") or ""), parse_mode=HTML)
+            else:
+                await update.message.reply_text(f"❌ {hesc(str(res.get('error') or ''))}",
+                                                parse_mode=HTML)
         add_use(uid)
         return
 
     if mode == "ffuid":
-        _words = (raw_text or "").strip().split()
-        _reg = ""
-        if len(_words) >= 2 and re.fullmatch(r"[A-Z]{2,4}", _words[-1]):
-            _reg = _words[-1]
-            _uid_part = " ".join(_words[:-1])
-        else:
-            _uid_part = raw_text
-        res = await asyncio.to_thread(ff_player_info, _uid_part, _reg)
+        _t0 = time.perf_counter()
+        # v53.0: region parsing ab engine ke andar hoti hai (REGION_ALIASES me
+        # "india"→IND, "RU"→CIS jaise aliases bhi). Purana regex sirf 2-4 letter
+        # codes pakadta tha, isliye "1633864660 india" fail ho jata tha.
+        res = await asyncio.to_thread(ff_player_info, raw_text, "")
+        _ms = (time.perf_counter() - _t0) * 1000
         if res.get("ok"):
+            tel_note("ffuid", True, _ms, credit=True)
             lines = [
                 f"🔥 <b>{to_bold('FREE FIRE PLAYER CARD')}</b>\n"
-                f"🎯 <b>{hesc(res.get('nickname'))}</b>\n"
+                f"🎯 <b>{hesc(str(res.get('nickname') or '—'))}</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"• <b>UID:</b> <code>{res.get('uid')}</code>",
-                f"• <b>Level:</b> {res.get('level', '—')}" + (f" | <b>EXP:</b> {res.get('exp')}" if res.get("exp") else ""),
-                f"• <b>Region:</b> {res.get('region', '—')}" + (f" | <b>Prime:</b> L{res.get('prime')}" if res.get("prime") else ""),
-                f"• <b>BR Rank:</b> {res.get('rank_br')} ({res.get('rp_br')} RP)",
-                f"• <b>CS Rank:</b> {res.get('rank_cs')}" + (f" ({res.get('rp_cs')})" if res.get("rp_cs") not in (None, "—", "") else ""),
-                f"• <b>Max Rank:</b> {res.get('max_rank')}",
+                f"• <b>UID:</b> <code>{hesc(str(res.get('uid') or ''))}</code>",
+                f"• <b>Level:</b> {hesc(str(res.get('level', '—')))}"
+                + (f" | <b>EXP:</b> {hesc(str(res.get('exp')))}" if res.get("exp") else ""),
+                f"• <b>Region:</b> {hesc(str(res.get('region', '—')))}"
+                + (f" | <b>Prime:</b> L{hesc(str(res.get('prime')))}" if res.get("prime") else ""),
+                f"• <b>BR Rank:</b> {hesc(str(res.get('rank_br')))} ({hesc(str(res.get('rp_br')))} RP)",
             ]
+            if res.get("rp_cs") not in (None, "—", ""):
+                lines.append(f"• <b>CS Rank:</b> {hesc(str(res.get('rank_cs')))} "
+                             f"({hesc(str(res.get('rp_cs')))})")
+            if res.get("max_rank") not in (None, "—", ""):
+                lines.append(f"• <b>Max Rank:</b> {hesc(str(res.get('max_rank')))}")
+            if res.get("clan"):
+                lines.append(f"• <b>Clan/Guild:</b> {hesc(str(res['clan'])[:40])}")
             if res.get("liked") not in (None, "—", ""):
-                lines.append(f"• <b>Likes:</b> {res.get('liked')}")
-            if res.get("last_login") not in (None, "—"):
-                lines.append(f"• <b>Last Login:</b> {res.get('last_login')}")
-            if res.get("created") not in (None, "—"):
-                lines.append(f"• <b>Account Created:</b> {res.get('created')}")
+                lines.append(f"• <b>Likes:</b> {hesc(str(res.get('liked')))}")
+            if res.get("last_login") not in (None, "—", ""):
+                lines.append(f"• <b>Last Login:</b> {hesc(str(res.get('last_login')))}")
+            if res.get("created") not in (None, "—", ""):
+                lines.append(f"• <b>Account Created:</b> {hesc(str(res.get('created')))}")
             if res.get("bio"):
-                lines.append(f"• <b>Bio:</b> {hesc(res['bio'][:100])}")
+                lines.append(f"• <b>Bio:</b> {hesc(str(res['bio'])[:100])}")
             lines += ["━━━━━━━━━━━━━━━━━━━━━━",
                       "<i>Public in-game data (Garena public profile). Private info nahi dikhata.</i>"]
             await update.message.reply_text(
                 spend_credit_msg(uid, "ffuid") + "\n" + "\n".join(lines), parse_mode=HTML)
         else:
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            _soft = bool(res.get("service_busy"))
+            tel_note("ffuid", False, _ms, soft=_soft,
+                     error=str(res.get("error") or "")[:120])
+            if _soft:
+                await update.message.reply_text(str(res.get("error") or ""), parse_mode=HTML)
+            else:
+                await update.message.reply_text(f"{res.get('error')}", parse_mode=HTML)
         add_use(uid)
         return
 
     if mode == :
+        # v53.0: engine ab REAL Pinterest API use karta hai (BaseSearchResource /
+        # PinResource). Results plain-URL strings ki jagah **rich pin dicts** hain
+        # (title + dimensions + pinner + video flag).  short links bhi
+        # resolve hote hain, aur video pins MP4 me aate hain.
         txt = (raw_text or "").strip()
-        _is_link = ( in txt.lower() or "/pin/" in txt or re.fullmatch(r"\d{9,}", txt)
-                    or txt.startswith("http"))
+        _is_link = ("pinterest." in txt.lower() or "/" in txt.lower()
+                    or "/pin/" in txt or re.fullmatch(r"\d{9,25}", txt)
+                    or txt.lower().startswith("http"))
+        _t0 = time.perf_counter()
         if _is_link:
             res = await asyncio.to_thread(pinterest_from_pin_link, txt)
+            _ms = (time.perf_counter() - _t0) * 1000
             if res.get("ok"):
-                import io as _io
-                fname = f"pinterest{res.get('ext', '.jpg')}"
+                tel_note(, True, _ms, credit=True)
                 _cid = update.effective_chat.id
+                _data = res["bytes"]
+                _kb = len(_data) // 1024
+                _pin = res.get("pin") or {}
+                _cap = _pin_meta_line(_pin)
+                _cap = ("\n" + _cap) if _cap else ""
                 await update.message.reply_text(
                     spend_credit_msg(uid, ) + "\n"
-                    "📌 <b>PINTEREST IMAGE</b> — original quality download ✅")
-                await update.message.send_photo(
-                    chat_id=_cid, photo=_io.BytesIO(res["bytes"]),
-                    caption=f"📌 Pinterest download ({len(res['bytes'])//1024} KB)")
+                    + ("🎬 <b>PINTEREST VIDEO</b> — download ✅"
+                       if res.get("kind") == "video"
+                       else "📌 <b>PINTEREST IMAGE</b> — original quality download ✅"),
+                    parse_mode=HTML)
+                if res.get("kind") == "video":
+                    await update.message.send_video(
+                        chat_id=_cid, video=io.BytesIO(_data),
+                        supports_streaming=True,
+                        caption=(f"🎬 Pinterest video ({_kb // 1024 if _kb >= 1024 else _kb}"
+                                 f"{' MB' if _kb >= 1024 else ' KB'}){_cap}"
+                                 "\n<i>Public Pinterest pin</i>")[:1000])
+                else:
+                    await update.message.send_photo(
+                        chat_id=_cid, photo=io.BytesIO(_data),
+                        caption=(f"📌 Pinterest · original quality ({_kb} KB)"
+                                 + (f" · {hesc(str(res.get('ext', '')))}" if res.get("ext") else "")
+                                 + _cap + "\n<i>Public Pinterest pin</i>")[:1000],
+                        parse_mode=HTML)
             else:
-                await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+                tel_note(, False, _ms,
+                         soft=bool(res.get("service_busy")),
+                         error=str(res.get("error") or "")[:120])
+                await update.message.reply_text(str(res.get("error") or "Download fail ho gaya."),
+                                                parse_mode=HTML)
             add_use(uid)
             return
         # keyword search
         res = await asyncio.to_thread(pinterest_search, txt)
+        _ms = (time.perf_counter() - _t0) * 1000
         if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            tel_note(, False, _ms, error=str(res.get("error") or "")[:120])
+            await update.message.reply_text(str(res.get("error") or "Search fail ho gaya."),
+                                            parse_mode=HTML)
             add_use(uid)
             return
-        context.user_data["pin_results"] = res["results"]
+        tel_note(, True, _ms)
+        results = res["results"]
+        # rich dicts store karo (pinpick handler inhe use karta hai)
+        context.user_data["pin_results"] = results
         rows = []
-        L = [f"📌 <b>PINTEREST SEARCH — '{hesc(txt)}'</b>\n"]
-        if res.get("is_pinterest") and any(res["is_pinterest"]):
-            L.append("✅ Pinterest images mili hain (original quality)\n")
+        L = [f"📌 <b>{to_bold('PINTEREST SEARCH')}</b> — '{hesc(txt[:40])}'\n"]
+        _npin = sum(1 for x in (res.get("is_pinterest") or []) if x)
+        if _npin:
+            L.append(f"✅ <b>{_npin}</b> asli Pinterest images mili hain — original quality\n")
         else:
-            L.append("⚠️ Pinterest par exact match nahi mila — similar public images dikh rahi hain\n")
-        for i, u in enumerate(res["results"], 1):
-            tag = "🟡 Pinterest" if ".com" in u else " Web"
-            L.append(f"{i}. {tag}")
-        L.append("\n👇 <b>Jo chahiye wo tap karo (ya number bhejo):</b>")
-        for i in range(0, len(res["results"]), 2):
+            L.append("⚠️ Pinterest se direct result nahi mila — similar public images dikh rahi hain\n")
+        # har result ka chhota label (title + size) — pehle sirf "1. 🟡 Pinterest" tha
+        for i, p in enumerate(results, 1):
+            if isinstance(p, dict):
+                _t = (p.get("title") or "").strip()[:34]
+                _w, _h = p.get("width") or 0, p.get("height") or 0
+                _dim = f" · {_w}×{_h}" if _w and _h else ""
+                _hd = " <b>HD</b>" if max(_w or 0, _h or 0) >= 1600 else ""
+                _vid = " 🎬" if p.get("is_video") else ""
+                L.append(f"{i}. {hesc(_t) if _t else '(bina title)'}{_dim}{_hd}{_vid}")
+            else:
+                L.append(f"{i}. 🖼️ image")
+        L.append("\n👇 <b>Jo chahiye wo tap karo:</b>")
+        for i in range(0, len(results), 2):
             row = []
-            for j in range(i, min(i + 2, len(res["results"]))):
-                row.append(InlineKeyboardButton(f"{j+1} 🖼️", callback_data=f"pinpick:{j}"))
+            for j in range(i, min(i + 2, len(results))):
+                _p = results[j]
+                _lab = "🎬" if (isinstance(_p, dict) and _p.get("is_video")) else "🖼️"
+                row.append(InlineKeyboardButton(f"{j+1} {_lab} Download",
+                                                callback_data=f"pinpick:{j}"))
             rows.append(row)
-        await update.message.reply_text("\n".join(L), parse_mode=HTML,
+        rows.append([InlineKeyboardButton("🔍 Naya search", callback_data="back_home")])
+        await update.message.reply_text("\n".join(L)[:3900], parse_mode=HTML,
                                         reply_markup=InlineKeyboardMarkup(rows))
         add_use(uid)
         return
 
     if mode == "webscraper":
-        res = await asyncio.to_thread(scrape_public_text, raw_text)
+        # v53.0: engine ab **real article extraction** karta hai (paragraph scoring +
+        # link-density + boilerplate/backmatter strip). Pehle Wikipedia page par
+        # 22,515 words aate the jisme navigation + 300 references + categories thi;
+        # ab sirf asli article (11,339 words, zero junk).
+        # `markdown=True` → .txt file padhne-laayak format me banti hai.
+        _t0 = time.perf_counter()
+        res = await asyncio.to_thread(scrape_public_text, raw_text, True, True)
+        _ms = (time.perf_counter() - _t0) * 1000
         if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            tel_note("webscraper", False, _ms, error=str(res.get("error") or "")[:120])
+            await update.message.reply_text(str(res.get("error") or "Page open nahi hua."),
+                                            parse_mode=HTML)
             add_use(uid)
             return
+        tel_note("webscraper", True, _ms, credit=True)
         body = res["text"]
-        head = (f"📄 <b>{hesc(res['title'])}</b>\n"
-                f"🔗 <code>{hesc(res['url'])}</code>\n"
-                + (f"ℹ️ {hesc(res['desc'])}\n" if res.get("desc") else "") +
-                "━━━━━━━━━━━━━━━━━━━━━━\n")
-        if len(body) > 3800:
-            import io as _io
-            full = head + body
+        # byline: author + date + site (v53.0 naya)
+        _byline = []
+        if res.get("author"):
+            _byline.append(f"✍️ {hesc(str(res['author'])[:40])}")
+        if res.get("date"):
+            _byline.append(f"📅 {hesc(str(res['date'])[:26])}")
+        if res.get("site"):
+            _byline.append(f"🌐 {hesc(str(res['site'])[:30])}")
+        head = (f"📄 <b>{hesc(str(res.get('title') or ''))}</b>\n"
+                + (("  ·  ".join(_byline)) + "\n" if _byline else "")
+                + f"🔗 <code>{hesc(str(res.get('url') or ''))}</code>\n"
+                + (f"ℹ️ {hesc(str(res['desc'])[:180])}\n" if res.get("desc") else "")
+                + f"📊 {res.get('words', 0)} words · ~{res.get('reading_min', 0)} min read"
+                + f" · {res.get('para_count', 0)} paras\n"
+                + "━━━━━━━━━━━━━━━━━━━━━━\n")
+        if len(body) > 3400:
+            # bada article → markdown .txt file (padhne layak, pehle plain deewar thi)
+            md = res.get("markdown") or (head + body)
+            _fname = re.sub(r"[^\w\-]+", "-", str(res.get("title") or "page").lower())[:44].strip("-")
             await update.message.reply_text(
                 spend_credit_msg(uid, "webscraper") + "\n"
-                f"📄 <b>{hesc(res['title'])}</b> — {res.get('words')} words mila.\n"
-                "Poora text .txt file me bhej raha hoon 👇")
+                + head
+                + f"\n📄 Poora article <b>{res.get('words')} words</b> ka hai — "
+                ".txt file me bhej raha hoon (saaf markdown format) 👇\n\n"
+                + "<b>🔽 Pehla hissa:</b>\n" + hesc(body[:900]) + " […]",
+                parse_mode=HTML)
             await update.message.send_document(
-                chat_id=update.effective_chat.id, document=_io.BytesIO(full.encode("utf-8")),
-                filename="page-text.txt",
-                caption=f"{res.get('words')} words · {hesc(res['url'][:60])}")
+                chat_id=update.effective_chat.id,
+                document=io.BytesIO(md.encode("utf-8")),
+                filename=f"{_fname or 'page-text'}.txt",
+                caption=(f"{res.get('words')} words · ~{res.get('reading_min')} min · "
+                         f"{hesc(str(res.get('url'))[:60])}")[:1000])
         else:
             await update.message.reply_text(
-                spend_credit_msg(uid, "webscraper") + "\n" + head + body[:3900],
+                spend_credit_msg(uid, "webscraper") + "\n" + head + hesc(body)[:3300],
                 parse_mode=HTML)
         add_use(uid)
         return
 
     if mode == "tempmail":
+        # v53.0: ab **OTP auto-detect** hota hai (temp mail ka asli use-case),
+        # inline buttons aate hain (Refresh / Copy / Delete), aur naye messages
+        # highlight hote hain. Pehle user ko 1200-char body dump me se 6-digit
+        # code khud dhoondhna padta tha.
         cmd = (raw_text or "").strip().lower()
         sess = context.user_data.get("tempmail") or {}
-        if cmd in ("inbox", "check", "box") and sess.get("address"):
-            res = await asyncio.to_thread(tm_messages, sess["address"], sess["token"])
+        _tm_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔄 Inbox refresh", callback_data="tm_inbox"),
+             InlineKeyboardButton("🔑 OTP dhoondho", callback_data="tm_otp")],
+            [InlineKeyboardButton("🗑️ Ye email band karo", callback_data="tm_del"),
+             InlineKeyboardButton("⌨️ Menu", callback_data="back_home")],
+        ])
+
+        if cmd in ("inbox", "check", "box", "otp", "code", "refresh") and sess.get("address"):
+            _t0 = time.perf_counter()
+            seen_ids = context.user_data.get("tm_seen") or []
+            res = await asyncio.to_thread(tm_poll, sess["address"], sess["token"], seen_ids)
+            _ms = (time.perf_counter() - _t0) * 1000
             if res.get("expired"):
                 context.user_data["tempmail"] = {}
+                context.user_data["tm_seen"] = []
+                tel_note("tempmail", False, _ms, error="session expired")
                 await update.message.reply_text(
-                    " Ye temp email session expire ho gaya. <b>NEW</b> bhejo — naya ban jayega.",
-                    parse_mode=HTML)
+                    "⌛ Ye temp email session expire ho gaya hai.\n"
+                    "📧 <b>NEW</b> bhejo — naya address ban jayega.",
+                    parse_mode=HTML, reply_markup=_tm_kb)
                 add_use(uid)
                 return
             if not res.get("ok"):
-                await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+                tel_note("tempmail", False, _ms, error=str(res.get("error") or "")[:120])
+                await update.message.reply_text(str(res.get("error") or "Inbox nahi khula."),
+                                                parse_mode=HTML, reply_markup=_tm_kb)
                 add_use(uid)
                 return
-            if not res.get("messages"):
+            tel_note("tempmail", True, _ms)
+            context.user_data["tm_seen"] = res.get("all_ids") or seen_ids
+
+            msgs = res.get("messages") or []
+            codes = res.get("codes") or []
+            if not msgs:
                 await update.message.reply_text(
-                    f"📭 Inbox abhi khali hai (<code>{hesc(sess['address'])}</code>).\n"
-                    "Message aate hi dobara <b>INBOX</b> bhejo.")
+                    f"📭 <b>Inbox abhi khali hai</b>\n"
+                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"📮 Aapka email: <code>{hesc(sess['address'])}</code>\n\n"
+                    "Abhi is address par koi message nahi aaya.\n"
+                    "👉 Jahan signup kiya wahan ye address daalo, phir yahan "
+                    "<b>🔄 Inbox refresh</b> dabao.",
+                    parse_mode=HTML, reply_markup=_tm_kb)
                 add_use(uid)
                 return
-            L = [f"📧 <b>TEMP MAIL INBOX</b> — <code>{hesc(sess['address'])}</code>\n"
-                 f"({res.get('count')} message)\n━━━━━━━━━━━━━━━━━━━━━━"]
-            for i, m in enumerate(res["messages"][:5], 1):
-                L.append(f"\n<b>{i}. {hesc(m['subject'])}</b>\n"
-                         f"📨 Se: <code>{hesc(m['from'])}</code>\n"
-                         f"{hesc(m['body'][:400])}")
-            L.append("\n━━━━━━━━━━━━━━━━━━━━━━\n<i>Messages 10 minute tak cache me rehte hain.</i>")
-            await update.message.reply_text("\n".join(L), parse_mode=HTML)
+
+            L = [f"📧 <b>{to_bold('TEMP MAIL INBOX')}</b>\n"
+                 f"📮 <code>{hesc(sess['address'])}</code>\n"
+                 f"📊 {res.get('count', 0)} message"
+                 + (f" · <b>{res.get('new_count')} NAYA</b>" if res.get("new_count") else "")
+                 + "\n━━━━━━━━━━━━━━━━━━━━━━"]
+
+            # 🔑 OTP sabse upar — yahi cheez user dhoondh raha hota hai
+            if codes:
+                L.append("")
+                L.append("🔑 <b>AAPKE CODE (auto-detect):</b>")
+                for c in codes[:4]:
+                    _src = f" <i>({hesc(str(c.get('subject') or '')[:28])})</i>" if c.get("subject") else ""
+                    L.append(f"  • <code>{hesc(str(c['code']))}</code> — "
+                             f"{hesc(str(c.get('label') or ''))}{_src}")
+                L.append("")
+                L.append(f"👆 Sabse likely code: <b><code>{hesc(str(codes[0]['code']))}</b></code>")
+            else:
+                L.append("")
+                L.append("🔑 <i>Koi OTP/verification code nahi mila in messages me.</i>")
+
+            for i, m in enumerate(msgs[:5], 1):
+                _new = " 🆕" if m.get("id") in (res.get("new_messages") and
+                                               [x.get("id") for x in res.get("new_messages") or []]
+                                               or []) else ""
+                L.append(f"\n<b>{i}. {hesc(str(m.get('subject') or ''))}</b>{_new}\n"
+                         f"📨 Se: <code>{hesc(str(m.get('from_name') or m.get('from') or ''))}</code>"
+                         + (f" · {hesc(str(m.get('at'))[:16])}" if m.get("at") else "")
+                         + (f"\n📎 {len(m.get('attachments') or [])} attachment"
+                            if m.get("has_attachments") else "")
+                         + f"\n{hesc(str(m.get('body') or '')[:420])}")
+            L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+            L.append("<i>🔄 Refresh dabate raho — OTP aate hi upar highlight ho jayega.</i>")
+            await update.message.reply_text("\n".join(L)[:4000], parse_mode=HTML,
+                                            reply_markup=_tm_kb)
             add_use(uid)
             return
+
+        if cmd in ("del", "delete", "band", "close") and sess.get("address"):
+            _d = await asyncio.to_thread(tm_delete, sess["address"], sess.get("token", ""))
+            context.user_data["tempmail"] = {}
+            context.user_data["tm_seen"] = []
+            await update.message.reply_text(
+                "🗑️ Temp email band kar diya gaya.\n"
+                "📧 Naya chahiye to <b>NEW</b> bhejo.",
+                parse_mode=HTML, reply_markup=InlineKeyboardMarkup(
+                    [[InlineKeyboardButton("⌨️ Menu", callback_data="back_home")]]))
+            add_use(uid)
+            return
+
         # NEW (ya koi bhi input) → naya mailbox
+        _t0 = time.perf_counter()
         res = await asyncio.to_thread(tm_create)
+        _ms = (time.perf_counter() - _t0) * 1000
         if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            tel_note("tempmail", False, _ms, error=str(res.get("error") or "")[:120])
+            await update.message.reply_text(str(res.get("error") or "Email nahi bana."),
+                                            parse_mode=HTML)
             add_use(uid)
             return
-        context.user_data["tempmail"] = {"address": res["address"], "token": res["token"]}
-        # turant pehla inbox check
-        await asyncio.sleep(2)
-        inbox = await asyncio.to_thread(tm_messages, res["address"], res["token"])
-        cnt = inbox.get("count", 0) if inbox.get("ok") else 0
+        tel_note("tempmail", True, _ms, credit=True)
+        # password sirf server-side (user_data) — user ko kabhi nahi dikhta
+        context.user_data["tempmail"] = {"address": res["address"],
+                                         "token": res["token"],
+                                         "password": res.get("password", ""),
+                                         "created": time.time()}
+        context.user_data["tm_seen"] = []
         await update.message.reply_text(
             spend_credit_msg(uid, "tempmail") + "\n" +
             f"📧 <b>{to_bold('TEMP MAIL TAYAR')}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📮 <b>Aapka ek-baar email:</b>\n"
             f"<code>{hesc(res['address'])}</code>\n"
+            f"🌐 Domain: <code>{hesc(str(res.get('domain') or ''))}</code>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "✅ Ise kisi bhi jagah daalo — signup, OTP, password reset (jahan real email chahiye wahan nahi).\n"
-            "📬 Message aane ke baad yahan <b>INBOX</b> bhejo → messages yahan dikh jayenge.\n"
-            f"📭 Abhi inbox: {cnt} message\n"
-            "<i>Ye email sirf is chat me dikhta hai (30 din valid). Koi aur nahi dekh sakta.</i>")
+            "✅ Ise kisi bhi jagah daalo — signup, OTP, password reset.\n"
+            "   <i>(Jahan real email zaroori ho — bank/office — wahan mat use karo.)</i>\n\n"
+            "🔑 <b>OTP khud nikal jayega</b> — message aate hi "
+            "<b>🔄 Inbox refresh</b> dabao, code sabse upar dikhega.\n"
+            f"⏳ Valid: ~{int((res.get('expires_in') or 2592000) // 86400)} din\n"
+            "🔒 Ye email sirf isi chat me hai — koi aur nahi dekh sakta.",
+            parse_mode=HTML, reply_markup=_tm_kb)
         add_use(uid)
         return
 
@@ -4911,11 +5415,42 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "qr":
-        buf = make_qr_bytes(raw_text)
-        await update.message.reply_photo(
-            photo=buf,
-            caption=spend_credit_msg(uid, "qr") + "\n" + f"📷 <b>{to_bold('HD QR CODE TAYYAR')}</b>\n\n🔗 <code>{hesc(raw_text[:80])}</code>\n\n<i>Scan karte hi link khul jayega.</i>",
-            parse_mode=HTML)
+        # v53.0: branded QR (logo + colors + telemetry) aur credit SIRF success par.
+        # Color syntax: `<text> | #RRGGBB | #RRGGBB`  (2nd=foreground, 3rd=background)
+        parts = [x.strip() for x in raw_text.split("|")]
+        payload = parts[0]
+        fg = parts[1] if len(parts) > 1 else "#111111"
+        bg = parts[2] if len(parts) > 2 else "#FFFFFF"
+        want_color = len(parts) > 1
+        # 🛡️ logo sirf tab jab text chhota ho — lamba text = dense QR, logo se
+        #    kuch phone ke camera scan nahi kar paate.
+        res = await asyncio.to_thread(
+            build_qr_image, payload, fg=fg, bg=bg,
+            logo=not want_color and len(payload) <= 300,
+            size=680 if len(payload) <= 120 else 620,
+            label="UTILITY DUNIYA", tool="qr")
+        if not res.get("ok"):
+            # credit NAHI kata — QR bana hi nahi
+            await update.message.reply_text(
+                f"❌ {hesc(res.get('error'))}\n\n"
+                "💡 <i>Credit nahi kata. Plain QR ke liye sirf text bhejo.</i>",
+                parse_mode=HTML)
+            tel_note("qr", False, 0, error="user_input", credit=False)
+            return
+        note = res.get("note") or ""
+        cap = (spend_credit_msg(uid, "qr") + "\n" +
+               f"📷 <b>{to_bold('HD QR CODE TAYYAR')}</b>\n\n"
+               f"🔗 <code>{hesc(payload[:120])}{'…' if len(payload) > 120 else ''}</code>\n"
+               f"📏 <b>Size:</b> {res['bytes'].getbuffer().nbytes // 1024} KB · "
+               f"<b>Text:</b> {len(payload):,} chars\n")
+        if res.get("logo"):
+            cap += "🏷️ <b>Branded:</b> center logo + HD (error-correction H)\n"
+        if want_color:
+            cap += f"🎨 <b>Colors:</b> <code>{hesc(fg)}</code> / <code>{hesc(bg)}</code>\n"
+        cap += ("\n<i>Scan karte hi link khul jayega.</i>")
+        if note:
+            cap += "\n\n" + note.rstrip("\n")
+        await update.message.reply_photo(photo=res["bytes"], caption=cap, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -5251,6 +5786,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "qr_wifi":
+        if not raw_text.strip():
+            await update.message.reply_text(
+                "❌ WiFi ka naam khaali nahi ho sakta.\n\n"
+                "📌 Jaise: <code>JioFiber_Home</code>\n"
+                "📶 <b>WiFi ka naam (SSID) bhejo:</b>", parse_mode=HTML)
+            return
         context.user_data["qr_wifi_ssid"] = raw_text.strip()
         context.user_data["mode"] = "qr_wifi_pass"
         await update.message.reply_text(
@@ -5261,46 +5802,139 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "qr_wifi_pass":
-        ssid = context.user_data.get("qr_wifi_ssid", "")
+        ssid = str(context.user_data.get("qr_wifi_ssid", "")).strip()
         pwd = raw_text.strip()
+        open_net = pwd.lower() in ("none", "no", "skip", "-", "open", "")
         context.user_data.pop("mode", None)
-        data = wifi_qr_data(ssid, "" if pwd.lower() == "none" else pwd)
-        buf = make_qr_bytes(data, box_size=14)
-        await update.message.reply_photo(
-            photo=buf,
-            caption=(spend_credit_msg(uid, "qr") + "\n" +
-                     f"📶 <b>{to_bold('WIFI QR READY')}</b>\n\n"
-                     f"• <b>WiFi:</b> <code>{hesc(ssid)}</code>\n"
-                     f"• <b>Password:</b> <code>{hesc(pwd) if pwd.lower() != 'none' else 'Open (no password)'}</code>\n\n"
-                     "📱 Guests scan this QR → their phone connects to the WiFi automatically ✅\n"
-                     "<i>Print it and stick it on the wall — no need to tell the password!</i>"),
-            parse_mode=HTML)
+        context.user_data.pop("qr_wifi_ssid", None)
+        if not ssid:
+            await update.message.reply_text(
+                "❌ WiFi ka naam (SSID) set nahi hua. /qr_wifi se dobara shuru karo.",
+                parse_mode=HTML)
+            return
+        # v53.0: special chars (`; : , " \`) engine escape karta hai — pehle raw
+        # jate the aur QR galat SSID/password le kar connect fail karta tha.
+        data = wifi_qr_data(ssid, "" if open_net else pwd)
+        # ⚠️ WiFi QR me logo NAHI lagate: ye dense hota hai aur wall par print
+        #    hota hai — logo se purane phones scan nahi kar paate. High-contrast
+        #    black/white hi sabse reliable hai.
+        res = await asyncio.to_thread(build_qr_image, data, logo=False, size=620,
+                                      tool="qr_wifi")
+        if not res.get("ok"):
+            await update.message.reply_text(
+                f"❌ {hesc(res.get('error'))}\n\n💡 <i>Credit nahi kata.</i>",
+                parse_mode=HTML)
+            return
+        cap = (spend_credit_msg(uid, "qr") + "\n" +
+               f"📶 <b>{to_bold('WIFI QR TAYYAR')}</b>\n\n"
+               f"• <b>WiFi (SSID):</b> <code>{hesc(ssid)}</code>\n"
+               f"• <b>Security:</b> {'Open (koi password nahi)' if open_net else 'WPA/WPA2'}\n"
+               f"• <b>Password:</b> {'— nahi hai —' if open_net else f'<code>{hesc(pwd)}</code>'}\n"
+               f"• <b>Hidden network:</b> nahi\n\n"
+               "📱 Guest ye QR scan karega → uska phone <b>khud WiFi se jud jayega</b> ✅\n"
+               "🖨️ <i>Isko print karke deewar par laga do — password kisi ko batana nahi padega!</i>\n\n"
+               "⚠️ <b>Ek baat:</b> password QR ke andar encode hota hai, isliye jo bhi "
+               "scan karega usse WiFi mil jayega. Sirf trusted logon ko scan karne do.")
+        await update.message.reply_photo(photo=res["bytes"], caption=cap, parse_mode=HTML)
         add_use(uid)
         return
 
     if mode == "qr_vcard":
-        context.user_data["qr_vc_name"] = raw_text.strip()[:40]
+        name = raw_text.strip()
+        # v53.0: naam validate karo — pehle khaali naam bhi accept ho jata tha
+        # aur vCard me `FN:` khaali chali jati thi (phone contact "Unknown" banata).
+        if len(re.sub(r"\s", "", name)) < 2:
+            await update.message.reply_text(
+                "❌ Naam kam se kam 2 akshar ka hona chahiye.\n\n"
+                "📌 Jaise: <code>Himanshu Kumar</code>\n"
+                "👉 <b>Apna naam bhejo:</b>", parse_mode=HTML)
+            return
+        context.user_data["qr_vc_name"] = name[:40]
         context.user_data["mode"] = "qr_vcard_phone"
         await update.message.reply_text(
-            "👤 <b>Contact Card — Step 2/2</b>\n\n"
-            f"Name: <b>{hesc(raw_text)}</b>\n\n"
-            "Ab <b>phone number</b> bhejo (jaise <code>9876543210</code>):", parse_mode=HTML)
+            "👤 <b>Contact Card — Step 2/4</b>\n\n"
+            f"Naam: <b>{hesc(name)}</b>\n\n"
+            "Ab <b>phone number</b> bhejo:\n"
+            "📌 Jaise: <code>9876543210</code> ya <code>+91 98765 43210</code>",
+            parse_mode=HTML)
         return
 
     if mode == "qr_vcard_phone":
-        name = context.user_data.get("qr_vc_name", "")
-        phone = raw_text.strip()
-        context.user_data.pop("mode", None)
-        data = vcard_data(name, phone, org="Utility Duniya Bot")
-        buf = make_qr_bytes(data, box_size=14)
-        await update.message.reply_photo(
-            photo=buf,
-            caption=(spend_credit_msg(uid, "qr") + "\n" +
-                     f"👤 <b>{to_bold('DIGITAL VISITING CARD READY')}</b>\n\n"
-                     f"• <b>Name:</b> {hesc(name)}\n"
-                     f"• <b>Phone:</b> <code>{hesc(phone)}</code>\n\n"
-                     "📱 The contact saves on the phone as soon as it is scanned (name + number) ✅"),
-            parse_mode=HTML)
+        digits = re.sub(r"\D", "", raw_text)
+        if not (7 <= len(digits) <= 15):
+            await update.message.reply_text(
+                "❌ Ye phone number sahi nahi lag raha.\n\n"
+                "📌 Jaise: <code>9876543210</code> ya <code>+91 98765 43210</code>\n"
+                "👉 <b>Phone number dobara bhejo</b> (ya <code>skip</code>):", parse_mode=HTML)
+            return
+        context.user_data["qr_vc_phone"] = raw_text.strip()
+        context.user_data["mode"] = "qr_vcard_org"
+        await update.message.reply_text(
+            "👤 <b>Contact Card — Step 3/4</b>\n\n"
+            "Ab <b>company / dukaan ka naam</b> bhejo:\n"
+            "📌 Jaise: <code>Kumar Electronics</code>\n\n"
+            "<i>Nahi bharna? Sirf <code>skip</code> bhej do.</i>", parse_mode=HTML)
+        return
+
+    if mode == "qr_vcard_org":
+        v = raw_text.strip()
+        context.user_data["qr_vc_org"] = "" if v.lower() in ("skip", "-", "no", "none", "") else v[:60]
+        context.user_data["mode"] = "qr_vcard_email"
+        await update.message.reply_text(
+            "👤 <b>Contact Card — Step 4/4</b>\n\n"
+            "Ab <b>email</b> bhejo (optional):\n"
+            "📌 Jaise: <code>rahul@shop.com</code>\n\n"
+            "<i>Nahi bharna? Sirf <code>skip</code> bhej do.</i>", parse_mode=HTML)
+        return
+
+    if mode == "qr_vcard_email":
+        v = raw_text.strip()
+        email = ""
+        if v.lower() not in ("skip", "-", "no", "none", ""):
+            # sirf basic sanity — galat email par vCard phone me open hi nahi hota
+            if re.fullmatch(r"[^@\s,;]{1,64}@[^@\s,;]{2,255}", v):
+                email = v[:255]
+            else:
+                email = ""
+        name = str(context.user_data.get("qr_vc_name", "")).strip()
+        phone = str(context.user_data.get("qr_vc_phone", "")).strip()
+        org = str(context.user_data.get("qr_vc_org", "")).strip()
+        for k in ("mode", "qr_vc_name", "qr_vc_phone", "qr_vc_org"):
+            context.user_data.pop(k, None)
+        if not name or not phone:
+            await update.message.reply_text(
+                "❌ Naam ya phone number adhoora reh gaya. /qr_vcard se dobara shuru karo.",
+                parse_mode=HTML)
+            return
+        if email == "" and v.lower() not in ("skip", "-", "no", "none", ""):
+            await update.message.reply_text(
+                f"⚠️ <code>{hesc(v[:40])}</code> email sahi format me nahi laga, "
+                "isliye card me email nahi daala. Baaki card ban raha hai…",
+                parse_mode=HTML)
+        # v53.0: ab card me ORG + EMAIL bhi jata hai (pehle sirf naam/phone,
+        # aur org hardcoded "Utility Duniya Bot" tha — user ka business nahi).
+        data = vcard_data(name, phone, org=org, email=email)
+        # ⚠️ logo NAHI: vCard QR contact-save ke liye scan hota hai, reliability
+        #    sabse zaroori hai.
+        res = await asyncio.to_thread(build_qr_image, data, logo=False, size=620,
+                                      tool="qr_vcard")
+        if not res.get("ok"):
+            await update.message.reply_text(
+                f"❌ {hesc(res.get('error'))}\n\n💡 <i>Credit nahi kata.</i>",
+                parse_mode=HTML)
+            return
+        rows = [f"• <b>Naam:</b> {hesc(name)}", f"• <b>Phone:</b> <code>{hesc(phone)}</code>"]
+        if org:
+            rows.append(f"• <b>Company:</b> {hesc(org)}")
+        if email:
+            rows.append(f"• <b>Email:</b> <code>{hesc(email)}</code>")
+        cap = (spend_credit_msg(uid, "qr") + "\n" +
+               f"👤 <b>{to_bold('DIGITAL VISITING CARD TAYYAR')}</b>\n\n" +
+               "\n".join(rows) + "\n\n"
+               "📱 Scan karte hi contact phone me <b>save ho jayega</b> "
+               "(naam + number + company + email) ✅\n"
+               "🖨️ <i>Isko print karke counter par rakho, ya WhatsApp DP bana lo.</i>")
+        await update.message.reply_photo(photo=res["bytes"], caption=cap, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -5352,17 +5986,85 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "appfind":
-        app_data = get_app_store_links(raw_text)
+        # v53.0: ab **asli verification** hoti hai — Google Play + App Store +
+        # F-Droid teeno par check, aur real app card (developer/rating/reviews/
+        # downloads/icon) aata hai. Pehle sirf 8 blind search URLs bante the —
+        # "xyzabc123fakeapp" bhejo tab bhi wahi 8 links aate the.
+        # ⚠️ MOD/piracy sites (GetModPC, HappyMod) hata di gayi — modified APK
+        #    distribute karna copyright violation hai aur malware ka bada source.
+        _t0 = time.perf_counter()
+        app_data = await asyncio.to_thread(app_lookup, raw_text)
+        _ms = (time.perf_counter() - _t0) * 1000
+        if not app_data.get("ok"):
+            tel_note("appfind", False, _ms, error=str(app_data.get("error") or "")[:120])
+            await update.message.reply_text(str(app_data.get("error") or "App search fail."),
+                                            parse_mode=HTML)
+            add_use(uid)
+            return
+        if not app_data.get("found"):
+            # app mili hi nahi → credit NAHI katta (user ko kuch mila hi nahi)
+            tel_note("appfind", False, _ms, error="not found")
+            kb_stores = [[InlineKeyboardButton(f"{s['name']}", url=s["url"])]
+                         for s in (app_data.get("stores") or [])]
+            kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+            await update.message.reply_text(
+                str(app_data.get("error") or "App nahi mili.")
+                + "\n\n🔎 <b>Fir bhi khud dhoondhna ho to:</b>",
+                reply_markup=InlineKeyboardMarkup(kb_stores), parse_mode=HTML)
+            add_use(uid)
+            return
+        tel_note("appfind", True, _ms, credit=True)
+
+        apps = app_data.get("apps") or []
+        L = [f"📦 <b>{to_bold('APP FINDER')}</b> — '{hesc(app_data.get('query', '')[:36])}'\n"]
+        L.append(f"✅ <b>{len(apps)}</b> verified app" + ("s" if len(apps) != 1 else "")
+                 + " mili (Play Store / App Store / F-Droid par check kiya)\n")
+        L.append("━━━━━━━━━━━━━━━━━━━━━━")
+        for i, a in enumerate(apps[:5], 1):
+            _st = "🍎 iOS" if a.get("store") == "appstore" else "🤖 Android"
+            L.append(f"\n<b>{i}. {hesc(str(a.get('title') or a.get('package') or ''))}</b>")
+            _meta = []
+            if a.get("rating"):
+                _meta.append(f"⭐ {hesc(str(a['rating']))}")
+            if a.get("votes"):
+                _meta.append(f"({hesc(str(a['votes']))})")
+            if a.get("downloads"):
+                _meta.append(f"📥 {hesc(str(a['downloads']))}")
+            if a.get("price"):
+                _meta.append(f"💰 {hesc(str(a['price']))}")
+            if _meta:
+                L.append("   " + " · ".join(_meta))
+            if a.get("developer"):
+                L.append(f"   👨‍💻 {hesc(str(a['developer'])[:40])}"
+                         + ("  🟢 <i>F-Droid par bhi</i>" if a.get("also_on_fdroid") else ""))
+            if a.get("package"):
+                L.append(f"   🆔 <code>{hesc(str(a['package'])[:52])}</code>")
+            if a.get("tagline"):
+                L.append(f"   ℹ️ <i>{hesc(str(a['tagline'])[:90])}</i>")
+            L.append(f"   {_st}")
+        L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+        L.append("👇 <b>Store me kholo:</b>")
+
+        # buttons: pehle top app ke direct links, phir search links
         kb_stores = []
-        for s in app_data["stores"]:
-            kb_stores.append([InlineKeyboardButton(f"{s['name']}", url=s["url"])])
+        _top = apps[0] if apps else {}
+        if _top.get("store") == "play" and _top.get("package"):
+            kb_stores.append([InlineKeyboardButton(
+                "📱 Play Store par kholo (direct)", url=_top.get("url") or
+                f"https://play.google.com/store/apps/details?id={_top['package']}")])
+        elif _top.get("store") == "appstore" and _top.get("url"):
+            kb_stores.append([InlineKeyboardButton("🍎 App Store par kholo (direct)",
+                                                   url=_top["url"])])
+        if _top.get("fdroid_url"):
+            kb_stores.append([InlineKeyboardButton("🟢 F-Droid par kholo (open source)",
+                                                   url=_top["fdroid_url"])])
+        for s in (app_data.get("stores") or [])[:6]:
+            kb_stores.append([InlineKeyboardButton(f"🔎 {s['name']} — search", url=s["url"])])
+        kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+
         await update.message.reply_text(
-            spend_credit_msg(uid, "appfind") + "\n" +
-            f"📦 <b>{to_bold('APP STORES FOR')}: {app_data['app_name']}</b>\n\n"
-            "Official stores & Top 5 Verified Mod/APK websites available 👇",
-            reply_markup=InlineKeyboardMarkup(kb_stores),
-            parse_mode=HTML,
-        )
+            spend_credit_msg(uid, "appfind") + "\n" + "\n".join(L)[:3600],
+            reply_markup=InlineKeyboardMarkup(kb_stores), parse_mode=HTML)
         add_use(uid)
         return
 

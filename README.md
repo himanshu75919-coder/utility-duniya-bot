@@ -1,4 +1,72 @@
-# ⚡ Utility Duniya Super-Bot — **v52.3 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v53.0 Premium Earning**
+
+## 🆕 v53.0 me kya badla — **"PRO ENGINE" upgrade**
+
+> Is release me **koi naya tool nahi**. Purane tools ko *live* test karke (asli API,
+> asli UID, asli link par) andar se theek kiya gaya hai. Do niyam ab hard-coded hain:
+> **bot jhooth nahi bolega**, aur **kaam na hone par credit nahi katega**.
+
+| Tool | Pehle (measure kiya hua) | Ab (v53.0) |
+|---|---|---|
+| 🔥 **FF UID** | har UID par `Player not found`, **11s**, credit kat-ta tha | **asli data, 0.19s** — SAC region add (jahan asli players the), parallel scan + 6s deadline |
+| 🎮 **BGMI UID** | dead server par bhi **1 credit** kat-ta tha | **availability probe** → `service_busy`, **credit nahi katta**, kabhi fake stats nahi |
+| 📌 **Pinterest** | 6 results, **0 asli ** link | **8/8 asli pins** + original quality + **video pins** + `` resolve + pinner/repin metadata |
+| 📄 **Web Scraper** | **22,515 words** (menu/ads/footer kachra) | **11,339 words saaf article** + Markdown + author/date/site + reading time + `.txt` file |
+| 📧 **Temp Mail** | poora body dump, OTP dhoondhna user ka kaam | **OTP auto-detect 10/10** + false-positive guard + inline buttons + sirf naye messages |
+| 📦 **App Finder** | **8 blind guessed URL**, 2 **piracy** sites | **Google Play se verified** metadata (dev/rating/reviews/downloads/icon) + F-Droid + iOS; nakli app → `found=False`, **credit nahi** |
+| 📷 **QR** | color/logo params **ignore**, lamba text → **crash** | `make_branded_qr()` wired: **center logo**, **custom colors**, **contrast guard**; vCard ab **4 step** (naam/phone/company/email); WiFi special-char escape |
+| 📊 **Observability** | **58 `except: pass`** — chup-chaap fail | `modules/core/telemetry.py` — calls/ok/fail/latency/cache/errors; **`/sys`** par health card + DEAD upstreams + worst tools |
+| 🛡️ **Credit fairness** | fail par bhi credit kat-ta tha | **charge-on-success only** — `service_busy` / `found=False` / QR-fail ⇒ **no charge** |
+
+**Removed (hamesha ke liye):** GetModPC + HappyMod piracy links App Finder se.
+
+**Naya module:** `modules/core/telemetry.py`
+```python
+tel_note(tool, ok, ms, soft=False, error="", credit=True, cache_hit=False)
+tel_health_card(max_rows=12)   # /sys ke liye HTML block
+tel_snapshot() · tel_tool_stats(t) · tel_worst_tools(n) · tel_upstream_status()
+is_soft_fail(result)           # credit rokne ka decision
+```
+
+**Engine API contracts (v53.0):**
+```python
+# modules/general_tools.py
+make_branded_qr(text, *, fg="#111111", bg="#FFFFFF", logo_bytes=None, size=620, label="")
+app_lookup(name, use_cache=True, max_results=5)   # -> {ok, found, query, apps[...]}
+wifi_qr_data(ssid, password="", security="WPA", hidden=False)   # special chars escaped
+vcard_data(name, phone, org="", email="", title="", url="", address="", note="")  # CRLF
+build_upi_link(pa, pn, amt=None, note="", txn_ref="", mam="")   # ValueError on bad VPA
+
+# modules/gaming_tools.py
+ff_player_info(text, region="")   # region aliases + auto-detect internally
+ff_regions() · ff_service_status(force=False) · bgmi_availability(force=False)
+
+# modules/.py
+pinterest_search(q) · pinterest_pin_detail(id) · pinterest_from_pin_link(link)
+
+# modules/web_tools.py
+scrape_public_text(url, markdown=True, use_cache=True)
+  # -> {ok,title,desc,text,markdown,words,reading_min,paragraphs,author,date,site}
+
+# modules/temp_mail.py
+tm_create() · tm_poll(addr, token, seen_ids) · tm_messages(...) · extract_codes(...)
+  # tm_poll -> {ok,count,new_count,messages,codes,new_codes,all_ids,expired}
+```
+
+**bot.py ke naye helpers:** `build_qr_image()` (branded QR + contrast guard + telemetry),
+`_qr_logo_bytes()` (cached brand logo), `_hex_ok()`, `_qr_luminance()`,
+`_telemetry_block()` (`/sys` card), `_pin_meta_line()` (pin caption).
+
+**Naye env vars** (sabke default set — Render par kuch dalna zaroori nahi):
+`PIN_SEARCH_COUNT` `PIN_TIMEOUT` `PIN_CACHE_TTL` `FF_SCAN_TIMEOUT` `FF_SCAN_DEADLINE`
+`GAMING_TIMEOUT` `GAMING_STATUS_TTL` `SCRAPER_TIMEOUT` `SCRAPER_MAX_MB`
+`SCRAPER_MIN_WORDS` `MAILTM_TIMEOUT` `MAILTM_BODY_CHARS` `APP_TIMEOUT`
+`APP_CACHE_TTL` `APP_MAX_RESULTS` `TELEMETRY_MAX_TOOLS` `TELEMETRY_LATENCY_WINDOW`
+
+> 📖 Poori detail (Hinglish, numbers ke saath): **`V50-KYA-BADLA.md`** → v53.0 section.
+> 🔍 Audit trail: **`V53-AUDIT-REPORT.md`**
+
+---
 
 ## 🆕 v52.3 me kya badla
 
@@ -30,11 +98,15 @@ bot **ready SMS** bana deta hai: `UID STATUS xxxxxxxxxxxxxxxx` → **51969** pe 
 > ⚖️ Teeno + baaki sab **100% legal** — sirf public data + official sources.
 > Saare 6 naye tools **premium (1 credit/use)** hain.
 
-### 🧪 Tests (3 suites, sab green)
+### 🧪 Tests (5 suites, sab green)
 ```bash
-python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # v52.3 tools + saare purane sections
-python3 _verify_v49.py             # 128 checks — purana regression suite
+python3 tests/test_v50_core.py            # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
+python3 _selftest_v50.py                  # 208 checks — v52.3 tools + saare purane sections
+python3 _verify_v49.py                    # 128 checks — purana regression suite
+python3 tests/test_privacy_safe_lookup.py #  14 checks — privacy/IMEI/webhook guards (unittest)
+python3 tests/test_v53.py                 # 277 checks — v53.0 pro-engine suite (LIVE internet par)
+#                                         # ─────────
+#                                         # 733 checks · 0 fail
 ```
 
 ---
