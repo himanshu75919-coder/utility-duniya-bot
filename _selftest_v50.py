@@ -262,7 +262,7 @@ bot_src = open("bot.py").read()
 checks = [
     # v53.0: version aage badhi — ab hardcode v52.3 nahi, v53.x check hota hai.
     # Saath me ek "regression guard": version kabhi v53 se peeche na jaye.
-    ("v54.0 version", "v54.0 Premium Earning" in bot_src),
+    ("v54.x version", 'BOT_VERSION = "v54.' in bot_src),
     # regression guard: major version kabhi peeche na jaye (runtime se padho)
     ("version v54+ par hai (peeche regress nahi hua)",
      bot_src.split('BOT_VERSION = "v')[1].split(".")[0].split('"')[0].isdigit()
