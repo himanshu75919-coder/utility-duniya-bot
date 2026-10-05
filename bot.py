@@ -174,11 +174,13 @@ from modules.imei_lookup import (
     is_configured as imei_api_ready,
     render_caption as render_imei_caption,
     render_text as render_imei_text,
+    search_device as imei_search_device,
     specs_filename as imei_specs_filename,
     specs_json_bytes as imei_specs_json,
     validate_imei as imei_validate,
 )
 from modules import numinfo_provider as numprov
+from modules import upi_provider as upiprov
 from modules.osint_tools import (
     search_by_area_name,
     lookup_ifsc,
@@ -301,7 +303,7 @@ BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v57.0 Number-Info API + Premium Cards"  # v57: 📱 NUMBER INFO me AAPKI API (NUMINFO_PROVIDER_URL/KEY — Render Environment se, key kabhi print nahi hoti) + /numapi status & live-test command · provider+hub PARALLEL (2x fast) · 6-ghante cache · provider→hub→offline fallback (kabhi band nahi) · 🚨 BRAND_TAG NameError crash fix (bot.py me define hi nahi tha) · 🖼️ premium boxed cards (IFSC·PINCODE·BGMI·FF·APP FINDER·LINK CHECK) + 📡Source/⚡time/🔥brand footer · ⚡ LINK CHECK ka analyze_link blocking call → to_thread (event loop ab nahi rukta) · khali pincode fields skip
+BOT_VERSION = "v58.0 Naya Prompt System + IMEI Photo + API Panels"  # v58: 📱 NUMBER INFO me AAPKI API (NUMINFO_PROVIDER_URL/KEY — Render Environment se, key kabhi print nahi hoti) + /numapi status & live-test command · provider+hub PARALLEL (2x fast) · 6-ghante cache · provider→hub→offline fallback (kabhi band nahi) · 🚨 BRAND_TAG NameError crash fix (bot.py me define hi nahi tha) · 🖼️ premium boxed cards (IFSC·PINCODE·BGMI·FF·APP FINDER·LINK CHECK) + 📡Source/⚡time/🔥brand footer · ⚡ LINK CHECK ka analyze_link blocking call → to_thread (event loop ab nahi rukta) · khali pincode fields skip
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -406,10 +408,14 @@ def credits_left(u: dict, uid: int = 0) -> int:
 
 
 def credits_line(u: dict, uid: int = 0) -> str:
-    """Chhoti line: credits kitne bache hain."""
+    """Chhoti line: credits kitne bache hain.
+
+    v58: VIP/unlimited par ye line AB KHALI rehti hai — user ka order tha ki
+    tool ke start me "⚡ Credits: ♾️ Unlimited (VIP)" kahi bhi na dikhe.
+    """
     left = credits_left(u, uid)
     if left >= 999999:
-        return "⚡ <b>Credits:</b> ♾️ Unlimited (VIP)"
+        return ""
     if left <= 0:
         return "⚡ <b>Credits:</b> 0 / %d — <b>khatam!</b> Premium tools ke liye VIP lo: /premium" % CREDITS_START
     return f"⚡ <b>Credits:</b> {left} / {CREDITS_START} (premium tools ke liye)"
@@ -843,110 +849,196 @@ BTN_MODE_MAP = {
     "OWNER MODE": "owner",
 }
 
-PROMPTS = {
-    # ══════════════════════════════════════════════════════════════════
-    #  v54.0 — MINIMAL PROMPTS
-    #  Pehle har tool 4-6 line ka lecture deta tha (kya karta hai, kaise
-    #  karta hai, privacy warning, phir "ab bhejo"). User ko tool ke button
-    #  par click karne ke baad sirf EK cheez chahiye: "kya bhejun".
-    #  Ab har prompt = emoji + naam + direct demand + inline example,
-    #  EK line me. Jaise:  🎮 BGMI UID — UID bhejo (8-10 digit):
-    #  Privacy/legal warnings ab result ke saath aate hain (jahan zaroori
-    #  hain), prompt me nahi.
-    #  ⚠️ _verify_v49.py 3 phrases assert karta hai — wo rakhe hain:
-    #     imei  → "Ab 15 digit IMEI bhejo"
-    #     ifsc  → "Ab IFSC code bhejo"
-    #     rto   → "Ab number plate bhejo"
-    # ══════════════════════════════════════════════════════════════════
-    "terabox": (
-        f"⚡ <b>{to_bold('TERABOX / CLOUD')}</b> — link bhejo "
-        "(e.g. <code>https://terabox.com/s/xxxx</code>):"
-    ),
-    "insta_dl": (
-        f"📥 <b>{to_bold('VIDEO DOWNLOADER')}</b> — video ka link bhejo "
-        "(e.g. <code>instagram.com/reel/xxxx</code>):"
-    ),
-    "pp_stamp": (
-        f"📸 <b>{to_bold('EXAM PASSPORT PHOTO')}</b> — apni photo bhejo "
-        "(e.g. front-facing, saaf chehra):"
-    ),
-    "print_sheet": (
-        f"🖨️ <b>{to_bold('8-IN-1 PRINT SHEET')}</b> — ek photo bhejo "
-        "(e.g. passport size photo):"
-    ),
-    "doc_compress": (
-        f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b> — document ki photo bhejo "
-        "(e.g. <code>10th marksheet</code>):"
-    ),
-    "upi": (
-        f"🏦 <b>{to_bold('UPI VERIFY')}</b> — UPI ID bhejo "
-        "(e.g. <code>rahul@sbi</code>):"
-    ),
-    "bgmi": (
-        f"🎮 <b>{to_bold('BGMI UID')}</b> — UID bhejo "
-        "(e.g. <code>1067824210</code>):"
-    ),
-    "ffuid": (
-        f"🔥 <b>{to_bold('FF UID')}</b> — UID bhejo "
-        "(e.g. <code>7860944073</code>, region alag ho to <code>7860944073 BR</code>):"
-    ),
-    "tempmail": (
-        f"📧 <b>{to_bold('TEMP MAIL')}</b> — <code>NEW</code> bhejo "
-        "(naya email ID ban jayega):"
-    ),
-    "bankpdf": (
-        f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b> — statement ka PDF bhejo "
-        "(e.g. SBI / HDFC / PNB ka PDF, photo nahi):"
-    ),
-    "kagaz": (
-        f"📜 <b>{to_bold('KAGAZ SUITE')}</b> — neeche se apna document chuno "
-        "(e.g. <code>kirayanama</code>):"
-    ),
-    "mediastudio": (
-        f"⚡ <b>{to_bold('MEDIA STUDIO')}</b> — neeche se option chuno "
-        "(e.g. <code>YouTube → MP3</code>):"
-    ),
-    "imei": (
-        f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b> — Ab 15 digit IMEI bhejo "
-        "(e.g. <code>353010111111110</code>, IMEI dekhne ke liye <code>*#06#</code> dial karo):"
-    ),
-    "numinfo": (
-        f"📱 <b>{to_bold('NUMBER INFO')}</b> — 10 digit mobile number bhejo "
-        "(e.g. <code>9876543210</code>):"
-    ),
-    "ifsc": (
-        f"🏦 <b>{to_bold('IFSC BANK BRANCH')}</b> — Ab IFSC code bhejo "
-        "(e.g. <code>SBIN0000001</code>):"
-    ),
-    "pin": (
-        f"📮 <b>{to_bold('PINCODE INFO')}</b> — pincode ya area ka naam bhejo "
-        "(e.g. <code>800001</code> ya <code>Rajendra Nagar</code>):"
-    ),
-    "qr": (
-        f"📷 <b>{to_bold('QR CODE MAKER')}</b> — text ya link bhejo "
-        "(e.g. <code>https://t.me/Supermannn_x</code>):"
-    ),
-    "short": (
-        f"🔗 <b>{to_bold('URL SHORTENER')}</b> — lamba link bhejo "
-        "(e.g. <code>example.com/very/long/path?x=1</code>):"
-    ),
-    "linkcheck": (
-        f"🔍 <b>{to_bold('LINK CHECK')}</b> — link bhejo "
-        "(e.g. <code>http://sbi-kyc-verify.xyz</code>):"
-    ),
-    "appfind": (
-        f"📦 <b>{to_bold('APP FINDER')}</b> — app ka naam bhejo "
-        "(e.g. <code>whatsapp</code>):"
-    ),
-    "qr_wifi": (
-        f"📶 <b>{to_bold('WIFI SHARE QR')}</b> — WiFi ka naam (SSID) bhejo "
-        "(e.g. <code>JioFiber_Home</code>):"
-    ),
-    "qr_vcard": (
-        f"👤 <b>{to_bold('CONTACT CARD QR')}</b> — apna naam bhejo "
-        "(e.g. <code>Himanshu Kumar</code>):"
-    ),
+# =====================================================================
+#  v58 — NAYA TOOL PROMPT SYSTEM (aapka diya hua format)
+# ---------------------------------------------------------------------
+#  Har tool ka prompt ab teen hisson me:
+#     1. Header  — 🔐 𝐈𝐌𝐄𝐈 𝐕𝟐 & 𝐆𝐒𝐌𝐀𝐑𝐄𝐍𝐀 𝐒𝐏𝐄𝐂𝐒 𝐄𝐍𝐆𝐈𝐍𝐄
+#     2. Ask     — ✨ 15-digit IMEI Number ya Device Model Name / Code bhejein:
+#     3. Examples— 📝 Examples: • 862407054987700 (IMEI Number) ...
+#
+#  ⚠️ v58 ki khaas baat: tool start par ab NA "⚡ Credits: ♾️ Unlimited (VIP)"
+#     dikhta hai na "Tap /cancel any time to stop." — user ka order.
+#
+#  Ek jagah se poora bot badalta hai: neeche PROMPT_DATA me sirf
+#  head/ask/examples badlo, saare 22 tools ka prompt apne aap badal jayega.
+# =====================================================================
+PROMPT_DATA = {
+    # ---------------------------------------------------------- DOWNLOADERS
+    "terabox": {
+        "head": "⚡ TERABOX / CLOUD ENGINE",
+        "ask": "Terabox / Drive / MediaFire ka link bhejein:",
+        "ex": [("https://terabox.com/s/xxxxx", "Terabox"),
+               ("https://drive.google.com/file/d/xxxxx", "Google Drive"),
+               ("https://www.mediafire.com/file/xxxxx", "MediaFire")],
+    },
+    "insta_dl": {
+        "head": "📥 VIDEO DOWNLOADER · 10+ APPS",
+        "ask": "Kisi bhi app ka video link bhejein:",
+        "ex": [("https://www.youtube.com/watch?v=xxxxx", "YouTube"),
+               ("https://www.instagram.com/reel/xxxxx", "Instagram"),
+               ("https://www.facebook.com/watch?v=xxxxx", "Facebook"),
+               ("https://vt.tiktok.com/xxxxx", "TikTok"),
+               ("https://x.com/i/status/xxxxx", "Twitter / X")],
+    },
+    # ---------------------------------------------------------- PHOTO TOOLS
+    "pp_stamp": {
+        "head": "📸 EXAM PASSPORT PHOTO STUDIO",
+        "ask": "Apni front-facing photo bhejein (chehra saaf + roshni achi ho):",
+        "ex": [("Studio photo", "white background best"),
+               ("Mobile selfie", "simple background")],
+    },
+    "print_sheet": {
+        "head": "🖨️ 8-IN-1 PRINT SHEET MAKER",
+        "ask": "Ek photo bhejein — 8-in-1 print sheet ban jayegi:",
+        "ex": [("Passport size photo", "print ke liye"),
+               ("Selfie / family photo", "ek hi photo 8 baar")],
+    },
+    "doc_compress": {
+        "head": "📄 DOCUMENT CAMERA → PDF",
+        "ask": "Document ki photo bhejein (PDF ban jayegi):",
+        "ex": [("10th / 12th marksheet", ""),
+               ("Aadhaar / PAN / Voter ID", ""),
+               ("Bank passbook page", "")],
+    },
+    # ------------------------------------------------------------- FINANCE
+    "upi": {
+        "head": "🏦 UPI VERIFY V2 ENGINE",
+        "ask": "Valid UPI ID ya 10 digit Mobile Number bhejein:",
+        "ex": [("rahul@sbi", "UPI ID"),
+               ("9876543210@ybl", "Mobile UPI"),
+               ("9876543210", "10 digit number")],
+    },
+    "bankpdf": {
+        "head": "🏦 BANK STATEMENT PDF → EXCEL",
+        "ask": "Bank statement ka PDF bhejein (photo nahi, asli PDF):",
+        "ex": [("SBI / HDFC / PNB / ICICI", "statement PDF"),
+               ("Password wala PDF", "pehle password bhejein")],
+    },
+    "ifsc": {
+        "head": "🏦 IFSC BANK BRANCH ENGINE",
+        "ask": "IFSC code bhejein (11 characters):",
+        "ex": [("SBIN0000001", "State Bank of India"),
+               ("HDFC0001234", "HDFC Bank"),
+               ("PUNB0123456", "Punjab National Bank")],
+    },
+    # ------------------------------------------------------------- GAMING
+    "bgmi": {
+        "head": "🎮 BGMI PLAYER CARD ENGINE",
+        "ask": "BGMI UID bhejein (8-10 digit):",
+        "ex": [("1067824210", "Player UID"),
+               ("5123456789", "Player UID")],
+    },
+    "ffuid": {
+        "head": "🔥 FREE FIRE UID ENGINE",
+        "ask": "Free Fire UID bhejein (8-10 digit):",
+        "ex": [("7860944073", "UID"),
+               ("7860944073 BR", "UID + Region"),
+               ("7860944073 IND", "UID + Region")],
+    },
+    # -------------------------------------------------------- PHONE / OSINT
+    "imei": {
+        "head": "🔐 IMEI V2 & GSMARENA SPECS ENGINE",
+        "ask": "15-digit IMEI Number ya direct Device Model Name / Code bhejein:",
+        "ex": [("862407054987700", "IMEI Number"),
+               ("M2101K6P", "Model Code"),
+               ("Redmi Note 10 Pro", "Device Name")],
+    },
+    "numinfo": {
+        "head": "📱 NUMBER INFO V2 ENGINE",
+        "ask": "10 Digit Number bhejein:",
+        "ex": [("9876543210", "10 digit number")],
+    },
+    "appfind": {
+        "head": "📦 APP FINDER · PLAY · APPSTORE · F-DROID",
+        "ask": "App ka naam ya package code bhejein:",
+        "ex": [("whatsapp", "App ka naam"),
+               ("com.whatsapp", "Package code"),
+               ("free fire", "App ka naam")],
+    },
+    # ------------------------------------------------------------ LOCATION
+    "pin": {
+        "head": "📮 PINCODE / AREA INFO ENGINE",
+        "ask": "Pincode ya area ka naam bhejein:",
+        "ex": [("800001", "Patna ka pincode"),
+               ("Rajendra Nagar", "Area ka naam"),
+               ("Sitamarhi", "District ka naam")],
+    },
+    # ---------------------------------------------------------------- LINKS
+    "qr": {
+        "head": "📷 QR CODE MAKER",
+        "ask": "Text ya link bhejein (HD QR ban jayega):",
+        "ex": [("https://t.me/Supermannn_x", "Telegram link"),
+               ("My WiFi password is 12345", "Simple text")],
+    },
+    "short": {
+        "head": "🔗 URL SHORTENER · 6 ENGINES",
+        "ask": "Lamba link bhejein:",
+        "ex": [("https://example.com/very/long/path?x=1", "Lamba link"),
+               ("https://amazon.in/dp/xxxxx?ref=xyz", "Shopping link")],
+    },
+    "linkcheck": {
+        "head": "🔍 LINK CHECK · 6-LAYER SCAN",
+        "ask": "Link bhejein — safe hai ya fraud, poora check karunga:",
+        "ex": [("http://sbi-kyc-verify.xyz", "Suspicious link"),
+               ("https://google.com", "Normal link")],
+    },
+    "qr_wifi": {
+        "head": "📶 WIFI SHARE QR",
+        "ask": "WiFi ka naam (SSID) bhejein:",
+        "ex": [("JioFiber_Home", "WiFi ka naam"),
+               ("MyHome_5G", "WiFi ka naam")],
+    },
+    "qr_vcard": {
+        "head": "👤 CONTACT CARD QR",
+        "ask": "Apna naam bhejein (contact card bane ga):",
+        "ex": [("Himanshu Kumar", "Naam"),
+               ("Rahul Sah", "Naam")],
+    },
+    # ---------------------------------------------------------- MENU TOOLS
+    "tempmail": {
+        "head": "📧 TEMP MAIL ENGINE",
+        "ask": "Naya email banane ke liye <code>NEW</code> bhejein:",
+        "ex": [("NEW", "naya email ID + inbox")],
+    },
+    "kagaz": {
+        "head": "📜 KAGAZ SUITE · GOVT PAPERS",
+        "ask": "Neeche se apna document chunein:",
+        "ex": [("Kirayanama", "rent agreement"),
+               ("Affidavit / Notice 138", "legal papers"),
+               ("GST / PAN check", "tax papers")],
+    },
+    "mediastudio": {
+        "head": "⚡ MEDIA STUDIO",
+        "ask": "Neeche se option chunein:",
+        "ex": [("YouTube → MP3", ""),
+               ("Status video · Ringtone · Karaoke", ""),
+               ("8D sound · Bass boost · Voice change", "")],
+    },
 }
+
+
+def _render_tool_prompt(key: str) -> str:
+    """PROMPT_DATA → ready-to-send HTML prompt (naya v58 format)."""
+    d = PROMPT_DATA.get(key)
+    if not d:
+        return ""
+    L = [f"{d['head'].split(' ')[0]} <b>{to_bold(d['head'].split(' ', 1)[1])}</b>"
+         if " " in d["head"] else f"<b>{to_bold(d['head'])}</b>"]
+    L.append("")
+    L.append(f"✨ {d['ask']}")
+    ex = d.get("ex") or []
+    if ex:
+        L.append("")
+        L.append("📝 <b>Examples:</b>")
+        for val, label in ex:
+            L.append(f"• <code>{hesc(str(val))}</code>" + (f" ({label})" if label else ""))
+    return "\n".join(L)
+
+
+# backward-compat: purana naam `PROMPTS` wahi rehta hai (tests/tutorial isko use karte hain)
+PROMPTS = {k: _render_tool_prompt(k) for k in PROMPT_DATA}
+
 TUTORIAL_TEXT = (
     f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -1219,17 +1311,15 @@ def kagaz_ask_next(key: str, data: dict, step: int = 0) -> str:
 
 
 def tool_prompt(action: str) -> str:
-    """Tool ka prompt — sirf kaam ki baat + aakhir me ask (koi text tutorial nahi)."""
-    body = strip_tutorial_lines(PROMPTS.get(action, "")).strip()
-    lines = body.split("\n")
-    while lines and (not lines[-1].strip() or set(lines[-1].strip()) <= set("━-— ")):
-        lines.pop()
-    if action in ASK_LINES and lines:
-        tail = " ".join(lines[-2:]).lower()
-        if not any(w in tail.lower() for w in ("send", "type", "select", "pick", "tap", "open", "forward", "choose")):
-            lines.append("")
-            lines.append(ASK_LINES[action])
-    return "\n".join(lines)
+    """Tool ka prompt — v58 ka naya format (header + ✨ ask + 📝 Examples).
+
+    Tool start par NA credits line hoti hai, NA "/cancel" wali line — user ka order.
+    """
+    body = PROMPTS.get(action)
+    if body:
+        return body
+    # purane ASK_LINES wale sub-modes (agar koi bacha ho) — safe fallback
+    return strip_tutorial_lines(ASK_LINES.get(action, "")).strip()
 
 
 def publish_tutorial_now(force: bool = False) -> str:
@@ -1674,6 +1764,52 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #  v50: SYSTEM HEALTH — admin ko live internal stats
 # ============================================================================
 _BOOT_TS = time.time()
+
+
+# ---------------- v58: /upiapi — UPI naam-API ka status (admin) ----------------
+async def cmd_upiapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/upiapi — UPI name API lagi hai ya nahi + live test (key kabhi print nahi)."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    card = upiprov.status_card()
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    if not upiprov.is_configured() or not args:
+        if upiprov.is_configured() and not args:
+            card += "\n\n🧪 <b>Live test:</b> <code>/upiapi rahul@sbi</code>"
+        await update.message.reply_text(card, parse_mode=HTML)
+        return
+    st = await update.message.reply_text(
+        f"🔎 Aapki API se <code>{hesc(args[0][:40])}</code> test kar raha hoon…",
+        parse_mode=HTML)
+    res = await asyncio.to_thread(upiprov.verify, args[0])
+    if res.get("ok"):
+        await st.edit_text(
+            "✅ <b>UPI API CHAL RAHI HAI!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>Name:</b> {hesc(str(res.get('name') or '—'))}\n"
+            f"🎯 <b>VPA:</b> <code>{hesc(str(res.get('vpa') or ''))}</code>\n"
+            f"🏛️ <b>Bank:</b> {hesc(str(res.get('bank') or '—'))}\n"
+            f"⚡ <b>Status:</b> {hesc(str(res.get('status') or '—')[:60])}\n"
+            f"📊 <b>Valid:</b> {'✅ Haan' if res.get('valid') else '⚪ Pata nahi'}\n"
+            f"⏱️ <b>Latency:</b> {res.get('latency_ms')}ms\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📱 Ab UPI Verify card me naiv naam live aayega. 🔥",
+            parse_mode=HTML)
+        return
+    await st.edit_text(
+        "❌ <b>UPI API test fail</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:200])}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<b>Ye 4 check karo:</b>\n"
+        "1️⃣ <code>UPI_VERIFY_URL</code> poori hai? (https:// se)\n"
+        "2️⃣ <code>UPI_VERIFY_KEY</code> sahi hai?\n"
+        "3️⃣ <code>UPI_VERIFY_PARAM</code> — VPA jis param me jaata hai "
+        "(jaise <code>vpa</code> / <code>accountNumber</code>)?\n"
+        "4️⃣ <code>UPI_VERIFY_METHOD</code> — GET ya POST?\n\n"
+        "ℹ️ <i>Tab tak UPI tool purane tarike se chal raha hai — band nahi hai.</i>",
+        parse_mode=HTML)
 
 
 # ---------------- v57: /numapi — Number Info provider status (key kabhi nahi print hoti) ----------------
@@ -2616,7 +2752,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "imei_new":
         context.user_data["mode"] = "imei"
         _u_in = get_user(uid, q.from_user.first_name)
-        await q.message.reply_text(tool_prompt("imei") + "\n\n" + credits_line(_u_in, uid),
+        # v58: tool start par credits line NAHI (user ka order)
+        await q.message.reply_text(tool_prompt("imei"),
                                    reply_markup=tool_tutorial_kb("imei"), parse_mode=HTML)
         return
 
@@ -2935,10 +3072,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text(get_credits_over_text(data),
                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return
-        extra = ""
-        if is_premium_tool(data):
-            extra = "\n\n" + credits_line(_u0, uid)   # v42: lambi lines nahi — tutorial video samjhata hai
-        await q.message.reply_text(tool_prompt(data) + extra, reply_markup=tool_tutorial_kb(data), parse_mode=HTML)
+        # v58: tool start par credits line NAHI (user ka order)
+        await q.message.reply_text(tool_prompt(data), reply_markup=tool_tutorial_kb(data), parse_mode=HTML)
         return
 
     if data == "kagaz_menu":
@@ -3799,7 +3934,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(get_credits_over_text("vnum"),
                                                 reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
                 return
-            await update.message.reply_text(credits_line(_u_v, uid), parse_mode=HTML)
+            # v58: credits line hatayi (VIP par khaali aati thi)
             await send_vnum_card(update, context)
             return
 
@@ -3818,7 +3953,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Set nahi'}</code>\n"
                 f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Set nahi'}</code>\n"
                 f"🤖 FULL AUTO: <b>{_auto}</b>\n"
-                f"{credits_line(_u_cl, uid)}\n"
                 "<i>(FULL AUTO CHALU aur Fast-Forward CHALU — dono 1-1 credit lete hain)</i>\n"
                 f"{_cl_note}\n"
                 "Apne posts ke liye settings badlo 👇",
@@ -3926,10 +4060,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(get_credits_over_text(action),
                                                 reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
                 return
-            extra = ""
-            if is_premium_tool(action):
-                extra = "\n\n" + credits_line(u, uid)   # v42: lambi lines nahi
-            await update.message.reply_text(tool_prompt(action) + extra + "\n\n<i>Tap /cancel any time to stop.</i>",
+            # v58: NA credits line, NA "/cancel" wali line — seedha tool prompt
+            await update.message.reply_text(tool_prompt(action),
                                             reply_markup=tool_tutorial_kb(action), parse_mode=HTML)
             return
 
@@ -4494,38 +4626,81 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
         # ── VPA verify (public format + bank handle) ──
-        res = await asyncio.to_thread(upi_verify, raw_text)
+        # v58: saath me AAPKI UPI/KYC API bhi chalti hai (agar lagi ho) —
+        # dono PARALLEL (asyncio.gather) taaki response fast rahe.
+        _t0 = time.perf_counter()
+        res, _up = await asyncio.gather(
+            asyncio.to_thread(upi_verify, raw_text),
+            asyncio.to_thread(upiprov.verify, raw_text),
+        )
+        _ms = (time.perf_counter() - _t0) * 1000
         if not res.get("ok"):
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
             add_use(uid)
             return
-        bank_line = res.get("bank") or "Known-bank list me nahi (handle phir bhi valid ho sakta hai)"
+        # ---- v58: aapki API ka naam/status (agar lagi ho) ----
+        _up_name = str(_up.get("name") or "") if _up.get("ok") else ""
+        _up_bank = str(_up.get("bank") or "") if _up.get("ok") else ""
+        _up_stat = str(_up.get("status") or "") if _up.get("ok") else ""
+        _up_live = bool(_up.get("ok"))
+        bank_line = (_up_bank or res.get("bank")
+                     or "Known-bank list me nahi (handle phir bhi valid ho sakta hai)")
         notes = ("\n".join("⚠️ " + n for n in res.get("notes", []))) or ""
+        # naam mila to screenshot jaisa sabse upar dikhao
+        _name_block = (
+            "👤 <b>Account Holder Name</b>\n"
+            f"   └ 💳 <b>{hesc(_up_name.upper())}</b>\n"
+        ) if _up_name else ""
+        _status_line = (
+            f"⚡ <b>VPA Status:</b> ✅ VALID / ACTIVE"
+            + (f" ({hesc(_up_stat[:40])})" if _up_stat else "")
+            + "\n"
+        ) if _up_live else (
+            "⚡ <b>VPA Status:</b> ✅ FORMAT VALID\n"
+            "   <i>(active/inactive sirf bank jaanta hai — public nahi hota)</i>\n"
+        )
         # v54.1: competitor-jaisa saaf BOXED card — par sirf PUBLIC fields.
         card = (
             "┌──────────────────────────────\n"
             f"│ 🏦 <b>{to_bold('UPI VERIFY REPORT')}</b>\n"
             "└──────────────────────────────\n"
-            f"💳 <b>VPA / UPI ID:</b> <code>{hesc(res['vpa'])}</code>\n"
+            + _name_block
+            + f"💳 <b>VPA / UPI ID:</b> <code>{hesc(res['vpa'])}</code>\n"
             "✅ <b>Format Status:</b> VALID / sahi UPI format\n"
             f"🏷️ <b>Bank Handle:</b> <code>@{hesc(res['handle'])}</code>\n"
             f"🏛️ <b>Associated Bank:</b> {hesc(bank_line)}\n"
             f"🧩 <b>Local Part:</b> <code>{hesc(res['local'])}</code>\n"
             "──────────────────────────────\n"
             "📊 <b>ACCOUNT DETAILS & STATUS</b>\n"
-            "⚡ <b>VPA Status:</b> ✅ FORMAT VALID\n"
-            "   <i>(active/inactive sirf bank jaanta hai — public nahi hota)</i>\n"
-            "🔒 <b>Account Category:</b> public nahi (individual/business bank ke paas)\n"
-            "🔍 <b>Source Type:</b> PUBLIC VPA-FORMAT + BANK-HANDLE DB\n"
-            f"🎯 <b>Query Entity:</b> <code>{hesc(res['vpa'])}</code>\n"
+            + _status_line
+            + ("🔒 <b>Account Category:</b> public nahi (individual/business bank ke paas)\n"
+               "🔍 <b>Source Type:</b> YOUR UPI/KYC API (consented)\n"
+               if _up_live else
+               "🔒 <b>Account Category:</b> public nahi (individual/business bank ke paas)\n"
+               "🔍 <b>Source Type:</b> PUBLIC VPA-FORMAT + BANK-HANDLE DB\n")
+            + f"🎯 <b>Query Entity:</b> <code>{hesc(res['vpa'])}</code>\n"
             "──────────────────────────────\n"
-            "🔒 <b>Privacy (zaroori baat):</b> holder ka naam, linked mobile ya\n"
-            "account number kisi bhi VPA se <b>publicly available NAHI</b> hota —\n"
-            "jo bot wo dikhaye wo leaked/private data use kar raha hai.\n"
-            "Is bot me sirf public format + bank-handle info milta hai.\n"
+            + ("🔒 <b>Privacy:</b> Ye naam <b>aapki UPI/KYC API</b> se aaya hai —\n"
+               "consent ke saath, legal tarike se (leaked data nahi).\n"
+               if _up_live else
+               "🔒 <b>Privacy (zaroori baat):</b> holder ka naam, linked mobile ya\n"
+               "account number kisi bhi VPA se <b>publicly available NAHI</b> hota —\n"
+               "jo bot wo dikhaye wo leaked/private data use kar raha hai.\n"
+               "Is bot me sirf public format + bank-handle info milta hai.\n"
+               "💡 Legal naam ke liye apni UPI/KYC API lagao: <code>/upiapi</code>\n")
             + (notes + "\n" if notes else "")
             + "🔥 Powered by @Supermannn_x"
         ).replace(chr(10) + "\n", "\n")
+        # v58: naam API se aaya hai ya nahi — footer me saaf likho + response time
+        if _up_live:
+            card += ("\n──────────────────────────────\n"
+                     "📡 <b>Name Source:</b> 🟢 aapki UPI API se (consented)\n")
+        else:
+            card += ("\n──────────────────────────────\n"
+                     "📡 <b>Name Source:</b> ⚪ API set nahi (holder naam public "
+                     "nahi hota)\n"
+                     "💡 Legal API lagane ka tarika: <code>/upiapi</code>\n")
+        card += f"⚡ <b>Response:</b> {int(_ms)}ms\n"
         await update.message.reply_text(spend_credit_msg(uid, "upi") + "\n" + card,
                                         parse_mode=HTML)
         add_use(uid)
@@ -4808,7 +4983,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
         ok15, imei_clean, imei_err = imei_validate(raw_text)
-        if not ok15:
+        # ---------- v58: DEVICE NAAM / MODEL CODE ka rasta ----------
+        # Prompt me likha tha "ya direct Device Model Name / Code bhejein" par
+        # code sirf 15-digit IMEI leta tha — M2101K6P bhejne par seedha error.
+        # Ab: agar input me LETTER hain (device naam/code) to device search
+        # chalta hai — wahi premium card + PHONE KA PHOTO milta hai.
+        _dev_q = (raw_text or "").strip()
+        _dev_query = (not ok15) and bool(re.search(r"[A-Za-z]", _dev_q)) \
+            and 2 <= len(_dev_q) <= 60
+        if not ok15 and not _dev_query:
             await update.message.reply_text(
                 "❌ <b>" + hesc(imei_err) + "</b>\n\n" + imei_help_card(),
                 parse_mode=HTML)
@@ -4821,8 +5004,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             add_use(uid)
             return
         wait = await update.message.reply_text(
-            "🔎 <b>Phone ki details nikal raha hoon…</b>\n<i>5-15 second lagenge.</i>", parse_mode=HTML)
-        res_i = await asyncio.to_thread(fetch_imei_details, imei_clean)
+            ("🔎 <b>Device dhoondh raha hoon…</b>\n<i>5-15 second lagenge.</i>"
+             if _dev_query else
+             "🔎 <b>Phone ki details nikal raha hoon…</b>\n<i>5-15 second lagenge.</i>"),
+            parse_mode=HTML)
+        if _dev_query:
+            res_i = await asyncio.to_thread(imei_search_device, _dev_q)
+        else:
+            res_i = await asyncio.to_thread(fetch_imei_details, imei_clean)
         try:
             await wait.delete()
         except Exception:
@@ -4832,9 +5021,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 "❌ <b>DEVICE DETAILS NAHI MILE</b>\n"
                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n"
-                f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
-                "✅ <b>Koi credit nahi kata</b> — IMEI check karke dobara bhejo (dial <code>*#06#</code>).",
+                + (f"🔢 <b>Query:</b> <code>{hesc(_dev_q[:40])}</code>\n"
+                   if _dev_query else
+                   f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n")
+                + f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
+                + ("✅ <b>Koi credit nahi kata</b> — poora device naam likho "
+                   "(jaise Redmi Note 10 Pro) ya 15-digit IMEI bhejein."
+                   if _dev_query else
+                   "✅ <b>Koi credit nahi kata</b> — IMEI check karke dobara bhejo "
+                   "(dial <code>*#06#</code>)."),
                 parse_mode=HTML)
             add_use(uid)
             return
@@ -4879,7 +5074,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
         try:
             buf_spec = io.BytesIO(imei_specs_json(res_i))
-            buf_spec.name = imei_specs_filename(res_i)
+            buf_spec.name = imei_specs_filename(res_i)  # device search me bhi kaam karta hai
             await update.message.reply_document(
                 document=buf_spec,
                 caption=("📄 <b>" + hesc(imei_title(res_i)) + "</b> — full specifications\n"
@@ -5004,6 +5199,40 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             if _pv in ("true", "1", "yes", "haan", "y") else
                             f"• <b>MNP (ported):</b> {hesc(str(_ported))}\n")
 
+        # ---------- v58: 👤 OWNER PANEL (agar AAPKI API ye fields bheje) ----------
+        # Aapke diye format me — bilkul waisa hi:
+        #     👤 Name: Sanjay Sah
+        #     👨 Father: Ram Akwal Sah
+        #     📱 Phones/Alt: 7305190526
+        #     🌐 Region: BIHAR JIO
+        #     🆔 Govt ID: 401635555849
+        #     🏠 Address(es):
+        #        └ S/O  Ram Akwal Sah, ...
+        # ⚠️ Ye data hum KAHIN SE NAHI LAATE — sirf aapki API ke response me jo
+        #    aaya wahi dikhata hai. API na bheje to ye panel gayab rehta hai
+        #    (aur tool waise hi chalta rehta hai).
+        _owner_line = ""
+        if str(os.getenv("NUMINFO_SHOW_OWNER", "on")).strip().lower() not in ("off", "0", "false", "no"):
+            _ow = (_live.get("owner") or {}) if isinstance(_live, dict) else {}
+            _lines = []
+            if _ow.get("name"):
+                _lines.append(f"👤 <b>Name:</b> {hesc(str(_ow['name']))}")
+            if _ow.get("father"):
+                _lines.append(f"👨 <b>Father:</b> {hesc(str(_ow['father']))}")
+            if _ow.get("alt"):
+                _lines.append(f"📱 <b>Phones/Alt:</b> {hesc(str(_ow['alt']))}")
+            if _ow.get("region"):
+                _lines.append(f"🌐 <b>Region:</b> {hesc(str(_ow['region']))}")
+            if _ow.get("govt_id"):
+                _lines.append(f"🆔 <b>Govt ID:</b> {hesc(str(_ow['govt_id']))}")
+            _ad = str(_ow.get("address") or "").strip()
+            if _ad:
+                _lines.append("🏠 <b>Address(es):</b>")
+                for _i2, _apart in enumerate([x.strip() for x in _ad.split("|") if x.strip()][:4]):
+                    _lines.append(("   └ " if _i2 == 0 else "   └ ") + hesc(_apart[:220]))
+            if _lines:
+                _owner_line = "──────────────────────────────\n" + "\n".join(_lines) + "\n"
+
         card = (
             "┌──────────────────────────────\n"
             f"│ 📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
@@ -5020,13 +5249,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🕐 <b>Timezone:</b> {hesc(res['timezones'])}\n"
             f"✅ <b>Format Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
             "──────────────────────────────\n"
-            f"📡 <b>Data Source:</b> {_src_line}\n"
+            + _owner_line
+            + f"📡 <b>Data Source:</b> {_src_line}\n"
             f"⚡ <b>Response:</b> {int(_ms)}ms\n"
             "──────────────────────────────\n"
-            "🔒 <b>Privacy:</b> Is bot me <b>koi leaked/private record</b> nahi hai.\n"
-            "Yahan sirf public carrier + circle + line-type metadata milta hai.\n"
-            "Holder ka naam / address kisi bhi legal public API se nahi milta.\n"
-            "──────────────────────────────\n"
+            + ("🔒 <b>Privacy:</b> Ye naam/address <b>aapki API</b> ke jawab me aaya hai\n"
+               "(aapke apne consented source se). Bot khud ye data kahin se nahi laata.\n"
+               if _owner_line else
+               "🔒 <b>Privacy:</b> Is bot me <b>koi leaked/private record</b> nahi hai.\n"
+               "Yahan sirf public carrier + circle + line-type metadata milta hai.\n"
+               "Holder ka naam / address public API se nahi milta (aur illegal source hum use nahi karte).\n")
+            + "──────────────────────────────\n"
             f"ℹ️ <i>{hesc(res['note'])}</i>\n"
             f"🔥 Powered by {BRAND_TAG}"
         ).replace(chr(10) + "\n", "\n")
@@ -6529,6 +6762,7 @@ def main():
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
+    app.add_handler(CommandHandler(["upiapi", "upiverifyapi"], cmd_upiapi))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))

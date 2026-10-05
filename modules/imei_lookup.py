@@ -419,6 +419,83 @@ _DDG_UA = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
            "Accept-Language": "en-IN,en;q=0.9"}
 
 
+
+# =====================================================================
+#  v58 — NANOREVIEW DIRECT (photo + sahi device naam)
+# ---------------------------------------------------------------------
+#  Ye do function IMEI tool ki sabse badi kami poori karte hain: jab TAC
+#  database ka naam nanoreview ke naam se match nahi karta (jaise
+#  "XIAOMI NOTE 10 PRO" vs "Xiaomi Redmi Note 10 Pro"), tab bhi sahi
+#  device + uska PHOTO mil jaata hai.
+#
+#  Live verified:
+#    GET https://nanoreview.net/api/search?q=Redmi Note 10 Pro
+#      → [{"slug":"xiaomi-redmi-note-10-pro","label":"Xiaomi Redmi Note 10 Pro",...}]
+#    GET https://nanoreview.net/common/images/phone/<slug>-mini@2x.jpeg  → 200 jpeg
+# =====================================================================
+_NR_UA = {
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"),
+    "Accept": "application/json, text/plain, */*",
+}
+_NR_CACHE: dict = {}
+_NR_LOCK = threading.Lock()
+_NR_TTL = 6 * 3600          # 6 ghante — baar baar API ko na chhedo
+
+
+def nanoreview_search(query: str) -> dict:
+    """Fuzzy device naam/code → sahi device + photo URL. Kabhi crash nahi.
+
+    Returns: {"ok": True, "slug":..., "name":..., "image":..., "url":...}
+             ya      {"ok": False}
+    """
+    q = (query or "").strip()
+    if len(q) < 3:
+        return {"ok": False}
+    key = q.lower()
+    now = time.time()
+    with _NR_LOCK:
+        hit = _NR_CACHE.get(key)
+    if hit and (now - hit[0]) < _NR_TTL:
+        return dict(hit[1])
+    out = {"ok": False}
+    try:
+        r = requests.get("https://nanoreview.net/api/search", params={"q": q},
+                         headers=_NR_UA, timeout=9)
+        if r.status_code == 200:
+            data = r.json()
+            if isinstance(data, list):
+                # sirf phone chuno (tablet/laptop/chipset bhi aate hain)
+                best = next((x for x in data
+                             if str(x.get("content_type") or "").lower() == "phone"), None)
+                if best is None and data and isinstance(data[0], dict):
+                    best = data[0]
+                if best and best.get("slug"):
+                    slug = str(best["slug"]).strip()
+                    out = {
+                        "ok": True,
+                        "slug": slug,
+                        "name": str(best.get("label") or best.get("name") or "").strip(),
+                        "image": f"https://nanoreview.net/common/images/phone/{slug}-mini@2x.jpeg",
+                        "url": f"https://nanoreview.net/en/phone/{slug}",
+                    }
+    except Exception:                                     # noqa: BLE001
+        pass  # nanoreview search fail — chup-chaap aage badho (crash nahi)
+    with _NR_LOCK:
+        _NR_CACHE[key] = (now, out)
+        if len(_NR_CACHE) > 300:
+            for k in sorted(_NR_CACHE, key=lambda x: _NR_CACHE[x][0])[:80]:
+                _NR_CACHE.pop(k, None)
+    return dict(out)
+
+
+def nanoreview_image(query: str) -> str:
+    """Device ka photo URL (nanoreview se). Na mile to '' — crash nahi."""
+    r = nanoreview_search(query)
+    return str(r.get("image") or "") if r.get("ok") else ""
+
+
+
 def _looks_marketing(model: str) -> bool:
     m = (model or "").strip().lower()
     if not m:
@@ -464,6 +541,114 @@ def _ddg_marketing_name(brand: str, model: str) -> str:
             for k in list(_NAME_CACHE)[:100]:
                 _NAME_CACHE.pop(k, None)
     return name
+
+
+
+# =====================================================================
+#  v58 — DEVICE NAAM / MODEL CODE se SEARCH (naya!)
+# ---------------------------------------------------------------------
+#  Prompt me likha tha "Device Model Name / Code bhejein" par code sirf
+#  15-digit IMEI leta tha. Ab ye function do kaam karta hai:
+#     1. nanoreview search API se sahi device + PHOTO
+#     2. hub device-specs se poora spec sheet
+#  Jo bhi mile, dono jod ke wahi dict deta hai jo fetch_imei_details()
+#  deta hai — isliye bot ka wahi premium card/photo/JSON sab chalta hai.
+# =====================================================================
+def search_device(query: str, use_cache: bool = True) -> dict:
+    """Device naam ya model code → spec card + photo. Kabhi crash nahi."""
+    q = (query or "").strip()
+    if len(q) < 2:
+        return {"ok": False,
+                "error": ("Device ka naam ya model code bhejein (kam se kam 2 letter).\n"
+                          "📌 Jaise: <code>Redmi Note 10 Pro</code> ya <code>M2101K6P</code>")}
+    nr = {}
+    name = ""
+    sp = {"ok": False}
+
+    # --- 1) nanoreview se sahi naam + photo ---
+    try:
+        nr = nanoreview_search(q)
+    except Exception:                                          # noqa: BLE001
+        nr = {}
+    if nr.get("ok") and nr.get("name"):
+        name = str(nr["name"])
+
+    # --- 2) hub se poora spec sheet (sahi naam se; na mile to seedha query se) ---
+    for cand in ([name] if name else []) + [q]:
+        if not cand:
+            continue
+        try:
+            sp = fetch_device_specs(cand)
+        except Exception:                                      # noqa: BLE001
+            sp = {"ok": False}
+        if sp.get("ok"):
+            name = str(sp.get("name") or cand)
+            break
+
+    # --- 3) kuch bhi nahi mila? DDG se naam sudhaar ke ek aur koshish ---
+    if not sp.get("ok") and not nr.get("ok"):
+        try:
+            resolved = _ddg_marketing_name("", q)
+        except Exception:                                      # noqa: BLE001
+            resolved = ""
+        if resolved:
+            try:
+                nr = nanoreview_search(resolved)
+            except Exception:                                  # noqa: BLE001
+                nr = {}
+            if nr.get("ok") and nr.get("name"):
+                name = str(nr["name"])
+            try:
+                sp = fetch_device_specs(resolved)
+            except Exception:                                  # noqa: BLE001
+                sp = {"ok": False}
+            if sp.get("ok"):
+                name = str(sp.get("name") or resolved)
+
+    if not sp.get("ok") and not nr.get("ok"):
+        return {"ok": False,
+                "error": (f"'{q[:40]}' naam ka koi device nahi mila.\n"
+                          "📌 Poora marketing naam likho — jaise "
+                          "<code>Redmi Note 10 Pro</code> (sirf 'note 10' nahi).\n"
+                          "💡 Ya 15-digit IMEI bhejo (<code>*#06#</code> dial karke).")}
+
+    # --- 4) dono ka data jodo (wahi shape jo fetch_imei_details deta hai) ---
+    photo = ""
+    if nr.get("ok"):
+        photo = str(nr.get("image") or "")
+    if not photo and sp.get("ok"):
+        photo = str(sp.get("image") or "")
+    out = {
+        "ok": True,
+        "query": q,
+        "imei": "",
+        "tac": "",
+        "brand": "",
+        "model": name or q,
+        "specs_name": name or (str(sp.get("name") or "") if sp.get("ok") else ""),
+        "photo": photo,
+        "photo_hd": str(sp.get("image") or photo) if sp.get("ok") else photo,
+        "sections": list(sp.get("sections") or []) if sp.get("ok") else [],
+        "links": [],
+        "basic": False,
+        "specs_pending": False,
+        "specs_url": (str(nr.get("url") or "") if nr.get("ok") else "")
+                     or (str(sp.get("url") or "") if sp.get("ok") else ""),
+        "url": (str(nr.get("url") or "") if nr.get("ok") else ""),
+        "source_note": ("nanoreview search + device specs"
+                        if (sp.get("ok") and nr.get("ok"))
+                        else ("nanoreview" if nr.get("ok") else "device specs")),
+    }
+    # brand/naam alag karo: "Xiaomi Redmi Note 10 Pro" → brand Xiaomi, model baaki
+    _parts = str(out["specs_name"] or out["model"]).split()
+    if len(_parts) >= 2:
+        out["brand"] = _parts[0]
+        out["model"] = " ".join(_parts[1:])
+    if not out["photo"] and not out["sections"]:
+        return {"ok": False,
+                "error": (f"'{q[:40]}' ka data nahi mila. Thodi der baad try karo ya "
+                          "15-digit IMEI bhejo.")}
+    return out
 
 
 def fetch_device_specs(name: str) -> dict:
@@ -527,18 +712,80 @@ def _enrich_with_specs(res: dict) -> dict:
         name = model.strip()
     else:
         name = f"{brand} {model}".strip()
-    sp = fetch_device_specs(name) if _looks_marketing(model) else {"ok": False}
+    # ---------- v58: pehle nanoreview se SAHI naam dhoondo ----------
+    # TAC ka naam aksar adhoora hota hai: "XIAOMI NOTE 10 PRO" — asli naam
+    # "Xiaomi Redmi Note 10 Pro" hai. Isi mismatch se pehle photo+specs dono
+    # fail ho jaate the. Nanoreview ka search API fuzzy naam theek kar deta hai.
+    nr = {}
+    _nr_query = f"{brand} {model}".strip()
+    if _looks_marketing(model) or not model:
+        nr = nanoreview_search(_nr_query)
+        if not nr.get("ok") and model:
+            nr = nanoreview_search(model)
+        if nr.get("ok") and nr.get("name"):
+            _cand = str(nr["name"])
+            # nanoreview ka naam zyada bharosemand hai — usi se specs maango
+            if _cand.lower() != name.lower():
+                _sp2 = fetch_device_specs(_cand)
+                if _sp2.get("ok"):
+                    name = _cand
+                    sp = _sp2
+                else:
+                    sp = {"ok": False}
+            else:
+                sp = fetch_device_specs(name)
+        else:
+            sp = fetch_device_specs(name) if _looks_marketing(model) else {"ok": False}
+    else:
+        sp = fetch_device_specs(name)
+
+    resolved = ""
     if not sp.get("ok"):
         resolved = _ddg_marketing_name(brand, model)
         if resolved and resolved.lower() != name.lower():
             sp = fetch_device_specs(resolved)
             if sp.get("ok"):
                 name = resolved
+
+    # ---------- v58: specs fail ho to bhi PHOTO mil jaye ----------
+    # (aapki main demand: "phone ka photo bhi aana chahiye")
+    # ⚠️ GALAT PHONE KA PHOTO na dikhe: model CODE (M2101K6P) se seedha
+    # nanoreview search karne par koi aur device match ho jaata hai
+    # (test me M2101K6P → "Poco M6 Plus" aa gaya tha, jo galat hai).
+    # Isliye code par photo tabhi lenge jab tak koi SAHI naam mil chuka ho.
     if not sp.get("ok"):
+        if not nr.get("ok"):
+            _q2 = ""
+            if _looks_marketing(model):
+                _q2 = name or model
+            elif resolved:
+                _q2 = resolved
+            # code hai aur koi naam resolve nahi hua → photo nahi lenge
+            if _q2:
+                nr = nanoreview_search(_q2) or {}
+        img = str((nr or {}).get("image") or "")
+        if img:
+            if not res.get("photo"):
+                res["photo"] = img
+                res["photo_hd"] = img
+            if (nr or {}).get("name") and not res.get("specs_name"):
+                res["specs_name"] = str(nr["name"])
+            if (nr or {}).get("url"):
+                res["specs_url"] = str(nr["url"])
+            res["_source"] = "hub TAC + nanoreview photo"
         return res
     if sp.get("image") and not res.get("photo"):
         res["photo"] = sp["image"]
         res["photo_hd"] = sp["image"]
+    # v58: specs mil gaye par image nahi aayi? → nanoreview se photo lo.
+    # (aapki demand: har IMEI check me phone ka photo dikhna chahiye)
+    if not res.get("photo"):
+        if not nr.get("ok"):
+            nr = nanoreview_search(name) or {}
+        _img2 = str((nr or {}).get("image") or "")
+        if _img2:
+            res["photo"] = _img2
+            res["photo_hd"] = _img2
     if sp.get("sections"):
         res["sections"] = (res.get("sections") or []) + sp["sections"]
         res["basic"] = False
@@ -657,7 +904,11 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
     lines = [f"📲 <b>{_hesc(device_title(res))}</b>"]
     if res.get("brand"):
         lines.append(f"🏷️ <b>Brand:</b> {_hesc(str(res['brand']))}")
-    lines.append(f"🔢 <b>IMEI:</b> <code>{_hesc(str(res.get('imei') or '—'))}</code>")
+    # v58: device naam/code se search me IMEI nahi hota
+    if res.get("imei"):
+        lines.append(f"🔢 <b>IMEI:</b> <code>{_hesc(str(res['imei']))}</code>")
+    elif res.get("query"):
+        lines.append(f"🔎 <b>Search:</b> <code>{_hesc(str(res['query'])[:40])}</code>")
     # top 5 sections ke 2-2 key points
     shown = 0
     for s in res.get("sections") or []:
@@ -694,8 +945,12 @@ def render_text(res: dict, max_len: int = 3600) -> str:
         f"📲 <b>{_hesc(device_title(res))}</b>",
         "━━━━━━━━━━━━━━━━━━━━━━",
         f"🏷️ <b>Brand:</b> {_hesc(str(res.get('brand') or '—'))}",
-        f"🔢 <b>IMEI:</b> <code>{_hesc(str(res.get('imei') or '—'))}</code>",
     ]
+    # v58: device naam/code se search me IMEI nahi hota — "IMEI: —" badhiya nahi lagta
+    if res.get("imei"):
+        out.append(f"🔢 <b>IMEI:</b> <code>{_hesc(str(res['imei']))}</code>")
+    elif res.get("query"):
+        out.append(f"🔎 <b>Search:</b> <code>{_hesc(str(res['query'])[:40])}</code>")
     for s in res.get("sections") or []:
         out.append("━━━━━━━━━━━━━━━━━━━━━━")
         out.append(f"{_sec_icon(s['title'])} <b>{_hesc(str(s['title']))}</b>")

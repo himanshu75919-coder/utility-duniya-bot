@@ -350,7 +350,7 @@ check("expand_url ka error raw urllib3 text nahi hai",
 # =====================================================================
 section("7) 🧾 VERSION + FILE HYGIENE")
 # =====================================================================
-check("BOT_VERSION v56+ par hai", 'BOT_VERSION = "v57.' in BOT_SRC)
+check("BOT_VERSION v56+ par hai", 'BOT_VERSION = "v58.' in BOT_SRC)
 # duplicate keys — asli check
 def _dup_keys(path):
     _t = ast.parse(open(path, encoding="utf-8").read())
