@@ -325,7 +325,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v54.1 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
+BOT_VERSION = "v54.2 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -4585,6 +4585,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🏛️ <b>Associated Bank:</b> {hesc(bank_line)}\n"
             f"🧩 <b>Local Part:</b> <code>{hesc(res['local'])}</code>\n"
             "──────────────────────────────\n"
+            "📊 <b>ACCOUNT DETAILS & STATUS</b>\n"
+            "⚡ <b>VPA Status:</b> ✅ FORMAT VALID\n"
+            "   <i>(active/inactive sirf bank jaanta hai — public nahi hota)</i>\n"
+            "🔒 <b>Account Category:</b> public nahi (individual/business bank ke paas)\n"
+            "🔍 <b>Source Type:</b> PUBLIC VPA-FORMAT + BANK-HANDLE DB\n"
+            f"🎯 <b>Query Entity:</b> <code>{hesc(res['vpa'])}</code>\n"
+            "──────────────────────────────\n"
             "🔒 <b>Privacy (zaroori baat):</b> holder ka naam, linked mobile ya\n"
             "account number kisi bhi VPA se <b>publicly available NAHI</b> hota —\n"
             "jo bot wo dikhaye wo leaked/private data use kar raha hai.\n"
@@ -4875,12 +4882,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # har result ka chhota label (title + size) — pehle sirf "1. 🟡 Pinterest" tha
         for i, p in enumerate(results, 1):
             if isinstance(p, dict):
-                _t = (p.get("title") or "").strip()[:34]
+                # v54.2: title na ho to pinner naam / domain fallback lagao —
+                # sookha label user ko kuch nahi batata (screenshot me dikha tha).
+                _t = ((p.get("title") or p.get("pinner_name") or p.get("domain")
+                       or "Pinterest pin").strip() or "Pinterest pin")[:34]
                 _w, _h = p.get("width") or 0, p.get("height") or 0
                 _dim = f" · {_w}×{_h}" if _w and _h else ""
                 _hd = " <b>HD</b>" if max(_w or 0, _h or 0) >= 1600 else ""
                 _vid = " 🎬" if p.get("is_video") else ""
-                L.append(f"{i}. {hesc(_t) if _t else '(bina title)'}{_dim}{_hd}{_vid}")
+                L.append(f"{i}. {hesc(_t)}{_dim}{_hd}{_vid}")
             else:
                 L.append(f"{i}. 🖼️ image")
         L.append("\n👇 <b>Jo chahiye wo tap karo:</b>")
@@ -4895,6 +4905,28 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append([InlineKeyboardButton("🔍 Naya search", callback_data="back_home")])
         await update.message.reply_text("\n".join(L)[:3900], parse_mode=HTML,
                                         reply_markup=InlineKeyboardMarkup(rows))
+        # v54.2: competitor-bot jaisa look — list ke turant baad TOP result ka
+        # photo preview. Search FREE hai isliye preview par koi credit nahi katta.
+        # Ye list ke BAAD bhejte hain taaki user ko list ka wait na kare, aur
+        # fail ho to chup-chaap skip (list+buttons already ja chuke hote hain).
+        _prev = next((p for p in results
+                      if isinstance(p, dict) and not p.get("is_video")
+                      and (p.get("image_url") or p.get("all_sizes"))), None)
+        if _prev is not None:
+            try:
+                _pd = await asyncio.to_thread(_pinpick_download, _prev)
+                if _pd.get("ok"):
+                    try:
+                        _pd["stream"].name = f"preview{_pd.get('ext', '.jpg')}"
+                    except Exception:                                # noqa: BLE001
+                        pass
+                    await update.message.reply_photo(
+                        photo=_pd["stream"],
+                        caption=("📌 <b>Top result ka preview</b> — original quality "
+                                 "ke liye upar <b>1</b> button dabao.")[:1000],
+                        parse_mode=HTML)
+            except Exception as e:                                   # noqa: BLE001
+                log.debug("pinterest preview skip: %s", str(e)[:80])
         add_use(uid)
         return
 
