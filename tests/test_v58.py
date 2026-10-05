@@ -367,6 +367,26 @@ for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limi
         _ghost.append(f"{_mn}: {_e}")
 check("saare 24 modules import hote hain", not _ghost, "; ".join(_ghost[:3]))
 
+# =====================================================================
+section("8) ⚡ /version — deploy check command")
+# =====================================================================
+check("/version command function hai", "async def cmd_version(" in BOT_SRC)
+check("/version registered hai (version/ver/v)",
+      'CommandHandler(["version", "ver", "v"], cmd_version)' in BOT_SRC)
+check("/version sabke liye khula hai (admin-only nahi — deploy check ke liye)",
+      BOT_SRC[BOT_SRC.index("async def cmd_version"):][:500].count("is_admin") == 0)
+check("/version me prompt system status dikhta hai",
+      "Naya prompt system:</b>" in BOT_SRC)
+check("/version me credits/cancel line check dikhta hai",
+      "Credits/cancel line:</b>" in BOT_SRC)
+check("/version me IMEI photo status dikhta hai", "IMEI photo:</b>" in BOT_SRC)
+check("/version deploy-pending hint deta hai",
+      "Render me deploy pending hai" in BOT_SRC)
+check("credits_line() ab kahin CALL nahi hoti (poori tarah hata)",
+      BOT_SRC.count("credits_line(") == 1,  # sirf definition
+      f"count={BOT_SRC.count('credits_line(')}")
+
+
 print("\n" + "=" * 62)
 print(f"  v58 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 print("=" * 62)
