@@ -25,7 +25,8 @@ import re
 from html import unescape
 from urllib.parse import quote, unquote
 
-import requests
+# v55: raw requests -> core.net (shared pool + mandatory timeout + retry + size cap)
+from modules.core.net import http_get, http_post, pooled_session
 
 UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -125,7 +126,7 @@ def _norm_files(items):
 # =====================================================================================
 def _tb_robin(url):
     """Cloudflare worker: terabox-worker.robinkumarshakya103.workers.dev"""
-    r = requests.get(f"https://terabox-worker.robinkumarshakya103.workers.dev/api?url={quote(url, safe='')}",
+    r = http_get(f"https://terabox-worker.robinkumarshakya103.workers.dev/api?url={quote(url, safe='')}",
                      headers=UA, timeout=20)
     if r.status_code == 200:
         j = r.json()
@@ -144,10 +145,10 @@ def _tb_hnn(url):
     for path, method in (("/api/get-info", "POST"), ("/api/get-info", "GET")):
         try:
             if method == "POST":
-                r = requests.post(f"https://terabox.hnn.workers.dev{path}", data={"shorturl": surl, "pwd": ""},
+                r = http_post(f"https://terabox.hnn.workers.dev{path}", data={"shorturl": surl, "pwd": ""},
                                   headers=UA, timeout=18)
             else:
-                r = requests.get(f"https://terabox.hnn.workers.dev{path}", params={"shorturl": surl},
+                r = http_get(f"https://terabox.hnn.workers.dev{path}", params={"shorturl": surl},
                                  headers=UA, timeout=18)
             if r.status_code == 200 and r.text.strip().startswith("{"):
                 j = r.json()
@@ -168,7 +169,7 @@ def _tb_qtcloud(url):
         return None, None
     for endpoint in ("api/get-info", "api/get-download"):
         try:
-            r = requests.get(f"https://terabox-dl.qtcloud.workers.dev/{endpoint}",
+            r = http_get(f"https://terabox-dl.qtcloud.workers.dev/{endpoint}",
                              params={"shorturl": surl, "url": url}, headers=UA, timeout=18)
             if r.status_code == 200 and r.text.strip().startswith("{"):
                 j = r.json()
@@ -195,7 +196,7 @@ def _tb_surl_api(url):
     ]
     for c in cands:
         try:
-            r = requests.get(c, headers=UA, timeout=12)
+            r = http_get(c, headers=UA, timeout=12)
             if r.status_code == 200 and r.text.strip().startswith("{"):
                 j = r.json()
                 files = _norm_files(j.get("list") or j.get("files") or j.get("data") or [])
@@ -215,7 +216,7 @@ def _tb_guest_list(url):
     if not surl:
         return None, None
     try:
-        s = requests.Session()
+        s = pooled_session()
         page = f"https://www.terabox.com/sharing/link?surl={surl}"
         s.get(page, headers=UA, timeout=15)
         r = s.get("https://www.terabox.com/share/list",
@@ -267,7 +268,7 @@ def _tb_ndus(url):
     if not surl:
         return None, None
     try:
-        s = requests.Session()
+        s = pooled_session()
         s.cookies.set("ndus", ndus, domain=".terabox.com")
         headers = {**MOBILE_UA, "Referer": f"https://www.terabox.com/sharing/link?surl={surl}"}
 
@@ -344,9 +345,9 @@ def _tb_custom_provider(url):
     for method, endpoint, payload in tries:
         try:
             if method == "post":
-                r = requests.post(endpoint, json=payload, headers=headers, timeout=30)
+                r = http_post(endpoint, json=payload, headers=headers, timeout=30)
             else:
-                r = requests.get(endpoint, params={"url": url}, headers=headers, timeout=30)
+                r = http_get(endpoint, params={"url": url}, headers=headers, timeout=30)
             if r.status_code == 200:
                 try:
                     j = r.json()
@@ -454,7 +455,7 @@ def resolve_terabox(url: str) -> dict:
 # =====================================================================================
 def resolve_mediafire_direct(url: str) -> dict:
     try:
-        r = requests.get(url, headers=UA, timeout=12)
+        r = http_get(url, headers=UA, timeout=12)
         if r.status_code != 200:
             return {"ok": False, "error": f"Mediafire page status {r.status_code}"}
         html = r.text
@@ -530,7 +531,7 @@ def resolve_gdrive_direct(url: str) -> dict:
     size = "N/A"
     confirm_note = ""
     try:
-        s = requests.Session()
+        s = pooled_session()
         r = s.get(direct, headers=UA, timeout=15, stream=True)
         cd = r.headers.get("Content-Disposition", "")
         fn = re.search(r'filename\*?=(?:UTF-8\'\')?"?([^";]+)', cd)

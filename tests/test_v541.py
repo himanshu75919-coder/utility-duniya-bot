@@ -301,7 +301,7 @@ check("bio na ho to saaf fallback text hai",
 
 # =====================================================================
 section("5) 🧾 Version + overall sanity")
-check("BOT_VERSION v54.x par hai", 'BOT_VERSION = "v54.' in _bot_src)
+check("BOT_VERSION v55 par hai", 'BOT_VERSION = "v55.' in _bot_src)
 
 # --- v54.2: Pinterest list polish + preview ---
 check("'(bina title)' jaisa sookha label hata diya gaya",

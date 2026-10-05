@@ -9,9 +9,11 @@ NOTE: Default me sirf PUBLIC / lawful sources use hote hain (telecom carrier+cir
 pin code, IP geo).
 """
 
-import os
 import re
-import requests
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import quote as _quote
+
+from modules.core.net import NetError, http_get
 
 try:
     from modules import api_hub as hub
@@ -228,10 +230,10 @@ def lookup_ifsc(code: str) -> dict:
             _cput("ifsc:" + clean, res, 86400)
             return res
     try:
-        r = requests.get(f"https://ifsc.razorpay.com/{clean}", headers=UA_HEADERS, timeout=8)
+        r = http_get(f"https://ifsc.razorpay.com/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             d = r.json()
-            maps_q = requests.utils.quote(f"{d.get('BANK')} {d.get('BRANCH')} {d.get('ADDRESS')}")
+            maps_q = _quote(f"{d.get('BANK')} {d.get('BRANCH')} {d.get('ADDRESS')}")
             out = {
                 "ok": True,
                 "ifsc": clean,
@@ -254,7 +256,7 @@ def lookup_ifsc(code: str) -> dict:
         if r.status_code == 404:
             return {"ok": False, "error": f"'{clean}' RBI database me nahi mila. Spelling check karo."}
         return {"ok": False, "error": f"IFSC server busy hai (HTTP {r.status_code}). Thodi der baad try karo."}
-    except requests.Timeout:
+    except NetError:
         return {"ok": False, "error": "IFSC server ne jawab dene me time laga diya. Thodi der baad try karo."}
     except Exception as e:
         return {"ok": False, "error": f"API busy hai: {str(e)[:80]}"}
@@ -283,7 +285,7 @@ def lookup_pincode(pincode: str) -> dict:
             _cput("pin:" + clean, res, 604800)
             return res
     try:
-        r = requests.get(f"https://api.postalpincode.in/pincode/{clean}", headers=UA_HEADERS, timeout=8)
+        r = http_get(f"https://api.postalpincode.in/pincode/{clean}", headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             data = r.json()
             if data and data[0].get("Status") == "Success":
@@ -303,14 +305,14 @@ def lookup_pincode(pincode: str) -> dict:
                     "delivery": primary.get("DeliveryStatus", ""),
                     "post_offices": names,
                     "total_offices": len(po_list),
-                    "maps_link": f"https://maps.google.com/?q={requests.utils.quote(primary.get('District', '') + ' ' + primary.get('State', ''))}",
+                    "maps_link": f"https://maps.google.com/?q={_quote(primary.get('District', '') + ' ' + primary.get('State', ''))}",
                 }
                 _cput("pin:" + clean, out, 604800)   # pincode data saal bhar same — 7 din
                 return out
         return {"ok": False,
                 "error": (f"Pincode <code>{clean}</code> India Post database me nahi mila.\n"
                           "📌 Sahi 6-digit pincode bhejo, jaise <code>800001</code> (Patna GPO)")}
-    except requests.Timeout:
+    except NetError:
         return {"ok": False, "error": "India Post server slow hai. Thodi der baad try karo."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
@@ -393,10 +395,10 @@ def search_by_area_name(area: str) -> dict:
     last_err = ""
     for variant, approx in _area_variants(q):
         try:
-            r = requests.get(
-                f"https://api.postalpincode.in/postoffice/{requests.utils.quote(variant)}",
+            r = http_get(
+                f"https://api.postalpincode.in/postoffice/{_quote(variant)}",
                 headers=UA_HEADERS, timeout=8)
-        except requests.Timeout:
+        except NetError:
             last_err = "India Post server slow hai. Thodi der baad try karo."
             continue
         except Exception as e:                     # noqa: BLE001
@@ -481,7 +483,7 @@ def lookup_ip_domain(target: str) -> dict:
             _cput(_ik, res, 3600)
             return res
     try:
-        r = requests.get(f"http://ip-api.com/json/{clean}", params={"fields": "status,message,query,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting"},
+        r = http_get(f"http://ip-api.com/json/{clean}", params={"fields": "status,message,query,country,countryCode,regionName,city,zip,lat,lon,timezone,isp,org,as,mobile,proxy,hosting"},
                          headers=UA_HEADERS, timeout=8)
         if r.status_code == 200:
             d = r.json()
@@ -517,7 +519,7 @@ def lookup_ip_domain(target: str) -> dict:
             return {"ok": False,
                     "error": "IP lookup server ki limit poori ho gayi. 1 minute baad try karo."}
         return {"ok": False, "error": f"API status {r.status_code}"}
-    except requests.Timeout:
+    except NetError:
         return {"ok": False, "error": "IP server ne jawab dene me time laga diya. Thodi der baad try karo."}
     except Exception as e:
         return {"ok": False, "error": str(e)[:100]}
@@ -533,7 +535,7 @@ def _doh_query(name: str, qtype: str) -> list:
     """DNS records Google DNS-over-HTTPS (public JSON API) se — koi extra dependency nahi.
     Sirf public DNS data wapas deta hai (A/AAAA/MX/NS/TXT/SOA/CNAME)."""
     try:
-        r = requests.get("https://dns.google/resolve",
+        r = http_get("https://dns.google/resolve",
                          params={"name": name, "type": qtype},
                          headers=UA_HEADERS, timeout=8)
         if r.status_code != 200:
@@ -570,64 +572,123 @@ def domain_osint(target: str) -> dict:
     a_recs = _doh_query(clean, "A")
     result = {
         "ok": True, "domain": clean,
-        "a": a_recs[:4], "aaaa": _doh_query(clean, "AAAA")[:2],
-        "mx": _doh_query(clean, "MX")[:5], "ns": _doh_query(clean, "NS")[:6],
-        "txt": _doh_query(clean, "TXT")[:3],
+        "a": a_recs[:4], "aaaa": [], "mx": [], "ns": [], "txt": [],
         "whois": None, "whois_error": "",
         "subdomains": [], "subdomains_error": "",
         "ip_info": None,
     }
 
     # 2) RDAP whois (rdap.org redirect karta hai sahi registry pe — free, no key)
-    try:
-        r = requests.get(f"https://rdap.org/domain/{clean}",
-                         headers=UA_HEADERS, timeout=10, allow_redirects=True)
-        if r.status_code == 200:
-            d = r.json()
-            ev = {e.get("eventAction"): (e.get("eventDate") or "")[:10]
-                  for e in d.get("events", []) or []}
-            registrar = ""
-            for ent in d.get("entities", []) or []:
-                if "registrar" in (ent.get("roles") or []):
-                    voc = ent.get("vcardArray")
-                    if isinstance(voc, list) and len(voc) > 1:
-                        for field in voc[1]:
-                            if field and field[0] == "fn":
-                                registrar = str(field[3])
-                    break
-            ns_from_rdap = [n.get("ldhName", "").rstrip(".").lower()
-                            for n in d.get("nameservers", []) or [] if n.get("ldhName")]
-            if ns_from_rdap and not result["ns"]:
-                result["ns"] = ns_from_rdap[:6]
-            result["whois"] = {
-                "registrar": registrar or "N/A",
-                "created": ev.get("registration", "N/A"),
-                "expires": ev.get("expiration", "N/A"),
-                "updated": ev.get("last changed", "N/A"),
-                "status": ", ".join((d.get("status") or [])[:4]) or "N/A",
-            }
-        else:
-            result["whois_error"] = (f"whois data nahi mila (RDAP {r.status_code}) — "
-                                     "kuch domains ki registry RDAP support nahi karti")
-    except Exception:
-        result["whois_error"] = "whois server abhi jawab nahi diya (timeout)"
+    def _whois_work():
+        try:
+            r = http_get(f"https://rdap.org/domain/{clean}",
+                         headers=UA_HEADERS, timeout=10, retries=1)
+            if r.status_code == 200:
+                d = r.json()
+                ev = {e.get("eventAction"): (e.get("eventDate") or "")[:10]
+                      for e in d.get("events", []) or []}
+                registrar = ""
+                for ent in d.get("entities", []) or []:
+                    if "registrar" in (ent.get("roles") or []):
+                        voc = ent.get("vcardArray")
+                        if isinstance(voc, list) and len(voc) > 1:
+                            for field in voc[1]:
+                                if field and field[0] == "fn":
+                                    registrar = str(field[3])
+                        break
+                ns_from_rdap = [n.get("ldhName", "").rstrip(".").lower()
+                                for n in d.get("nameservers", []) or [] if n.get("ldhName")]
+                return {
+                    "registrar": registrar or "N/A",
+                    "created": ev.get("registration", "N/A"),
+                    "expires": ev.get("expiration", "N/A"),
+                    "updated": ev.get("last changed", "N/A"),
+                    "status": ", ".join((d.get("status") or [])[:4]) or "N/A",
+                }, "", ns_from_rdap
+            return None, (f"whois data nahi mila (RDAP {r.status_code}) — "
+                          "kuch domains ki registry RDAP support nahi karti"), []
+        except Exception:
+            return None, "whois server abhi jawab nahi diya (timeout)", []
 
-    # 3) Subdomains — Certificate Transparency (crt.sh public feed, free)
-    try:
-        r = requests.get("https://crt.sh/?q=%25." + clean + "&output=json",
-                         headers=UA_HEADERS, timeout=25)
-        if r.status_code == 200:
-            names = []
-            for row in r.json() or []:
-                nm = (row.get("name_value") or "").strip().lstrip("*.")
-                if nm and nm != clean and nm.endswith("." + clean) and nm not in names:
-                    names.append(nm)
-            result["subdomains"] = sorted(set(names))[:12]
-            result["subdomains_total"] = len(set(names))
-        else:
-            result["subdomains_error"] = "certificate feed abhi jawab nahi di"
-    except Exception:
-        result["subdomains_error"] = "certificate feed timeout — baaki data theek hai"
+    # 3) Subdomains — Certificate Transparency.
+    # v55: crt.sh live-test me 24.6 SECOND me 502 deta hai (service slow/dead) —
+    # poore tool ka bottleneck yahi tha. Ab pehle Certspotter (free, no key,
+    # ~0.8s) try hota hai; fail ho to crt.sh (timeout 25s → 10s).
+    def _crt_work():
+        names, total, err = [], 0, ""
+        try:
+            r = http_get(
+                "https://api.certspotter.com/v1/issuances",
+                params={"domain": clean, "include_subdomains": "true",
+                        "expand": "dns_names"},
+                headers=UA_HEADERS, timeout=12, retries=0,
+                max_bytes=48 * 1024 * 1024)
+            if r.status_code == 200:
+                uniq = set()
+                for row in (r.json() or []):
+                    if not isinstance(row, dict):
+                        continue
+                    for nm in (row.get("dns_names") or []):
+                        nm = str(nm or "").strip().lstrip("*.").lower()
+                        # sirf isi domain ke subdomains (cert me dusre domains
+                        # bhi hote hain — unhe chhoddo)
+                        if nm and nm != clean and nm.endswith("." + clean):
+                            uniq.add(nm)
+                names, total = sorted(uniq)[:12], len(uniq)
+                if names:
+                    return names, total, ""
+                err = ""     # certspotter chala par khaali — crt.sh try karo
+        except Exception:
+            pass
+        # fallback: crt.sh (purana source)
+        try:
+            r = http_get("https://crt.sh/?q=%25." + clean + "&output=json",
+                         headers=UA_HEADERS, timeout=10, retries=0,
+                         max_bytes=48 * 1024 * 1024)
+            if r.status_code == 200:
+                uniq = set()
+                for row in (r.json() or []):
+                    nm = (row.get("name_value") or "").strip().lstrip("*.").lower()
+                    if nm and nm != clean and nm.endswith("." + clean):
+                        uniq.add(nm)
+                names, total = sorted(uniq)[:12], len(uniq)
+                if names:
+                    return names, total, ""
+            if not err:
+                err = "certificate feed abhi jawab nahi di"
+        except Exception:
+            if not err:
+                err = "certificate feed timeout — baaki data theek hai"
+        return names, total, err
+
+    # v55: A-record ke baad baaki SAB ek saath — 4 DNS queries + whois + crt.sh.
+    # Pehle ye 6 calls serial chalti thi (google.com par 26 second! user ko
+    # lagta tha bot hang ho gaya). Ab total time ~sabse slow single call.
+    dns_jobs = [("aaaa", "AAAA", 2), ("mx", "MX", 5), ("ns", "NS", 6), ("txt", "TXT", 3)]
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        futs = {}
+        for key, qtype, cap in dns_jobs:
+            futs[ex.submit(_doh_query, clean, qtype)] = (key, cap)
+        futs[ex.submit(_whois_work)] = ("whois", None)
+        futs[ex.submit(_crt_work)] = ("subdomains", None)
+        for f in as_completed(futs):
+            key, cap = futs[f]
+            try:
+                val = f.result()
+            except Exception:
+                continue
+            if key == "whois":
+                result["whois"], result["whois_error"], _ns_rdap = val
+                # DNS NS query khaali aaya ho to RDAP ke nameservers use karo
+                if _ns_rdap and not result["ns"]:
+                    result["ns"] = _ns_rdap[:6]
+            elif key == "subdomains":
+                subs, total, err = val
+                result["subdomains"] = subs
+                result["subdomains_total"] = total
+                result["subdomains_error"] = err
+            else:
+                result[key] = val[:cap] if cap else val
 
     # 4) Primary A-record ki IP info (existing engine reuse)
     if a_recs:
@@ -743,7 +804,7 @@ def tg_user_public(username: str) -> dict:
                           "<code>somechannel</code>.\n"
                           "📌 Jo public channel hai, uska @username profile me dikhta hai.")}
     try:
-        r = requests.get(f"https://t.me/{uname}", headers=UA_HEADERS, timeout=10)
+        r = http_get(f"https://t.me/{uname}", headers=UA_HEADERS, timeout=10)
         if r.status_code == 404:
             return {"ok": False, "exists": False,
                     "error": (f"<code>@{uname}</code> ka koi public Telegram page nahi mila — "

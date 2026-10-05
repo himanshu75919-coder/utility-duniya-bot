@@ -88,7 +88,8 @@ def db():
             filter_type TEXT DEFAULT 'all',
             status TEXT DEFAULT 'idle',
             source_chat_id TEXT DEFAULT '',
-            auto_status TEXT DEFAULT 'off'
+            auto_status TEXT DEFAULT 'off',
+            remove_links INTEGER DEFAULT 0
         )"""
     )
     # Migration checks
@@ -99,6 +100,7 @@ def db():
         ("thumbnail_file_id", "TEXT DEFAULT ''"),
         ("source_chat_id", "TEXT DEFAULT ''"),
         ("auto_status", "TEXT DEFAULT 'off'"),
+        ("remove_links", "INTEGER DEFAULT 0"),   # v55: cloner link-remover
     ]:
         try:
             cur.execute(f"ALTER TABLE cloner_configs ADD COLUMN {col} {typ}")
@@ -508,7 +510,7 @@ def get_cloner_config(uid: int) -> dict:
         cur.execute(
             """SELECT target_chat_id, custom_caption, watermark, rename_tag,
                       replace_words, remove_words, thumbnail_file_id, filter_type, status,
-                      source_chat_id, auto_status
+                      source_chat_id, auto_status, remove_links
                FROM cloner_configs WHERE user_id=?""",
             (uid,),
         )
@@ -527,6 +529,7 @@ def get_cloner_config(uid: int) -> dict:
                 "status": r[8] or "idle",
                 "source_chat_id": r[9] or "",
                 "auto_status": r[10] or "off",
+                "remove_links": bool(r[11]) if len(r) > 11 else False,
             }
     except Exception:
         pass
@@ -542,6 +545,7 @@ def get_cloner_config(uid: int) -> dict:
         "status": "idle",
         "source_chat_id": "",
         "auto_status": "off",
+        "remove_links": False,
     }
 
 
@@ -558,6 +562,7 @@ def save_cloner_config(
     status: str = None,
     source_chat_id: str = None,
     auto_status: str = None,
+    remove_links: bool = None,
 ):
     try:
         cfg = get_cloner_config(uid)
@@ -572,17 +577,20 @@ def save_cloner_config(
         status = status if status is not None else cfg["status"]
         source_chat_id = source_chat_id if source_chat_id is not None else cfg.get("source_chat_id", "")
         auto_status = auto_status if auto_status is not None else cfg.get("auto_status", "off")
+        remove_links = (1 if remove_links else 0) if remove_links is not None \
+            else (1 if cfg.get("remove_links") else 0)
 
         con = db()
         con.execute(
             """INSERT OR REPLACE INTO cloner_configs(
                 user_id, target_chat_id, custom_caption, watermark, rename_tag,
                 replace_words, remove_words, thumbnail_file_id, filter_type, status,
-                source_chat_id, auto_status
-            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                source_chat_id, auto_status, remove_links
+            ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 uid, target, caption, watermark, rename_tag, replace_words, remove_words,
                 thumbnail_file_id, filter_type, status, source_chat_id, auto_status,
+                remove_links,
             ),
         )
         con.commit()

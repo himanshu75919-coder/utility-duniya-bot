@@ -125,13 +125,28 @@ def make_printable_sheet(photo_bytes: bytes, copies: int = 8) -> io.BytesIO:
     return out
 
 
-def compress_document_pdf(image_bytes_list: list[bytes], max_kb: int = 300, grayscale: bool = False) -> io.BytesIO:
+def compress_document_pdf(image_bytes_list, max_kb: int = 300, grayscale: bool = False) -> io.BytesIO:
     """
     Marksheet/certificate photos ko ek clean PDF me badalta hai, max_kb (100/200/300/500) se kam.
     grayscale=True → Black & White PDF (aur chhota + govt portal friendly).
+
+    ⚠️ v55 fix: pehle single `bytes` (list ke bina) bhejne par iterating over
+    bytes → ints → `io.BytesIO(int)` → TypeError: "a bytes-like object is
+    required, not 'int'". Ye crash user-facing tha (doc compress tool).
+    Ab: single bytes auto-wrap, aur clear error message.
     """
+    # single bytes/bytearray → list me wrap (classic footgun)
+    if isinstance(image_bytes_list, (bytes, bytearray)):
+        image_bytes_list = [image_bytes_list]
+    if not isinstance(image_bytes_list, (list, tuple)):
+        raise TypeError("image_bytes_list ek list of bytes hona chahiye")
+    if not image_bytes_list:
+        raise ValueError("Kam se kam ek page (photo bytes) chahiye")
+
     processed_images = []
     for b in image_bytes_list:
+        if isinstance(b, str):                      # base64/galat type — saaf error
+            raise TypeError("Page bytes me hona chahiye, string nahi")
         im = Image.open(io.BytesIO(b)).convert("RGB")
         if grayscale:
             im = im.convert("L").convert("RGB")   # B&W (grey) — text sharp, size kam
@@ -143,7 +158,7 @@ def compress_document_pdf(image_bytes_list: list[bytes], max_kb: int = 300, gray
         buf = io.BytesIO()
         sharp.save(buf, format="JPEG", quality=(q - 10 if grayscale else q), optimize=True)
         processed_images.append(buf.getvalue())
-        
+
     pdf_bytes = img2pdf.convert(processed_images)
     out = io.BytesIO(pdf_bytes)
     out.seek(0)

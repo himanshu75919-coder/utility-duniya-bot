@@ -125,11 +125,24 @@ def _clean_uid(target: str) -> str:
 
 
 def parse_region(text: str) -> Optional[str]:
-    """User ke message se region code nikalo. None = region nahi diya."""
+    r"""User ke message se region code nikalo. None = region nahi diya.
+
+    v55 fix: pehle regex `\b([A-Z]{2,12})\s*$` sirf "7860944073 BR" (space se
+    alag) pakadta tha. Users asli me ye sab bhejte hain (live audit me mile):
+      "7860944073 (BR)"   ← parens
+      "7860944073 - BR"   ← dash
+      "7860944073, BR"    ← comma
+      "7860944073 BR."    ← trailing dot
+    In sabhi me region None return hota tha → bot region scan skip kar deta tha
+    (ya galat region me). Ab trailing punctuation/parens strip hote hain.
+    """
     t = str(text or "").strip().upper()
     if not t:
         return None
-    m = re.search(r"\b([A-Z]{2,12})\s*$", t)
+    # trailing punctuation/brackets hatao: (BR), [BR], -BR, :BR, BR. , BR
+    t = re.sub(r"[\s\-–—:,;.]+$", "", t)
+    t = re.sub(r"[\(\[\{]+([A-Z]{2,12})[\)\]\}]+$", r"\1", t)
+    m = re.search(r"\b([A-Z]{2,12})$", t)
     if m:
         return REGION_ALIASES.get(m.group(1))
     return None
@@ -138,7 +151,12 @@ def parse_region(text: str) -> Optional[str]:
 def strip_region(text: str) -> str:
     """Message me se region word hata kar sirf UID bachao."""
     t = str(text or "").strip()
-    return re.sub(r"\s+[A-Za-z]{2,12}\s*$", "", t).strip()
+    # v55: parens/dash/comma wale formats bhi hatao — "7860944073 (BR)" → "7860944073"
+    t = re.sub(r"[\s\-–—:,;]*[\(\[\{]\s*[A-Za-z]{2,12}\s*[\)\]\}]\s*$", "", t)
+    t = re.sub(r"\s+[A-Za-z]{2,12}\s*$", "", t)
+    # trailing punctuation bhi saaf karo ("7860944073 -" → "7860944073")
+    t = re.sub(r"[\s\-–—:,;.]+$", "", t)
+    return t.strip()
 
 
 # ============================================================ FF service status
@@ -489,7 +507,8 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
         tried = len(states)
         # kitne regions ka jawab aaya hi nahi (timeout/straggler) — ye "not found"
         # ke barabar NAHI hai, isliye message me alag batate hain.
-        answered = n_nf + n_empty + n_net + n_rl
+        # ⚠️ v55: `answered` variable pehle yahan compute hota tha par use nahi
+        # hota tha (dead code) — counts seedhe message me inline hote hain.
 
         if n_blk and n_blk >= max(1, tried - n_nf - n_empty):
             return {"ok": False, "service_busy": True, "uid": uid,

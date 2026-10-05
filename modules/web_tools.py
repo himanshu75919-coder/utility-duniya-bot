@@ -39,7 +39,7 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
 
-from bs4 import BeautifulSoup, Comment, NavigableString, Tag
+from bs4 import BeautifulSoup, Comment, Tag
 
 from modules.core.cache import TTLCache, cached_call
 from modules.core.net import NetError, http_get, is_safe_url

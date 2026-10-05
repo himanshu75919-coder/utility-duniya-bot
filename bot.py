@@ -21,7 +21,6 @@ import logging
 import os
 import re
 import socket
-import tempfile
 import time
 import threading
 from datetime import date, datetime
@@ -44,7 +43,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     Update,
 )
-from telegram.error import RetryAfter, Conflict
+from telegram.error import Conflict
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -169,7 +168,6 @@ from modules import api_hub as hubapi
 from modules.render_health import webhook_url_from_env, webhook_url_usable
 from modules.imei_lookup import (
     device_title as imei_title,
-    fallback_links as imei_fallback_links,  # v49.13: UI se hata (module me info ke liye rakha)
     fetch_imei_details,
     help_card as imei_help_card,
     is_configured as imei_api_ready,
@@ -192,33 +190,23 @@ from modules.osint_tools import (
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
-    ff_service_status,
-    gaming_cache_snapshot,
 )
 from modules. import (
     pinterest_search,
     pinterest_from_pin_link,
-    pinterest_pin_detail,
     download_media as pin_download_media,
-    cache_snapshot as pin_cache_snapshot,
 )
-from modules.web_tools import scrape_public_text, web_cache_snapshot
+from modules.web_tools import scrape_public_text
 from modules.temp_mail import (
     tm_create,
-    tm_messages,
     tm_poll,
     tm_delete,
-    tm_domains,
-    extract_codes as tm_extract_codes,
 )
 from modules.general_tools import (
     vcard_data,
     wifi_qr_data,
-    build_upi_link,
-    get_app_store_links,
     app_lookup,
     make_branded_qr,
-    domain_age_days,
 )
 from modules.payguard import (
     MAX_BAD_TRIES,
@@ -242,13 +230,8 @@ from modules.core import check_limit, limiter_stats
 # aur kisi ko pata hi nahi chalta tha ki BGMI/FF jaisa tool kab se toota hua hai).
 from modules.core.telemetry import (
     note as tel_note,
-    is_soft_fail as tel_is_soft_fail,
-    health_card as tel_health_card,
     snapshot as tel_snapshot,
-    tool_stats as tel_tool_stats,
     worst_tools as tel_worst_tools,
-    upstream_status as tel_upstream_status,
-    reset as tel_reset,
 )
 from modules.core.cache import TTLCache
 from modules.core.html_safe import cut_html, strip_html
@@ -326,7 +309,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v54.3 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
+BOT_VERSION = "v55.0 Deep Audit + Pro Upgrade"  # v55: 📧 temp-mail DELETE fix · 💳 UPI pa raw (@ bug) · 🎮 region (BR)/(BR)/-BR sab formats · 📄 doc-pdf single-bytes crash fix · 🔗 link-check core.net+PARALLEL (5.4s→0.7s) · 🌐 domain-OSINT Certspotter+PARALLEL (27.7s→1.5s) · 🔗 cloner Remove-Links feature · 🧹 30 dead imports + dup keys saaf · v54.3 IMEI cut_html fix bhi barkarar
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -886,7 +869,6 @@ BTN_MODE_MAP = {
     "HELP / TUTORIAL": "tutorial",
     "MADAD / TUTORIAL": "tutorial",
     "MADAD": "tutorial",
-    "HELP / TUTORIAL": "tutorial",
     "ADMIN PANEL": "admin",
     "OWNER MODE": "owner",
 }
@@ -1209,7 +1191,7 @@ CITY_COORDS = {
     "kishanganj": (26.0890, 87.9477), "jamui": (24.9204, 86.2244), "lakhisarai": (25.1778, 86.0961),
     "sheikhpura": (25.1399, 85.8407), "arwal": (25.2450, 84.6660), "jehanabad": (25.2132, 84.9894),
     "bhabua": (25.0405, 83.6088), "kaimur": (25.0405, 83.6088), "rohtas": (24.9538, 84.0128),
-    "sheohar": (26.5189, 85.2950), "sitamarhi": (26.5921, 85.4835), "madhubani": (26.3530, 86.0722),
+    "sheohar": (26.5189, 85.2950), "madhubani": (26.3530, 86.0722),
     "bettiah": (26.8020, 84.5028), "forbesganj": (26.2900, 87.2600),
     "patna sahib": (25.5941, 85.1376),
     # UP ke aas-paas
@@ -3422,6 +3404,21 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # v55: Remove Links toggle — cloned caption se URLs/@username hata deta hai
+    if data == "cloner_toggle_links":
+        cfg = get_cloner_config(uid)
+        new_val = not bool(cfg.get("remove_links"))
+        save_cloner_config(uid, remove_links=new_val)
+        if new_val:
+            txt = ("🔗 <b>LINKS HATAO: ON 🟢</b>\n\n"
+                   "Ab har cloned post ke caption se URLs, t.me links aur "
+                   "@username apne aap hat jaayenge.\n"
+                   "<i>(Normal text aur numbers jaise the waise rahenge.)</i>")
+        else:
+            txt = "🔗 <b>LINKS HATAO: OFF 🔴</b>\n\nAb caption jaisa hai waisa hi copy hoga."
+        await q.message.reply_text(txt, reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        return
+
     if data == "cloner_toggle_auto":
         cfg = get_cloner_config(uid)
         if cfg.get("auto_status") == "on":
@@ -3432,7 +3429,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML,
             )
             return
-
         if not cfg.get("target_chat_id"):
             await q.message.reply_text("⚠️ Pehle <b>📑 Target</b> channel set karo (jahan post jayegi).", parse_mode=HTML)
             return
@@ -3501,7 +3497,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "cloner_reset":
-        save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="", source_chat_id="", auto_status="off")
+        save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="", source_chat_id="", auto_status="off", remove_links=False)
         context.user_data.pop("mode", None)
         await q.message.reply_text("🔄 <b>Settings reset ho gayi!</b> Cloner ki saari settings default par aa gayi.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
