@@ -425,6 +425,15 @@ check("prompt system zinda hai (tool_prompt sanitize karta hai)",
 check("kisi bhi tool prompt me Credits/cancel line nahi",
       all("Credits:" not in bot.tool_prompt(k) and "cancel" not in bot.tool_prompt(k).lower()
           for k in bot.PROMPT_DATA))
+_np_p = bot.tool_prompt("numinfo")
+check("NUMBER INFO prompt me 3 example hain (jaise baaki tools me)",
+      _np_p.count("•") >= 3, str(_np_p.count("•")))
+check("NUMBER INFO examples: 10-digit + dusra mobile + +91 wala",
+      "9876543210" in _np_p and "7305190526" in _np_p and "+91 98765 43210" in _np_p)
+check("NUMBER INFO me koi banned line nahi (credits/cancel)",
+      "Credits:" not in _np_p and "cancel" not in _np_p.lower())
+check("BOT_VERSION comment stack nahi hua (ek hi # v59: note)",
+      BOT_SRC[BOT_SRC.index("BOT_VERSION ="):][:400].count("# v59:") <= 1)
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))
 check("IMEI tool zinda hai (photo + device search)", hasattr(bot, "cmd_imeistatus"))

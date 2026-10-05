@@ -303,7 +303,7 @@ BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v59.3 Crash-Proof Core + UPI Gaya + Number Info (ek format)"  # v59: 🏦 UPI tool + poori code DELETE · 🧹 saare lecture/note text gaye · 📱 Number Info me AB SIRF EK LAYOUT (aapka format, data sirf aapki API se) · ⚡ YouTube buttons INSTANT + tez download · 📲 IMEI photo · 🛡️ v59.3 HARDCORE CRASH-PROOF CORE: self-check boot par (version+commit+modules+API status, key kabhi print nahi) + SELF-HEAL supervisor (main() crash ho to khud restart, Render ko 502 nahi) + loop exception guard + crash counter /health par + test_v59 me regression lock  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands/env) · 🧹 saare lecture/note text gaye (BGMI·FF·numinfo·UPI·temp-mail·ads) · 📱 Number Info me AB SIRF EK LAYOUT (aapka format: Name/Father/Phones/Region/GovtID/Address + Number/Operator/Source) — purana boxed card POORA DELETE, data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s) · 📥 download progressive 18/22 + parallel chunks 4 · 📲 IMEI photo + naam/code search · /version v59  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands) · 🧹 saare lecture/note lines gaye (BGMI·FF·numinfo) · 📱 Number Info ab aapke diye format me (Name/Father/Phones/Region/GovtID/Address) — data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s wait) · 📥 download progressive 18/22 (merge avoid = 3x fast) + parallel chunks 4 · /version v59
+BOT_VERSION = "v59.3 Crash-Proof Core + UPI Gaya + Number Info (ek format)"  # v59: 🏦 UPI tool + poori code DELETE · 🧹 saare lecture/note text gaye · 📱 Number Info me AB SIRF EK LAYOUT (aapka format: Name/Father/Phones/Region/GovtID/Address + Number/Operator/Source), purana boxed card POORA DELETE · ⚡ YouTube buttons INSTANT + tez download · 📲 IMEI photo + naam/code search · 🛡️ v59.3 HARDCORE CRASH-PROOF CORE: boot self-check + self-heal supervisor + loop guard + crash counter + owner-only/POST API support
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -935,8 +935,10 @@ PROMPT_DATA = {
     },
     "numinfo": {
         "head": "📱 NUMBER INFO V2 ENGINE",
-        "ask": "10 Digit Number bhejein:",
-        "ex": [("9876543210", "10 digit number")],
+        "ask": "10 Digit Number bhejein (API lagane par naam/pata/region bhi aata hai):",
+        "ex": [("9876543210", "10 digit number"),
+               ("7305190526", "koi bhi mobile number"),
+               ("+91 98765 43210", "country code ke saath bhi chalta hai")],
     },
     "appfind": {
         "head": "📦 APP FINDER · PLAY · APPSTORE · F-DROID",
