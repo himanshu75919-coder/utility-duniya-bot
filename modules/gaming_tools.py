@@ -320,6 +320,40 @@ def _ff_build_card(uid: str, region: str, d: dict) -> Dict[str, Any]:
         "clan": _txt(si.get("guildName") or si.get("guild")) or "",
         "source": "freefireapis.lat",
     }
+
+    # ── v54.0: IMAGES ─────────────────────────────────────────────
+    # Free Fire API 3 tarah ki public images deta hai jo pehle **ignore** ho
+    # jati thin (user ko sirf text milta tha):
+    #   1. `profileCard`  → official banner (avatar + nickname + level), ~190KB,
+    #                       1692×360 wide — `send_photo` ke liye perfect
+    #   2. `inventory.characterImage` → equipped character ka portrait (~14KB)
+    #   3. `clothesUrl`   → outfit/loadout breakdown (headgear/torso/weapon…),
+    #                       ~2.7MB PNG — isliye on-demand button par bhejte hain,
+    #                       har query par 2.7MB download wasteful hai
+    # Har image URL optional hai; na ho to handler text-only card bhej deta hai.
+    pc = res.get("profileCard") or {}
+    cl = res.get("clothesUrl") or {}
+    inv = res.get("inventory") or {}
+    if not isinstance(pc, dict):
+        pc = {}
+    if not isinstance(cl, dict):
+        cl = {}
+    if not isinstance(inv, dict):
+        inv = {}
+
+    def _imgurl(node, *exts) -> str:
+        # png > jpg > webp preference; jo format maujood ho wahi lo
+        for e in exts or ("png", "jpg", "webp"):
+            v = node.get(e)
+            if isinstance(v, str) and v.startswith("http"):
+                return v
+        return ""
+
+    out["profile_card"] = _imgurl(pc)
+    out["outfit_image"] = _imgurl(cl)
+    out["character_image"] = _imgurl(inv, "characterImage") or (
+        inv.get("characterImage") if isinstance(inv.get("characterImage"), str) else "")
+    out["character_name"] = _txt(inv.get("characterName")) or ""
     return out
 
 

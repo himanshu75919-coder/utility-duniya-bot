@@ -618,7 +618,7 @@ check("App Finder not-found par credit nahi katta",
 # =====================================================================
 section("12) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
 # =====================================================================
-check("bot.py version v53.0 par bump hua", 'BOT_VERSION = "v53.0 Premium Earning"' in _bot_src)
+check("bot.py version v54.0 par bump hua", 'BOT_VERSION = "v54.0 Premium Earning"' in _bot_src)
 check("build_qr_image helper maujood hai", "def build_qr_image(" in _bot_src)
 check("teeno QR handler build_qr_image use karte hain",
       _bot_src.count("build_qr_image") >= 4)
@@ -649,8 +649,15 @@ check("WiFi open-network detection (none/no/skip/open)",
       'pwd.lower() in ("none", "no", "skip", "-", "open", "")' in _bot_src)
 check("WiFi QR me security warning hai (password encode hota hai)",
       "trusted logon ko scan karne do" in _bot_src)
-check("appfind prompt ab 'verified' bolta hai (8 blind links nahi)",
-      "verified</b> detail" in _bot_src)
+# v54.0: prompts ab MINIMAL one-liner hain (user order) — lamba lecture nahi
+check("appfind prompt minimal one-liner hai (example ke saath)",
+      '"appfind": (' in _bot_src and "app ka naam bhejo" in _bot_src
+      and "e.g." in bot.PROMPTS.get("appfind", ""))
+check("saare prompts chhote hain (koi 4-line lecture nahi)",
+      all(len(v) < 200 for v in bot.PROMPTS.values()))
+check("har prompt me inline example hai (e.g. ya code)",
+      all(("e.g." in v) or ("<code>" in v) or ("chuno" in v) or ("NEW" in v)
+          for v in bot.PROMPTS.values()))
 
 # --- build_qr_image live behaviour ---
 _q1 = bot.build_qr_image("https://t.me/Supermannn_x", tool="qr")

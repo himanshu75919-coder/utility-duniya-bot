@@ -262,12 +262,11 @@ bot_src = open("bot.py").read()
 checks = [
     # v53.0: version aage badhi — ab hardcode v52.3 nahi, v53.x check hota hai.
     # Saath me ek "regression guard": version kabhi v53 se peeche na jaye.
-    ("v53.0 version", "v53.0 Premium Earning" in bot_src),
-    # regression guard: version string kabhi purane release par wapas na jaye
-    ("version v53+ par hai (peeche regress nahi hua)",
-     "v53.0 Premium Earning" in bot_src
-     and "v52.3 Premium Earning" not in bot_src
-     and "v50." not in bot_src.split("BOT_VERSION =")[1][:40]),
+    ("v54.0 version", "v54.0 Premium Earning" in bot_src),
+    # regression guard: major version kabhi peeche na jaye (runtime se padho)
+    ("version v54+ par hai (peeche regress nahi hua)",
+     bot_src.split('BOT_VERSION = "v')[1].split(".")[0].split('"')[0].isdigit()
+     and int(bot_src.split('BOT_VERSION = "v')[1].split(".")[0].split('"')[0]) >= 54),
     # ---- v52.1: GOVT SERVICES user order par DELETE hua (verify) ----
     ("govt import gayab", "from modules import govt_tools" not in bot_src),
     ("govt action gayab", 'if action == "govt":' not in bot_src),
@@ -323,7 +322,11 @@ checks = [
         ["\"terabox\"", "\"pp_stamp\"", "\"print_sheet\"", "\"doc_compress\"",
          "\"sarkari\"", "\"ifsc\"", "\"pin\"", "\"ip\"", "\"qr\"",
          "\"short\"", "\"linkcheck\"", "\"appfind\""])),
-    ("vehicle key = rto", '"rto",                 # 🚗 VEHICLE' in bot_src),
+    # v54.0: vehicle/rto tool permanently removed (user order)
+    ("v54: vehicle/rto premium se hata",
+     '    "rto",                 # 🚗 VEHICLE' not in bot_src
+     and '"rto":         (8,' not in bot_src
+     and '"rto": "🚗 Vehicle Info' not in bot_src),
     ("premium tool names updated", '"terabox": "⚡ Terabox / Cloud Downloader"' in bot_src),
 ]
 for nm, ok in checks:

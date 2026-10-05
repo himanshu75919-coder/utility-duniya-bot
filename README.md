@@ -1,4 +1,18 @@
-# ⚡ Utility Duniya Super-Bot — **v53.0 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v54.0 Premium Earning**
+
+## 🆕 v54.0 me kya badla — **"SAAF BAAT, POORI DETAIL"**
+
+| Badlav | Detail |
+|---|---|
+| ✍️ **Minimal prompts** | Saare 28 tools ka prompt ab ek line: `🎮 BGMI UID — UID bhejo (e.g. 1067824210):` (inline example, koi lecture nahi). Privacy warnings result ke saath. |
+| 🔥 **FF UID images** | `profileCard` banner photo result ke saath; character portrait + outfit/loadout on-demand inline buttons se. |
+| 📲 **IMEI full chain** | `/api/imei` (TAC) → `/api/device-specs` (nanoreview) → poora spec sheet + photo, 0.3s. Model-code ho to DuckDuckGo se marketing naam resolve. |
+| 🚗 **Vehicle/RTO removed** | Licensed key ke bina reliably kaam nahi kar sakta tha (hub 410/401, govt CAPTCHA). Menu+premium+engine+selftest delete; purane keyboard par official VAHAN/eChallan links ka message. |
+
+**Tests: 734 checks · 0 fail** (106+127+208+14+279).
+> 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.0 section.
+
+---
 
 ## 🆕 v53.0 me kya badla — **"PRO ENGINE" upgrade**
 

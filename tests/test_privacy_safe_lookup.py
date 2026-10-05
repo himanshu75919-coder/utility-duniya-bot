@@ -31,6 +31,11 @@ class ImeiLookupTests(unittest.TestCase):
         original_get = imei_lookup._get
 
         def fake_get(url, params, tmo=imei_lookup.TIMEOUT):
+            # v54: IMEI ab do call karta hai (/imei → /api/device-specs chain).
+            # Privacy assertion sirf /imei call ke params par hai, isliye
+            # device-specs call ko clean-fail karke captured ko /imei par rakho.
+            if not str(url).endswith("/imei"):
+                return {"success": False, "error": "specs disabled in unit test"}, None
             captured["url"] = url
             captured["params"] = dict(params)
             return {
