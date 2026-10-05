@@ -1,6 +1,22 @@
-# ⚡ Utility Duniya Super-Bot — **v56.0 Crash-Proof + 5-Tool Cleanup**
+# ⚡ Utility Duniya Super-Bot — **v57.0 Number-Info API + Premium Cards**
 
-## 🆕 v56.0 — "CRASH-PROOF + 5-TOOL CLEANUP" (aapka crash **hamesha** ke liye fix)
+## 🆕 v57.0 — "NUMBER INFO API + PREMIUM CARDS"
+
+**📱 Number Info me ab aapki apni API lagegi** — docs me v49.6 se likha tha par code me
+**implement hi nahi tha**. Ab sach me kaam karta hai: 6 env vars (`NUMINFO_PROVIDER_*`),
+6-ghante cache, provider+hub **parallel** (2x fast), aur fallback chain
+(provider → hub → offline) — **tool kabhi band nahi hota**. Naya `/numapi` command se
+Telegram me hi pata kar lo API lagi hai ya nahi. **Guide: `NUMBER-INFO-API-SETUP.md`**
+
+**Aur 4 asli crash bugs mile + fix:** `BRAND_TAG` NameError · **4 jagah HTML injection**
+(Video ka title `<`, `>`, `&` rakhta to pura message reject ho jaata · Cloner tag · URL clean) ·
+aur ulta bug — BGMI/FF ke HTML errors `&lt;b&gt;` banke dikh rahe the (`safe_html_err()` fix).
+**9 premium boxed cards** + LINK CHECK ka blocking call hata (poora bot block ho jaata tha).
+Poore numbers: **`V57-KYA-BADLA.md`**
+
+📊 **Tests: 720 checks — 0 fail** (naya `tests/test_v57.py` = 140 checks)
+
+## 🕘 v56.0 — "CRASH-PROOF + 5-TOOL CLEANUP"
 
 **Asli crash ki jadd mil gayi:** python-telegram-bot me `send_photo` / `send_document` /
 `send_video` **sirf `Bot` par hote hain — `Message` par NAHI** (Message par `reply_photo` /

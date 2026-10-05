@@ -272,7 +272,7 @@ _dk = _dup_keys(os.path.join(ROOT, "bot.py"))
 check("bot.py me duplicate dict keys nahi", not _dk, f"dups: {_dk}")
 
 # 8c) version bump
-check("BOT_VERSION v56 hai", 'BOT_VERSION = "v56' in _bot_src,
+check("BOT_VERSION v56 hai", 'BOT_VERSION = "v57' in _bot_src,
       re.search(r'BOT_VERSION = "([^"]+)"', _bot_src).group(1) if re.search(r'BOT_VERSION = "([^"]+)"', _bot_src) else "?")
 
 # 8d) F401 clean (static) — sirf asli files par
