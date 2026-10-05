@@ -361,6 +361,58 @@ check("menu se vehicle/RTO/challan abhi bhi hata hua hai",
       or "RTO" not in _bot_src)
 
 # =====================================================================
+section("6)  v54.3 — LIVE crash fix: adhoora HTML tag (Render log wali error)")
+# RENDER LOG (user screenshot, 2:03 PM): "Exception handling update: Can't
+# parse entities: can't find end tag corresponding to start tag 'i'".
+# Wajah: lamba IMEI card `txt[:4000]` se kata tha aur cut <i>...</i> line ke
+# beech me gira → unclosed tag → Telegram pura message reject → crash +
+# credit kata hua (user ko kuch nahi mila).
+from modules.core.html_safe import cut_html, strip_html, html_balanced  # noqa: E402
+
+_bad = "a\n" * 3 + "📊 <b>X:</b> 1\n<i>Data: lambi line yahan hai aur aage bhi jaati hai.</i>"
+_lim = _bad.index("<i>Data") + 12
+check("purana plain slice crash banata tha (unclosed <i>)",
+      html_balanced(_bad[:_lim]) is False)
+_fx = cut_html(_bad, _lim)
+check("cut_html unclosed tag nahi chhodta", html_balanced(_fx) is True)
+check("cut_html limit ke andar rehta hai", len(_fx) <= _lim)
+check("cut_html adhoora '<' fragment nahi chhodta",
+      not (("<" in _fx[_fx.rfind("\n") + 1:]) and (">" not in _fx[_fx.rfind("\n") + 1:])))
+_nested = "<b>bold <i>ital</i> aur <code>code</code> adhoora"
+_fx2 = cut_html(_nested, len(_nested) - 3)
+check("cut_html khule tags stack-order me band karta hai", html_balanced(_fx2) is True)
+check("cut_html chhoti string ko chhuta nahi", cut_html("abc <i>x</i>", 99) == "abc <i>x</i>")
+check("strip_html saare tags hatata hai (plain fallback)",
+      "<" not in strip_html("<b>a</b> <i>b</i> <code>c</code>"))
+
+import modules.imei_lookup as IL  # noqa: E402
+_big = {"ok": True, "imei": "356356426587792", "brand": "Samsung", "model": "Galaxy A52",
+        "tac": "356356", "specs_url": "https://example.com/specs",
+        "source_note": "TAC database + nanoreview.net",
+        "sections": [{"title": "Display", "rows": [[f"key{i}", "v" * 100] for i in range(60)]},
+                     {"title": "Battery", "rows": [[f"b{i}", "w" * 100] for i in range(60)]}]}
+_rt = IL.render_text(_big, max_len=3950)     # force: tail lines ke saath >4000 bane
+check("IMEI render_text 4000 ke andar rehta hai", len(_rt) <= 4000, str(len(_rt)))
+check("IMEI render_text ke tags balanced hain (crash regression lock)",
+      html_balanced(_rt) is True)
+_rc = IL.render_caption(_big)
+check("IMEI render_caption 1024 ke andar + balanced",
+      len(_rc) <= 1024 and html_balanced(_rc) is True)
+
+_imei_seg = _bot_src[_bot_src.index('if mode == "imei":'):]
+_imei_seg = _imei_seg[:_imei_seg.index('if mode == "pp_stamp_text":')]
+check("IMEI: credit AB delivery ke BAAD katta hai (pehle doob jaata tha)",
+      _imei_seg.index("_imei_sent = False") < _imei_seg.index('spend_credit_msg(uid, "imei")'))
+check("IMEI: HTML fail ho to plain-text fallback hai",
+      "strip_html(body)" in _imei_seg)
+check("IMEI: deliver na ho to 'Koi credit nahi kata' message",
+      "Koi credit nahi kata" in _imei_seg)
+check("bot.py me koi raw HTML slice [:3900]/[:4000] nahi bacha",
+      'join(L)[:3900]' not in _bot_src and 'join(L)[:4000]' not in _bot_src)
+check("keepalive ping ab 4 minute par hai (spin-down kam ho)",
+      'or 4)' in _bot_src and "_KEEPALIVE_MINUTES = 4.0" in _bot_src)
+
+# =====================================================================
 print("\n" + "=" * 62)
 print(f"  v54.1 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 print("=" * 62)

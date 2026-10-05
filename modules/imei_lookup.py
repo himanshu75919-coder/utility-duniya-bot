@@ -31,6 +31,8 @@ from html import escape as _hesc
 
 import requests
 
+from modules.core.html_safe import cut_html as _cut_html
+
 DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"   # v49: naya LIVE hub (purana dead tha)
 TIMEOUT = int(os.environ.get("IMEI_TIMEOUT", "25"))
 # device-specs ka timeout chhota rakha: jab model ek CODE hota hai (T528) to hub
@@ -679,7 +681,9 @@ def render_caption(res: dict, max_len: int = 1000) -> str:
         lines.append(f"📊 <b>{res['specs_rows']} specification points found</b>")
     lines.append("👇 <i>Poori specification agle message me hai.</i>")
     out = "\n".join(lines)
-    return out[:1024]
+    # v54.3: plain slice caption ke <i> tag ko adhoora chhod sakta tha →
+    # Telegram "can't find end tag" de kar pura message reject kar deta tha.
+    return _cut_html(out, 1024)
 
 
 def render_text(res: dict, max_len: int = 3600) -> str:
@@ -711,7 +715,10 @@ def render_text(res: dict, max_len: int = 3600) -> str:
     out.append(f"<i>Data: {_hesc(str(res.get('source_note') or 'TAC database + nanoreview.net'))}"
                " · confirm on the official brand site before buying/selling.</i>")
     txt = "\n".join(out)
-    return txt[:4000]
+    # v54.3: LIVE CRASH yahi tha — txt[:4000] ne ek baar <i> tag adhoora
+    # kaat diya tha (Render log: "can't find end tag corresponding to start
+    # tag 'i'"). Ab line-safe + tag-balanced cut.
+    return _cut_html(txt, 4000)
 
 
 def render_report(res: dict) -> str:

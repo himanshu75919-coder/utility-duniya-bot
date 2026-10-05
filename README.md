@@ -1,4 +1,4 @@
-# ⚡ Utility Duniya Super-Bot — **v54.2 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v54.3 Premium Earning**
 
 ## 🆕 v54.1 me kya badla — **"LIVE SCREENSHOTS WALE BUGS FIX"**
 
@@ -14,6 +14,14 @@ Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
 | 🧹 Purane (hataaye hue) tools ads me dikhte the | Credits-over aur VIP-wall text se 🚗 Vehicle/Challan aur 🔒 Private Channel Setup hata diye. |
 | 🏦 UPI verify ka look competitor-jaisa chahiye tha | Ab boxed **UPI VERIFY REPORT** card (VPA, format, bank handle, bank, local part) + brand tag. **Sirf public data.** |
 
+## 🆕 v54.3 — LIVE crash fix (Render log se pakda) + speed
+
+| Cheez | Ab |
+|---|---|
+| 💥 IMEI par "Chhota sa ghatna ho gaya" + credit kat gaya | Render log me asli error tha: *"can't find end tag corresponding to start tag 'i'"*. Lamba card `[:4000]` se kat-te waqt `<i>` tag adhoora reh jaata tha → Telegram pura message reject. Ab **`cut_html()`** — line-safe + tag-balanced cutting (naya module `modules/core/html_safe.py`). |
+| 💳 Credit fairness | IMEI me credit **delivery ke baad** katta hai; deliver na ho to "Koi credit nahi kata". |
+| 🐢 1-minute delay | Render free instance 15 min me soti hai; keepalive ping ab **10 → 4 minute** par (bot + hub dono jaagte rehte hain). |
+
 ## 🆕 v54.2 — screenshots round 2 se polish
 
 | Cheez | Ab |
@@ -28,7 +36,7 @@ Kuch bots 10-digit mobile se **account-holder ka naam** nikaalte hain. Wo NPCI/b
 Ye bot wo kabhi nahi karega. Mobile bhejoge to saaf refusal + 2 legal options
 (Number Info → operator/circle, VPA Verify → bank/format), **bina credit kaate**.
 
-**Tests: 813 checks · 0 fail** (106+127+208+14+279+79).
+**Tests: 828 checks · 0 fail** (106+127+208+14+279+94).
 > 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
 
 ---
