@@ -169,10 +169,11 @@ for _f in ("modules/pinterest_tools.py", "modules/web_tools.py"):
 
 # 2f) osint_tools se domain/tg functions gaye, baaki zinda hain
 import modules.osint_tools as OT  # noqa: E402
-for _gone in ("domain_osint", "lookup_ip_domain", "tg_user_public", "_doh_query", "_DOMAIN_RE"):
+for _gone in ("domain_osint", "lookup_ip_domain", "tg_user_public", "_doh_query", "_DOMAIN_RE",
+              "upi_verify", "UPI_BANK_HANDLES"):
     check(f"osint_tools.{_gone} hata diya gaya", not hasattr(OT, _gone))
 for _alive in ("lookup_phone_info", "lookup_ifsc", "lookup_pincode",
-               "search_by_area_name", "upi_verify", "lookup_vehicle_rto"):
+               "search_by_area_name", "lookup_vehicle_rto"):
     check(f"osint_tools.{_alive} abhi bhi hai (kaam karta rahe)", hasattr(OT, _alive))
 
 # 2g) desi_tools se aadhaar helper gaya
@@ -350,7 +351,8 @@ check("expand_url ka error raw urllib3 text nahi hai",
 # =====================================================================
 section("7) 🧾 VERSION + FILE HYGIENE")
 # =====================================================================
-check("BOT_VERSION v56+ par hai", 'BOT_VERSION = "v58.' in BOT_SRC)
+check("BOT_VERSION v56+ par hai",
+      re.search(r'BOT_VERSION = "v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
 # duplicate keys — asli check
 def _dup_keys(path):
     _t = ast.parse(open(path, encoding="utf-8").read())

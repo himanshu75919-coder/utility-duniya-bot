@@ -340,7 +340,10 @@ def _ytdlp_opts(extra=None):
     opts = {
         "quiet": True,
         "no_warnings": True,
-        "socket_timeout": 25,
+        "socket_timeout": 15,          # v59: 25 → 15 (slow hang se bachao)
+        "concurrent_fragment_downloads": 4,   # v59: 4x parallel chunks = fast download
+        "noprogress": True,
+        "nopart": False,
         "nocheckcertificate": True,
         "extract_flat": False,
         "retries": 2,
@@ -382,9 +385,16 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
         cap = max_mb - 3
         if _HAS_FFMPEG:
             # 360p + audio merge (YouTube ab progressive formats nahi deta, isliye merge zaroori hai)
-            fmt = (f"bv*[height<=360][filesize_approx<{cap//2}M]+ba[filesize_approx<{cap//2}M]/"
-                   f"b[filesize_approx<{cap}M]/bv*[height<=480]+ba/bv*[height<=360]+ba/"
-                   f"b[height<=360]/b/best")
+            # v59: pehle PROGRESSIVE (single file, merge nahi) — YouTube ab bhi
+            # 360p/720p progressive (itag 18/22) deta hai. Merge karne se ffmpeg
+            # chalta hai jo 3x slow tha. Progressive mile to wahi lo.
+            fmt = ("18/"                                   # 360p mp4 + audio (fastest)
+                   "22/"                                   # 720p mp4 + audio
+                   f"b[ext=mp4][filesize_approx<{cap}M]/"
+                   f"b[filesize_approx<{cap}M]/"
+                   f"bv*[height<=360][filesize_approx<{cap//2}M]+ba[filesize_approx<{cap//2}M]/"
+                   "bv*[height<=480]+ba/bv*[height<=360]+ba/"
+                   "b[height<=360]/b/best")
         else:
             # ffmpeg nahi hai -> sirf single-file (progressive) formats, warna merge fail hota hai
             fmt = (f"b[ext=mp4][filesize<{cap}M]/b[ext=mp4][filesize_approx<{cap}M]/"
@@ -799,6 +809,47 @@ async def download_video_async(url: str, max_mb: int = MAX_TG_MB) -> dict:
 
 # User ke liye standard options (upar jo available ho wo hi dikhenge)
 YT_QUALITY_OPTIONS = [1080, 720, 480, 360]
+
+
+# v59: YouTube quality CACHE — pehle har baar 5-20 second lagta tha
+_YT_QUAL_CACHE: dict = {}
+_YT_QUAL_LOCK = __import__("threading").Lock()
+_YT_QUAL_TTL = 6 * 3600          # 6 ghante
+
+
+def yt_cached_qualities(url: str) -> list:
+    """Cache me qualities hain to turant do, warna [] (kabhi block nahi karta)."""
+    try:
+        k = (url or "").strip()
+        if not k:
+            return []
+        hit = _YT_QUAL_CACHE.get(k)
+        if hit and (time.time() - hit[0]) < _YT_QUAL_TTL:
+            return list(hit[1])
+    except Exception:                                          # noqa: BLE001
+        pass
+    return []
+
+
+def yt_warm_qualities(url: str) -> None:
+    """Background me qualities nikaal ke cache me daal do (user ko wait nahi)."""
+    try:
+        def _job():
+            try:
+                q = yt_available_qualities(url)
+                if q:
+                    with _YT_QUAL_LOCK:
+                        _YT_QUAL_CACHE[(url or "").strip()] = (time.time(), list(q))
+                        if len(_YT_QUAL_CACHE) > 300:
+                            for kk in sorted(_YT_QUAL_CACHE,
+                                             key=lambda x: _YT_QUAL_CACHE[x][0])[:80]:
+                                _YT_QUAL_CACHE.pop(kk, None)
+            except Exception:                                  # noqa: BLE001
+                pass
+        import threading
+        threading.Thread(target=_job, daemon=True).start()
+    except Exception:                                          # noqa: BLE001
+        pass
 
 
 def yt_available_qualities(url: str) -> list:

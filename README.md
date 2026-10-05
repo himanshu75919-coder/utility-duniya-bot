@@ -1,6 +1,24 @@
-# ⚡ Utility Duniya Super-Bot — **v58.0 Naya Prompt System + IMEI Photo + API Panels**
+# ⚡ Utility Duniya Super-Bot — **v59.0 UPI Verify Removed + Deep Clean + Fast YouTube**
 
-## 🆕 v58.0 — "NAYA PROMPT SYSTEM + IMEI PHOTO + API PANELS"
+## 🆕 v59.0 — "UPI GAYA + DEEP CLEAN + FAST YOUTUBE"
+
+**🏦 UPI VERIFY poora delete** (user ka order) — tool handler, prompt, keyboard button,
+rate-limit, premium list, `BTN_MODE_MAP`, dono callbacks, `/upiapi` command,
+`modules/upi_provider.py` (poori file) aur `modules/osint_tools.py` ka
+`upi_verify()` + `UPI_BANK_HANDLES` (84 line) + `UPI_VERIFY_*` env vars + uski doc.
+**🔒 Privacy lecture text saare tools se gayi** (BGMI · FF UID · Number Info · UPI) —
+kisi bhi tool me privacy note/card nahi.
+**📱 Number Info ab aapke diye format me** — `👤 Name / 👨 Father / 📱 Phones-Alt /
+🌐 Region / 🆔 Govt ID / 🏠 Address(es)` → separator → number/operator/source/time.
+Data **sirf aapki API** se (`NUMINFO_PROVIDER_URL/KEY`); API na ho to fallback card + hint.
+**⚡ YouTube download ka 5–20 second lag gaya** — quality buttons ab **instant**
+(6-ghante cache + background warm) aur download progressive format (`18`/`22`) se
+≈3x tez (merge avoid) + parallel chunks.
+**🐛 Ek chhupa crash bhi pakda:** patch ne galti se `/version` function uda diya tha
+(handler reh gaya = Render startup crash) — wapas lagaya + test me regression lock.
+Poore numbers: **`V59-KYA-BADLA.md`** · **Deploy steps: `AB-KYA-KARNA-HAI.md`**
+
+## 🕘 v58.0 — "NAYA PROMPT SYSTEM + IMEI PHOTO + API PANELS"
 
 **🎨 Saare 22 tools ka prompt naya** (aapka diya format): header + `✨` ask + `📝 Examples`
 bullets. Video Downloader me 5 app examples (YouTube·Instagram·Facebook·TikTok·X).
@@ -11,9 +29,12 @@ search API se theek hota hai (`Xiaomi Redmi Note 10 Pro`) + direct photo URL;
 galat-photo guard bhi (model code se galat device ka photo nahi).
 **🔎 Device naam / model code se search** — pehle kaam hi nahi karta tha, ab chalta hai.
 **🏦 UPI naam API** (naya `modules/upi_provider.py` + `/upiapi`, legal + opt-in) aur
-**📱 Number Info owner panel** (aapke diye format me). Poore numbers: **`V58-KYA-BADLA.md`**
+**📱 Number Info owner panel** — ⚠️ **dono v59 me badal gaye** (UPI tool poora delete,
+Number Info card naya). Poore numbers: **`V58-KYA-BADLA.md`** (history) + **`V59-KYA-BADLA.md`**
 
 📊 **Tests: 837 checks — 0 fail** (naya `tests/test_v58.py` = 113 checks)
+
+📊 **v59 total: 950 checks — 0 fail** (naya `tests/test_v59.py` = 113 checks + baaki suite update)
 
 ## 🕘 v57.0 — "NUMBER INFO API + PREMIUM CARDS"
 
@@ -83,7 +104,7 @@ Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
 | 💳 Pinterest download par **credit gate** nahi tha | 0-credit user bhi free download kar leta tha. Ab gate hai — credits khatam to VIP card. |
 | 🩺 `/health` par commit pata nahi chalta tha | Ab `version + commit SHA + branch + uptime` dikhta hai → "live par kaunsa code hai" ek nazar me. |
 | 🧹 Purane (hataaye hue) tools ads me dikhte the | Credits-over aur VIP-wall text se 🚗 Vehicle/Challan aur 🔒 Private Channel Setup hata diye. |
-| 🏦 UPI verify ka look competitor-jaisa chahiye tha | Ab boxed **UPI VERIFY REPORT** card (VPA, format, bank handle, bank, local part) + brand tag. **Sirf public data.** |
+| 🏦 UPI verify ka look competitor-jaisa chahiye tha | *(v52.2)* boxed **UPI VERIFY REPORT** card banaya tha — **v59 me ye tool poora delete ho gaya.** |
 
 ## 🆕 v54.3 — LIVE crash fix (Render log se pakda) + speed
 
@@ -99,15 +120,15 @@ Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
 |---|---|
 | 📌 Pinterest list me "(bina title)" | Ab smart label: title → pinner ka naam → domain → "Pinterest pin" |
 | 📌 Competitor jaisa photo preview | Search list ke turant baad **top result ka photo preview** (free, koi credit nahi; fail ho to chup-chaap skip) |
-| 🏦 UPI card me status section | Competitor-jaisa **📊 ACCOUNT DETAILS & STATUS** — par sirf public sach: VPA Status = FORMAT VALID (active-status sirf bank jaanta hai), Category = public nahi, Source Type = public DB, Query Entity |
+| 🏦 UPI card me status section | *(v54.2)* **📊 ACCOUNT DETAILS & STATUS** add hua tha — **v59 me UPI tool poora delete.** |
 
-### 🔒 UPI + mobile number — zaroori baat
-Kuch bots 10-digit mobile se **account-holder ka naam** nikaalte hain. Wo NPCI/bank ka
-**leaked private data** hai — India me privacy-law ke khilaaf, aur fraud me use hota hai.
-Ye bot wo kabhi nahi karega. Mobile bhejoge to saaf refusal + 2 legal options
-(Number Info → operator/circle, VPA Verify → bank/format), **bina credit kaate**.
+### 📱 Number Info — data kahan se aata hai
+Nam/pata wala data **sirf aapki apni API** ke jawab se dikhta hai
+(`NUMINFO_PROVIDER_URL` / `NUMINFO_PROVIDER_KEY` — Render Environment me).
+Bot khud kahin se personal record nahi uthata. API na ho to tool phir bhi chalta hai
+(operator/circle/type) aur card me setup hint aata hai (`/numapi`).
 
-**Tests: 828 checks · 0 fail** (106+127+208+14+279+94) · **v55: +73 regression + 59 live = 960 checks, 0 fail.**
+**Tests (v54 era): 828 checks · 0 fail** (106+127+208+14+279+94) · **v55: +73 regression + 59 live = 960 checks, 0 fail.**
 > 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
 
 ---
@@ -230,9 +251,10 @@ Domain bhejo → **full public OSINT report**: whois (official RDAP registry), D
 **subdomains** (Certificate Transparency / crt.sh), + primary A-record ki **IP location/ISP/hosting**.
 IP bhejo → wahi purana IP info card. Sab public/official sources — koi private info nahi.
 
-### 🏦 NAYA: UPI VERIFY
-VPA (UPI ID) bhejo → **format valid?** + **kis bank ka handle hai** (NPCI public bank codes se).
-Sirf public info — linked mobile/account/holder naam **kabhi nahi** dikhega (wo publicly exist hi nahi karta).
+### 🗑️ HATA DIYA (v59): UPI VERIFY
+UPI verify tool (v52.2 me aaya tha) + uski poori code **v59 me delete** ho gayi —
+tool, module, `/upiapi` command, env vars, doc, keyboard button. Uski jagah keyboard me
+ab **📮 PINCODE INFO** hai.
 
 ### 📡 NAYA: TG PUBLIC INFO
 Public `@username` bhejo → **naam + bio + member count** (public channels/groups Bot API `getChat` se,

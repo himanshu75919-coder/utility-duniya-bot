@@ -205,7 +205,8 @@ NUMINFO_PROVIDER_AUTH  = bearer
 | **Address / Aadhaar** | ❌ **Nahi** | Illegal — hum ye kabhi nahi karenge |
 | **Live location** | ❌ **Nahi** | Sirf police/telecom ke paas hota hai |
 
-> Jo bots "naam nikaal dete hain" wo **leaked data** use karte hain — India me ye
+> ⚠️ Number Info me naam/pata **sirf aapki apni API** ke jawab se dikhta hai —
+> bot khud kahin se personal record nahi uthata.
 > IT Act + DPDP Act ke khilaaf hai. Aapka bot **saaf aur legal** rahega. 🙏
 
 ---

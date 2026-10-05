@@ -166,7 +166,7 @@ section("3) 🚨 BRAND_TAG CRASH FIX (asli bug)")
 # =====================================================================
 import bot  # noqa: E402
 
-check("BOT_VERSION v57+ par hai", 'BOT_VERSION = "v58.' in BOT_SRC)
+check("BOT_VERSION v57+ par hai", re.search(r'BOT_VERSION = "v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
 check("BRAND_TAG bot.py me DEFINED hai (pehle NameError crash tha)",
       hasattr(bot, "BRAND_TAG"))
 check("BRAND_TAG ki value sahi hai", str(bot.BRAND_TAG).startswith("@"))
@@ -217,7 +217,7 @@ for _tool, _needle in (
         ("BGMI", 'pcard_title("🎮", "BGMI PLAYER CARD")'),
         ("APP FINDER", 'pcard_title("📦", "APP FINDER")'),
         ("LINK CHECK", 'pcard_title("🛡️", "LINK CHECK REPORT")'),
-        ("NUMBER INFO", 'to_bold(\'NUMBER INFO REPORT\')')):
+        ("NUMBER INFO", 'pcard_title("📱", "NUMBER INFO REPORT")')):
     check(f"{_tool} card premium hai", _needle in BOT_SRC, _needle[:42])
 
 check("FF UID card me premium footer hai", "Garena public profile" in BOT_SRC)
@@ -250,8 +250,10 @@ check("NUMBER INFO: fallback chain hai (provider → hub → offline)",
 check("NUMBER INFO: live source line dikhti hai",
       "LIVE" in _ni and "OFFLINE" in _ni)
 check("NUMBER INFO: response time card me hai", 'int(_ms)}ms' in _ni)
-check("NUMBER INFO: privacy line hai (koi leaked data nahi)",
-      "leaked" in _ni.lower())
+check("NUMBER INFO: v59 me privacy lecture line NAHI hai (user ka order)",
+      "leaked" not in _ni.lower() and "Privacy" not in _ni)
+check("NUMBER INFO: aapke diye format ka owner card hai (_obits)",
+      "_obits" in _ni and "👤 <b>Name:</b>" in _ni and "🏠 <b>Address(es):</b>" in _ni)
 
 # =====================================================================
 section("6) 🔌 /numapi ADMIN COMMAND")

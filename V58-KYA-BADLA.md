@@ -107,6 +107,10 @@ PHOTO** milta hai:
 
 ## 5️⃣ 🏦 UPI VERIFY — naam (aapke screenshot jaisa, par LEGAL)
 
+> ⚠️ **Ye poora section v59 me DELETE ho gaya** (user ka order: "phle upi verify
+> tools delete karo and uska code"). Yahan sirf **history** ke liye rakha hai —
+> dekhne ke liye `V59-KYA-BADLA.md` kholo.
+
 ### Pehle sach samjho 🙏
 
 Screenshot me `👤 Account Holder Name: ANIL KUMAR` dikh raha tha. Wo naam
