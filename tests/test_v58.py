@@ -122,8 +122,12 @@ check("Examples '📝 Examples:' heading ke saath aate hain",
 
 # ---- NUMINFO + UPI (user ne jo maanga) ----
 _np = bot.tool_prompt("numinfo")
-check("NUMBER INFO ask line '10 Digit Number bhejein:' hai",
-      "✨ 10 Digit Number bhejein:" in _np, _np[:120])
+check("NUMBER INFO ask line '10 Digit Number bhejein' hai",
+      "✨ 10 Digit Number bhejein" in _np, _np[:120])
+check("NUMBER INFO me 3 Examples hain (10-digit / mobile / +91)",
+      "9876543210" in _np and "7305190526" in _np and "+91 98765 43210" in _np, _np[:200])
+check("NUMBER INFO ask me bataya hai ki API se naam/pata aata hai",
+      "naam/pata" in _np)
 # v59: UPI tool poora delete — uska prompt bhi nahi bachna chahiye
 check("v59: UPI prompt ab gayab (tool delete ho gaya)", bot.tool_prompt("upi") == "")
 
