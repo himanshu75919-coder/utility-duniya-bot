@@ -53,7 +53,9 @@ lecture nahi aata:
 
 ## 3️⃣ 📱 NUMBER INFO — SIRF AAPKE DIYE FORMAT ME
 
-Purana card (National / Line Type / Country / Timezone / etc.) **delete**.
+Purana card (National / Line Type / Country / Timezone / boxed title) **poori tarah delete** —
+ab **sirf ek hi layout** hai (neeche wala). API na ho to bhi *wahi* layout dikhta hai
+(bas owner ki 6 line nahi aati + chhota setup hint).
 Ab 10-digit number bhejne par **aapka format** aata hai:
 
 ```

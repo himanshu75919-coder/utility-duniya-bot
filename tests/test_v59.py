@@ -199,8 +199,12 @@ _ni_j = BOT_SRC.index('if mode == "ifsc":', _ni_i)
 NI = BOT_SRC[_ni_i:_ni_j]
 
 check("naya card block hai (_obits)", "_obits" in NI)
-check("purana card bhi fallback me zinda hai (crash nahi)",
-      'pcard_title("📱", "NUMBER INFO REPORT")' in NI)
+check("purana 'NUMBER INFO REPORT' card POORA DELETE ho gaya",
+      "NUMBER INFO REPORT" not in NI and "NUMBER INFO REPORT" not in BOT_SRC)
+check("numinfo me pcard_title ka use hi nahi (ek hi layout)",
+      "pcard_title" not in NI)
+check("ek hi card builder hai (_card) — owner lines optional",
+      "_card = list(_obits)" in NI and "if not _obits:" in NI)
 for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
              "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>", "🏠 <b>Address(es):</b>"):
     check(f"card me line '{_lbl}'", _lbl in NI)
@@ -221,10 +225,10 @@ check("card me Source + Response line hai",
 check("card ke aakhir me brand footer", "Powered by" in NI and "BRAND_TAG" in NI)
 check("NUMINFO_SHOW_OWNER gate hata diya (card seedha dimaghta hai)",
       "NUMINFO_SHOW_OWNER" not in BOT_SRC)
-check("API na ho to fallback card + setup hint (koi privacy lecture nahi)",
+check("API na ho to sirf chhota setup hint (koi lecture line nahi)",
       "NUMINFO_PROVIDER_URL" in NI and "/numapi" in NI)
-check("fallback card me privacy/leaked shabd nahi",
-      "leaked" not in NI.lower() and "Privacy" not in NI)
+check("card me privacy/leaked shabd nahi",
+      "leaked" not in NI.lower() and "Privacy" not in NI and "privacy" not in NI)
 check("extra address list (addresses / address_list) support hai",
       "address_list" in NI and "addresses" in NI)
 # user ka exact format: 🏠 Address(es): ke baad ek khali line, phir "   └ ..."

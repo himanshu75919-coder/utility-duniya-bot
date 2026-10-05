@@ -48,6 +48,24 @@
 - **API na lagayi ho** to bhi tool chalta hai — operator/circle aata hai aur card me
   `NUMINFO_PROVIDER_URL` + `/numapi` ka hint aata hai. **Koi privacy lecture nahi.**
 
+### 📴 Jab aapki API set NA ho (abhi ka haal)
+
+Tab bhi **wahi ek layout** aata hai (owner ki 6 line nahi aati) — purana alag card **poori tarah delete** hai:
+
+```
+📞 Number: +91 98765 43210
+🏢 Operator: Airtel  •  📍 ⚪ live API set nahi (sirf country pata hai)
+🌍 Country: India
+📡 Source: ⚪ OFFLINE — phonenumbers public database se (live carrier API set nahi hai)
+⚡ Response: 1040ms
+──────────────────────────────
+👤 Name / Father / Phones / Region / Govt ID / Address — ye data aapki API se aata hai.
+💡 Render → Environment me NUMINFO_PROVIDER_URL + NUMINFO_PROVIDER_KEY daalo → /numapi se check karo.
+🔥 Powered by @Supermannn_x
+```
+
+> Ye bhi **code chala kar** nikala gaya asli output hai (API key hata ke).
+
 ---
 
 ## 2️⃣ 🏦 UPI VERIFY — bilkul nahi (poore code ke saath delete)
@@ -145,9 +163,9 @@ YouTube ko 8 second slow banaya, phir bhi **jawab 2 ms me** aa gaya ✅
 | v56 | 132 ✅ |
 | v57 | 141 ✅ |
 | v58 | 128 ✅ |
-| **v59 (naya)** | **117 ✅** |
+| **v59 (naya)** | **119 ✅** |
 | privacy unittest | 14 ✅ |
-| **TOTAL** | **954 checks — 0 fail** |
+| **TOTAL** | **956 checks — 0 fail** |
 
 **E2E sweep:** 26 tool buttons → **zero** banned line · Number Info card aapke format me ·
 YouTube instant · purane UPI buttons crash-free · IMEI photo · `/version` sahi.

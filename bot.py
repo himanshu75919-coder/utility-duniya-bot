@@ -302,7 +302,7 @@ BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v59.0 UPI Verify Removed + Deep Clean + Fast YouTube"  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands) · 🧹 saare lecture/note lines gaye (BGMI·FF·numinfo) · 📱 Number Info ab aapke diye format me (Name/Father/Phones/Region/GovtID/Address) — data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s wait) · 📥 download progressive 18/22 (merge avoid = 3x fast) + parallel chunks 4 · /version v59
+BOT_VERSION = "v59.2 UPI Gaya + Number Info (ek format) + Fast YouTube"  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands/env) · 🧹 saare lecture/note text gaye (BGMI·FF·numinfo·UPI·temp-mail·ads) · 📱 Number Info me AB SIRF EK LAYOUT (aapka format: Name/Father/Phones/Region/GovtID/Address + Number/Operator/Source) — purana boxed card POORA DELETE, data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s) · 📥 download progressive 18/22 + parallel chunks 4 · 📲 IMEI photo + naam/code search · /version v59  # v59: 🏦 UPI tool + poori code DELETE (handler/prompt/keyboard/rate-limit/premium/module/commands) · 🧹 saare lecture/note lines gaye (BGMI·FF·numinfo) · 📱 Number Info ab aapke diye format me (Name/Father/Phones/Region/GovtID/Address) — data sirf aapki API se · ⚡ YouTube quality buttons INSTANT (6h cache + background warm, pehle 5-20s wait) · 📥 download progressive 18/22 (merge avoid = 3x fast) + parallel chunks 4 · /version v59
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -5116,42 +5116,42 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if _a2 and hesc(str(_a2))[:300] not in _addr:
                     _obits.append(f"   └ {hesc(str(_a2)[:300])}")
 
+        # ---------- v59.2: EK HI CARD — SIRF aapke diye format me ----------
+        # Purana boxed format (National / Line Type / Timezone / alag-alag
+        # title) POORI TARAH DELETE. Ab hamesha yahi ek layout:
+        #     👤 Name / 👨 Father / 📱 Phones/Alt / 🌐 Region / 🆔 Govt ID /
+        #     🏠 Address(es)
+        #     ────────────────────────────
+        #     📞 Number / 🏢 Operator • 📍 Circle / 🌍 Country / 📡 Source /
+        #     ⚡ Response
+        #     ────────────────────────────
+        #     🔥 Powered by …
+        # Owner ki line (Name/Father/…) sirf tab aati hai jab AAPKI API wo field
+        # bheje. API na ho to bhi YAHI layout rehta hai (bas owner lines nahi) +
+        # neeche chhota setup hint — koi purana/alag card nahi.
+        _card = list(_obits)
         if _obits:
-            # AAPKA FORMAT — owner details sabse upar, seedha
-            card = ("\n".join(_obits) + "\n" + pcard_sep() + "\n"
-                    f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>\n")
-            if _operator or _circle:
-                card += (f"🏢 <b>Operator:</b> {hesc(_operator)}"
-                         + (f"  •  📍 {hesc(_circle)}" if _circle else "") + "\n")
-            card += (f"📡 <b>Source:</b> {_src_line}\n"
-                     f"⚡ <b>Response:</b> {int(_ms)}ms\n"
-                     + pcard_sep() + "\n"
-                     f"🔥 Powered by {BRAND_TAG}")
-        else:
-            # API se owner-data nahi aaya — normal card + setup hint (koi lecture line nahi)
-            card = (
-                pcard_title("📱", "NUMBER INFO REPORT") + "\n"
-                f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>\n"
-                f"🔢 <b>National:</b> {hesc(res['national'])}\n"
-                f"📱 <b>Line Type:</b> {hesc(res['type'])}"
-                + (f" {hesc(res['series_note'])}" if res.get("series_note") else "") + "\n"
-                + pcard_sep() + "\n"
-                f"🏢 <b>Operator:</b> {hesc(_operator)}\n"
-                f"📍 <b>Circle / Region:</b> {hesc(_circle)}\n"
-                + (f"🔎 <b>Live Line Type:</b> {hesc(_ltype)}\n" if _ltype else "")
-                + _ported_line
-                + f"🌍 <b>Country:</b> {hesc(res['country'])} ({hesc(str(res.get('country_code') or '—'))})\n"
-                f"🕐 <b>Timezone:</b> {hesc(res['timezones'])}\n"
-                + pcard_sep() + "\n"
-                f"📡 <b>Source:</b> {_src_line}\n"
-                f"⚡ <b>Response:</b> {int(_ms)}ms\n"
-                + pcard_sep() + "\n"
-                "👤 <b>Name / Father / Address wala data</b> aapki API se aayega.\n"
-                "💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> +\n"
-                "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.\n"
-                + pcard_sep() + "\n"
-                f"🔥 Powered by {BRAND_TAG}"
-            ).replace(chr(10) + "\n", "\n")
+            _card.append(pcard_sep())
+        _card.append(f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>")
+        if _operator or _circle:
+            _card.append(f"🏢 <b>Operator:</b> {hesc(_operator)}"
+                         + (f"  •  📍 {hesc(_circle)}" if _circle else ""))
+        _card.append(f"🌍 <b>Country:</b> {hesc(res['country'])}")
+        if _ltype:
+            _card.append(f"📱 <b>Line Type:</b> {hesc(_ltype)}")
+        if _ported_line:
+            _card.append(_ported_line.rstrip("\n"))
+        _card.append(f"📡 <b>Source:</b> {_src_line}")
+        _card.append(f"⚡ <b>Response:</b> {int(_ms)}ms")
+        _card.append(pcard_sep())
+        if not _obits:
+            # sirf itna chhota setup hint — koi lecture line nahi
+            _card.append("👤 <b>Name / Father / Phones / Region / Govt ID / Address</b> — "
+                         "ye data aapki API se aata hai.")
+            _card.append("💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> + "
+                         "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.")
+        _card.append(f"🔥 Powered by {BRAND_TAG}")
+        card = "\n".join([_l for _l in _card if _l])
 
         tel_note("numinfo", True, _ms, credit=True)
         await update.message.reply_text(
