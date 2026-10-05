@@ -227,7 +227,7 @@ check("upi_to_vpa → mode 'upi' set hota hai",
 
 # =====================================================================
 section("3) 🧾 Version + overall sanity")
-check("BOT_VERSION v56 par hai", 'BOT_VERSION = "v56.' in _bot_src)
+check("BOT_VERSION v56 par hai", 'BOT_VERSION = "v57.' in _bot_src)
 
 # --- v54.2: UPI status section (public-only, jhootha 'ACTIVE' nahi) ---
 _up2 = _bot_src[_bot_src.index('if mode == "upi":'):]

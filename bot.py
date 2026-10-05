@@ -178,6 +178,7 @@ from modules.imei_lookup import (
     specs_json_bytes as imei_specs_json,
     validate_imei as imei_validate,
 )
+from modules import numinfo_provider as numprov
 from modules.osint_tools import (
     search_by_area_name,
     lookup_ifsc,
@@ -293,10 +294,14 @@ WEBHOOK_URL = webhook_url_from_env()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
 SUPPORT_USERNAME = "@Supermannn_x"
+# v57: BRAND_TAG pehle bot.py me DEFINED hi nahi tha par numinfo card me use hota tha
+# -> AttributeError/NameError crash (kabhi live hit nahi hua kyunki wo branch galat
+# number par nahi chalti thi). Ab Render env se padha jaata hai (default wahi brand).
+BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v56.0 Crash-Proof + 5-Tool Cleanup"  # v56: 🚨 ASLI CRASH KI JADD — PTB me Message par send_photo/send_document/send_video hote hi NAHI (sirf Bot par). 8 jagah Message.send_* call ho raha tha → AttributeError. Sab fix. · 🗑️ 5 tools PERMANENTLY DELETE (order): 🌐 Domain OSINT/IP · 📌 Pinterest · 📄 Web Scraper · 🪪 Aadhaar EID · 📡 TG Public Info — code+modules+tests saaf · 🛡️ purane keyboard walon ke liye 22 friendly removal messages (_why/_alt) · 🆕 q.message InaccessibleMessage guard (purane message par crash nahi) · 🤖 yt-dlp bot-check "Sign in to confirm you're not a bot" ab saaf Hindi message + solution (raw traceback nahi) · 🔌 dead-link detection (jo link khulta hi nahi use ab "SAFE" nahi bolta) · 🧹 raw requests/urllib3 error leak fix
+BOT_VERSION = "v57.0 Number-Info API + Premium Cards"  # v57: 📱 NUMBER INFO me AAPKI API (NUMINFO_PROVIDER_URL/KEY — Render Environment se, key kabhi print nahi hoti) + /numapi status & live-test command · provider+hub PARALLEL (2x fast) · 6-ghante cache · provider→hub→offline fallback (kabhi band nahi) · 🚨 BRAND_TAG NameError crash fix (bot.py me define hi nahi tha) · 🖼️ premium boxed cards (IFSC·PINCODE·BGMI·FF·APP FINDER·LINK CHECK) + 📡Source/⚡time/🔥brand footer · ⚡ LINK CHECK ka analyze_link blocking call → to_thread (event loop ab nahi rukta) · khali pincode fields skip
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1567,7 +1572,7 @@ async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"• Photo: {'✅' if res.get('photo') else '❌'}\n\n" +
             hesc(render_imei_text(res))[:900], parse_mode=HTML)
     else:
-        await st.edit_text(f"❌ <b>IMEI API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
+        await st.edit_text(f"❌ <b>IMEI API test failed:</b> {safe_html_err(str(res.get('error'))[:200])}\n\n"
                            "Check IMEI_API_BASE / IMEI_API_KEY.", parse_mode=HTML)
 
 
@@ -1587,7 +1592,7 @@ async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                   "VIDEO DL (X) · KAGAZ (GST/PAN) · "
                                   "VEHICLE · IMEI · NUMBER INFO", parse_mode=HTML)
     else:
-        await st.edit_text(card + f"\n• Live test: ❌ {hesc(str(res.get('error'))[:150])}", parse_mode=HTML)
+        await st.edit_text(card + f"\n• Live test: ❌ {safe_html_err(str(res.get('error'))[:150])}", parse_mode=HTML)
 
 
 async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1669,6 +1674,58 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #  v50: SYSTEM HEALTH — admin ko live internal stats
 # ============================================================================
 _BOOT_TS = time.time()
+
+
+# ---------------- v57: /numapi — Number Info provider status (key kabhi nahi print hoti) ----------------
+async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/numapi — admin: Number Info ki apni API lagi hai ya nahi (live test bhi)."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    card = numprov.status_card()
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    if not numprov.is_configured():
+        await update.message.reply_text(card, parse_mode=HTML)
+        return
+    if not args:
+        await update.message.reply_text(
+            card + "\n\n🧪 <b>Live test chalao:</b> <code>/numapi 9876543210</code>",
+            parse_mode=HTML)
+        return
+    test_no = args[0]
+    st = await update.message.reply_text(
+        f"🔎 Aapki API se <code>{hesc(test_no)}</code> test kar raha hoon…", parse_mode=HTML)
+    t0 = time.perf_counter()
+    res = await asyncio.to_thread(numprov.lookup, test_no)
+    ms = int((time.perf_counter() - t0) * 1000)
+    if res.get("ok"):
+        await st.edit_text(
+            "✅ <b>API CHAL RAHI HAI!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"🏢 <b>Operator:</b> {hesc(str(res.get('operator') or '—'))}\n"
+            f"📍 <b>Circle:</b> {hesc(str(res.get('circle') or '—'))}\n"
+            f"🔎 <b>Line Type:</b> {hesc(str(res.get('type') or '—'))}\n"
+            f"🌍 <b>Country:</b> {hesc(str(res.get('country') or '—'))}\n"
+            f"⚡ <b>Latency:</b> {ms}ms\n"
+            f"🗄️ <b>Cache:</b> {'Haan (6 ghante)' if res.get('cached') else 'Nahi (fresh)'}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "📱 Ab Number Info tool aapki API se <b>live data</b> dega. 🔥",
+            parse_mode=HTML)
+        return
+    await st.edit_text(
+        "❌ <b>API test fail</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:220])}\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<b>Ye 4 cheezein check karo:</b>\n"
+        "1️⃣ URL poori hai? (https:// se shuru + <code>/api</code> end)\n"
+        "2️⃣ Key sahi hai? (copy-paste me space na ho)\n"
+        "3️⃣ Auth type sahi? — numverify jaisa API: <code>NUMINFO_PROVIDER_AUTH=query</code>\n"
+        "4️⃣ Param ka naam? — numverify: <code>NUMINFO_PROVIDER_PARAM=number</code>\n\n"
+        "📖 Poori guide: <code>NUMBER-INFO-API-SETUP.md</code>\n"
+        "ℹ️ <i>Tab tak Number Info purane sources se chal raha hai — band nahi hai.</i>",
+        parse_mode=HTML)
+
 
 
 def _uptime_str() -> str:
@@ -2020,6 +2077,107 @@ def _qr_luminance(hexcolor: str) -> float:
     except Exception:                                         # noqa: BLE001
         return 0.0
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
+
+
+
+# ============================================================
+#  v57: PREMIUM CARD HELPERS — saare report cards ka EK hi look
+#  Pehle har tool apna alag style banata tha (koi boxed, koi plain).
+#  Ab ek jagah se: boxed header + source/time footer + brand line.
+# ============================================================
+PCARD_TOP = "┌──────────────────────────────"
+PCARD_MID = "──────────────────────────────"
+PCARD_BOT = "└──────────────────────────────"
+
+
+
+
+# ============================================================
+#  v57: SAFE HTML ERROR (engine errors me formatting bachi rahe)
+#  Hamare engines kuch errors me <b>/<code> bhejte hain (jaise BGMI/FF ka
+#  "UID kahan milega" help). Pehle bot.py usko hesc() kar deta tha, isliye
+#  user ko literally "&lt;b&gt;Profile&lt;/b&gt;" dikhta tha — bedhadak bug.
+#
+#  Ab: sirf ye tags pass hote hain, baaki SAB escape hota hai.
+#  Isse engine ki formatting dikhti hai AUR user ke daale hue text se
+#  HTML-injection / Telegram "can't parse entities" crash nahi hota.
+# ============================================================
+_SAFE_TAG_RE = re.compile(
+    r"</?(?:b|strong|i|em|u|ins|s|strike|del|code|pre|tg-spoiler)>"
+    # <a> sirf POORA pair pass hota hai (https link + saada text + </a>).
+    # Akela </a> ya <a href="javascript:..."> escape ho jaata hai — warna
+    # Telegram "can't parse entities" de kar poora message reject karta hai.
+    r"|<a\s+href=\"https?://[^\"<>]{1,200}\">[^<>]{0,300}</a>",
+    re.IGNORECASE)
+# sirf ye tags Telegram HTML me allowed hain (whitelist)
+_SAFE_TAGS = frozenset(
+    {"b", "strong", "i", "em", "u", "ins", "s", "strike", "del", "code",
+     "pre", "tg-spoiler", "a"})
+_TAG_SCAN_RE = re.compile(r"</?([a-zA-Z-]+)[^>]*>")
+
+
+def _tags_balanced(html: str) -> bool:
+    """Har allowed tag ka opening/closing match hai? (Telegram strict hai.)"""
+    stack: list = []
+    for m in _TAG_SCAN_RE.finditer(html):
+        raw, tag = m.group(0), m.group(1).lower()
+        if tag not in _SAFE_TAGS:
+            return False
+        if raw.startswith("</"):
+            if not stack or stack[-1] != tag:
+                return False
+            stack.pop()
+        elif not raw.endswith("/>"):
+            stack.append(tag)
+    return not stack
+
+
+def safe_html_err(text) -> str:
+    """Engine ka error → user-safe HTML (whitelist tags, baaki escaped).
+
+    Do suraksha:
+      1. Sirf whitelist tags + poora <a href="https://...">...</a> pair pass.
+      2. Aakhir me tag-balance check — agar kuch bhi gadbad hai to poora
+         escape kar dete hain (Telegram message reject na kare).
+    """
+    t = str(text or "")
+    if not t:
+        return ""
+    out = []
+    pos = 0
+    for m in _SAFE_TAG_RE.finditer(t):
+        out.append(hesc(t[pos:m.start()]))
+        out.append(m.group(0))
+        pos = m.end()
+    out.append(hesc(t[pos:]))
+    res = "".join(out)
+    return res if _tags_balanced(res) else hesc(t)
+
+
+def pcard_title(icon: str, name: str) -> str:
+    """Premium boxed header:  ┌─── | 🏦 ɪꜰꜱᴄ ʀᴇᴘᴏʀᴛ | └───"""
+    return f"{PCARD_TOP}\n│ {icon} <b>{to_bold(name)}</b>\n{PCARD_BOT}"
+
+
+def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
+               brand: bool = True) -> str:
+    """Premium footer — source + response time + brand (sab optional)."""
+    L = [PCARD_MID]
+    if source:
+        L.append(f"📡 <b>Source:</b> {source}")
+    if ms:
+        _m = float(ms)
+        L.append(f"⚡ <b>Response:</b> {int(_m)}ms" if _m < 1000 else
+                 f"⚡ <b>Response:</b> {_m / 1000:.1f}s")
+    if note:
+        L.append(note)
+    if brand:
+        L.append(f"🔥 Powered by {BRAND_TAG}")
+    return "\n".join(L)
+
+
+def pcard_sep() -> str:
+    return PCARD_MID
 
 
 def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
@@ -3891,7 +4049,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "cloner_tag":
         save_cloner_config(uid, rename_tag=raw_text)
         context.user_data.pop("mode", None)
-        await update.message.reply_text(f"✅ Rename Tag set: <b>{raw_text}</b>", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
+        await update.message.reply_text(
+            f"✅ Rename Tag set: <b>{hesc(raw_text)}</b>",
+            reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
         return
 
     if mode == "cloner_caption":
@@ -4205,7 +4365,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 media_buf.name = f"{plat.replace(' ', '_')}_video.mp4"
                 dur = res.get("duration") or 0
                 dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
-                title_line = f"• 📝 {title}\n" if title else ""
+                # v57: hesc — YouTube/IG title me `<`/`>` ho sakta hai
+                # ("Song <Official> Video"), warna Telegram pura message reject.
+                title_line = f"• 📝 {hesc(str(title))}\n" if title else ""
                 await update.message.reply_video(
                     video=media_buf,
                     caption=(
@@ -4232,7 +4394,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_photo(
                     photo=media_buf,
                     caption=(f"🖼️ <b>{to_bold(plat.upper() + ' PHOTO')}</b>\n"
-                             + (f"• 📝 {title}\n" if title else "")
+                             + (f"• 📝 {hesc(str(title))}\n" if title else "")
                              + f"• 📊 {res.get('size_mb')} MB"),
                     parse_mode=HTML,
                 )
@@ -4251,7 +4413,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await st.edit_text(
                     f"📥 <b>{to_bold('DOWNLOAD LINK READY')}</b>\n\n"
                     f"🎬 <b>Platform:</b> {plat}\n"
-                    + (f"📝 <b>Title:</b> {title}\n" if title else "")
+                    + (f"📝 <b>Title:</b> {hesc(str(title))}\n" if title else "")
                     + (f"📊 <b>Size:</b> {mb} MB\n" if mb else "")
                     + f"⚙️ Engine: {engine}\n\n"
                     + hesc(str(res.get("note") or ""))
@@ -4379,9 +4541,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             tel_note("bgmi", True, _ms, credit=True)
             await update.message.reply_text(
                 spend_credit_msg(uid, "bgmi") + "\n" +
-                f"🎮 <b>{to_bold('BGMI PLAYER CARD')}</b>\n"
+                pcard_title("🎮", "BGMI PLAYER CARD") + "\n"
                 f"🎯 <b>{hesc(str(pr.get('name') or '—'))}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                + pcard_sep() + "\n"
                 f"• <b>UID:</b> <code>{hesc(str(res.get('uid') or ''))}</code>\n"
                 f"• <b>Level:</b> {hesc(str(pr.get('level', '—')))}\n"
                 f"• <b>Rank Points:</b> {hesc(str(pr.get('rankPoints', '—')))}\n"
@@ -4393,9 +4555,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• <b>Top 10:</b> {hesc(str(st.get('top10Finishes', '—')))} | "
                 f"<b>Longest Kill:</b> {hesc(str(st.get('longestKill', '—')))}m\n"
                 + (f"• <b>Title:</b> {hesc(str(pr.get('title')))[:40]}\n" if pr.get("title") else "")
-                + "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"<i>Source: <code>{hesc(str(res.get('source') or 'public'))}</code> · "
-                "Public in-game stats. Private info nahi dikhata.</i>",
+                + pcard_foot(ms=_ms,
+                             source=f"<code>{hesc(str(res.get('source') or 'public'))}</code>",
+                             note="<i>Public in-game stats. Private info nahi dikhata.</i>"),
                 parse_mode=HTML)
         else:
             # ⚠️ v53.0: `service_busy` = SERVICE ki galti (BGMI ke public stats
@@ -4407,7 +4569,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if _soft:
                 await update.message.reply_text(str(res.get("error") or ""), parse_mode=HTML)
             else:
-                await update.message.reply_text(f"❌ {hesc(str(res.get('error') or ''))}",
+                # v57: safe_html_err — pehle hesc() tha isliye engine ka <b> tag
+                # literal "&lt;b&gt;" ban ke dikhta tha (asli bug).
+                await update.message.reply_text(
+                    f"❌ {safe_html_err(res.get('error'))}",
                                                 parse_mode=HTML)
         add_use(uid)
         return
@@ -4447,8 +4612,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lines.append(f"• <b>Account Created:</b> {hesc(str(res.get('created')))}")
             if res.get("bio"):
                 lines.append(f"• <b>Bio:</b> {hesc(str(res['bio'])[:100])}")
-            lines += ["━━━━━━━━━━━━━━━━━━━━━━",
-                      "<i>Public in-game data (Garena public profile). Private info nahi dikhata.</i>"]
+            lines += [pcard_foot(ms=_ms,
+                                 source="<code>Garena public profile</code>",
+                                 note="<i>Public in-game data. Private info nahi dikhata.</i>")]
             # ── v54.0: IMAGES ─────────────────────────────────────
             # Official profile banner (avatar + naam + level) photo ke roop me
             # jata hai — pehle sirf text card milta tha. Character portrait aur
@@ -4782,62 +4948,121 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
+        # v57: offline validation turant (network nahi), phir provider + hub PARALLEL.
+        # Pehle ye dono serial chalte the — user ko dono ka time jod kar lagta tha.
         res = lookup_phone_info(raw_text)
-        # v49.6: aapke hub ka LEGAL carrier lookup (operator/circle live) — provider ho to
-        _car = {}
-        try:
-            _car = await asyncio.to_thread(hubapi.hub_carrier_info, raw_text)
-        except Exception:
-            _car = {}
-        if res.get("ok"):
-            await update.message.reply_text(spend_credit_msg(uid, "numinfo"), parse_mode=HTML)
-            card = (
-                "╔═══════════════════════════╗\n"
-                f"📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
-                "╚═══════════════════════════╝\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"• <b>Number:</b> <code>{res['international']}</code>\n"
-                f"• <b>National:</b> {res['national']}\n"
-                f"• <b>Type:</b> {res['type']} {res['series_note']}\n"
-                f"• <b>Operator:</b> {(_car.get('operator') or res['operator'])}\n"
-                f"• <b>Circle/Region:</b> {(_car.get('circle') or res['circle'])}\n"
-                + (f"• <b>Number Type (live):</b> {hesc(str(_car.get('type')))}\n" if _car.get("type") else "")
-                + (f"• <b>Ported (MNP):</b> {hesc(str(_car.get('ported')))}\n" if _car.get("ported") not in (None, "", False) else "")
-                + f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
-                + f"• <b>Timezone:</b> {res['timezones']}\n"
-                f"• <b>Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"ℹ️ <i>{res['note']}</i>"
-            )
-            # v49.15: koi extra button nahi (purana card poora delete)
-            await update.message.reply_text(card, parse_mode=HTML)
-        else:
+        if not res.get("ok"):
+            tel_note("numinfo", False, 0, error=str(res.get("error"))[:90])
             await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+
+        _t0 = time.perf_counter()
+        _prov, _car = {}, {}
+        try:
+            _prov, _car = await asyncio.gather(
+                asyncio.to_thread(numprov.lookup, raw_text),
+                asyncio.to_thread(hubapi.hub_carrier_info, raw_text),
+            )
+        except Exception:                                          # noqa: BLE001
+            _prov, _car = {}, {}
+        _ms = (time.perf_counter() - _t0) * 1000
+
+        # live data ka best available source (provider > hub > offline)
+        _live = {k: v for k, v in (_prov or {}).items() if v not in (None, "", False)}
+        if not _live.get("operator") and not _live.get("circle"):
+            _hub_op, _hub_cir = _car.get("operator"), _car.get("circle")
+            if _hub_op or _hub_cir:
+                _live = {"operator": _hub_op, "circle": _hub_cir,
+                         "type": _car.get("type"), "ported": _car.get("ported"),
+                         "source": "hub"}
+
+        _operator = str(_live.get("operator") or res["operator"])
+        _circle = str(_live.get("circle") or res["circle"])
+        _ltype = str(_live.get("type") or "")
+        _ported = _live.get("ported")
+        _src = str(_live.get("source") or "offline")
+        # v57: offline mode me phonenumbers sirf COUNTRY deta hai (circle nahi).
+        # Pehle wahi country "Circle/Region" me dikh jaati thi — confusing tha.
+        if _src == "offline" and _circle.strip().lower() in (
+                str(res.get("country") or "").strip().lower(), "", "india"):
+            _circle = "⚪ live API set nahi (sirf country pata hai)"
+
+        if _src == "provider":
+            _src_line = ("🟢 <b>LIVE</b> — aapki API se"
+                         + (f" ({int(_prov.get('latency_ms') or _ms)}ms)" if _prov.get("latency_ms") else "")
+                         + (f" • cache" if _prov.get("cached") else ""))
+        elif _src == "hub":
+            _src_line = "🟢 <b>LIVE</b> — hub carrier lookup se"
+        else:
+            _src_line = "⚪ <b>OFFLINE</b> — phonenumbers public database se (live carrier API set nahi hai)"
+
+        _ported_line = ""
+        if _ported not in (None, "", False):
+            _pv = str(_ported).strip().lower()
+            _ported_line = ("• <b>MNP (ported):</b> ✅ Haan — number apna network badal chuka hai\n"
+                            if _pv in ("true", "1", "yes", "haan", "y") else
+                            f"• <b>MNP (ported):</b> {hesc(str(_ported))}\n")
+
+        card = (
+            "┌──────────────────────────────\n"
+            f"│ 📱 <b>{to_bold('NUMBER INFO REPORT')}</b>\n"
+            "└──────────────────────────────\n"
+            f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>\n"
+            f"🔢 <b>National:</b> {hesc(res['national'])}\n"
+            f"📱 <b>Line Type:</b> {hesc(res['type'])}{(' ' + hesc(res['series_note'])) if res.get('series_note') else ''}\n"
+            "──────────────────────────────\n"
+            f"🏢 <b>Operator:</b> {hesc(_operator)}\n"
+            f"📍 <b>Circle / Region:</b> {hesc(_circle)}\n"
+            + (f"🔎 <b>Live Line Type:</b> {hesc(_ltype)}\n" if _ltype else "")
+            + _ported_line
+            + f"🌍 <b>Country:</b> {hesc(res['country'])} ({hesc(str(res.get('country_code') or '—'))})\n"
+            f"🕐 <b>Timezone:</b> {hesc(res['timezones'])}\n"
+            f"✅ <b>Format Valid:</b> {'✅ Haan' if res['valid'] else '⚠️ Suspicious'}\n"
+            "──────────────────────────────\n"
+            f"📡 <b>Data Source:</b> {_src_line}\n"
+            f"⚡ <b>Response:</b> {int(_ms)}ms\n"
+            "──────────────────────────────\n"
+            "🔒 <b>Privacy:</b> Is bot me <b>koi leaked/private record</b> nahi hai.\n"
+            "Yahan sirf public carrier + circle + line-type metadata milta hai.\n"
+            "Holder ka naam / address kisi bhi legal public API se nahi milta.\n"
+            "──────────────────────────────\n"
+            f"ℹ️ <i>{hesc(res['note'])}</i>\n"
+            f"🔥 Powered by {BRAND_TAG}"
+        ).replace(chr(10) + "\n", "\n")
+
+        tel_note("numinfo", True, _ms, credit=True)
+        await update.message.reply_text(
+            spend_credit_msg(uid, "numinfo") + "\n" + card, parse_mode=HTML)
         add_use(uid)
         return
 
     if mode == "ifsc":
         # v50: to_thread — event loop block nahi hoga (rate-limit central gate se lagta hai)
+        _t0 = time.perf_counter()
         i_res = await asyncio.to_thread(lookup_ifsc, raw_text)
+        _ms = (time.perf_counter() - _t0) * 1000
         if i_res.get("ok"):
             rows = []   # v49.13: Google Maps link nahi
             card = (
-                f"🏦 <b>{to_bold(i_res['bank'])}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🔑 <b>IFSC:</b> <code>{i_res['ifsc']}</code>\n"
-                f"🏢 <b>Branch:</b> {i_res['branch']}\n"
-                f"📍 <b>Address:</b> {i_res['address']}\n"
-                f"🏙️ <b>City/State:</b> {i_res['city']}, {i_res['state']}\n"
-                + (f"📞 <b>Contact:</b> {i_res['contact']}\n" if i_res.get('contact') else "")
-                + f"🔢 <b>MICR:</b> <code>{i_res['micr']}</code>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                pcard_title("🏦", "IFSC BANK BRANCH REPORT") + "\n"
+                f"🏛️ <b>{hesc(str(i_res['bank']))}</b>\n"
+                + pcard_sep() + "\n"
+                f"🔑 <b>IFSC:</b> <code>{hesc(str(i_res['ifsc']))}</code>\n"
+                f"🏢 <b>Branch:</b> {hesc(str(i_res['branch']))}\n"
+                f"📍 <b>Address:</b> {hesc(str(i_res['address']))}\n"
+                f"🏙️ <b>City/State:</b> {hesc(str(i_res['city']))}, {hesc(str(i_res['state']))}\n"
+                + (f"📞 <b>Contact:</b> {hesc(str(i_res['contact']))}\n" if i_res.get('contact') else "")
+                + f"🔢 <b>MICR:</b> <code>{hesc(str(i_res['micr']))}</code>\n"
+                + pcard_sep() + "\n"
                 "💳 <b>Services:</b> "
-                + " ".join([
+                + "  ".join([
                     f"UPI {'✅' if i_res['upi'] else '❌'}",
                     f"NEFT {'✅' if i_res['neft'] else '❌'}",
                     f"RTGS {'✅' if i_res['rtgs'] else '❌'}",
                     f"IMPS {'✅' if i_res['imps'] else '❌'}",
-                ])
+                ]) + "\n"
+                + pcard_foot(ms=_ms, source="official bank registry (Razorpay IFSC)")
             )
             await update.message.reply_text(spend_credit_msg(uid, "ifsc") + "\n" + card,
                                             reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
@@ -4849,22 +5074,36 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if mode == "pin":
         cleaned = re.sub(r"[^\d]", "", raw_text)
         if len(cleaned) == 6:
+            _t0 = time.perf_counter()
             p_res = await asyncio.to_thread(lookup_pincode, cleaned)
+            _ms = (time.perf_counter() - _t0) * 1000
             if p_res.get("ok"):
                 rows = []   # v49.13: Map link nahi
+                _pos = list(p_res.get("post_offices") or [])
                 card = (
-                    f"📮 <b>{to_bold('PINCODE DETAILS')}</b> — <code>{p_res['pincode']}</code>\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"• <b>District:</b> {p_res['district']}\n"
-                    f"• <b>State:</b> {p_res['state']}\n"
-                    + (f"• <b>Taluk:</b> {p_res['taluk']}\n" if p_res.get('taluk') else "")
-                    + f"• <b>Division/Region:</b> {p_res['division']} / {p_res['region']}\n"
-                    f"• <b>Circle:</b> {p_res['circle']}\n"
-                    f"• <b>Delivery:</b> {p_res['delivery'] or 'N/A'}\n"
-                    f"• <b>Type:</b> {p_res.get('branch_type') or 'N/A'}\n"
-                    f"• <b>Total Post Offices:</b> {p_res['total_offices']}\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"🏤 <b>Post Offices:</b>\n" + "\n".join(f"   • {n}" for n in p_res['post_offices'])
+                    pcard_title("📮", "PINCODE DETAILS") + "\n"
+                    f"🔢 <b>Pincode:</b> <code>{hesc(str(p_res['pincode']))}</code>\n"
+                    + pcard_sep() + "\n"
+                    f"🏙️ <b>District:</b> {hesc(str(p_res['district']))}\n"
+                    f"🗺️ <b>State:</b> {hesc(str(p_res['state']))}\n"
+                    + (f"🏘️ <b>Taluk:</b> {hesc(str(p_res['taluk']))}\n" if p_res.get('taluk') else "")
+                    # v57: khali field par line SKIP karo — pehle "📂 :  / " jaisa
+                    # adhoora text dikhta tha (India Post har pincode ka division/
+                    # circle nahi deta). Ab sirf jo data hai wahi dikhta hai.
+                    + (f"📂 <b>Division/Region:</b> {hesc(str(p_res['division']))}"
+                       + (f" / {hesc(str(p_res['region']))}" if p_res.get('region') else "")
+                       + "\n" if (p_res.get('division') or p_res.get('region')) else "")
+                    + (f"🔵 <b>Circle:</b> {hesc(str(p_res['circle']))}\n" if p_res.get('circle') else "")
+                    + (f"🚚 <b>Delivery:</b> {hesc(str(p_res['delivery']))}\n"
+                       if p_res.get('delivery') and str(p_res['delivery']).upper() not in ("N/A", "NA") else "")
+                    + (f"🏷️ <b>Type:</b> {hesc(str(p_res.get('branch_type')))}\n"
+                       if p_res.get('branch_type') and str(p_res['branch_type']).upper() not in ("N/A", "NA") else "")
+                    + f"🏤 <b>Total Post Offices:</b> {hesc(str(p_res['total_offices']))}\n"
+                    + pcard_sep() + "\n"
+                    + f"🏤 <b>Post Offices ({len(_pos)}):</b>\n"
+                    + "\n".join(f"   • {hesc(str(n))}" for n in _pos[:14])
+                    + (f"\n   <i>… aur {len(_pos) - 14} aur</i>" if len(_pos) > 14 else "")
+                    + "\n" + pcard_foot(ms=_ms, source="India Post official data")
                 )
                 await update.message.reply_text(spend_credit_msg(uid, "pin") + "\n" + card,
                                                 reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
@@ -4891,9 +5130,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     note += "\n⚡ <i>cache se (instant)</i>"
                 await st.edit_text(
                     spend_credit_msg(uid, "pin") + "\n" +
-                    f"📮 <b>{to_bold('AREA SEARCH')}: {hesc(a_res['query'])}</b>\n"
-                    f"({a_res['total']} post offices mili){note}\n\n" + "\n".join(lines) +
-                    "\n\n💡 Pincode copy karne ke liye neeche button par tap karo:",
+                    pcard_title("📮", "AREA SEARCH") + "\n"
+                    f"🔍 <b>Query:</b> <code>{hesc(a_res['query'])}</code>\n"
+                    f"🏤 <b>{a_res['total']} post offices</b> mili{note}\n"
+                    + pcard_sep() + "\n"
+                    + "\n".join(lines)
+                    + "\n" + pcard_foot(source="India Post official data", brand=False)
+                    + "\n\n💡 Pincode copy karne ke liye neeche button par tap karo:",
                     reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
                 )
             else:
@@ -5048,7 +5291,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not res.get("ok"):
             await st.edit_text(
                 f"❌ <b>GST CHECK NAHI HO PAYA</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⚠️ {hesc(str(res.get('error'))[:200])}\n"
+                f"⚠️ {safe_html_err(str(res.get('error'))[:200])}\n"
                 "✅ Koi credit nahi kata. GSTIN 15 character ka hota hai (jaise <code>19BOKPS7056D1ZI</code>).",
                 parse_mode=HTML)
             return
@@ -5093,7 +5336,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not res.get("ok"):
             await st.edit_text(
                 f"❌ <b>PAN CHECK NAHI HO PAYA</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"⚠️ {hesc(str(res.get('error'))[:200])}\n"
+                f"⚠️ {safe_html_err(str(res.get('error'))[:200])}\n"
                 "✅ Koi credit nahi kata. PAN 10 character ka hota hai (jaise <code>AAYFK4129N</code>).",
                 parse_mode=HTML)
             return
@@ -5427,23 +5670,34 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "short":
         st = await update.message.reply_text("🔗 Making short links (6 providers)...")
+        _t0 = time.perf_counter()
         # v50: dono HTTP-heavy hain — thread me chalao, ek saath (parallel = 2x fast)
         links, exp = await asyncio.gather(
             asyncio.to_thread(shorten_url, raw_text, 3),
             asyncio.to_thread(expand_url, raw_text),
         )
+        _ms = (time.perf_counter() - _t0) * 1000
         clean = exp.get("cleaned", raw_text)
         if links:
             body = "\n\n".join(f"{i}️⃣ <b>{name}</b> → <code>{u}</code>" for i, (name, u) in enumerate(links, 1))
             extra = ""
             if clean and clean != raw_text:
-                extra = f"\n\n🧹 <b>Tracking-free original:</b>\n<code>{clean}</code>"
+                extra = f"\n\n🧹 <b>Tracking-free original:</b>\n<code>{hesc(str(clean))}</code>"
             rows = [[InlineKeyboardButton(f"🔗 {name}", url=u)] for name, u in links]
-            await st.edit_text(spend_credit_msg(uid, "short") + "\n" + f"🔗 <b>{to_bold('SHORT LINKS READY')}</b>\n\n{body}{extra}", reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            await st.edit_text(
+                spend_credit_msg(uid, "short") + "\n"
+                + pcard_title("🔗", "SHORT LINKS READY") + "\n"
+                + body + extra + "\n"
+                + pcard_foot(ms=_ms, source=f"{len(links)} shortener provider"),
+                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
         else:
             await st.edit_text(
-                "⚠️ <b>Could not make a short link</b> (all providers are busy).\n"
-                f"🧹 <b>Cleaned original link:</b>\n<code>{hesc(str(clean))}</code>",
+                pcard_title("⚠️", "SHORT LINK NAHI BANA") + "\n"
+                "Sab providers busy hain (ye unki taraf se hota hai, aapki galti nahi).\n"
+                "🧹 <b>Tracking-free original link:</b>\n"
+                f"<code>{hesc(str(clean))}</code>\n"
+                + pcard_foot(ms=_ms, source="6 shortener providers", brand=False)
+                + "\n\n💡 1 minute baad dobara try karo.",
                 parse_mode=HTML,
             )
         add_use(uid)
@@ -5451,21 +5705,25 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "linkcheck":
         st = await update.message.reply_text("🔍 Running a 6-layer scan on the link...")
-        chk = analyze_link(raw_text)
+        _t0 = time.perf_counter()
+        chk = await asyncio.to_thread(analyze_link, raw_text)
+        _ms = (time.perf_counter() - _t0) * 1000
         risk = chk.get("risk", 0)
         bar = "█" * max(1, risk // 10) + "░" * (10 - max(1, risk // 10))
         reasons_txt = "\n".join(f"• {r}" for r in chk.get("reasons", [])[:8])
         sig = chk.get("signals", {})
         cap = (
-            f"🛡️ <b>{to_bold('LINK CHECK REPORT')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            pcard_title("🛡️", "LINK CHECK REPORT") + "\n"
+            + pcard_sep() + "\n"
             f"🎯 <b>Verdict:</b> {chk.get('verdict')}\n"
             f"📊 <b>Risk Score:</b> <code>{bar}</code> {risk}/100\n"
             f"🌐 <b>Final URL:</b> <code>{hesc(str(chk.get('final_url'))[:90])}</code>\n"
             f"🔁 Redirects: {sig.get('redirect_hops', 0)} | 🔓 HTTPS: {'✅' if sig.get('https') else '❌'}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
+            + pcard_sep() + "\n"
             f"🔍 <b>What was found:</b>\n{reasons_txt}\n\n"
-            f"💡 <b>What to do:</b> {chk.get('advice')}"
+            f"💡 <b>What to do:</b> {chk.get('advice')}\n"
+            + pcard_foot(ms=_ms, source="OpenPhish · URLScan · RDAP · 6-layer scan")
         )
         # v56: dead link par button banana bekaar tha + raw error dikhta tha.
         _reach = sig.get("reachable", True)
@@ -5513,10 +5771,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tel_note("appfind", True, _ms, credit=True)
 
         apps = app_data.get("apps") or []
-        L = [f"📦 <b>{to_bold('APP FINDER')}</b> — '{hesc(app_data.get('query', '')[:36])}'\n"]
-        L.append(f"✅ <b>{len(apps)}</b> verified app" + ("s" if len(apps) != 1 else "")
-                 + " mili (Play Store / App Store / F-Droid par check kiya)\n")
-        L.append("━━━━━━━━━━━━━━━━━━━━━━")
+        L = [pcard_title("📦", "APP FINDER"), 
+             f"🔍 <b>Search:</b> <code>{hesc(app_data.get('query', '')[:36])}</code>",
+             pcard_sep(),
+             f"✅ <b>{len(apps)}</b> verified app" + ("s" if len(apps) != 1 else "")
+             + " mili (Play Store / App Store / F-Droid par check kiya)",
+             pcard_sep()]
         for i, a in enumerate(apps[:5], 1):
             _st = "🍎 iOS" if a.get("store") == "appstore" else "🤖 Android"
             L.append(f"\n<b>{i}. {hesc(str(a.get('title') or a.get('package') or ''))}</b>")
@@ -5539,7 +5799,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if a.get("tagline"):
                 L.append(f"   ℹ️ <i>{hesc(str(a['tagline'])[:90])}</i>")
             L.append(f"   {_st}")
-        L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+        L.append("\n" + pcard_sep())
+        L.append(pcard_foot(ms=_ms, source="Google Play · App Store · F-Droid (live check)",
+                            brand=False))
         L.append("👇 <b>Store me kholo:</b>")
 
         # buttons: pehle top app ke direct links, phir search links
@@ -6266,6 +6528,7 @@ def main():
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
+    app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))
