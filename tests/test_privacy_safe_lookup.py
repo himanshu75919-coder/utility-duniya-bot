@@ -98,7 +98,6 @@ class ImeiLookupTests(unittest.TestCase):
 
     def test_private_lookups_are_disabled_without_network_calls(self):
         self.assertTrue(osint_hub.num_info_report("9876543210")["disabled"])
-        self.assertTrue(osint_hub.aadhaar_family_report("123456789012")["disabled"])
         with patch.dict(os.environ, {"VEHICLE_PROVIDER_AUTHORIZED": "0", "VEHICLE_API_BASE": ""}, clear=False):
             self.assertFalse(osint_hub.is_configured())
             self.assertTrue(osint_hub.vehicle_report_v2("BR00XX0000")["fallback"])

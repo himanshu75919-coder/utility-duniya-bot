@@ -25,9 +25,7 @@ Chalane ka tarika:
 """
 from __future__ import annotations
 
-import io
 import os
-import re
 import sys
 import warnings
 
@@ -167,60 +165,12 @@ finally:
 # bot.py side: soft-fail par credit nahi katta (wiring)
 _bot_src = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 _ffseg = _bot_src[_bot_src.index('if mode == "ffuid":'):]
-_ffseg = _ffseg[:_ffseg.index('if mode == "pinterest":')]
 check("ffuid handler soft-fail par credit NAHI katta",
       "_soft" in _ffseg and "service_busy" in _ffseg)
 
 
 # =====================================================================
-section("2) 📌 Pinterest Download — nameless-BytesIO crash fix")
-# SCREENSHOT: "⚠️ Chhota sa ghatna ho gaya..." (global error handler).
-# Probe (2026-10-05): _pinpick_download() bilkul sahi JPEG deta tha
-# (319,160 bytes, \xff\xd8\xff\xe0 JFIF) par uske BytesIO par `.name` NAHI
-# tha. PTB 22.8 aise stream ka filename "application.octet-stream" bana deta
-# hai → Telegram Bot API 400 deta hai → PTB BadRequest raise karta hai →
-# exception seedha global handler tak jaata tha (aur credit bhi kat jaata tha).
-from telegram import InputFile  # noqa: E402
-
-_nameless = io.BytesIO(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01")
-_if = InputFile(_nameless)
-check("nameless stream ka filename image-jaisa NAHI hota (yahi crash ki jad thi)",
-      str(getattr(_if, "filename", "")).endswith((".jpg", ".jpeg", ".png")) is False,
-      str(getattr(_if, "filename", "")))
-
-_named = io.BytesIO(b"\xff\xd8\xff\xe0\x00\x10JFIF\x00\x01")
-_named.name = "pinterest.jpg"
-_if2 = InputFile(_named)
-check("filename set karne par InputFile ko .jpg milta hai",
-      str(getattr(_if2, "filename", "")).endswith(".jpg"),
-      str(getattr(_if2, "filename", "")))
-
-check("bot.py pinpick stream par .name set karta hai",
-      '_dl["stream"].name = f"pinterest' in _bot_src)
-check("pinpick send-block try/except me hai",
-      "_sent = False" in _bot_src and "if not _sent:" in _bot_src)
-check("photo/video fail ho to send_document fallback hai",
-      "document fallback" in _bot_src)
-check("fallback me stream.seek(0) hai (warna khaali file jaati)",
-      '_dl["stream"].seek(0)' in _bot_src)
-check("credit SIRF delivery ke baad katta hai (order sahi)",
-      _bot_src.index("_sent = False") <
-      _bot_src.index('tel_note("pinterest.download", True, _ms, credit=True)'))
-_pinseg = _bot_src[_bot_src.index('_dl = await asyncio.to_thread(_pinpick_download'):]
-_pinseg = _pinseg[:_pinseg.index('tel_note("pinterest.download", True, _ms, credit=True)')]
-check("failure message me 'Koi credit nahi kata' likha hai",
-      "Koi credit nahi kata" in _pinseg)
-check("failure par tel_note(..., False, ...) log hota hai",
-      'tel_note("pinterest.download", False, _ms' in _pinseg)
-
-# engine side abhi bhi theek hai (real call nahi — sirf contract)
-check("_pinpick_download bot.py me defined hai",
-      "def _pinpick_download(" in _bot_src)
-check("_pin_meta_line bot.py me defined hai", "def _pin_meta_line(" in _bot_src)
-
-
-# =====================================================================
-section("3) 🏦 UPI VERIFY — boxed card (public only) + privacy refusal")
+section("2) 🏦 UPI VERIFY — boxed card (public only) + privacy refusal")
 # SCREENSHOT (competitor "OSINT Lookup"): mobile number se account-holder ka
 # NAAM. Wo NPCI/bank ka leaked private data hai — ye bot wo kabhi nahi karega.
 # Humne sirf CARD KA FORMAT copy kiya hai, private fields nahi.
@@ -237,7 +187,7 @@ check("galat VPA par ok=False (crash nahi)", upi_verify("bad@@x").get("ok") is F
 check("khaali input par ok=False", upi_verify("").get("ok") is False)
 
 _upiseg_start = _bot_src.index('if mode == "upi":')
-_upiseg = _bot_src[_upiseg_start:_bot_src.index('if mode == "tginfo":', _upiseg_start)]
+_upiseg = _bot_src[_upiseg_start:_bot_src.index('if mode == "bgmi":', _upiseg_start)]
 
 check("boxed card hai (┌ / └ box characters)", "┌──" in _upiseg and "└──" in _upiseg)
 check("card ka title 'UPI VERIFY REPORT' hai", "UPI VERIFY REPORT" in _upiseg)
@@ -276,53 +226,12 @@ check("upi_to_vpa → mode 'upi' set hota hai",
 
 
 # =====================================================================
-section("4) 📡 TG PUBLIC INFO — khali separator rows gayi")
-# SCREENSHOT: card me har line ke baad ek khali "━━━" row dikhti thi.
-# Wajah: har list-item ke end me "\n" tha AUR join bhi "\n" se hota tha →
-# double newline. Ab item me newline nahi, sirf join ka.
-_marker = 'L = [f"📡 <b>{to_bold(\'TG PUBLIC INFO\')}</b>"'
-_idxs = []
-_i = _bot_src.find(_marker)
-while _i != -1:
-    _idxs.append(_i)
-    _i = _bot_src.find(_marker, _i + 1)
-check("TG card ke dono branches mile (getChat + t.me fallback)", len(_idxs) == 2,
-      f"blocks={len(_idxs)}")
-for _n2, _i2 in enumerate(_idxs, 1):
-    _j = _bot_src.index('card = "\\n".join(L)', _i2)
-    _blk = _bot_src[_i2:_j]
-    check(f"branch {_n2}: kisi item ke end me extra newline nahi",
-          '\\n"' not in _blk, f"count={_blk.count(chr(92) + 'n' + chr(34))}")
-    check(f"branch {_n2}: card single-newline join se banta hai",
-          'card = "\\n".join(L)' in _bot_src[_j:_j + 40])
-check("bio na ho to saaf fallback text hai",
-      "(public page par nahi likha)" in _bot_src)
-
-
-# =====================================================================
-section("5) 🧾 Version + overall sanity")
-check("BOT_VERSION v55 par hai", 'BOT_VERSION = "v55.' in _bot_src)
-
-# --- v54.2: Pinterest list polish + preview ---
-check("'(bina title)' jaisa sookha label hata diya gaya",
-      "(bina title)" not in _bot_src)
-check("title na ho to pinner-naam/domain fallback hai",
-      'p.get("pinner_name") or p.get("domain")' in _bot_src)
-_pv = _bot_src[_bot_src.index("Top result ka preview") - 900:]
-_pv = _pv[:_pv.index("add_use(uid)", 400)]
-check("search ke baad TOP result ka photo preview bheja jata hai",
-      "reply_photo(" in _pv and "_pinpick_download" in _pv)
-check("preview fail ho to chup-chaap skip (flow nahi tootta)",
-      "pinterest preview skip" in _pv)
-check("preview par credit NAHI katta (search free hai)",
-      "spend_credit_msg" not in _pv)
-check("preview list ke BAAD bheja jata hai (user ko wait nahi)",
-      _bot_src.index('reply_markup=InlineKeyboardMarkup(rows))') <
-      _bot_src.index("Top result ka preview"))
+section("3) 🧾 Version + overall sanity")
+check("BOT_VERSION v56 par hai", 'BOT_VERSION = "v56.' in _bot_src)
 
 # --- v54.2: UPI status section (public-only, jhootha 'ACTIVE' nahi) ---
 _up2 = _bot_src[_bot_src.index('if mode == "upi":'):]
-_up2 = _up2[:_up2.index('if mode == "tginfo":')]
+_up2 = _up2[:_up2.index('if mode == "bgmi":')]
 check("UPI card me ACCOUNT DETAILS & STATUS section hai",
       "ACCOUNT DETAILS & STATUS" in _up2)
 check("status section me Source Type + Query Entity hai",
@@ -331,21 +240,8 @@ check("jhootha 'VALID / ACTIVE' claim NAHI hota (active public nahi)",
       "VALID / ACTIVE" not in _up2)
 check("saaf likha hai ki active-status sirf bank jaanta hai",
       "sirf bank jaanta hai" in _up2)
-check("prompts abhi bhi minimal one-liners hain (v54 feature zinda)",
-      _bot_src.count("PROMPTS") >= 1 and "tool_prompt(" in _bot_src)
-# --- pinpick credit gate + removed-tools ka jhootha advertisement ---
-_pp = _bot_src[_bot_src.index('if data.startswith("pinpick:")'):]
-_pp = _pp[:_pp.index('_dl = await asyncio.to_thread(_pinpick_download')]
-check("pinpick par credit GATE hai (0-credit user free download na kar paye)",
-      "can_use_premium_tool(_u_pp, uid)" in _pp)
-check("gate fail par credits-over card + VIP keyboard dikhta hai",
-      'get_credits_over_text("pinterest")' in _pp and "get_limit_exceeded_kb()" in _pp)
-check("gate download se PEHLE hai (order sahi)",
-      _bot_src.index("can_use_premium_tool(_u_pp, uid)") <
-      _bot_src.index('_dl = await asyncio.to_thread(_pinpick_download'))
-
 import bot as _bot  # noqa: E402
-_cot = _bot.get_credits_over_text("pinterest")
+_cot = _bot.get_credits_over_text("imei")
 check("credits-over text me hata hua 'Vehicle' tool advertise NAHI hota",
       "Vehicle" not in _cot)
 check("VIP wall me hata hua Vehicle/Challan NAHI hai",
@@ -361,7 +257,7 @@ check("menu se vehicle/RTO/challan abhi bhi hata hua hai",
       or "RTO" not in _bot_src)
 
 # =====================================================================
-section("6)  v54.3 — LIVE crash fix: adhoora HTML tag (Render log wali error)")
+section("4)  v54.3 — LIVE crash fix: adhoora HTML tag (Render log wali error)")
 # RENDER LOG (user screenshot, 2:03 PM): "Exception handling update: Can't
 # parse entities: can't find end tag corresponding to start tag 'i'".
 # Wajah: lamba IMEI card `txt[:4000]` se kata tha aur cut <i>...</i> line ke

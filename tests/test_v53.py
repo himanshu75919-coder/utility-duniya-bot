@@ -63,69 +63,7 @@ def check(name: str, cond: bool, extra: str = ""):
 
 
 # =====================================================================
-section("1) 📌 PINTEREST — real API (pehle Bing scrape se 0 asli results)")
-# AUDIT: pinterest_search("cat wallpaper") → 6 results, 0 pinimg (0% Pinterest!)
-# Bot khud bolta tha "Pinterest par exact match nahi mila".
-import modules.pinterest_tools as PT  # noqa: E402
-
-_ps = PT.pinterest_search("cat wallpaper", use_cache=False)
-check("search chalti hai", _ps.get("ok") is True, str(_ps.get("error"))[:60])
-_res = _ps.get("results") or []
-check(f"results milte hain (n={len(_res)})", len(_res) >= 3)
-check("results rich dicts hain (plain URL string nahi)",
-      all(isinstance(r, dict) for r in _res) and all("image_url" in r for r in _res))
-_npin = sum(1 for x in (_ps.get("is_pinterest") or []) if x)
-check(f"ASLI Pinterest images {_npin}/{len(_res)} (pehle 0 the)", _npin >= 1)
-check("original-quality URLs (i.pinimg.com/originals)",
-      any("/originals/" in str(r.get("image_url", "")) for r in _res))
-check("dimensions milti hain (width/height)",
-      any((r.get("width") or 0) > 0 for r in _res))
-check("kuch results me title bhi hai",
-      any(str(r.get("title") or "").strip() for r in _res))
-check("source 'pinterest' hai (Bing fallback nahi)",
-      _ps.get("source") in ("pinterest", "mixed"))
-
-_pd = PT.pinterest_pin_detail("576742296077249680", use_cache=False)
-_pin = _pd.get("pin") or {}
-check("pin detail chalti hai (pehle og:image=0 → fail)", _pd.get("ok") is True)
-check("pin ki original image URL mili", bool(_pin.get("image_url")))
-check("pin metadata: title", bool(_pin.get("title")))
-check("pin metadata: pinner naam", bool(_pin.get("pinner_name")))
-check("pin metadata: saare sizes (9 tak)", len(_pin.get("all_sizes") or {}) >= 2)
-check("pin source = official API (HTML scrape fallback nahi)",
-      _pin.get("source") == "api")
-
-check("extract_pin_id: full URL",
-      PT.extract_pin_id("https://in.pinterest.com/pin/576742296077249680/") == "576742296077249680")
-check("extract_pin_id: bare number", PT.extract_pin_id("576742296077249680") == "576742296077249680")
-check("extract_pin_id: pinterest.co.in", PT.extract_pin_id(
-      "https://www.pinterest.co.in/pin/123456789012/") == "123456789012")
-check("extract_pin_id: junk → None", PT.extract_pin_id("hello world") is None)
-
-_dl = PT.pinterest_from_pin_link("576742296077249680")
-check("pin link → actual bytes download", _dl.get("ok") is True and len(_dl.get("bytes") or b"") > 5000)
-check("download ka sahi extension", _dl.get("ext") in (".png", ".jpg", ".webp", ".gif"))
-check("download ke saath pin metadata bhi", bool((_dl.get("pin") or {}).get("title")))
-
-# --- error handling (crash kabhi nahi hona chahiye) ---
-for _bad in ["", "x", "12345", "not a link at all", "http://127.0.0.1/pin/123"]:
-    _r = PT.pinterest_from_pin_link(_bad)
-    if _r.get("ok") is not False or not _r.get("error"):
-        check(f"galat input reject: {_bad!r}", False)
-        break
-else:
-    check("galat inputs (5) sab reject + saaf message", True)
-check("khaali keyword reject", PT.pinterest_search("").get("ok") is False)
-check("1-char keyword reject", PT.pinterest_search("x").get("ok") is False)
-check("help message me 'Copy link' guidance hai",
-      "Copy link" in str(PT.pinterest_from_pin_link("junk").get("error")))
-
-_t0 = time.time(); PT.pinterest_search("cat wallpaper"); _c1 = time.time() - _t0
-_t0 = time.time(); PT.pinterest_search("cat wallpaper"); _c2 = time.time() - _t0
-check(f"cache se repeat instant ({_c2:.4f}s vs {_c1:.2f}s)", _c2 < max(0.05, _c1 / 4))
-
-# =====================================================================
-section("2) 🔥 FF UID — live regions + health gate (pehle har UID par 404)")
+section("1) 🔥 FF UID — live regions + health gate (pehle har UID par 404)")
 # AUDIT: purani hardcoded list me `RU` tha jo API me EXIST HI NAHI KARTA,
 # aur `EU`/`NA`/`SAC` MISSING the. Live test me 7/7 regions par 404 aaya tha
 # aur bot user ko bolta tha "Region galat ho sakta hai" (jhooth).
@@ -180,7 +118,7 @@ check("not-found par kitne regions try hue wo batata hai",
 check("not-found = user ki galti, service_busy NAHI", _nf.get("service_busy") is not True)
 
 # =====================================================================
-section("3) 🎮 BGMI — honest availability gate (pehle dead host par 1 credit jata tha)")
+section("2) 🎮 BGMI — honest availability gate (pehle dead host par 1 credit jata tha)")
 # AUDIT: kronos-api.pubg.com DNS resolve hi nahi hota; pubg-shazam.herokuapp.com
 # HTTP 404 + text/html deta hai (Heroku free dynes band). Dono dead — par tool
 # menu me "🎮 BGMI UID" ke naam se premium credit leta tha.
@@ -202,76 +140,7 @@ check("chhota UID reject", GT.bgmi_player_info("12").get("ok") is False)
 check("kabhi fake stats nahi deta", not (_bg.get("ok") is False and bool(_bg.get("stats"))))
 
 # =====================================================================
-section("4) 📄 WEB SCRAPER — article extraction (pehle 22,515 words kachra)")
-# AUDIT: Wikipedia "Telegram (software)" → 22,515 words, jisme navigation,
-# sidebar, 300+ references, "See also", categories, copyright notice sab tha.
-# Wajah: sirf semantic tags hataye jaate the; zyadatar sites sab <div> me rakhti hain.
-import modules.web_tools as WT  # noqa: E402
-
-_ws = WT.scrape_public_text("https://en.wikipedia.org/wiki/Telegram_(software)", use_cache=False)
-check("scrape chalta hai", _ws.get("ok") is True, str(_ws.get("error"))[:60])
-_wtxt = str(_ws.get("text") or "")
-_ww = _ws.get("words", 0)
-check(f"words sane range me hain ({_ww}) — pehle 22,515 the", 3000 < _ww < 20000)
-check("title mila", bool(_ws.get("title")))
-check("reading time (min)", isinstance(_ws.get("reading_min"), int) and _ws.get("reading_min", 0) >= 1)
-check("paragraphs list", isinstance(_ws.get("paragraphs"), list) and len(_ws["paragraphs"]) >= 5)
-check("container identify hua (body-fallback nahi)", _ws.get("container") not in ("body-fallback", ""))
-check("❌ 'Jump to navigation' NAHI", "Jump to navigation" not in _wtxt)
-check("❌ 'From Wikipedia, the free encyclopedia' NAHI",
-      "From Wikipedia, the free encyclopedia" not in _wtxt)
-check("❌ '[edit]' markers NAHI", "[edit]" not in _wtxt)
-check("❌ 'References' heading NAHI", not re.search(r"(?m)^References\s*$", _wtxt))
-check("❌ 'External links' heading NAHI", not re.search(r"(?m)^External links\s*$", _wtxt))
-check("❌ 'Categories' heading NAHI", not re.search(r"(?m)^Categories\s*$", _wtxt))
-check("❌ maintenance categories NAHI ('All pages needing')", "All pages needing" not in _wtxt)
-check("❌ 'CS1:' errors NAHI", "CS1:" not in _wtxt)
-check("✅ asli article content hai", "Telegram" in _wtxt and len(_wtxt) > 5000)
-check("backward-compat keys (title/desc/text/words/url)",
-      all(k in _ws for k in ("title", "desc", "text", "words", "url")))
-
-_md = WT.html_to_markdown("<html><head><title>T</title></head><body><article>"
-                          "<h1>Real Heading</h1><p>" + ("important word " * 150) + "</p>"
-                          "<h2>References</h2><p>[1] Someone. Retrieved 1 Jan 2020.</p>"
-                          "<h2>External links</h2><p>Official website</p>"
-                          "</article></body></html>", "https://example.com/a")
-check("markdown: # heading se shuru", _md.startswith("# "))
-check("markdown: word count line hai", "words" in _md and "min read" in _md)
-check("markdown: backmatter nahi aaya", "Retrieved 1 Jan 2020" not in _md)
-check("markdown: asli content hai", "important word" in _md)
-
-# CTA / newsletter boilerplate
-_cta = WT.extract_readable(
-    "<html><body><article><h1>Post</h1><p>" + ("real article content here " * 100) + "</p>"
-    "<p>Get the latest news from Google in your inbox</p>"
-    "<p>Done. Just one step more.</p>"
-    "<p>Check your inbox to confirm your subscription.</p>"
-    "<p>Unsubscribe | Privacy Policy | © 2026 Acme Inc. All rights reserved.</p>"
-    "</article></body></html>", "https://x.com/a")
-_ct = _cta["text"].lower()
-check("❌ 'Check your inbox to confirm' strip hua", "check your inbox to confirm" not in _ct)
-check("❌ 'Unsubscribe' strip hua", "unsubscribe" not in _ct)
-check("❌ 'All rights reserved' strip hua", "all rights reserved" not in _ct)
-check("❌ 'Just one step more' strip hua", "just one step more" not in _ct)
-check("✅ asli article bacha", "real article content" in _ct)
-
-check("SSRF: 127.0.0.1 block", WT.scrape_public_text("http://127.0.0.1/x", use_cache=False).get("ok") is False)
-check("SSRF: 169.254.169.254 (cloud metadata) block",
-      WT.scrape_public_text("http://169.254.169.254/latest/meta-data/", use_cache=False).get("ok") is False)
-check("SSRF: 192.168.1.1 block", WT.scrape_public_text("http://192.168.1.1/", use_cache=False).get("ok") is False)
-check("404 par saaf message", "404" in str(WT.scrape_public_text(
-      "https://example.com/definitely-not-here-xyz", use_cache=False).get("error")))
-check("non-HTML (image) reject", "HTML" in str(WT.scrape_public_text(
-      "https://httpbin.org/image/png", use_cache=False).get("error")))
-check("khaali input reject", WT.scrape_public_text("", use_cache=False).get("ok") is False)
-check("reading_time_min math", WT.reading_time_min(1000) == 5 and WT.reading_time_min(0) == 0)
-
-_t0 = time.time(); WT.scrape_public_text("https://en.wikipedia.org/wiki/Bihar")
-_t0b = time.time(); WT.scrape_public_text("https://en.wikipedia.org/wiki/Bihar")
-check(f"cache se instant ({time.time()-_t0b:.4f}s)", (time.time() - _t0b) < 0.2)
-
-# =====================================================================
-section("5) 📧 TEMP MAIL — OTP extraction (pehle 1200-char body dump milta tha)")
+section("3) 📧 TEMP MAIL — OTP extraction (pehle 1200-char body dump milta tha)")
 # AUDIT: log temp mail OTP ke liye lete hain, par bot poora email body dump kar
 # deta tha — branding/footer/unsubscribe ke beech se 6-digit code khud dhoondhna
 # padta tha. OTP extraction tha hi nahi.
@@ -350,7 +219,7 @@ check("no-token par saaf message", "NEW" in str(TM.tm_messages("a@b.com", "").ge
 check("expired token detect", TM.is_expired("API returned HTTP 401") is True)
 
 # =====================================================================
-section("6) 📦 APP FINDER — real verification (pehle 8 blind search URLs)")
+section("4) 📦 APP FINDER — real verification (pehle 8 blind search URLs)")
 # AUDIT: get_app_store_links("whatsapp") aur ("xyzabc123fakeapp") → SAME 8 links.
 # Tool app dhoondhta hi nahi tha. Aur 2 stores MOD-APK piracy sites the.
 import modules.general_tools as GEN  # noqa: E402
@@ -399,7 +268,7 @@ check("_fmt_downloads readable", GEN._fmt_downloads("10,000,000,000+") == "10B+"
 check("_fmt_votes readable", GEN._fmt_votes("24500000") == "24.5M reviews")
 
 # =====================================================================
-section("7) 📷 QR — colors / logo / UPI (pehle params ignore hote the)")
+section("5) 📷 QR — colors / logo / UPI (pehle params ignore hote the)")
 # AUDIT: make_qr_bytes(fill=, back=) params the par bot kabhi pass nahi karta tha;
 # error correction M (15%) thi jabki center logo ke liye H (30%) chahiye.
 from PIL import Image  # noqa: E402
@@ -459,7 +328,7 @@ check("WiFi QR open network par khaali P: field NAHI (spec fix)",
       "P:" not in GEN.wifi_qr_data("Home", ""))
 
 # =====================================================================
-section("8) 📡 TELEMETRY — koi tool chup-chaap fail na ho (58 `except: pass` the)")
+section("6) 📡 TELEMETRY — koi tool chup-chaap fail na ho (58 `except: pass` the)")
 from modules.core import telemetry as TEL  # noqa: E402
 
 TEL.reset()
@@ -510,7 +379,7 @@ TEL.reset()
 check("reset counters saaf karta hai", TEL.snapshot()["calls"] == 0)
 
 # =====================================================================
-section("9) 🧱 CORE LAYER — net / cache / limiter abhi bhi solid")
+section("7) 🧱 CORE LAYER — net / cache / limiter abhi bhi solid")
 from modules.core.net import is_safe_url  # noqa: E402
 from modules.core.cache import TTLCache, cached_call  # noqa: E402
 from modules.core.limiter import RateLimiter  # noqa: E402
@@ -558,25 +427,22 @@ check("limiter: reset ke baad allow",
 check("limiter: doosra user alag bucket", _rl.allow(2, "t", limit=2, window=60)[0] is True)
 
 # =====================================================================
-section("10) 🔗 bot.py WIRING — handlers naye engines se jude hain")
+section("8) 🔗 bot.py WIRING — handlers naye engines se jude hain")
 _bot_src = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 # bot.py khud import karke helper ko live test karte hain (source-grep se aage)
 import bot  # noqa: E402
 
-for _fn in ["pinterest_search", "pinterest_from_pin_link",
-            "pin_download_media", "ff_player_info", "bgmi_player_info",
-            "scrape_public_text",
-            "tm_create", "tm_poll",
-            "tm_delete", "app_lookup", "make_branded_qr",
+for _fn in ["ff_player_info", "bgmi_player_info",
+            "tm_create", "tm_poll", "tm_delete", "app_lookup", "make_branded_qr",
             "tel_note", "tel_snapshot"]:
     check(f"bot.py me import/usage: {_fn}", _fn in _bot_src)
 # v55: ye 7 naam bot.py me sirf DEAD imports the — ruff F401 cleanup me hate:
 #   web_cache_snapshot, tm_messages, tm_extract_codes, build_upi_link,
-#   tel_health_card, pinterest_pin_detail, ff_service_status, gaming_cache_snapshot,
+#   tel_health_card, ff_service_status, gaming_cache_snapshot,
 #   imei_fallback_links, tel_is_soft_fail, tel_tool_stats, tel_upstream_status,
 #   tel_reset, tm_domains, get_app_store_links, domain_age_days, RetryAfter, tempfile
 # In engines ka asli use module-level par hota hai (vip_payment.build_upi_link,
-# tm_poll inbox refresh, _telemetry_block, pinterest_tools.download_media).
+# tm_poll inbox refresh, _telemetry_block).
 check("v55: dead imports hat gaye (F401 clean)", "extract_codes as tm_extract_codes" not in _bot_src)
 check("v55: UPI link vip_payment module se banta hai",
       "build_upi_link" in open(os.path.join(ROOT, "modules", "vip_payment.py"), encoding="utf-8").read())
@@ -586,10 +452,6 @@ check("v55: telemetry card bot.py ke apne _telemetry_block se banti hai", "_tele
 check("tempmail inline buttons wired (tm_inbox)", 'data in ("tm_inbox", "tm_otp")' in _bot_src)
 check("tempmail delete button wired", 'data == "tm_del"' in _bot_src)
 check("telemetry /sys card me hai", "_telemetry_block()" in _bot_src)
-check("pin metadata card helper", "_pin_meta_line" in _bot_src)
-check("pinpick rich dict handle karta hai", "isinstance(target, dict)" in _bot_src)
-check("video pin send_video se jata hai", "send_video" in _bot_src)
-check("webscraper markdown file bhejta hai", 'markdown' in _bot_src and ".txt" in _bot_src)
 check("appfind verified card bhejta hai", "verified app" in _bot_src)
 check("❌ appfind ab 'Mod/APK websites' nahi bolta", "Verified Mod/APK" not in _bot_src)
 check("bgmi soft-fail par credit nahi katta",
@@ -603,7 +465,7 @@ check("bgmi availability gate engine ke andar hai (bot ko soft-fail milta hai)",
       "bgmi_availability" in _gtsrc and "note_upstream" in _gtsrc)
 
 # =====================================================================
-section("11) 🛡️ CREDIT FAIRNESS — service ki galti par credit na kate")
+section("9) 🛡️ CREDIT FAIRNESS — service ki galti par credit na kate")
 # v52.3 me BGMI dead hone ke bawajood premium credit le raha tha aur user ko
 # sirf ek lamba help paragraph milta tha.
 _bg = GT.bgmi_player_info("510069453", use_cache=False)
@@ -622,15 +484,13 @@ if _st2.get("ok"):
         check("FF dead-region test (abhi koi region dead nahi — skip ok)", True)
 check("FF genuine not-found par service_busy NAHI (wo user ki galti hai)",
       GT.ff_player_info("999999999999", "IND", use_cache=False).get("service_busy") is not True)
-check("Pinterest fail par credit nahi (handler sirf ok par charge karta hai)",
-      'spend_credit_msg(uid, "pinterest")' in _bot_src)
 check("App Finder not-found par credit nahi katta",
       re.search(r'if not app_data\.get\("found"\):.*?tel_note\("appfind", False', _bot_src, re.S) is not None)
 
 # =====================================================================
-section("12) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
+section("10) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
 # =====================================================================
-check("bot.py version v55 par hai", 'BOT_VERSION = "v55.' in _bot_src)
+check("bot.py version v56 par hai", 'BOT_VERSION = "v56.' in _bot_src)
 check("build_qr_image helper maujood hai", "def build_qr_image(" in _bot_src)
 check("teeno QR handler build_qr_image use karte hain",
       _bot_src.count("build_qr_image") >= 4)

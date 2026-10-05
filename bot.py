@@ -158,6 +158,7 @@ from modules.media_downloader import (
     platform_name,
     yt_available_qualities,
     _yt_quality_download,
+    friendly_dl_error,
 )
 from modules.toolkit_extras import (
     analyze_link,
@@ -180,23 +181,14 @@ from modules.imei_lookup import (
 from modules.osint_tools import (
     search_by_area_name,
     lookup_ifsc,
-    lookup_ip_domain,
     lookup_phone_info,
     lookup_pincode,
-    domain_osint,
     upi_verify,
-    tg_user_public,
 )
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
 )
-from modules.pinterest_tools import (
-    pinterest_search,
-    pinterest_from_pin_link,
-    download_media as pin_download_media,
-)
-from modules.web_tools import scrape_public_text
 from modules.temp_mail import (
     tm_create,
     tm_poll,
@@ -261,15 +253,10 @@ TOOL_RATE_LIMITS = {
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
     # normal info tools
-    "ip":          (15, 60,  "Domain OSint / IP"),
     "upi":         (15, 60,  "UPI Verify"),
-    "tginfo":      (10, 60,  "TG Public Info"),
     "bgmi":        (8,  60,  "BGMI UID"),
     "ffuid":       (8,  60,  "FF UID"),
-    "pinterest":   (8,  120, "Pinterest"),
-    "webscraper":  (10, 60,  "Web Scraper"),
     "tempmail":    (10, 120, "Temp Mail"),
-    "aadeid":      (15, 60,  "Aadhaar EID"),
     "ifsc":        (15, 60,  "IFSC Info"),
     "pin":         (15, 60,  "Pincode Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
@@ -309,7 +296,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v55.0 Deep Audit + Pro Upgrade"  # v55: 📧 temp-mail DELETE fix · 💳 UPI pa raw (@ bug) · 🎮 region (BR)/(BR)/-BR sab formats · 📄 doc-pdf single-bytes crash fix · 🔗 link-check core.net+PARALLEL (5.4s→0.7s) · 🌐 domain-OSINT Certspotter+PARALLEL (27.7s→1.5s) · 🔗 cloner Remove-Links feature · 🧹 30 dead imports + dup keys saaf · v54.3 IMEI cut_html fix bhi barkarar
+BOT_VERSION = "v56.0 Crash-Proof + 5-Tool Cleanup"  # v56: 🚨 ASLI CRASH KI JADD — PTB me Message par send_photo/send_document/send_video hote hi NAHI (sirf Bot par). 8 jagah Message.send_* call ho raha tha → AttributeError. Sab fix. · 🗑️ 5 tools PERMANENTLY DELETE (order): 🌐 Domain OSINT/IP · 📌 Pinterest · 📄 Web Scraper · 🪪 Aadhaar EID · 📡 TG Public Info — code+modules+tests saaf · 🛡️ purane keyboard walon ke liye 22 friendly removal messages (_why/_alt) · 🆕 q.message InaccessibleMessage guard (purane message par crash nahi) · 🤖 yt-dlp bot-check "Sign in to confirm you're not a bot" ab saaf Hindi message + solution (raw traceback nahi) · 🔌 dead-link detection (jo link khulta hi nahi use ab "SAFE" nahi bolta) · 🧹 raw requests/urllib3 error leak fix
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -360,15 +347,10 @@ PREMIUM_TOOLS = {
     "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
     "pin",                 # 📮 PINCODE INFO
-    "ip",                  # 🌐 DOMAIN OSINT / IP
     "upi",                 # 🏦 UPI VERIFY
-    "tginfo",              # 📡 TG PUBLIC INFO
     "bgmi",                # 🎮 BGMI UID
     "ffuid",               # 🔥 FF UID
-    "pinterest",           # 📌 PINTEREST
-    "webscraper",          # 📄 WEB SCRAPER
     "tempmail",            # 📧 TEMP MAIL
-    "aadeid",              # 🪪 AADHAAR EID
     "qr",                  # 📷 QR CODE (text/wifi/vcard)
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
@@ -391,15 +373,10 @@ PREMIUM_TOOL_NAMES = {
     "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
     "pin": "📮 Pincode Info",
-    "ip": "🌐 Domain OSINT / IP",
     "upi": "🏦 UPI Verify",
-    "tginfo": "📡 TG Public Info",
     "bgmi": "🎮 BGMI UID",
     "ffuid": "🔥 FF UID",
-    "pinterest": "📌 Pinterest",
-    "webscraper": "📄 Web Scraper",
     "tempmail": "📧 Temp Mail",
-    "aadeid": "🪪 Aadhaar EID",
     "qr": "📷 QR Code",
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
@@ -778,11 +755,9 @@ KB_BTNS = [
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
-    [f"📮 {to_bold('PINCODE INFO')}", f"🌐 {to_bold('DOMAIN OSINT / IP')}"],
-    [f"🏦 {to_bold('UPI VERIFY')}", f"📡 {to_bold('TG PUBLIC INFO')}"],
+    [f"🏦 {to_bold('UPI VERIFY')}", f"📮 {to_bold('PINCODE INFO')}"],
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
-    [f"📌 {to_bold('PINTEREST')}", f"📄 {to_bold('WEB SCRAPER')}"],
-    [f"📧 {to_bold('TEMP MAIL')}", f"🪪 {to_bold('AADHAAR EID')}"],
+    [f"📧 {to_bold('TEMP MAIL')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
@@ -822,23 +797,13 @@ BTN_MODE_MAP = {
     "8-IN-1 PRINT SHEET": "print_sheet",
     "DOCUMENT PDF COMPRESS": "doc_compress",
     "DOCUMENT PDF COMPRESSOR": "doc_compress",
-    "DOMAIN OSINT / IP": "ip",
-    "IP / DOMAIN INFO": "ip",
-    "IP INFO": "ip",
     "UPI VERIFY": "upi",
-    "TG PUBLIC INFO": "tginfo",
-    "TG INFO": "tginfo",
     "BGMI UID": "bgmi",
     "BGMI": "bgmi",
     "FF UID": "ffuid",
     "FREE FIRE UID": "ffuid",
-    "PINTEREST": "pinterest",
-    "PINTEREST DOWNLOADER": "pinterest",
-    "WEB SCRAPER": "webscraper",
     "TEMP MAIL": "tempmail",
     "TEMPMAIL": "tempmail",
-    "AADHAAR EID": "aadeid",
-    "AADHAAR STATUS": "aadeid",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -908,17 +873,9 @@ PROMPTS = {
         f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b> — document ki photo bhejo "
         "(e.g. <code>10th marksheet</code>):"
     ),
-    "ip": (
-        f"🌐 <b>{to_bold('DOMAIN OSINT / IP')}</b> — domain ya IP bhejo "
-        "(e.g. <code>google.com</code> ya <code>8.8.8.8</code>):"
-    ),
     "upi": (
         f"🏦 <b>{to_bold('UPI VERIFY')}</b> — UPI ID bhejo "
         "(e.g. <code>rahul@sbi</code>):"
-    ),
-    "tginfo": (
-        f"📡 <b>{to_bold('TG PUBLIC INFO')}</b> — @username bhejo "
-        "(e.g. <code>@telegram</code>):"
     ),
     "bgmi": (
         f"🎮 <b>{to_bold('BGMI UID')}</b> — UID bhejo "
@@ -928,21 +885,9 @@ PROMPTS = {
         f"🔥 <b>{to_bold('FF UID')}</b> — UID bhejo "
         "(e.g. <code>7860944073</code>, region alag ho to <code>7860944073 BR</code>):"
     ),
-    "pinterest": (
-        f"📌 <b>{to_bold('PINTEREST')}</b> — pin link ya keyword bhejo "
-        "(e.g. <code>hacker wallpaper</code>):"
-    ),
-    "webscraper": (
-        f"📄 <b>{to_bold('WEB SCRAPER')}</b> — public page ka link bhejo "
-        "(e.g. kisi khabar ya Wikipedia ka URL):"
-    ),
     "tempmail": (
         f"📧 <b>{to_bold('TEMP MAIL')}</b> — <code>NEW</code> bhejo "
         "(naya email ID ban jayega):"
-    ),
-    "aadeid": (
-        f"🪪 <b>{to_bold('AADHAAR EID STATUS')}</b> — apna 14-digit EID bhejo "
-        "(e.g. Aadhaar slip ke top par wala, 12-digit Aadhaar NAHI):"
     ),
     "bankpdf": (
         f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b> — statement ka PDF bhejo "
@@ -1018,14 +963,9 @@ TUTORIAL_TEXT = (
     "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
-    "• 🌐 DOMAIN OSINT / IP → domain bhejo → whois+DNS+subdomains+IP location; IP bhejo → ISP/city\n"
     "• 🏦 UPI VERIFY → VPA bhejo → format + kis bank ka handle hai (sirf public info)\n"
-    "• 📡 TG PUBLIC INFO → @username bhejo → naam + bio + member count (public channels)\n"
     "• 🎮 BGMI UID / 🔥 FF UID → dost ka game UID bhejo → naam, level, rank, stats (public)\n"
-    "• 📌 PINTEREST → pin link ya keyword → image HD download\n"
-    "• 📄 WEB SCRAPER → public page ka link → poora text saaf format me\n"
     "• 📧 TEMP MAIL → NEW bhejo → ek-baar ka email + inbox (OTP/signup ke liye)\n"
-    "• 🪪 AADHAAR EID → apna 14-digit EID → ready SMS 51969 ke liye (official status)\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
     "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
@@ -2044,46 +1984,6 @@ async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ---------------- CALLBACK QUERY HANDLER ----------------
-def _pinpick_download(item) -> dict:
-    """Pinterest search result download karo (sync — to_thread me chalega).
-
-    v53.0: ab `item` ek rich pin dict hota hai (title/dimensions/pinner/video ke saath),
-    purana plain-URL string bhi accept hota hai (backward compatible).
-    Engine khud core.net se pooled+retry+size-capped download karta hai — isliye
-    yahan raw `requests` nahi hai. Video pins ab MP4 me aate hain.
-    """
-    import io as _pio
-    try:
-        if isinstance(item, dict):
-            url = item.get("image_url") or item.get("video_url") or ""
-        else:
-            url = str(item or "")
-        if not url:
-            return {"ok": False, "error": "Is result me koi media URL nahi hai."}
-        res = pin_download_media(url)
-        if not res.get("ok"):
-            return {"ok": False, "error": res.get("error", "Download fail")}
-        data = res["bytes"]
-        return {"ok": True, "stream": _pio.BytesIO(data), "bytes": data,
-                "ext": res.get("ext", ".jpg"), "kind": res.get("kind", "image"),
-                "is_img": res.get("kind", "image") == "image",
-                "is_video": res.get("kind") == "video"}
-    except Exception as e:                                        # noqa: BLE001
-        return {"ok": False, "error": str(e)[:80]}
-
-
-# ══════════════════════════════════════════════════════════════════════════
-#  v53.0 — QR ENGINE HELPERS
-#  Pehle teeno QR handlers seedha `make_qr_bytes()` bulate the:
-#    • colors/logo params ignore hote the (engine support karta tha, bot nahi)
-#    • try/except nahi tha — lamba text (QR ~7089 byte limit) par DataOverflowError
-#      seedha crash karta tha, aur `spend_credit_msg` se credit PEHLE hi kat chuka
-#      hota tha → user ka credit gaya, QR nahi mila.
-#    • telemetry nahi thi.
-#  Ab: ek hi branded builder, logo cache, contrast check, telemetry, aur credit
-#  SIRF success par.
-# ══════════════════════════════════════════════════════════════════════════
-
 # Brand logo (center me lagta hai). Ek baar load, phir process-lifetime cache.
 _QR_LOGO_BYTES = None       # bytes | None — bot.py typing import nahi karta
 _QR_LOGO_TRIED = False
@@ -2168,33 +2068,26 @@ def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
     return {"ok": True, "bytes": buf, "logo": bool(lg), "note": note}
 
 
-def _pin_meta_line(pin: dict) -> str:
-    """Pin ka chhota metadata card (title + size + pinner) — v53.0."""
-    if not isinstance(pin, dict):
-        return ""
-    out = []
-    t = (pin.get("title") or "").strip()
-    if t:
-        out.append(f"🏷️ <b>{hesc(t[:70])}</b>")
-    w, h = pin.get("width") or 0, pin.get("height") or 0
-    if w and h:
-        out.append(f"📐 {w} × {h} px" + (" <b>(HD)</b>" if max(w, h) >= 1600 else ""))
-    who = (pin.get("pinner_name") or "").strip()
-    if who:
-        out.append(f"👤 {hesc(who[:30])}")
-    rp = pin.get("repins")
-    if isinstance(rp, int) and rp > 0:
-        out.append(f"💾 {rp} saves")
-    if pin.get("is_video"):
-        out.append("🎬 <b>VIDEO pin</b>")
-    return "\n".join(out)
-
-
 async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
     data = q.data
     uid = q.from_user.id
+
+    # ---------- v56: PURANI / INACCESSIBLE MESSAGE GUARD ----------
+    # PTB v21+ me `q.message` do tarah ka ho sakta hai:
+    #   Message            → normal (reply_text / edit_text chalta hai)
+    #   InaccessibleMessage→ bahut purana message (sirf chat + id hota hai,
+    #                        reply_text bilkul NAHI hota) → pehle crash hota tha.
+    # Yahan hum ek `cbmsg()` helper de dete hain jo dono case me safe rehta hai:
+    # purana message ho to usi chat me NAYA message bhej dete hain.
+    async def cbmsg():
+        """Callback wale chat me message bhejne ke liye safe jagah."""
+        m = getattr(q, "message", None)
+        chat = getattr(update, "effective_chat", None) or getattr(m, "chat", None)
+        if m is not None and getattr(m, "is_accessible", True) is not False and hasattr(m, "reply_text"):
+            return m
+        return chat if chat is not None else m
 
     # ---------- v49.4: VIP-ONLY GATE ----------
     # VIP lene / refer / madad / payment verify wale buttons sabke liye khule hain.
@@ -3070,97 +2963,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML)
         return
 
-    if data.startswith("pinpick:"):
-        try:
-            idx = int(data.split(":", 1)[1])
-        except ValueError:
-            idx = -1
-        results = context.user_data.get("pin_results") or []
-        if not (0 <= idx < len(results)):
-            await q.answer("Ye option abhi valid nahi — dobara search karo.", show_alert=True)
-            return
-        # v53.0: results ab rich pin dicts hain (title/dimensions/pinner/video).
-        # Purana plain-URL string bhi accept hota hai (_pinpick_download sambhalta hai).
-        target = results[idx]
-        # v54.1: CREDIT GATE — pehle yahan gate tha hi nahi, isliye 0-credit user
-        # bhi Pinterest download kar leta tha (spend_credits 0 par clamp hota hai).
-        _u_pp = get_user(uid, (q.from_user.first_name if q.from_user else ""))
-        if not can_use_premium_tool(_u_pp, uid):
-            await q.answer("Credits khatam!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("pinterest"),
-                                       reply_markup=get_limit_exceeded_kb(),
-                                       parse_mode=HTML)
-            return
-        _is_vid = isinstance(target, dict) and bool(target.get("is_video")
-                                                   and target.get("video_kind") == "mp4")
-        await q.answer("🎬 Video download ho rahi hai…" if _is_vid
-                       else "📌 Original quality download ho raha hai…", show_alert=False)
-        _t0 = time.perf_counter()
-        _dl = await asyncio.to_thread(_pinpick_download, target)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if not _dl.get("ok"):
-            tel_note("pinterest.download", False, _ms,
-                     error=str(_dl.get("error") or "")[:120])
-            await q.message.reply_text(
-                "❌ Download fail ho gaya"
-                + (f" ({hesc(str(_dl.get('error'))[:60])})" if _dl.get("error") else "")
-                + "\n🔍 Dobara search karke koi aur option chuno.", parse_mode=HTML)
-            return
-        _cid = update.effective_chat.id
-        _kb = len(_dl["bytes"]) // 1024
-        _cap_meta = _pin_meta_line(target) if isinstance(target, dict) else ""
-        _cap_meta = ("\n" + _cap_meta) if _cap_meta else ""
-        # v54.1: BytesIO par filename set karo — PTB InputFile bina name ke
-        # upload me atak sakta tha (live par "Chhota sa ghatna" crash yahi tha).
-        try:
-            _dl["stream"].name = f"pinterest{_dl.get('ext', '.jpg')}"
-        except Exception:                                       # noqa: BLE001
-            pass
-        _fname = f"pinterest{_dl.get('ext', '.jpg')}"
-        _sent = False
-        try:
-            if _dl.get("is_video"):
-                await q.message.send_video(
-                    chat_id=_cid, video=_dl["stream"], supports_streaming=True,
-                    caption=cut_html(f"🎬 Pinterest video ({_kb} KB){_cap_meta}", 1000),
-                    parse_mode=HTML)
-            elif _dl.get("is_img"):
-                await q.message.send_photo(
-                    chat_id=_cid, photo=_dl["stream"],
-                    caption=cut_html(f"📌 Pinterest · original quality ({_kb} KB){_cap_meta}", 1000),
-                    parse_mode=HTML)
-            else:
-                await q.message.send_document(
-                    chat_id=_cid, document=_dl["stream"], filename=_fname,
-                    caption=cut_html(f"📌 Pinterest download ({_kb} KB){_cap_meta}", 1000),
-                    parse_mode=HTML)
-            _sent = True
-        except Exception as e:                                  # noqa: BLE001
-            # photo/video reject ho (format/size) to document se bhejo
-            log.warning("pinpick send fail, document fallback: %s", str(e)[:100])
-            try:
-                _dl["stream"].seek(0)
-                await q.message.send_document(
-                    chat_id=_cid, document=_dl["stream"], filename=_fname,
-                    caption=cut_html(f"📌 Pinterest file ({_kb} KB){_cap_meta}", 1000),
-                    parse_mode=HTML)
-                _sent = True
-            except Exception as e2:                             # noqa: BLE001
-                tel_note("pinterest.download", False, _ms,
-                         error=f"send:{str(e2)[:80]}")
-                await q.message.reply_text(
-                    "❌ Media Telegram par bhej nahi paya "
-                    f"(<code>{hesc(str(e2)[:60])}</code>).\n"
-                    "✅ <b>Koi credit nahi kata.</b> Dobara try karo.",
-                    parse_mode=HTML)
-        if not _sent:
-            return
-        tel_note("pinterest.download", True, _ms, credit=True)
-        await q.message.reply_text(spend_credit_msg(uid, "pinterest") +
-                                   "\n✅ Download ho gaya. Aur chahiye to dobara search karo.",
-                                   parse_mode=HTML)
-        return
-
     if data.startswith("ytq:"):
         hstr = data.split(":", 1)[1]
         try:
@@ -3188,7 +2990,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<i>(30 second - 2 minute, video ki length par depend)</i>", parse_mode=HTML)
         res = await asyncio.to_thread(_yt_quality_download, url, h)
         if not res.get("ok"):
-            await st.edit_text(fail_msg("YOUTUBE DOWNLOAD FAILED", str(res.get("error", ""))),
+            # v56: technical yt-dlp error ki jagah friendly Hindi + solution.
+            _ferr = str(res.get("error") or "") or friendly_dl_error(platform="YouTube")
+            await st.edit_text(fail_msg("YOUTUBE DOWNLOAD FAILED", _ferr),
                                parse_mode=HTML)
             return
         if res.get("type") == "link" and res.get("direct_url"):
@@ -3684,6 +3488,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # govt portals timeout/CAPTCHA). User order par tool hamesha ke liye hataya.
         "RTO VEHICLE INFO", "VEHICLE INFO + CHALLAN", "VEHICLE INFO",
         "VEHICLE / RTO INFO", "VEHICLE", "RTO", "CHALLAN",
+        # v56.0: user order par 5 tools PERMANENTLY delete —
+        # (1) 🌐 DOMAIN OSINT / IP  (2) 📌 PINTEREST  (3) 📄 WEB SCRAPER
+        # (4) 🪪 AADHAAR EID       (5) 📡 TG PUBLIC INFO
+        "DOMAIN OSINT / IP", "DOMAIN OSINT", "OSINT", "DOMAIN INFO",
+        "IP INFO", "IP / DOMAIN INFO", "IP", "DOMAIN",
+        "PINTEREST", "PINTEREST DOWNLOADER", "PINTEREST SEARCH",
+        "WEB SCRAPER", "WEBSCRAPER", "SCRAPER", "WEB SCRAPE",
+        "AADHAAR EID", "AADHAAR STATUS", "AADHAAR", "AADHAR", "EID",
+        "TG PUBLIC INFO", "TG INFO", "TELEGRAM INFO", "TG PUBLIC",
     }
     if not action and clean_key in _removed_keys:
         _why = {
@@ -3728,6 +3541,20 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "VEHICLE": "🚗 Vehicle / RTO Info",
             "RTO": "🚗 Vehicle / RTO Info",
             "CHALLAN": "🚗 Vehicle / RTO Info",
+            # ---- v56.0: 5 tools permanently deleted (short label) ----
+            "DOMAIN OSINT / IP": "🌐 Domain OSINT / IP", "DOMAIN OSINT": "🌐 Domain OSINT",
+            "OSINT": "🌐 OSINT", "DOMAIN INFO": "🌐 Domain Info",
+            "IP INFO": "🌐 IP Info", "IP / DOMAIN INFO": "🌐 IP / Domain Info",
+            "IP": "🌐 IP Info", "DOMAIN": "🌐 Domain Info",
+            "PINTEREST": "📌 Pinterest", "PINTEREST DOWNLOADER": "📌 Pinterest",
+            "PINTEREST SEARCH": "📌 Pinterest",
+            "WEB SCRAPER": "📄 Web Scraper", "WEBSCRAPER": "📄 Web Scraper",
+            "SCRAPER": "📄 Web Scraper", "WEB SCRAPE": "📄 Web Scraper",
+            "AADHAAR EID": "🪪 Aadhaar EID", "AADHAAR STATUS": "🪪 Aadhaar EID",
+            "AADHAAR": "🪪 Aadhaar EID", "AADHAR": "🪪 Aadhaar EID",
+            "EID": "🪪 Aadhaar EID",
+            "TG PUBLIC INFO": "📡 TG Public Info", "TG INFO": "📡 TG Public Info",
+            "TELEGRAM INFO": "📡 TG Public Info", "TG PUBLIC": "📡 TG Public Info",
         }.get(clean_key, "Ye tool")
         _alt = {
             "CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
@@ -3771,6 +3598,32 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "VEHICLE": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
             "RTO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
             "CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            # ---------------- v56.0: 5 tools permanently deleted ----------------
+            # (ye "kya use karo" suggestion line hai — label _why me hai)
+            "DOMAIN OSINT / IP": "🌐 Domain OSINT / IP ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> / 🏦 <b>UPI Verify</b> use karo",
+            "DOMAIN OSINT": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> / 🏦 <b>UPI Verify</b> use karo",
+            "OSINT": "🌐 OSINT tools ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> / 🏦 <b>UPI Verify</b> use karo",
+            "DOMAIN INFO": "🌐 Domain info ki jagah → 🏦 <b>UPI Verify</b> / 📮 <b>Pincode Info</b> use karo",
+            "IP INFO": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
+            "IP / DOMAIN INFO": "🌐 IP / Domain info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
+            "IP": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
+            "DOMAIN": "🌐 Domain OSINT ki jagah → 🏦 <b>UPI Verify</b> / 📮 <b>Pincode Info</b> use karo",
+            "PINTEREST": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> (status/ringtone/MP3) use karo",
+            "PINTEREST DOWNLOADER": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> use karo",
+            "PINTEREST SEARCH": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> use karo",
+            "WEB SCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo, ya ⚡ <b>Media Studio</b> use karo",
+            "WEBSCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
+            "SCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
+            "WEB SCRAPE": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
+            "AADHAAR EID": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
+            "AADHAAR STATUS": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
+            "AADHAAR": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
+            "AADHAR": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
+            "EID": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
+            "TG PUBLIC INFO": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo, naam ke neeche <b>subscribers</b> likha hota hai",
+            "TG INFO": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo, naam ke neeche <b>subscribers</b>",
+            "TELEGRAM INFO": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo",
+            "TG PUBLIC": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo",
         }.get(clean_key, "Neeche naya menu check karo")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
@@ -4450,91 +4303,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
         return
 
-    if mode == "ip":
-        # v52.2: domain hai to FULL OSINT (whois+DNS+subdomains+IP), IP hai to purana IP card
-        _ip_like = re.match(r"^(\d{1,3}\.){3}\d{1,3}$", (raw_text or "").strip())
-        if _ip_like:
-            res = await asyncio.to_thread(lookup_ip_domain, raw_text)
-            if res.get("ok"):
-                flags = []
-                flags.append("🛡️ Proxy/VPN: " + ("⚠️ Yes (hidden connection)" if res.get("is_proxy") else "✅ No"))
-                flags.append("🏢 Datacenter/Hosting: " + ("✅ Yes (server/VPN line)" if res.get("is_hosting") else "❌ No (normal internet line)"))
-                flags.append("📱 Mobile network: " + ("✅ Yes" if res.get("is_mobile") else "❌ No"))
-                rows = []   # v49.13: koi website/Map link nahi (user ka order)
-                await update.message.reply_text(
-                    spend_credit_msg(uid, "ip") + "\n" +
-                    f"🌐 <b>{to_bold('IP INFORMATION')}</b>\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
-                    f"• <b>Query:</b> <code>{hesc(res['query'])}</code>\n"
-                    f"• <b>IP:</b> <code>{res['ip']}</code>\n"
-                    f"• <b>Country:</b> {res['country']} ({res.get('country_code') or '—'})\n"
-                    f"• <b>State:</b> {res['region']}\n"
-                    f"• <b>City:</b> {res['city']} — PIN {res['zip']}\n"
-                    f"• <b>Lat/Long:</b> {res['lat']}, {res['lon']}\n"
-                    f"• <b>ISP / Company:</b> {res['isp']}\n"
-                    f"• <b>Organization:</b> {res['org']}\n"
-                    f"• <b>Network:</b> {res.get('as', '—')}\n"
-                    f"• <b>Timezone:</b> {res['timezone']}\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(flags) +
-                    "\n\n<i>This is public IP information (for websites/servers). It does not show anyone's home address.</i>",
-                    reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
-            else:
-                await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            add_use(uid)
-            return
-        # ---- v52.2: DOMAIN OSINT (whois + DNS + subdomains + IP location) ----
-        res = await asyncio.to_thread(domain_osint, raw_text)
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            add_use(uid)
-            return
-        L = ["🌍 <b>DOMAIN OSINT REPORT</b>\n"
-             f"🎯 <b>{hesc(res['domain'])}</b>\n"
-             "━━━━━━━━━━━━━━━━━━━━━━"]
-        w = res.get("whois")
-        if w:
-            L += ["📝 <b>WHOIS (official RDAP registry)</b>",
-                  f"• <b>Registrar:</b> {w['registrar']}",
-                  f"• <b>Registered:</b> {w['created']}",
-                  f"• <b>Expires:</b> {w['expires']}",
-                  f"• <b>Last updated:</b> {w['updated']}",
-                  f"• <b>Status:</b> {w['status']}"]
-        else:
-            L += ["📝 <b>WHOIS:</b> " + (res.get("whois_error") or "nahi mila")]
-        L.append("━━━━━━━━━━━━━━━━━━━━━━\n📡 <b>DNS RECORDS</b>")
-        L.append(f"• <b>A:</b> " + (", ".join(f"<code>{hesc(a)}</code>" for a in res.get("a", [])) or "nahi mila"))
-        if res.get("aaaa"):
-            L.append(f"• <b>AAAA:</b> " + ", ".join(f"<code>{hesc(a)}</code>" for a in res["aaaa"]))
-        L.append(f"• <b>MX (email):</b> " + (", ".join(f"<code>{hesc(m)}</code>" for m in res.get("mx", [])) or "nahi mila"))
-        L.append(f"• <b>NS:</b> " + (", ".join(f"<code>{hesc(n)}</code>" for n in res.get("ns", [])) or "nahi mila"))
-        if res.get("txt"):
-            L.append(f"• <b>TXT:</b> <code>{hesc(res['txt'][0][:60])}</code>")
-        L.append("━━━━━━━━━━━━━━━━━━━━━━\n🔗 <b>SUBDOMAINS (Certificate Transparency)</b>")
-        subs = res.get("subdomains", [])
-        if subs:
-            L.append("• " + ", ".join(f"<code>{hesc(s)}</code>" for s in subs))
-            tot = res.get("subdomains_total", len(subs))
-            if tot > len(subs):
-                L.append(f"<i>({tot} total me se top {len(subs)} dikhaye)</i>")
-        else:
-            L.append("• " + (res.get("subdomains_error") or "koi public certificate subdomain nahi mila"))
-        ipi = res.get("ip_info")
-        if ipi:
-            L += ["━━━━━━━━━━━━━━━━━━━━━━\n📍 <b>IP LOCATION (primary A-record)</b>",
-                  f"• <b>IP:</b> <code>{ipi['ip']}</code>",
-                  f"• <b>City:</b> {ipi['city']}, {ipi['region']}, {ipi['country']}",
-                  f"• <b>ISP/Org:</b> {ipi['isp']}",
-                  f"• <b>Network:</b> {ipi.get('as', '—')}",
-                  f"• <b>Hosting:</b> " + ("✅ Datacenter/server line" if ipi.get("is_hosting") else "❌ Normal line"),
-                  f"• <b>Proxy/VPN:</b> " + ("⚠️ Yes" if ipi.get("is_proxy") else "✅ No")]
-        L.append("━━━━━━━━━━━━━━━━━━━━━━")
-        L.append("<i>Sab data public/official sources se hai (registry RDAP, public DNS, "
-                 "certificate transparency). Koi private info nahi dikhti.</i>")
-        await update.message.reply_text(
-            spend_credit_msg(uid, "ip") + "\n" + "\n".join(L), parse_mode=HTML)
-        add_use(uid)
-        return
-
     if mode == "upi":
         _upi_in = (raw_text or "").strip()
         # ── v54.1: 10-digit MOBILE number path ────────────────────────────
@@ -4598,84 +4366,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ).replace(chr(10) + "\n", "\n")
         await update.message.reply_text(spend_credit_msg(uid, "upi") + "\n" + card,
                                         parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if mode == "tginfo":
-        # v52.2: TG PUBLIC INFO — Bot API getChat (channels/groups) + t.me fallback (users)
-        uname = (raw_text or "").strip().lower().replace(" ", "")
-        uname = re.sub(r"^https?://(?:t\.me|telegram\.(?:me|dog))/?", "", uname).split("/")[0].lstrip("@")
-        if not re.match(r"^[a-z][a-z0-9_]{3,31}$", uname):
-            await update.message.reply_text(
-                "❌ Valid @username bhejo — jaise <code>@telegram</code> ya "
-                "<code>duaa_channel</code>.\n📌 Public channel ka @username uske profile me dikhta hai.",
-                parse_mode=HTML)
-            add_use(uid)
-            return
-        card = None
-        _photo = ""
-        try:
-            chat = await context.bot.get_chat(f"@{uname}")
-            ctype = chat.type
-            title = getattr(chat, "title", None) or getattr(chat, "first_name", None) or f"@{uname}"
-            desc = getattr(chat, "description", None) or ""
-            mcount = getattr(chat, "member_count", None)
-            _ph = getattr(chat, "photo", None)
-            if _ph is not None and getattr(_ph, "url", None):
-                _photo = _ph.url
-            kind = {"channel": "📢 Public Channel", "supergroup": "👥 Public Group",
-                    "group": "👥 Group", "user": "👤 User"}.get(ctype, "💬 Chat")
-            # v54.1: har item ke end me extra "\n" tha + join bhi "\n" se →
-            # beech me khali separator lines banti thin (screenshot me dikha).
-            # Ab sirf join ka newline, koi double newline nahi.
-            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>",
-                 f"🎯 <b>{hesc(title)}</b>",
-                 "━━━━━━━━━━━━━━━━━━━━━━",
-                 f"• <b>Type:</b> {kind}",
-                 f"• <b>Username:</b> <code>@{uname}</code>"]
-            L.append(f"• <b>Bio/Description:</b> "
-                     + (hesc(desc[:300]) if desc else "<i>(public page par nahi likha)</i>"))
-            if mcount is not None:
-                L.append(f"• <b>Members:</b> {mcount:,}")
-            L.append("━━━━━━━━━━━━━━━━━━━━━━")
-            L.append("<i>Sirf public info (Bot API se) — private members/phone nahi dikhata.</i>")
-            card = "\n".join(L)
-        except Exception:
-            # user profile / non-channel → t.me public page fallback
-            prof = await asyncio.to_thread(tg_user_public, uname)
-            if not prof.get("ok"):
-                await update.message.reply_text(f"❌ {prof.get('error')}", parse_mode=HTML)
-                add_use(uid)
-                return
-            _photo = prof.get("photo") or ""
-            # v54.1: yahan bhi har item ke end ka extra "\n" hata diya
-            # (join already "\n" se hota hai) — warna beech me khali rows.
-            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>",
-                 f"🎯 <b>{hesc(prof['name'])}</b>",
-                 "━━━━━━━━━━━━━━━━━━━━━━",
-                 f"• <b>Username:</b> <code>@{prof['username']}</code>",
-                 "• <b>Type:</b> 👤 User Profile"]
-            if prof.get("bio"):
-                L.append(f"• <b>Public Bio:</b> {hesc(prof['bio'][:300])}")
-            else:
-                L.append("• <b>Public Bio:</b> <i>(public page par nahi likha)</i>")
-            L.append("━━━━━━━━━━━━━━━━━━━━━━")
-            L.append("<i>Sirf public info (jo t.me par sab dekh sakte hain) — "
-                     "private info nahi dikhata.</i>")
-            L.append("💡 Bio dikhne ke liye user ko Telegram → Settings → Edit → About me likhna hoga.")
-            card = "\n".join(L)
-        _tg_msg = spend_credit_msg(uid, "tginfo") + "\n" + card
-        if _photo:
-            # v52.3: profile photo + card ek saath (photo = t.me/Bot API se public photo)
-            try:
-                await update.message.send_photo(
-                    chat_id=update.effective_chat.id, photo=_photo,
-                    caption=_tg_msg, parse_mode=HTML)
-                add_use(uid)
-                return
-            except Exception:
-                pass  # photo fail ho to text hi chala jayega
-        await update.message.reply_text(_tg_msg, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -4804,185 +4494,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(str(res.get("error") or ""), parse_mode=HTML)
             else:
                 await update.message.reply_text(f"{res.get('error')}", parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if mode == "pinterest":
-        # v53.0: engine ab REAL Pinterest API use karta hai (BaseSearchResource /
-        # PinResource). Results plain-URL strings ki jagah **rich pin dicts** hain
-        # (title + dimensions + pinner + video flag). pin.it short links bhi
-        # resolve hote hain, aur video pins MP4 me aate hain.
-        txt = (raw_text or "").strip()
-        _is_link = ("pinterest." in txt.lower() or "pin.it/" in txt.lower()
-                    or "/pin/" in txt or re.fullmatch(r"\d{9,25}", txt)
-                    or txt.lower().startswith("http"))
-        _t0 = time.perf_counter()
-        if _is_link:
-            res = await asyncio.to_thread(pinterest_from_pin_link, txt)
-            _ms = (time.perf_counter() - _t0) * 1000
-            if res.get("ok"):
-                tel_note("pinterest", True, _ms, credit=True)
-                _cid = update.effective_chat.id
-                _data = res["bytes"]
-                _kb = len(_data) // 1024
-                _pin = res.get("pin") or {}
-                _cap = _pin_meta_line(_pin)
-                _cap = ("\n" + _cap) if _cap else ""
-                await update.message.reply_text(
-                    spend_credit_msg(uid, "pinterest") + "\n"
-                    + ("🎬 <b>PINTEREST VIDEO</b> — download ✅"
-                       if res.get("kind") == "video"
-                       else "📌 <b>PINTEREST IMAGE</b> — original quality download ✅"),
-                    parse_mode=HTML)
-                if res.get("kind") == "video":
-                    await update.message.send_video(
-                        chat_id=_cid, video=io.BytesIO(_data),
-                        supports_streaming=True,
-                        caption=cut_html(
-                            (f"🎬 Pinterest video ({_kb // 1024 if _kb >= 1024 else _kb}"
-                             f"{' MB' if _kb >= 1024 else ' KB'}){_cap}"
-                             "\n<i>Public Pinterest pin</i>"), 1000))
-                else:
-                    await update.message.send_photo(
-                        chat_id=_cid, photo=io.BytesIO(_data),
-                        caption=cut_html(
-                            (f"📌 Pinterest · original quality ({_kb} KB)"
-                             + (f" · {hesc(str(res.get('ext', '')))}" if res.get("ext") else "")
-                             + _cap + "\n<i>Public Pinterest pin</i>"), 1000),
-                        parse_mode=HTML)
-            else:
-                tel_note("pinterest", False, _ms,
-                         soft=bool(res.get("service_busy")),
-                         error=str(res.get("error") or "")[:120])
-                await update.message.reply_text(str(res.get("error") or "Download fail ho gaya."),
-                                                parse_mode=HTML)
-            add_use(uid)
-            return
-        # keyword search
-        res = await asyncio.to_thread(pinterest_search, txt)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if not res.get("ok"):
-            tel_note("pinterest", False, _ms, error=str(res.get("error") or "")[:120])
-            await update.message.reply_text(str(res.get("error") or "Search fail ho gaya."),
-                                            parse_mode=HTML)
-            add_use(uid)
-            return
-        tel_note("pinterest", True, _ms)
-        results = res["results"]
-        # rich dicts store karo (pinpick handler inhe use karta hai)
-        context.user_data["pin_results"] = results
-        rows = []
-        L = [f"📌 <b>{to_bold('PINTEREST SEARCH')}</b> — '{hesc(txt[:40])}'\n"]
-        _npin = sum(1 for x in (res.get("is_pinterest") or []) if x)
-        if _npin:
-            L.append(f"✅ <b>{_npin}</b> asli Pinterest images mili hain — original quality\n")
-        else:
-            L.append("⚠️ Pinterest se direct result nahi mila — similar public images dikh rahi hain\n")
-        # har result ka chhota label (title + size) — pehle sirf "1. 🟡 Pinterest" tha
-        for i, p in enumerate(results, 1):
-            if isinstance(p, dict):
-                # v54.2: title na ho to pinner naam / domain fallback lagao —
-                # sookha label user ko kuch nahi batata (screenshot me dikha tha).
-                _t = ((p.get("title") or p.get("pinner_name") or p.get("domain")
-                       or "Pinterest pin").strip() or "Pinterest pin")[:34]
-                _w, _h = p.get("width") or 0, p.get("height") or 0
-                _dim = f" · {_w}×{_h}" if _w and _h else ""
-                _hd = " <b>HD</b>" if max(_w or 0, _h or 0) >= 1600 else ""
-                _vid = " 🎬" if p.get("is_video") else ""
-                L.append(f"{i}. {hesc(_t)}{_dim}{_hd}{_vid}")
-            else:
-                L.append(f"{i}. 🖼️ image")
-        L.append("\n👇 <b>Jo chahiye wo tap karo:</b>")
-        for i in range(0, len(results), 2):
-            row = []
-            for j in range(i, min(i + 2, len(results))):
-                _p = results[j]
-                _lab = "🎬" if (isinstance(_p, dict) and _p.get("is_video")) else "🖼️"
-                row.append(InlineKeyboardButton(f"{j+1} {_lab} Download",
-                                                callback_data=f"pinpick:{j}"))
-            rows.append(row)
-        rows.append([InlineKeyboardButton("🔍 Naya search", callback_data="back_home")])
-        await update.message.reply_text(cut_html("\n".join(L), 3900), parse_mode=HTML,
-                                        reply_markup=InlineKeyboardMarkup(rows))
-        # v54.2: competitor-bot jaisa look — list ke turant baad TOP result ka
-        # photo preview. Search FREE hai isliye preview par koi credit nahi katta.
-        # Ye list ke BAAD bhejte hain taaki user ko list ka wait na kare, aur
-        # fail ho to chup-chaap skip (list+buttons already ja chuke hote hain).
-        _prev = next((p for p in results
-                      if isinstance(p, dict) and not p.get("is_video")
-                      and (p.get("image_url") or p.get("all_sizes"))), None)
-        if _prev is not None:
-            try:
-                _pd = await asyncio.to_thread(_pinpick_download, _prev)
-                if _pd.get("ok"):
-                    try:
-                        _pd["stream"].name = f"preview{_pd.get('ext', '.jpg')}"
-                    except Exception:                                # noqa: BLE001
-                        pass
-                    await update.message.reply_photo(
-                        photo=_pd["stream"],
-                        caption=cut_html("📌 <b>Top result ka preview</b> — original "
-                                           "quality ke liye upar <b>1</b> button dabao.",
-                                           1000),
-                        parse_mode=HTML)
-            except Exception as e:                                   # noqa: BLE001
-                log.debug("pinterest preview skip: %s", str(e)[:80])
-        add_use(uid)
-        return
-
-    if mode == "webscraper":
-        # v53.0: engine ab **real article extraction** karta hai (paragraph scoring +
-        # link-density + boilerplate/backmatter strip). Pehle Wikipedia page par
-        # 22,515 words aate the jisme navigation + 300 references + categories thi;
-        # ab sirf asli article (11,339 words, zero junk).
-        # `markdown=True` → .txt file padhne-laayak format me banti hai.
-        _t0 = time.perf_counter()
-        res = await asyncio.to_thread(scrape_public_text, raw_text, True, True)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if not res.get("ok"):
-            tel_note("webscraper", False, _ms, error=str(res.get("error") or "")[:120])
-            await update.message.reply_text(str(res.get("error") or "Page open nahi hua."),
-                                            parse_mode=HTML)
-            add_use(uid)
-            return
-        tel_note("webscraper", True, _ms, credit=True)
-        body = res["text"]
-        # byline: author + date + site (v53.0 naya)
-        _byline = []
-        if res.get("author"):
-            _byline.append(f"✍️ {hesc(str(res['author'])[:40])}")
-        if res.get("date"):
-            _byline.append(f"📅 {hesc(str(res['date'])[:26])}")
-        if res.get("site"):
-            _byline.append(f"🌐 {hesc(str(res['site'])[:30])}")
-        head = (f"📄 <b>{hesc(str(res.get('title') or ''))}</b>\n"
-                + (("  ·  ".join(_byline)) + "\n" if _byline else "")
-                + f"🔗 <code>{hesc(str(res.get('url') or ''))}</code>\n"
-                + (f"ℹ️ {hesc(str(res['desc'])[:180])}\n" if res.get("desc") else "")
-                + f"📊 {res.get('words', 0)} words · ~{res.get('reading_min', 0)} min read"
-                + f" · {res.get('para_count', 0)} paras\n"
-                + "━━━━━━━━━━━━━━━━━━━━━━\n")
-        if len(body) > 3400:
-            # bada article → markdown .txt file (padhne layak, pehle plain deewar thi)
-            md = res.get("markdown") or (head + body)
-            _fname = re.sub(r"[^\w\-]+", "-", str(res.get("title") or "page").lower())[:44].strip("-")
-            await update.message.reply_text(
-                spend_credit_msg(uid, "webscraper") + "\n"
-                + head
-                + f"\n📄 Poora article <b>{res.get('words')} words</b> ka hai — "
-                ".txt file me bhej raha hoon (saaf markdown format) 👇\n\n"
-                + "<b>🔽 Pehla hissa:</b>\n" + hesc(body[:900]) + " […]",
-                parse_mode=HTML)
-            await update.message.send_document(
-                chat_id=update.effective_chat.id,
-                document=io.BytesIO(md.encode("utf-8")),
-                filename=f"{_fname or 'page-text'}.txt",
-                caption=(f"{res.get('words')} words · ~{res.get('reading_min')} min · "
-                         f"{hesc(str(res.get('url'))[:60])}")[:1000])
-        else:
-            await update.message.reply_text(
-                spend_credit_msg(uid, "webscraper") + "\n" + head + hesc(body)[:3300],
-                parse_mode=HTML)
         add_use(uid)
         return
 
@@ -5119,33 +4630,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"⏳ Valid: ~{int((res.get('expires_in') or 2592000) // 86400)} din\n"
             "🔒 Ye email sirf isi chat me hai — koi aur nahi dekh sakta.",
             parse_mode=HTML, reply_markup=_tm_kb)
-        add_use(uid)
-        return
-
-    if mode == "aadeid":
-        res = await asyncio.to_thread(desi.aadhaar_eid_helper, raw_text)
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            add_use(uid)
-            return
-        await update.message.reply_text(
-            spend_credit_msg(uid, "aadeid") + "\n" +
-            f"🪪 <b>{to_bold('AADHAAR EID STATUS — READY')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"• <b>Aapka EID:</b> <code>{res['eid']}</code>\n"
-            "• <b>Status method:</b> Official UIDAI SMS (CAPTCHA-free)\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            " <b>Ye SMS copy karke</b> <b>51969</b> pe bhejo (free SMS):\n"
-            f"<code>{res['sms']}</code>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "📱 2-3 minute me <b>51969</b> se aapko status ka SMS aa jayega "
-            "(Enrolled / Not Enrolled / Rejection ke saath reason).\n\n"
-            "💻 <b>Web se check karna ho to:</b>\n"
-            f"{res['web']}\n"
-            "(wahan EID + CAPTCHA khud daalna hoga — bot CAPTCHA nahi todta)\n\n"
-            "🔑 <b>EID bhool gaye?</b> (registered mobile + email se mil jayega)\n"
-            f"{res['lost']}\n\n"
-            "<i>⚠️ Sirf APNA EID daalo. Kisi aur ka EID / Aadhaar number bot me kabhi mat daalo.</i>")
         add_use(uid)
         return
 
@@ -5983,8 +5467,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🔍 <b>What was found:</b>\n{reasons_txt}\n\n"
             f"💡 <b>What to do:</b> {chk.get('advice')}"
         )
-        kb_rows = [[InlineKeyboardButton("🌐 Final link kholo", url=chk.get("final_url"))]]
-        await st.edit_text(spend_credit_msg(uid, "linkcheck") + "\n" + cap, reply_markup=InlineKeyboardMarkup(kb_rows), parse_mode=HTML)
+        # v56: dead link par button banana bekaar tha + raw error dikhta tha.
+        _reach = sig.get("reachable", True)
+        if not _reach:
+            cap += ("\n\n🔌 <b>Note:</b> Ye link abhi <b>khul nahi raha</b> — "
+                    "domain galat/spelling galat hai, ya server band hai. "
+                    "Aise link par OTP / password / UPI PIN <b>kabhi na dalo</b>.")
+        kb_rows = []
+        if chk.get("final_url"):
+            kb_rows.append([InlineKeyboardButton("🌐 Final link kholo", url=chk["final_url"])])
+        await st.edit_text(spend_credit_msg(uid, "linkcheck") + "\n" + cap,
+                           reply_markup=InlineKeyboardMarkup(kb_rows) if kb_rows else None,
+                           parse_mode=HTML)
         add_use(uid)
         return
 

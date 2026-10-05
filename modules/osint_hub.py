@@ -7,7 +7,6 @@ Utility Duniya Bot → aapka apna OSINT API Hub (https://osint-api-hub.onrender.
 Safe lookup scope:
   📱 NUMBER INFO       →  sirf non-sensitive carrier/circle metadata (personal records disabled)
   🚗 VEHICLE + CHALLAN →  official links by default; live data only with an authorized provider
-  🆔 AADHAAR FAMILY    →  consent/authorized source required; koi leaked data query nahi hota
 
 ENV (Render → Environment):
   OSINT_API_BASE   = https://osint-api-hub.onrender.com/api   (default)
@@ -268,19 +267,6 @@ def vehicle_report_v2(plate: str) -> dict:
            "cached": False}
     _cache_put(ck, res)
     return res
-
-
-# ===================================================================
-#  3) AADHAAR FAMILY
-# ===================================================================
-def aadhaar_family_report(aadhaar: str) -> dict:
-    """Retired: Aadhaar/family information is not queried from leaked datasets."""
-    return {
-        "ok": False,
-        "has_data": False,
-        "disabled": True,
-        "error": "Aadhaar-family lookup yahan supported nahi. Apne records ke liye UIDAI/NFSA ke official, consent-based portal ka use karein.",
-    }
 
 
 # ===================================================================

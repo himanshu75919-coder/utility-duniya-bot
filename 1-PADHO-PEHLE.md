@@ -1,4 +1,18 @@
-# 📖 1-PADHO-PEHLE.md — v52.3 Premium Earning (5 minute me poora samajh)
+# 📖 1-PADHO-PEHLE.md — v56.0 Crash-Proof (5 minute me poora samajh)
+
+## 🗑️ v56.0 — jo 5 tools aapke order par DELETE hue
+
+| Tool | Ab kya use karo |
+|---|---|
+| 🌐 Domain OSINT / IP | 📮 Pincode Info · 🏦 IFSC Info · 🏦 UPI Verify |
+| 📌 Pinterest | 📥 Video Downloader · ⚡ Media Studio |
+| 📄 Web Scraper | Browser me Ctrl+A → Copy · ⚡ Media Studio |
+| 🪪 Aadhaar EID | resident.uidai.gov.in (official) · SMS 51969 |
+| 📡 TG Public Info | Telegram app me channel kholo — subscribers wahi dikhte hain |
+
+**Purane keyboard ka button dabaya to** saaf message aayega (error nahi) + naya menu.
+**Full detail:** `V56-KYA-BADLA.md`
+
 
 ## 🆕 v52.3 me kya badla (6 naye tools — aapke choice par)
 

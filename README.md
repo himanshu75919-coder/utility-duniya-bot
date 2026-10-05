@@ -1,4 +1,25 @@
-# ⚡ Utility Duniya Super-Bot — **v55.0 Deep Audit + Pro Upgrade**
+# ⚡ Utility Duniya Super-Bot — **v56.0 Crash-Proof + 5-Tool Cleanup**
+
+## 🆕 v56.0 — "CRASH-PROOF + 5-TOOL CLEANUP" (aapka crash **hamesha** ke liye fix)
+
+**Asli crash ki jadd mil gayi:** python-telegram-bot me `send_photo` / `send_document` /
+`send_video` **sirf `Bot` par hote hain — `Message` par NAHI** (Message par `reply_photo` /
+`reply_document` hote hain). Code **8 jagah** `q.message.send_photo()` aur
+`update.message.send_document()` call kar raha tha → har baar `AttributeError` →
+user ko *"⚠️ Chhota sa ghatna ho gaya!"*. **Sab fix + naya test jo dobara aane nahi dega.**
+Poore numbers: **`V56-KYA-BADLA.md`**
+
+| Kya | Pehle | Ab |
+|---|---|---|
+| 🚨 **Crash (8 call sites)** | `Message` par `send_*` → AttributeError → crash | Sab hataye + `tests/test_v56.py` guard |
+| 🗑️ **5 tools (aapke order par)** | 🌐 Domain OSINT · 📌 Pinterest · 📄 Web Scraper · 🪪 Aadhaar EID · 📡 TG Public Info | Code + modules + tests + docs — **poora saaf** (bot.py 30 KB halka) |
+| 💬 Purane keyboard walon ke liye | kuch nahi (error) | **24 labels** ka friendly message + alternative |
+| 🛡️ Callback ka purana message | `InaccessibleMessage` par crash | `cbmsg()` guard — naya message bhej deta hai |
+| 🤖 YouTube bot-check error | `ERROR: [youtube] ... Sign in to confirm you're not a bot. Use --cookies...` | 17 errors ka **saaf Hindi + solution** ("credit nahi kata") |
+| 🔌 Dead link | `junk.nonexistent-xyz.com` → **"SAFE ✅ 0/100"** (jhootha bharosa!) | **"LINK KHULTA NAHI 🔌"** + OTP warning |
+| 🧹 Network error | `HTTPSConnectionPool(...): Max retries exceeded...` raw | "🔌 Ye website ka pata hi nahi chala — spelling galat hai" |
+
+**Tests: 580 checks · 0 fail** (`14 + 97 + 208 + 67 + 63 + 131`) · Naya suite: `tests/test_v56.py`
 
 ## 🆕 v55.0 — "DEEP AUDIT + PRO UPGRADE" (saare 24 tools live-test kiye)
 

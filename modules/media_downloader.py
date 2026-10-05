@@ -231,6 +231,111 @@ def _ig_parth(clean: str, media_cat: str):
 # =====================================================================================
 # ENGINE 2 — yt-dlp (Instagram + 20+ platforms)
 # =====================================================================================
+
+# ===========================================================================
+#  v56: FRIENDLY DOWNLOAD ERRORS
+#  Render log (2026-10-05, 03:01 PM) me ye tha:
+#     ERROR: [youtube] yaQCKQMiLo: Sign in to confirm you're not a bot.
+#     Use --cookies-from-browser or --cookies for the authentication.
+#  User ko aisa technical wall of text kabhi nahi dikhna chahiye. Yahan har
+#  known yt-dlp failure ka saaf Hindi + solution hai. Ye module-level state
+#  hai kyunki yt-dlp ke exceptions andar hi swallow ho jaate hain — warna
+#  user ko khali "download fail" milta tha aur wajah pata hi nahi chalti.
+# ===========================================================================
+_LAST_ERR: dict = {"msg": "", "at": 0.0}
+
+
+def _remember(exc) -> None:
+    """Aakhri yt-dlp/network error yaad rakho (friendly message ke liye)."""
+    try:
+        _LAST_ERR["msg"] = str(exc)[:500]
+        _LAST_ERR["at"] = time.time()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def last_dl_error() -> str:
+    """Aakhri error — 10 minute se purana ho to bhool jao (stale message na aaye)."""
+    try:
+        if time.time() - _LAST_ERR["at"] > 600:
+            return ""
+    except Exception:  # noqa: BLE001
+        return ""
+    return _LAST_ERR["msg"]
+
+
+_DL_ERR_MAP = (
+    # ---- YouTube bot-check (aaj kal ka sabse common) ----
+    (("sign in to confirm you're not a bot", "sign in to confirm you’re not a bot",
+      "confirm you're not a bot"),
+     "🤖 <b>YouTube ne is server ke IP par bot-check laga diya hai.</b>\n"
+     "✅ <b>Kya karo:</b> 1-2 minute ruk ke <b>dobara try karo</b>, ya video ki "
+     "<b>chhoti quality (720p / 480p)</b> chuno — chhoti quality par ye check kam lagta hai.\n"
+     "💳 <b>Aapka credit nahi kata.</b>"),
+    # ---- login / private ----
+    (("sign in to confirm your age", "age-restricted", "inappropriate for some users"),
+     "🔞 <b>Ye video age-restricted hai</b> (YouTube login maangta hai).\n"
+     "✅ Koi doosra public video try karo. <b>Credit nahi kata.</b>"),
+    (("private video", "this video is private"),
+     "🔒 <b>Ye video private hai</b> — sirf owner dekh sakta hai.\n"
+     "✅ Public video ka link bhejo. <b>Credit nahi kata.</b>"),
+    (("members-only", "available to this channel's members", "join this channel"),
+     "👑 <b>Ye members-only video hai</b> (channel ki paid membership chahiye).\n"
+     "✅ Free video try karo. <b>Credit nahi kata.</b>"),
+    (("video unavailable", "this video is unavailable", "removed by the uploader",
+      "no longer available", "has been terminated"),
+     "🚫 <b>Ye video YouTube par ab available nahi hai</b> (delete / hata diya gaya).\n"
+     "✅ Koi doosra link bhejo. <b>Credit nahi kata.</b>"),
+    (("not available in your country", "geo-restricted", "blocked in your country",
+      "not available on this platform"),
+     "🌍 <b>Ye video aapke/server ke region me blocked hai.</b>\n"
+     "✅ Koi doosra video try karo. <b>Credit nahi kata.</b>"),
+    (("is live", "live event will begin", "premieres in", "live stream"),
+     "🔴 <b>Ye live stream / premiere hai</b> — live video download nahi ho sakta.\n"
+     "✅ Stream khatam hone ke baad try karo. <b>Credit nahi kata.</b>"),
+    # ---- format / link issues ----
+    (("requested format is not available", "no video formats found", "no formats found"),
+     "🎞️ <b>Is video ki ye quality available nahi hai.</b>\n"
+     "✅ Doosri quality chuno (720p / 480p). <b>Credit nahi kata.</b>"),
+    (("unsupported url", "no suitable extractor", "not a valid url",
+      "is not a valid url", "unable to extract"),
+     "🔗 <b>Ye link supported nahi hai</b> ya link adhoora hai.\n"
+     "✅ Poora link copy karke bhejo (browser ke address bar se). <b>Credit nahi kata.</b>"),
+    (("login required", "requested content is not available", "rate-limit",
+      "too many requests", "http error 429"),
+     "⏳ <b>Platform ne thodi der ke liye rok laga di hai</b> (rate-limit).\n"
+     "✅ <b>2-3 minute</b> ruk ke dobara try karo. <b>Credit nahi kata.</b>"),
+    (("http error 403", "forbidden", "access denied"),
+     "🛡️ <b>Platform ne is download ko block kiya hai</b> (403).\n"
+     "✅ 1-2 minute baad dobara try karo. <b>Credit nahi kata.</b>"),
+    # ---- network ----
+    (("timed out", "timeout", "read timeout", "connection reset",
+      "connection aborted", "temporary failure in name resolution"),
+     "🌐 <b>Internet/server se connection slow ya toot gaya.</b>\n"
+     "✅ <b>10 second</b> baad dobara try karo. <b>Credit nahi kata.</b>"),
+    (("file is larger than", "max-filesize", "filesize"),
+     "📦 <b>Video file Telegram ki limit (48MB) se badi hai.</b>\n"
+     "✅ <b>Chhoti quality</b> (480p / 360p) chuno, ya ✂️ <b>Media Studio → Video compress</b> "
+     "use karo. <b>Credit nahi kata.</b>"),
+)
+
+
+def friendly_dl_error(raw: str = "", platform: str = "") -> str:
+    """yt-dlp ka technical error → saaf Hindi message + solution.
+
+    `raw` khali ho to aakhri yaad kiya gaya error use hota hai.
+    """
+    msg = (raw or last_dl_error() or "").lower()
+    for keys, friendly in _DL_ERR_MAP:
+        if any(k in msg for k in keys):
+            return friendly
+    p = f"{platform} " if platform else ""
+    return (f"❌ {p}download abhi nahi ho paya.\n"
+            "✅ 1-2 minute baad <b>dobara try karo</b> — pehli koshish me "
+            "platform server ko jawab nahi deta.\n"
+            "💳 <b>Koi credit nahi kata.</b>")
+
+
 def _ytdlp_opts(extra=None):
     opts = {
         "quiet": True,
@@ -259,7 +364,8 @@ def _ytdlp_info(url: str):
         try:
             with yt_dlp.YoutubeDL(_ytdlp_opts({"skip_download": True})) as ydl:
                 return ydl.extract_info(url, download=False)
-        except Exception:
+        except Exception as e:                                # noqa: BLE001
+            _remember(e)          # v56: friendly message ke liye wajah
             if attempt == 0:
                 time.sleep(3)   # Instagram 429 rate-limit ke liye thoda wait
                 continue
@@ -306,7 +412,8 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
             return None, info
         with open(path, "rb") as fh:
             return fh.read(), info
-    except Exception:
+    except Exception as e:                                    # noqa: BLE001
+        _remember(e)          # v56: friendly message ke liye wajah yaad rakho
         return None, None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
@@ -505,7 +612,8 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
 
     info = _ytdlp_info(url)
     if not info:
-        return {"ok": False, "error": "yt-dlp ye link handle nahi kar paya. Link public hai kya check karo."}
+        return {"ok": False, "error": friendly_dl_error(
+            "yt-dlp ye link handle nahi kar paya")}
 
     plat = platform_name(url)
 
@@ -763,6 +871,11 @@ def _yt_quality_download(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict
     # 2) Fallback: hub ka best-quality link + bot par ffmpeg downscale
     hubres = _hub_youtube_download(url, max_mb)
     if not hubres.get("ok") or hubres.get("type") != "video" or not hubres.get("bytes"):
+        # v56: pehle yahan khali {"ok": False} jaata tha — user ko wajah pata
+        # nahi chalti thi (Render log me "Sign in to confirm you're not a bot"
+        # tha, user ko sirf "DOWNLOAD FAILED" milta tha).
+        if not hubres.get("error"):
+            hubres["error"] = friendly_dl_error(platform="YouTube")
         return hubres                                        # link/error waisa hi
     ds = downscale_video(hubres["bytes"], h, max_mb)
     if not ds.get("ok"):
@@ -823,7 +936,8 @@ def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
             return None, info
         with open(path, "rb") as fh:
             return fh.read(), info
-    except Exception:
+    except Exception as e:                                    # noqa: BLE001
+        _remember(e)          # v56: friendly message ke liye wajah yaad rakho
         return None, None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
