@@ -1,5 +1,37 @@
 # 🔑 RENDER ENVIRONMENT — kya bharna hai (Number Info API)
 
+## ⚡ SABSE PEHLE — sirf 2 LINE (2 minute ka kaam)
+
+Render → `utility-duniya-bot` → **Environment** → `Add Environment Variable`:
+(👉 **phir Save Changes** dabao — Render khud restart karega)
+
+**Agar aapki demo API numverify hai:**
+| Key | Value |
+|---|---|
+| `NUMINFO_PROVIDER_URL` | `https://apilayer.net/api/validate` |
+| `NUMINFO_PROVIDER_KEY` | *(apni key yahan paste karo)* |
+| `NUMINFO_PROVIDER_KEY_PARAM` | `access_key` |
+| `NUMINFO_PROVIDER_PARAM` | `number` |
+
+**Agar aapki demo API abstractapi hai:**
+| Key | Value |
+|---|---|
+| `NUMINFO_PROVIDER_URL` | `https://phonevalidation.abstractapi.com/v1/` |
+| `NUMINFO_PROVIDER_KEY` | *(apni key yahan paste karo)* |
+| `NUMINFO_PROVIDER_KEY_PARAM` | `api_key` |
+| `NUMINFO_PROVIDER_PARAM` | `phone` |
+
+**Aur koi API hai?** Bas ye 2 line daalo aur mujhe API ka **naam/link** bhejo —
+main exact baaki values 1 minute me bana dunga:
+| Key | Value |
+|---|---|
+| `NUMINFO_PROVIDER_URL` | aapki API ka URL (aakh me `{number}` laga dena) |
+| `NUMINFO_PROVIDER_KEY` | aapki key |
+
+**Test:** Telegram me `/numapi` → phir `/numapi 9876543210` → `✅ API CHAL RAHI HAI` = ho gaya 🎉
+
+---
+
 > Aapke paas API ka **key** hai. Par Render ko **do cheezein** chahiye:
 > **1) URL** (kahan bhejna hai) aur **2) KEY** (jo aapke paas hai).
 > Sirf key se kaam nahi chalega — URL zaroori hai. Dono neeche diye hain.
