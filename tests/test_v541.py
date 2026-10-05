@@ -304,6 +304,10 @@ section("5) 🧾 Version + overall sanity")
 check("BOT_VERSION v54.1 par hai", 'BOT_VERSION = "v54.1' in _bot_src)
 check("prompts abhi bhi minimal one-liners hain (v54 feature zinda)",
       _bot_src.count("PROMPTS") >= 1 and "tool_prompt(" in _bot_src)
+check("/health par git commit SHA dikhta hai (deploy verify karne ke liye)",
+      "RENDER_GIT_COMMIT" in _bot_src and "commit: {_GIT_COMMIT" in _bot_src)
+check("/health par branch + uptime bhi hai",
+      "RENDER_GIT_BRANCH" in _bot_src and "| up: " in _bot_src)
 check("menu se vehicle/RTO/challan abhi bhi hata hua hai",
       "vehicle" not in _bot_src.lower().split("btn_mode_map")[0][-4000:].lower()
       or "RTO" not in _bot_src)

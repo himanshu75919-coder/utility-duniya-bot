@@ -6580,6 +6580,23 @@ except Exception:
     _KEEPALIVE_MINUTES = 10.0
 _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 
+# v54.1: /health par **git commit SHA** bhi dikhao.
+# Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
+# commit chal raha hai (version same rehne par bhi code alag ho sakta hai). Render
+# khud RENDER_GIT_COMMIT / RENDER_GIT_BRANCH env inject karta hai.
+_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "").strip()[:7]
+_GIT_BRANCH = (os.environ.get("RENDER_GIT_BRANCH") or "").strip()
+if not _GIT_COMMIT:
+    try:  # local dev fallback (Render par ye branch chalega hi nahi)
+        import subprocess as _sp
+        _GIT_COMMIT = _sp.run(["git", "rev-parse", "--short=7", "HEAD"],
+                              capture_output=True, text=True, timeout=3,
+                              cwd=os.path.dirname(os.path.abspath(__file__))
+                              ).stdout.strip()[:7]
+    except Exception:                                            # noqa: BLE001
+        _GIT_COMMIT = ""
+_START_TS = time.time()
+
 
 def _keepalive_pinger():
     """Pehli ping 90 sec me, phir har ~10 min — Render free plan par bot+hub 24/7 ON."""
@@ -6618,6 +6635,9 @@ def _keepalive():
                    f" | runs={_KEEPALIVE_STATE.get('runs')}")
             html = ("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"
                     f"<p style='font-family:monospace'>version: {BOT_VERSION}</p>"
+                    f"<p style='font-family:monospace'>commit: {_GIT_COMMIT or 'unknown'}"
+                    f" | branch: {_GIT_BRANCH or 'unknown'}"
+                    f" | up: {int(time.time() - _START_TS) // 60}m</p>"
                     f"<p style='font-family:monospace'>{_ka}</p>"
                     f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
             self.wfile.write(html.encode("utf-8"))
