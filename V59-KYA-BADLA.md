@@ -209,3 +209,50 @@ Aapka username **@Supermannn_x** ab har jagah **clickable** hai:
 **UPI poora gaya · privacy text gaya · Number Info aapke format me ·
 YouTube instant + tez · IMEI theek · ek chhupa crash bug bhi fix.**
 Bas Render deploy + `/version` bhejo (v59 dikhna chahiye).
+
+---
+
+## 10. v59.9 — 🌐 AUTO-WEBHOOK (asli "kyun nahi chal raha" ka jawab)
+
+Aapne poocha: *"naye versions me ye kyun nahi chal raha"* — Render logs me jawab tha:
+
+| Jo logs me dikha | Matlab |
+|---|---|
+| `MODE = POLLING (safe default)` | Bot purane mode me tha |
+| 2 baar `STARTING POLLING ... only ONE instance must run` | Deploy ke waqt **do** instance saath chal rahe the |
+| Dono `getUpdates` maangte hain | Telegram: **"Conflict: terminated by other getUpdates request"** → us waqt bot late / no reply |
+
+**Fix (v59.9):** ab **webhook mode apne aap ON** hota hai. Webhook me Telegram khud
+update bhejta hai, `getUpdates` hota hi nahi → **Conflict kabhi nahi**.
+
+| Kaam | Detail |
+|---|---|
+| `WEBHOOK_MODE=auto` (default) | `RENDER_EXTERNAL_URL` mila → webhook ON |
+| Safety 1 — DNS check | URL kaam ka nahi to chup-chaap POLLING (crash nahi) |
+| Safety 2 — Telegram preflight | `setWebhook` ek baar try; fail = POLLING (bot rukta nahi) |
+| `WEBHOOK_URL` me galat value | **v59.9.3:** sirf asli `http(s)` URL maani jaati hai — `on`/`yes`/`1` likha ho to Render ka apna URL use hota hai |
+| Puran `WEBHOOK_MODE=polling` | **v59.9.1:** ab auto maana jaata hai (dashboard ki purani value webhook band nahi karti) |
+| Zabardasti polling | `WEBHOOK_MODE=off` (bas yahi ek rasta) |
+| Polling par switch | purani webhook delete hoti hai (warna `getUpdates` band) |
+
+### /version aur /health me ab ASLI proof
+
+* `/version` → 🔖 **Code commit** + 🌐 **Mode** + ⏱️ uptime + 🩺 crashes + 🌐 webhook check
+  + 3-step "naya version live hai ya nahi" guide.
+* `/health` (browser) → version, **commit**, branch, **mode**, uptime, keepalive, crashes
+  aur webhook ki **asli wajah** (`mode_env`, `url_env`, `decision`, `why`).
+  *Webhook mode me pehle sirf chhota JSON aata tha — isliye aapko version/commit
+  dikh hi nahi raha tha.*
+
+### Live proof (05-10-2026)
+
+```
+version: v59.9 Auto-Webhook (Conflict-Free) + Live Version Proof + Support Clickable
+commit: 83a16a7 | branch: main | mode: WEBHOOK | up: 0m
+self-heal: crashes=0 (koi crash nahi)
+webhook: mode_env=(not set) | url_env=set | render_url=set | decision=WEBHOOK
+         | why: Telegram ne URL maan liya ✅
+```
+
+**Aap khud kaise check karo:** Telegram me `/version` bhejo → commit `83a16a7` aur
+`Mode: WEBHOOK` dikhna chahiye. Browser me `/health` kholo → `mode: WEBHOOK`.

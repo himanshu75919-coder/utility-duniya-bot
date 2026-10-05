@@ -260,3 +260,27 @@ STEP 6: IMEI me "Redmi Note 10 Pro" bhejo → photo + specs
 ```
 
 **Kuch atke to mujhe screenshot bhejo — main dekh lunga.** 👍
+
+---
+
+## 🟢 STEP 8 — LIVE PROOF (v59.9) — "chal raha hai ya nahi" 20 second me pakdo
+
+**Telegram me bhejo:** `/version`
+
+Dekhna hai:
+```
+⚡ v59.9 Auto-Webhook (Conflict-Free) + Live Version Proof + Support Clickable
+🔖 Code commit: 83a16a7          ← Render ka latest commit jaisa = ✅ naya code LIVE
+🌐 Mode: WEBHOOK (Conflict-free) ← matlab deploy par Conflict nahi hoga
+🌐 Webhook check: WEBHOOK        ← Telegram ne aapka URL maan liya
+🩺 Crashes: 0 (self-heal ON)
+```
+
+**Browser me kholo:** https://utility-duniya-bot.onrender.com/health
+`mode: WEBHOOK` dikhna chahiye. `mode: POLLING` dikhe to 2 minute baad dobara.
+
+**Aap kuch nahi badalna** — Render me koi setting chhune ki zaroorat nahi.
+
+> Pehle kyun late/no reply tha: bot POLLING mode me tha aur deploy ke waqt do instance
+> saath chal jaate the → Telegram "Conflict" → us waqt koi jawab nahi. Ab webhook mode
+> hai, isliye ye problem hamesha ke liye khatam.
