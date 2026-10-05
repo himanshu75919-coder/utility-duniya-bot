@@ -217,7 +217,7 @@ for _tool, _needle in (
         ("BGMI", 'pcard_title("🎮", "BGMI PLAYER CARD")'),
         ("APP FINDER", 'pcard_title("📦", "APP FINDER")'),
         ("LINK CHECK", 'pcard_title("🛡️", "LINK CHECK REPORT")'),
-        ("NUMBER INFO", 'pcard_title("📱", "NUMBER INFO REPORT")')):
+        ("NUMBER INFO", "👤 <b>Name:</b>")):
     check(f"{_tool} card premium hai", _needle in BOT_SRC, _needle[:42])
 
 check("FF UID card me premium footer hai", "Garena public profile" in BOT_SRC)
