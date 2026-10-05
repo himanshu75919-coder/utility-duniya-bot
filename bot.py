@@ -295,15 +295,24 @@ UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
 WEBHOOK_URL = webhook_url_from_env()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
 FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
-SUPPORT_USERNAME = "@Supermannn_x"
+# v59.7: @username ko CLICKABLE banaya — koi bhi tap kare to seedha owner se
+# chat khul jaati hai (uske baad "Start" dabate hi message bhej sakta hai).
+# Username Render env se badla ja sakta hai (OWNER_USERNAME) — code chhune ki zaroorat nahi.
+OWNER_USERNAME = (os.getenv("OWNER_USERNAME", "").strip().lstrip("@")
+                  or "Supermannn_x")
+SUPPORT_USERNAME = "@" + OWNER_USERNAME
+SUPPORT_URL = f"https://t.me/{OWNER_USERNAME}"
+SUPPORT_LINK = f'<a href="{SUPPORT_URL}">@{OWNER_USERNAME}</a>'
 # v57: BRAND_TAG pehle bot.py me DEFINED hi nahi tha par numinfo card me use hota tha
 # -> AttributeError/NameError crash (kabhi live hit nahi hua kyunki wo branch galat
 # number par nahi chalti thi). Ab Render env se padha jaata hai (default wahi brand).
-BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or "@Supermannn_x")
+BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or SUPPORT_USERNAME)
+# clickable version (HTML messages ke liye) — tap karo → owner se chat khul jaaye
+BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
-BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v59.3 Crash-Proof Core + UPI Gaya + Number Info (ek format)"  # v59: 🏦 UPI tool + poori code DELETE · 🧹 saare lecture/note text gaye · 📱 Number Info me AB SIRF EK LAYOUT (aapka format: Name/Father/Phones/Region/GovtID/Address + Number/Operator/Source), purana boxed card POORA DELETE · ⚡ YouTube buttons INSTANT + tez download · 📲 IMEI photo + naam/code search · 🛡️ v59.3 HARDCORE CRASH-PROOF CORE: boot self-check + self-heal supervisor + loop guard + crash counter + owner-only/POST API support
+BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
+BOT_VERSION = "v59.7 Support Clickable + Crash-Proof + UPI Gaya + Num Info (ek format)"  # v59: 🏦 UPI tool + poori code DELETE · 🧹 saare lecture/note text gaye · 📱 Number Info ek hi layout (aapka format, data sirf aapki API se) + 3 examples · /numdemo + /numtest preview · ⚡ YouTube instant + tez · 📲 IMEI photo · 🛡️ crash-proof core (self-check+self-heal) · 💬 v59.7 SUPPORT CLICKABLE: har card/prompt me @Supermannn_x tap = seedha owner se chat (env OWNER_USERNAME se badal sakte ho) + /support command
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -471,7 +480,7 @@ def vip_wall_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("💎 VIP plan lo (💳 UPI / QR)", callback_data="open_vip_menu")],
         [InlineKeyboardButton("🎁 Refer & Earn — free VIP", callback_data="open_refer_menu")],
         [InlineKeyboardButton("📖 VIP me kya-kya milta hai?", callback_data="toolvid:premium")],
-        [InlineKeyboardButton("💬 Support @Supermannn_x", url="https://t.me/Supermannn_x")],
+        [InlineKeyboardButton(f"💬 Support {SUPPORT_USERNAME}", url=SUPPORT_URL)],
     ])
 
 
@@ -571,7 +580,7 @@ def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("💎 VIP lo (Unlimited)", callback_data="open_vip_menu")],
         [InlineKeyboardButton("🎬 VIP kaise milega? (30 sec video)", callback_data="toolvid:premium")],
         [InlineKeyboardButton("🎁 Refer karo (Free VIP)", callback_data="open_refer_menu"),
-         InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
+         InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
     ])
 
 
@@ -601,8 +610,6 @@ def spend_credit_msg(uid: int, action: str = "") -> str:
     return f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>"
 
 
-SUPPORT_USERNAME = "@Supermannn_x"
-SUPPORT_LINK = '<a href="https://t.me/Supermannn_x">@Supermannn_x</a>'
 
 
 def inr(amount, decimals: int = 0) -> str:
@@ -719,7 +726,7 @@ VNUM_INTRO = (
 def _vnum_intro_kb():
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("📞 Get Number", callback_data="vnum_get")],
-        [InlineKeyboardButton("☎️ Contact @Supermannn_x", url="https://t.me/Supermannn_x")],
+        [InlineKeyboardButton(f"☎️ Contact {SUPPORT_USERNAME}", url=SUPPORT_URL)],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
     ])
 
@@ -959,7 +966,7 @@ PROMPT_DATA = {
     "qr": {
         "head": "📷 QR CODE MAKER",
         "ask": "Text ya link bhejein (HD QR ban jayega):",
-        "ex": [("https://t.me/Supermannn_x", "Telegram link"),
+        "ex": [(f"https://t.me/{OWNER_USERNAME}", "Telegram link"),
                ("My WiFi password is 12345", "Simple text")],
     },
     "short": {
@@ -1166,12 +1173,18 @@ TUTORIAL_NOTICE = (
 
 
 def tool_tutorial_kb(action: str):
-    """Tool ke neeche sirf 🎬 video tutorial (koi text tutorial nahi)."""
-    if not has_video(action):
-        return None
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data=f"toolvid:{action}")],
-    ])
+    """Tool ke neeche 🎬 video tutorial + 📩 Support button (v59.7).
+
+    v59.7: ab HAR tool me ye keyboard aata hai — user kabhi bhi ek tap me
+    owner se baat kar sakta hai (tap → @Supermannn_x ki chat khulti hai).
+    """
+    rows = []
+    if has_video(action):
+        rows.append([InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU",
+                                          callback_data=f"toolvid:{action}")])
+    rows.append([InlineKeyboardButton(f"📩 Support — seedha message karo {SUPPORT_USERNAME}",
+                                      url=SUPPORT_URL)])
+    return InlineKeyboardMarkup(rows)
 
 
 # Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
@@ -1942,6 +1955,29 @@ async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=HTML)
 
 
+# ---------------- v59.7: /support — seedha owner se baat karo (clickable) ----------------
+async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/support — owner se seedha baat karne ka card (ek tap me chat khul jaati hai)."""
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"📩 Message karo {SUPPORT_USERNAME}", url=SUPPORT_URL)],
+        [InlineKeyboardButton("👑 VIP lo", callback_data="open_vip_menu"),
+         InlineKeyboardButton("❓ Help", callback_data="back_home")],
+    ])
+    await update.message.reply_text(
+        "💬 <b>SUPPORT / MADAD</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"Owner: {SUPPORT_LINK}\n\n"
+        "Neeche wala button dabao → seedha owner ki chat khul jaayegi → "
+        "<b>Start</b> dabao aur apni baat likho.\n\n"
+        "<b>Kab message karo:</b>\n"
+        "• Koi tool kaam na kare / error aaye\n"
+        "• VIP payment ka sawaal\n"
+        "• Koi naya tool chahiye\n"
+        "• Kuch bhi samajh na aaye\n\n"
+        "<i>Screenshot bhejo to sabse jaldi solve hota hai.</i>",
+        parse_mode=HTML, reply_markup=kb)
+
+
 # ---------------- v59.6: /numtest — kisi bhi API ka sample response → card preview ----------------
 async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/numtest <JSON> — apni API ke docs wala SAMPLE response paste karo → card dikhega.
@@ -2513,7 +2549,7 @@ def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
     if note:
         L.append(note)
     if brand:
-        L.append(f"🔥 Powered by {BRAND_TAG}")
+        L.append(BRAND_LINK)   # v59.7: clickable — tap = owner se baat
     return "\n".join(L)
 
 
@@ -2577,7 +2613,7 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
                      "ye data aapki API se aata hai.")
         _card.append("💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> + "
                      "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.")
-    _card.append(f"🔥 Powered by {BRAND_TAG}")
+    _card.append(BRAND_LINK)   # v59.7: clickable
     return "\n".join([_l for _l in _card if _l])
 
 
@@ -2701,7 +2737,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ctry_name = dict(VNUM_COUNTRIES).get(cl, cl.upper())
         svc_name = context.user_data.get("vnum_svc", "WhatsApp")
         order_text = f"Hi, I need a Virtual Number:\nService: {svc_name}\nCountry: {ctry_name}"
-        contact_url = f"https://t.me/Supermannn_x?text={quote(order_text)}"
+        contact_url = f"{SUPPORT_URL}?text={quote(order_text)}"
         _vnum_note = "" if is_admin(uid) else spend_credit_msg(uid, "vnum")
         card = (
             (f"{_vnum_note}\n" if _vnum_note else "")
@@ -2714,7 +2750,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "👉 Number lene ke liye neeche <b>Contact Admin</b> dabao:"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💬 Admin se baat karo @Supermannn_x", url=contact_url)],
+            [InlineKeyboardButton(f"💬 Admin se baat karo {SUPPORT_USERNAME}", url=contact_url)],
             [InlineKeyboardButton("🔁 Doosra chuno", callback_data="vnum_get")],
             [InlineKeyboardButton("⌨️ Menu", callback_data="back_home")],
         ])
@@ -2758,7 +2794,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         kb_pay = InlineKeyboardMarkup([
             [InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")],
-            [InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
+            [InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
         ])
         await q.message.reply_photo(photo=qr_buf, caption=caption, reply_markup=kb_pay, parse_mode=HTML)
         return
@@ -2880,7 +2916,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "• Screenshot was unclear or not of a payment\n"
                 "• Amount does not match\n\n"
                 "🔁 You can send correct proof again: <b>/premium</b>\n"
-                "💬 Or talk to Support: @Supermannn_x",
+                f"💬 Or talk to Support: {SUPPORT_LINK}",
                 parse_mode=HTML)
         except Exception:
             pass
@@ -3925,7 +3961,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
             "🚫 <b>Ye screenshot pehle use ho chuka hai!</b>\n"
             "Ek screenshot se sirf ek baar VIP milta hai.\n"
             "📸 Naya payment karo aur us naye payment ka <b>screenshot</b> bhejo.\n"
-            "💬 Problem hai? Support: @Supermannn_x",
+            f"💬 Problem hai? Support: {SUPPORT_LINK}",
             parse_mode=HTML)
         return
     flags = {
@@ -3967,7 +4003,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
                 continue
 
     if not sent_any:
-        await st.edit_text(f"⚠️ Proof save ho gaya (ID #{pid}) par admin ko bhej nahi paya. Support ko batao: @Supermannn_x")
+        await st.edit_text(f"⚠️ Proof save ho gaya (ID #{pid}) par admin ko bhej nahi paya.\nSupport ko batao: {SUPPORT_LINK}", parse_mode=HTML)
         return
 
     context.user_data.pop("mode", None)
@@ -3978,7 +4014,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
         user_payment_reply(pid, plan["name"], plan["price"], analysis),
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🔄 My payments", callback_data="mypay_list")],
-            [InlineKeyboardButton("💬 Support", url="https://t.me/Supermannn_x")],
+            [InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
         ]),
         parse_mode=HTML)
 
@@ -4569,7 +4605,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML,
             )
             if tries >= 5:
-                await update.message.reply_text("😅 Looks like you cannot find the UTR. No problem — talk to Support, they will verify it manually: @Supermannn_x")
+                await update.message.reply_text(
+                    f"😅 Looks like you cannot find the UTR. No problem — talk to Support, "
+                    f"they will verify it manually: {SUPPORT_LINK}", parse_mode=HTML)
                 context.user_data.pop("mode", None)
             return
 
@@ -6723,7 +6761,7 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
         if msg is not None:
             await msg.reply_text(
                 "⚠️ <b>Chhota sa ghatna ho gaya!</b> Ye kaam nahi ho paya.\n"
-                "10 second baad dobara try karo. Problem bar-bar ho to Support: @Supermannn_x",
+                f"10 second baad dobara try karo. Problem bar-bar ho to Support: {SUPPORT_LINK}",
                 parse_mode=HTML)
     except Exception:
         pass
@@ -6911,6 +6949,7 @@ def main():
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
     app.add_handler(CommandHandler(["numdemo", "numinfodemo", "numpreview"], cmd_numdemo))
     app.add_handler(CommandHandler(["numtest", "numcheck", "numinfotest"], cmd_numtest))
+    app.add_handler(CommandHandler(["support", "helpme", "owner", "contact"], cmd_support))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))

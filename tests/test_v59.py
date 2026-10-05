@@ -226,7 +226,8 @@ check("card me Number line hai", "📞 <b>Number:</b>" in CARD_SRC)
 check("card me Operator + Circle line hai", "🏢 <b>Operator:</b>" in CARD_SRC and "📍" in CARD_SRC)
 check("card me Source + Response line hai",
       "📡 <b>Source:</b>" in CARD_SRC and "⚡ <b>Response:</b>" in CARD_SRC)
-check("card ke aakhir me brand footer", "Powered by" in CARD_SRC and "BRAND_TAG" in CARD_SRC)
+check("card ke aakhir me brand footer (v59.7: clickable)",
+      "Powered by" in bot.BRAND_LINK and "BRAND_LINK" in CARD_SRC)
 check("NUMINFO_SHOW_OWNER gate hata diya (card seedha dimaghta hai)",
       "NUMINFO_SHOW_OWNER" not in BOT_SRC)
 check("API na ho to sirf chhota setup hint (koi lecture line nahi)",
@@ -569,6 +570,74 @@ check("LIVE /numtest (bina JSON): help message aata hai, crash nahi",
 _bad = _run_numtest("/numtest haan bhai ye json nahi hai")
 check("LIVE /numtest (galat JSON): saaf error, crash nahi",
       "valid JSON nahi" in _bad)
+
+# --- 💬 SUPPORT CLICKABLE (v59.7) — @Supermannn_x tap = seedha message ---
+check("OWNER_USERNAME env se aata hai (code badle bina username change)",
+      "OWNER_USERNAME" in BOT_SRC and 'os.getenv("OWNER_USERNAME"' in BOT_SRC)
+check("SUPPORT_URL t.me link hai", bot.SUPPORT_URL.startswith("https://t.me/"))
+check("SUPPORT_LINK clickable HTML hai (a href)",
+      bot.SUPPORT_LINK.startswith('<a href="https://t.me/') and "</a>" in bot.SUPPORT_LINK)
+check("BRAND_LINK clickable footer hai",
+      "Powered by <a href=" in bot.BRAND_LINK)
+check("pcard_foot me clickable brand lagta hai (plain nahi)",
+      "L.append(BRAND_LINK)" in BOT_SRC)
+check("numinfo_card footer bhi clickable", "_card.append(BRAND_LINK)" in BOT_SRC)
+check("BAN_MSG me clickable link",
+      "SUPPORT_LINK" in BOT_SRC.split("BAN_MSG =")[1][:200])
+check("code me hardcoded 'https://t.me/Supermannn_x' nahi bacha (env se aata hai)",
+      "https://t.me/Supermannn_x" not in BOT_SRC)
+check("/support command hai", callable(getattr(bot, "cmd_support", None)))
+check("/support registered hai",
+      '["support", "helpme", "owner", "contact"], cmd_support' in BOT_SRC)
+check("/support me URL button hai (tap = chat khulti hai)",
+      "InlineKeyboardButton(f\"📩 Message karo {SUPPORT_USERNAME}\", url=SUPPORT_URL)" in BOT_SRC
+      or "url=SUPPORT_URL" in BOT_SRC)
+
+# HAR tool ke prompt keyboard me support button hona chahiye
+_no_support = []
+for _a in bot.PROMPT_DATA:
+    _k = bot.tool_tutorial_kb(_a)
+    _urls = [b.url for _r in _k.inline_keyboard for b in _r if b.url]
+    if not _urls or "t.me/" not in _urls[0]:
+        _no_support.append(_a)
+check("HAR tool ke prompt par 📩 Support button (tap = owner se chat)",
+      not _no_support, str(_no_support[:4]))
+
+# tool_tutorial_kb ab kabhi None nahi deta (warna support button gayab)
+check("tool_tutorial_kb None nahi deta (har tool me button)",
+      bot.tool_tutorial_kb("koi_galat_tool") is not None)
+
+# LIVE: /support ka card
+class _SM:
+    message_id = 1
+
+    async def reply_text(self, t, **k):
+        _SM.last, _SM.kw = t, k
+        return self
+
+
+class _SU:
+    id = int(os.environ.get("ADMIN_ID", "1"))
+    first_name = "T"
+    username = "t"
+
+
+class _SUp:
+    def __init__(self):
+        self.message = _SM()
+        self.effective_user = _SU()
+        self.effective_chat = types.SimpleNamespace(id=888)
+        self.callback_query = None
+        self.effective_message = self.message
+
+
+_aio.run(bot.cmd_support(_SUp(), types.SimpleNamespace(user_data={}, bot=None, args=None)))
+check("LIVE /support: card me clickable link aaya", "t.me/" in _SM.last)
+check("LIVE /support: HTML balanced (message reject nahi hoga)",
+      __import__("modules.core.html_safe", fromlist=["html_balanced"]).html_balanced(_SM.last))
+check("LIVE /support: URL button laga hai",
+      any(b.url and "t.me/" in b.url
+          for _r in _SM.kw["reply_markup"].inline_keyboard for b in _r))
 
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))

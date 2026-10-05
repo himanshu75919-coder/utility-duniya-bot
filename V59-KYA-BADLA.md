@@ -178,6 +178,22 @@ Aapne kaha: *"hardcore proof built core rakhiye ki crash na ho"*. Ab ye 4 layer 
 
 ---
 
+## 9️⃣ 💬 SUPPORT CLICKABLE — tap karo, seedha owner se baat (v59.7)
+
+Aapka username **@Supermannn_x** ab har jagah **clickable** hai:
+
+| Kahan | Kya hota hai |
+|---|---|
+| Har card ka footer — `🔥 Powered by @Supermannn_x` | Tap → aapki chat khulti hai → user **Start** dabata hai → apni baat likh sakta hai |
+| **Har tool ke prompt** me button `📩 Support — seedha message karo @Supermannn_x` | Tap → wahi — bina username type kiye |
+| `/support` command (naya) | Poora madad card + bada "📩 Message karo" button |
+| Ban message / help / payment screens / error message | Wo bhi clickable |
+
+**Username badalna ho?** Render → Environment → `OWNER_USERNAME` = naya username
+(`@` ke bina bhi chalega) → Save. **Poore bot me apne aap badal jaayega** — code chhune ki zaroorat nahi.
+
+---
+
 ## 📊 Test status
 
 | File | Kya check karta hai |

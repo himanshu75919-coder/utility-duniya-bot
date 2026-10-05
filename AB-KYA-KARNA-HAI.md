@@ -170,6 +170,22 @@ Redmi Note 10 Pro
 
 ---
 
+## STEP 7 — 💬 Support button check (naya)
+
+Koi bhi tool kholo (jaise 📱 Number Info). Prompt ke neeche ek button dikhega:
+
+```
+[ 📩 Support — seedha message karo @Supermannn_x ]
+```
+
+Dabao → aapki Telegram chat khulegi ✅ (wahi aapko message bhejna ka matlab hai).
+Card ke neeche `🔥 Powered by @Supermannn_x` par bhi tap karne se wahi hota hai.
+Aur **`/support`** bhejo → poora madad card button ke saath aayega.
+
+> Username badalna ho to Render → Environment → `OWNER_USERNAME` = naya naam daalo.
+
+---
+
 # 🔒 Ye lines ab KABHI wapas nahi aa sakti (permanent)
 
 Sirf code se hata ke nahi chhoda — **ek permanent guard** lagaya hai:
