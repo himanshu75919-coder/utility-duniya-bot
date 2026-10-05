@@ -1904,6 +1904,44 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=HTML)
 
 
+# ---------------- v59.5: /numdemo — Number Info ka SAMPLE card (kaisa dikhega) ----------------
+async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/numdemo — Number Info ka card SAMPLE (dummy) data ke saath dikhao.
+
+    Isme koi asli vyakti ka data nahi hota — sirf dikhane ke liye hai ki
+    aapki API lagne par card kaisa aayega. Koi credit nahi katta.
+    """
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    _res = {"international": "+91 90000 00001", "national": "9000000001",
+            "type": "Mobile", "country": "India", "country_code": "+91",
+            "timezones": "Asia/Kolkata"}
+    try:
+        _demo = numprov.demo_result("9000000001")
+    except Exception:                                        # noqa: BLE001
+        _demo = {}
+    _owner = _demo.get("owner") or {
+        "name": "RAHUL KUMAR (SAMPLE)", "father": "MOHAN LAL KUMAR (SAMPLE)",
+        "alt": "9000000001", "region": "BIHAR JIO", "govt_id": "000000000000 (SAMPLE)",
+        "address": "S/O MOHAN LAL KUMAR, Ward 02, SAMPLE NAGAR, Bihar, 000000 (SAMPLE)",
+    }
+    card = numinfo_card(_res, _owner, {}, "Jio", "Bihar", "📱 Mobile", "",
+                        "🧪 <b>SAMPLE PREVIEW</b> — ye dummy data hai (asli data aapki API se aata hai)",
+                        240)
+    await update.message.reply_text(
+        "🧪 <b>NUMBER INFO — SAMPLE PREVIEW</b>\n"
+        "Ye bilkul wahi layout hai jo aapki API lagne par aayega.\n"
+        "Isme koi asli vyakti ka data <b>nahi</b> hai — sab nakli values hain.\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        + card
+        + "\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        "💡 <b>Asli data ke liye:</b> Render → Environment me\n"
+        "<code>NUMINFO_PROVIDER_URL</code> + <code>NUMINFO_PROVIDER_KEY</code> "
+        "daalo → <code>/numapi</code> se check karo.",
+        parse_mode=HTML)
+
+
 # ---------------- v57: /numapi — Number Info provider status (key kabhi nahi print hoti) ----------------
 async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/numapi — admin: Number Info ki apni API lagi hai ya nahi (live test bhi)."""
@@ -2406,6 +2444,66 @@ def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
 
 def pcard_sep() -> str:
     return PCARD_MID
+
+
+def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None,
+                 operator: str = "", circle: str = "", ltype: str = "",
+                 ported_line: str = "", src_line: str = "", ms: float = 0) -> str:
+    """📱 NUMBER INFO ka **ek hi** card layout (v59.2).
+
+    Yehi layout handler aur `/numdemo` (sample preview) dono use karte hain —
+    isliye demo bilkul asli jaisa dikhta hai. Owner ki lines sirf tab aati hain
+    jab `owner` dict me wo field ho (yani jab AAPKI API wo bheje).
+    """
+    res = res or {}
+    owner = owner or {}
+    extra = extra or {}
+    _obits = []
+    if owner.get("name"):
+        _obits.append(f"👤 <b>Name:</b> {hesc(str(owner['name']))}")
+    if owner.get("father"):
+        _obits.append(f"👨 <b>Father:</b> {hesc(str(owner['father']))}")
+    if owner.get("alt"):
+        _obits.append(f"📱 <b>Phones/Alt:</b> {hesc(str(owner['alt']))}")
+    if owner.get("region"):
+        _obits.append(f"🌐 <b>Region:</b> {hesc(str(owner['region']))}")
+    if owner.get("govt_id"):
+        _obits.append(f"🆔 <b>Govt ID:</b> {hesc(str(owner['govt_id']))}")
+    _addr = str(owner.get("address") or "").strip()
+    if _addr:
+        # aapka format: label ke baad ek khali line, phir "   └ <pata>"
+        _obits.append("🏠 <b>Address(es):</b>\n")
+        for _ap in [x.strip() for x in _addr.split("|") if x.strip()][:4]:
+            _obits.append(f"   └ {hesc(_ap[:300])}")
+    for _k in ("addresses", "address_list"):
+        for _a2 in (extra.get(_k) or [])[:4]:
+            if _a2 and hesc(str(_a2))[:300] not in _addr:
+                _obits.append(f"   └ {hesc(str(_a2)[:300])}")
+
+    _card = list(_obits)
+    if _obits:
+        _card.append(pcard_sep())
+    _card.append(f"📞 <b>Number:</b> <code>{hesc(str(res.get('international') or res.get('number') or ''))}</code>")
+    if operator or circle:
+        _card.append(f"🏢 <b>Operator:</b> {hesc(operator)}"
+                     + (f"  •  📍 {hesc(circle)}" if circle else ""))
+    if res.get("country"):
+        _card.append(f"🌍 <b>Country:</b> {hesc(str(res['country']))}")
+    if ltype:
+        _card.append(f"📱 <b>Line Type:</b> {hesc(ltype)}")
+    if ported_line:
+        _card.append(ported_line.rstrip("\n"))
+    if src_line:
+        _card.append(f"📡 <b>Source:</b> {src_line}")
+    _card.append(f"⚡ <b>Response:</b> {int(ms)}ms")
+    _card.append(pcard_sep())
+    if not _obits:
+        _card.append("👤 <b>Name / Father / Phones / Region / Govt ID / Address</b> — "
+                     "ye data aapki API se aata hai.")
+        _card.append("💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> + "
+                     "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.")
+    _card.append(f"🔥 Powered by {BRAND_TAG}")
+    return "\n".join([_l for _l in _card if _l])
 
 
 def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
@@ -5161,7 +5259,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 str(res.get("country") or "").strip().lower(), "", "india"):
             _circle = "⚪ live API set nahi (sirf country pata hai)"
 
-        if _src == "provider":
+        if _src == "demo":
+            _src_line = ("🧪 <b>DEMO SAMPLE</b> — ye dummy data hai "
+                         "(asli data ke liye apni API lagao → /numapi)")
+        elif _src == "provider":
             _src_line = ("🟢 <b>LIVE</b> — aapki API se"
                          + (f" ({int(_prov.get('latency_ms') or _ms)}ms)" if _prov.get("latency_ms") else "")
                          + (f" • cache" if _prov.get("cached") else ""))
@@ -5213,42 +5314,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if _a2 and hesc(str(_a2))[:300] not in _addr:
                     _obits.append(f"   └ {hesc(str(_a2)[:300])}")
 
-        # ---------- v59.2: EK HI CARD — SIRF aapke diye format me ----------
-        # Purana boxed format (National / Line Type / Timezone / alag-alag
-        # title) POORI TARAH DELETE. Ab hamesha yahi ek layout:
-        #     👤 Name / 👨 Father / 📱 Phones/Alt / 🌐 Region / 🆔 Govt ID /
-        #     🏠 Address(es)
-        #     ────────────────────────────
-        #     📞 Number / 🏢 Operator • 📍 Circle / 🌍 Country / 📡 Source /
-        #     ⚡ Response
-        #     ────────────────────────────
-        #     🔥 Powered by …
-        # Owner ki line (Name/Father/…) sirf tab aati hai jab AAPKI API wo field
-        # bheje. API na ho to bhi YAHI layout rehta hai (bas owner lines nahi) +
-        # neeche chhota setup hint — koi purana/alag card nahi.
-        _card = list(_obits)
-        if _obits:
-            _card.append(pcard_sep())
-        _card.append(f"📞 <b>Number:</b> <code>{hesc(res['international'])}</code>")
-        if _operator or _circle:
-            _card.append(f"🏢 <b>Operator:</b> {hesc(_operator)}"
-                         + (f"  •  📍 {hesc(_circle)}" if _circle else ""))
-        _card.append(f"🌍 <b>Country:</b> {hesc(res['country'])}")
-        if _ltype:
-            _card.append(f"📱 <b>Line Type:</b> {hesc(_ltype)}")
-        if _ported_line:
-            _card.append(_ported_line.rstrip("\n"))
-        _card.append(f"📡 <b>Source:</b> {_src_line}")
-        _card.append(f"⚡ <b>Response:</b> {int(_ms)}ms")
-        _card.append(pcard_sep())
-        if not _obits:
-            # sirf itna chhota setup hint — koi lecture line nahi
-            _card.append("👤 <b>Name / Father / Phones / Region / Govt ID / Address</b> — "
-                         "ye data aapki API se aata hai.")
-            _card.append("💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> + "
-                         "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.")
-        _card.append(f"🔥 Powered by {BRAND_TAG}")
-        card = "\n".join([_l for _l in _card if _l])
+        # v59.2: EK HI layout — renderer `numinfo_card()` me hai (neeche bhi
+        # dekho), taaki `/numdemo` (sample preview) bilkul same dikhe.
+        _ow = (_live.get("owner") or {}) if isinstance(_live, dict) else {}
+        _extra = (_live.get("extra") or {}) if isinstance(_live, dict) else {}
+        card = numinfo_card(res, _ow, _extra, _operator, _circle, _ltype,
+                            _ported_line, _src_line, _ms)
 
         tel_note("numinfo", True, _ms, credit=True)
         await update.message.reply_text(
@@ -6763,6 +6834,7 @@ def main():
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["version", "ver", "v"], cmd_version))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
+    app.add_handler(CommandHandler(["numdemo", "numinfodemo", "numpreview"], cmd_numdemo))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
     app.add_handler(CommandHandler("refer", cmd_refer))

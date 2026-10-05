@@ -160,6 +160,23 @@ Aapne kaha: *"hardcore proof built core rakhiye ki crash na ho"*. Ab ye 4 layer 
 
 ---
 
+## 8️⃣ 🧪 SAMPLE PREVIEW — "kaisa dikhega" bina API dekh lo (v59.5)
+
+| Tarika | Kaise |
+|---|---|
+| ⚡ **Command** | Telegram me **`/numdemo`** (admin) → wahi card, SAMPLE (nakli) data ke saath |
+| 🧪 **Poora flow** | Render me `NUMINFO_DEMO=on` → 📱 Number Info me koi bhi number → card aayega, Source line par `🧪 DEMO SAMPLE` likha hoga |
+
+- Card ka layout **ek hi renderer** (`numinfo_card()`) se banta hai — jo aap
+  `/numdemo` me dekhte ho, **bilkul wahi** asli API lagne par aayega.
+- Demo data me har line par **(SAMPLE)** likha hota hai — koi asli vyakti ka data nahi.
+- **Aur ek zaroori baat:** naam me "leak" wali APIs (jaise
+  `x-trace-...-leak-num-api`) bot me **kabhi nahi lagayi jayengi** — wo chori ka
+  data hai (DPDP ₹250 cr + Telegram ban + 2 din me band hone wala trap).
+  Poori baat: **`DEMO-API-SETUP.md`** ⛔ section.
+
+---
+
 ## 📊 Test status
 
 | File | Kya check karta hai |
