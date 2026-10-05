@@ -27,7 +27,11 @@ def webhook_url_from_env(env=None) -> str:
     """
     values = os.environ if env is None else env
     mode = str(values.get("WEBHOOK_MODE") or "auto").strip().lower()
-    if mode in ("off", "polling", "0", "false", "no"):
+    # v59.9.1: "polling" bhi AUTO maana jaata hai — ye value Render dashboard me
+    # purane blueprint (v46) se baithi thi, aur isi wajah se bot polling par hi
+    # chal raha tha (har deploy par 10-20s Conflict). Zabardasti polling chahiye
+    # to WEBHOOK_MODE=off likho — wahi ek rasta hai.
+    if mode in ("off", "0", "false", "no"):
         return ""
     return str(values.get("WEBHOOK_URL") or values.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
 

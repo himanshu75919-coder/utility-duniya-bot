@@ -77,7 +77,8 @@ def check(name: str, cond: bool, extra: str = ""):
     return bool(cond)
 
 
-import bot  # noqa: E402
+import bot
+from modules.render_health import webhook_url_from_env  # noqa: E402
 import modules.osint_tools as OT  # noqa: E402
 import modules.numinfo_provider as NP  # noqa: E402
 import modules.media_downloader as MD  # noqa: E402
@@ -721,6 +722,12 @@ check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
       (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
       .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
 check("v59.9: BOT_VERSION v59.9 hai", "v59.9" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
+      webhook_url_from_env({"WEBHOOK_MODE": "polling",
+                            "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
+check("v59.9.1: WEBHOOK_MODE=off hi zabardasti polling karta hai",
+      webhook_url_from_env({"WEBHOOK_MODE": "off",
+                            "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "")
 
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))
