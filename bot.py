@@ -251,6 +251,7 @@ from modules.core.telemetry import (
     reset as tel_reset,
 )
 from modules.core.cache import TTLCache
+from modules.core.html_safe import cut_html, strip_html
 
 # Info-tools ka shared cache (IFSC / pincode / IP / area) — same sawaal par
 # API call dobara nahi hoti. 30 min TTL: ye data din bhar change nahi hota.
@@ -325,7 +326,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v54.2 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
+BOT_VERSION = "v54.3 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -3051,7 +3052,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             L.append(f"🏆 <b>Sabse likely: <code>{hesc(str(codes[0]['code']))}</b></code>")
             L.append("\n<i>⚠️ Ye code kisi ko mat batao — jis site par signup kiya "
                      "hai sirf wahin daalo.</i>")
-            await q.message.reply_text("\n".join(L)[:3900], parse_mode=HTML)
+            await q.message.reply_text(cut_html("\n".join(L), 3900), parse_mode=HTML)
             return
         # tm_inbox → chhota refresh summary
         if not msgs:
@@ -3071,7 +3072,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                      f"   📨 <code>{hesc(str(m.get('from') or '')[:40])}</code>\n"
                      f"   {hesc(str(m.get('body') or '')[:260])}\n")
         L.append("<i>🔄 Baar-baar refresh dabao — OTP aate hi upar dikhega.</i>")
-        await q.message.reply_text("\n".join(L)[:3900], parse_mode=HTML)
+        await q.message.reply_text(cut_html("\n".join(L), 3900), parse_mode=HTML)
         return
 
     if data == "tm_del":
@@ -3139,17 +3140,17 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if _dl.get("is_video"):
                 await q.message.send_video(
                     chat_id=_cid, video=_dl["stream"], supports_streaming=True,
-                    caption=(f"🎬 Pinterest video ({_kb} KB){_cap_meta}")[:1000],
+                    caption=cut_html(f"🎬 Pinterest video ({_kb} KB){_cap_meta}", 1000),
                     parse_mode=HTML)
             elif _dl.get("is_img"):
                 await q.message.send_photo(
                     chat_id=_cid, photo=_dl["stream"],
-                    caption=(f"📌 Pinterest · original quality ({_kb} KB){_cap_meta}")[:1000],
+                    caption=cut_html(f"📌 Pinterest · original quality ({_kb} KB){_cap_meta}", 1000),
                     parse_mode=HTML)
             else:
                 await q.message.send_document(
                     chat_id=_cid, document=_dl["stream"], filename=_fname,
-                    caption=(f"📌 Pinterest download ({_kb} KB){_cap_meta}")[:1000],
+                    caption=cut_html(f"📌 Pinterest download ({_kb} KB){_cap_meta}", 1000),
                     parse_mode=HTML)
             _sent = True
         except Exception as e:                                  # noqa: BLE001
@@ -3159,7 +3160,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _dl["stream"].seek(0)
                 await q.message.send_document(
                     chat_id=_cid, document=_dl["stream"], filename=_fname,
-                    caption=(f"📌 Pinterest file ({_kb} KB){_cap_meta}")[:1000],
+                    caption=cut_html(f"📌 Pinterest file ({_kb} KB){_cap_meta}", 1000),
                     parse_mode=HTML)
                 _sent = True
             except Exception as e2:                             # noqa: BLE001
@@ -4841,15 +4842,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await update.message.send_video(
                         chat_id=_cid, video=io.BytesIO(_data),
                         supports_streaming=True,
-                        caption=(f"🎬 Pinterest video ({_kb // 1024 if _kb >= 1024 else _kb}"
-                                 f"{' MB' if _kb >= 1024 else ' KB'}){_cap}"
-                                 "\n<i>Public Pinterest pin</i>")[:1000])
+                        caption=cut_html(
+                            (f"🎬 Pinterest video ({_kb // 1024 if _kb >= 1024 else _kb}"
+                             f"{' MB' if _kb >= 1024 else ' KB'}){_cap}"
+                             "\n<i>Public Pinterest pin</i>"), 1000))
                 else:
                     await update.message.send_photo(
                         chat_id=_cid, photo=io.BytesIO(_data),
-                        caption=(f"📌 Pinterest · original quality ({_kb} KB)"
-                                 + (f" · {hesc(str(res.get('ext', '')))}" if res.get("ext") else "")
-                                 + _cap + "\n<i>Public Pinterest pin</i>")[:1000],
+                        caption=cut_html(
+                            (f"📌 Pinterest · original quality ({_kb} KB)"
+                             + (f" · {hesc(str(res.get('ext', '')))}" if res.get("ext") else "")
+                             + _cap + "\n<i>Public Pinterest pin</i>"), 1000),
                         parse_mode=HTML)
             else:
                 tel_note(, False, _ms,
@@ -4903,7 +4906,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                 callback_data=f"pinpick:{j}"))
             rows.append(row)
         rows.append([InlineKeyboardButton("🔍 Naya search", callback_data="back_home")])
-        await update.message.reply_text("\n".join(L)[:3900], parse_mode=HTML,
+        await update.message.reply_text(cut_html("\n".join(L), 3900), parse_mode=HTML,
                                         reply_markup=InlineKeyboardMarkup(rows))
         # v54.2: competitor-bot jaisa look — list ke turant baad TOP result ka
         # photo preview. Search FREE hai isliye preview par koi credit nahi katta.
@@ -4922,8 +4925,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         pass
                     await update.message.reply_photo(
                         photo=_pd["stream"],
-                        caption=("📌 <b>Top result ka preview</b> — original quality "
-                                 "ke liye upar <b>1</b> button dabao.")[:1000],
+                        caption=cut_html("📌 <b>Top result ka preview</b> — original "
+                                           "quality ke liye upar <b>1</b> button dabao.",
+                                           1000),
                         parse_mode=HTML)
             except Exception as e:                                   # noqa: BLE001
                 log.debug("pinterest preview skip: %s", str(e)[:80])
@@ -5070,7 +5074,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                          + f"\n{hesc(str(m.get('body') or '')[:420])}")
             L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
             L.append("<i>🔄 Refresh dabate raho — OTP aate hi upar highlight ho jayega.</i>")
-            await update.message.reply_text("\n".join(L)[:4000], parse_mode=HTML,
+            await update.message.reply_text(cut_html("\n".join(L), 4000), parse_mode=HTML,
                                             reply_markup=_tm_kb)
             add_use(uid)
             return
@@ -5188,20 +5192,45 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
             add_use(uid)
             return
-        await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
+        # v54.3: CREDIT FAIRNESS — pehle credit message PEHLE bhej diya jaata
+        # tha, phir card bhejte waqt Telegram HTML error se crash ho jaata tha
+        # (live screenshot 2:03 PM: "1 credit used" ke baad "Chhota sa ghatna").
+        # Ab pehle card deliver hota hai, phir credit katta hai.
         photo_sent = False
         if res_i.get("photo") and not str(res_i["photo"]).lower().endswith(".gif"):
             try:
                 await update.message.reply_photo(photo=res_i["photo"],
                                                  caption=render_imei_caption(res_i), parse_mode=HTML)
                 photo_sent = True
-            except Exception:
+            except Exception as e:                                 # noqa: BLE001
+                log.debug("imei photo send fail: %s", str(e)[:80])
                 photo_sent = False
         body = render_imei_text(res_i)
         if not photo_sent and not body.startswith("📲"):
             body = ("📲 <b>" + hesc(imei_title(res_i)) + "</b>\n"
                     f"🔢 <b>IMEI:</b> <code>{hesc(str(res_i.get('imei') or ''))}</code>\n" + body)
-        await update.message.reply_text(body, parse_mode=HTML, disable_web_page_preview=True)
+        _imei_sent = False
+        try:
+            await update.message.reply_text(body, parse_mode=HTML,
+                                            disable_web_page_preview=True)
+            _imei_sent = True
+        except Exception as e:                                     # noqa: BLE001
+            # HTML me koi masla ho to plain text (tags hata kar) bhejo —
+            # user ko result mile, crash nahi.
+            log.warning("imei card HTML fail, plain fallback: %s", str(e)[:100])
+            try:
+                await update.message.reply_text(
+                    strip_html(body)[:4000], disable_web_page_preview=True)
+                _imei_sent = True
+            except Exception:                                      # noqa: BLE001
+                pass
+        if not _imei_sent:
+            await update.message.reply_text(
+                "❌ Device card Telegram par bhej nahi paya.\n"
+                "✅ <b>Koi credit nahi kata.</b> Dobara try karo.", parse_mode=HTML)
+            add_use(uid)
+            return
+        await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
         try:
             buf_spec = io.BytesIO(imei_specs_json(res_i))
             buf_spec.name = imei_specs_filename(res_i)
@@ -6616,9 +6645,11 @@ if _self_url:
     if _self_health not in _KEEPALIVE_PEERS:
         _KEEPALIVE_PEERS.append(_self_health)
 try:
-    _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 10)
+    # v54.3: 10 → 4 minute. Render free instance 15 min inactivity par soti
+    # hai; 4-min ping se bot + hub dono jaagte rehte hain → pehla reply fast.
+    _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 4)
 except Exception:
-    _KEEPALIVE_MINUTES = 10.0
+    _KEEPALIVE_MINUTES = 4.0
 _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 
 # v54.1: /health par **git commit SHA** bhi dikhao.

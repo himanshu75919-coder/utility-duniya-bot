@@ -8,6 +8,47 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v54.3 UPDATE — LIVE crash ka asli root-cause (Render log se) + speed
+
+### 1) 💥 "Chhota sa ghatna ho gaya" — IMEI tool par (2:03 PM wala screenshot)
+Aapne Render ke **Logs** ka screenshot bheja — usme exact error likha tha:
+
+    ERROR | Exception handling update: Can't parse entities:
+            can't find end tag corresponding to start tag "i"
+
+Iska matlab: bot ne jo HTML message banaya usme `<i>` khula tha par `</i>` nahi tha.
+Telegram aisa message **pura reject** kar deta hai → exception → crash message.
+
+**Kaise banta tha?** IMEI ka spec card lamba hota hai aur code usko `txt[:4000]`
+se kaat deta tha. Cut ek line ke BEECH me gira jahan `<i>Data: …` khula tha aur
+`</i>` aage tha → adhoora tag.
+
+**Fix (naya module `modules/core/html_safe.py` → `cut_html()`):**
+1. limit par kaato, 2. cut ko peeche **newline tak** lao (hamare cards me har tag
+ek hi line me khulta-band hota hai), 3. adhoora `<…` fragment hatao, 4. phir bhi
+koi tag khula ho to **stack se band karo**.
+Bot ke saare risky HTML slices (IMEI card, Pinterest list, captions ~10 jagah)
+ab `cut_html()` se kat-te hain. Test me purane slice se crash reproduce karke
+dikhaya hai ki naya helper balanced output deta hai.
+
+### 2) 💳 Credit fairness (IMEI)
+Screenshot me dikha: pehle "⚡ 1 credit used — remaining 24/25", phir crash →
+credit dooba. Ab order ulta hai: **pehle card deliver hota hai, phir credit katta
+hai**. HTML me koi masla ho to plain-text (tags hata kar) fallback; phir bhi fail
+ho to "✅ Koi credit nahi kata".
+
+### 3) 🐢 "Reply 1 minute me aata hai"
+Render **free plan** instance ko 15 minute inactivity par sula deta hai — soti hui
+instance ko jaagne me ~50 second lagte hain (Render khud banner me bolta hai:
+"can delay requests by 50 seconds or more"). Bot ka keepalive pinger bot + hub
+dono ko ping karta hai; interval **10 minute se 4 minute** kar diya hai taaki
+neend hi na aaye. Deploy ke waqt jo "CONFLICT" warning dikhi thi wo 1-2 minute me
+khud theek ho jaati hai (purana + naya instance overlap).
+
+### 🧪 Tests: 828 checks · 0 fail (106+127+208+14+279+94)
+
+---
+
 ## 🆕 v54.2 UPDATE — screenshots round 2: Pinterest preview + UPI status section
 
 ### 1) 📌 Pinterest — "(bina title)" sookha label gaya
