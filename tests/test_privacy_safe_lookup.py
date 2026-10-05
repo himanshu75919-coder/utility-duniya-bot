@@ -123,6 +123,13 @@ class RenderWebhookConfigTests(unittest.TestCase):
         # WEBHOOK_MODE=off = zabardasti polling (escape hatch)
         self.assertEqual(webhook_url_from_env({"WEBHOOK_MODE": "off",
                                                "RENDER_EXTERNAL_URL": "https://z.onrender.com"}), "")
+        # v59.9.3: WEBHOOK_URL me URL ke bajaye kuch aur likha ho to Render ka
+        # apna URL use karo (warna webhook chup-chaap band reh jaata tha)
+        self.assertEqual(webhook_url_from_env({"WEBHOOK_URL": "on",
+                                               "RENDER_EXTERNAL_URL": "https://r.onrender.com"}),
+                         "https://r.onrender.com")
+        self.assertEqual(webhook_url_from_env({"WEBHOOK_URL": "yes, please"}),
+                         "")
         # v59.9.1: purana blueprint value "polling" bhi auto maana jaata hai
         # (warna dashboard ki purani value webhook ko hamesha band rakhti thi)
         self.assertEqual(webhook_url_from_env({"WEBHOOK_MODE": "polling",
