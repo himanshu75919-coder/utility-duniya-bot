@@ -271,6 +271,11 @@ def _ff_query_one(uid: str, region: str) -> Dict[str, Any]:
         return {"state": "accounts_empty", "region": region, "data": d}
     if err == "MISSING_PARAMETERS":
         return {"state": "badparams", "region": region, "data": d}
+    if code in (401, 403):
+        # ⚠️ v54.1: 403 = API ne humare server (Render IP) ko block/rate-limit
+        # kiya hai. Ye "player nahi mila" NAHI hai — isko alag state dete hain
+        # warna user ko "UID galat hai" wala jhootha message milta tha.
+        return {"state": "blocked", "region": region, "data": d, "detail": f"HTTP {code}"}
     if code == 429:
         return {"state": "ratelimit", "region": region, "data": d}
     if code >= 500:
@@ -480,11 +485,22 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
         n_rl = sum(1 for v in states.values() if v == "ratelimit")
         n_nf = sum(1 for v in states.values() if v == "notfound")
         n_to = sum(1 for v in states.values() if v == "timeout")
+        n_blk = sum(1 for v in states.values() if v == "blocked")
         tried = len(states)
         # kitne regions ka jawab aaya hi nahi (timeout/straggler) — ye "not found"
         # ke barabar NAHI hai, isliye message me alag batate hain.
         answered = n_nf + n_empty + n_net + n_rl
 
+        if n_blk and n_blk >= max(1, tried - n_nf - n_empty):
+            return {"ok": False, "service_busy": True, "uid": uid,
+                    "blocked": True, "blocked_regions": n_blk,
+                    "error": ("🚫 <b>Free Fire API ne abhi humare server ko block kar rakha hai</b> "
+                              f"(HTTP 403 — {n_blk}/{tried} region).\n"
+                              "━━━━━━━━━━━━━━━━━━━━━━\n"
+                              "Ye <b>service-side</b> problem hai, aapki UID ki nahi.\n"
+                              "Free API datacenter IP ko kabhi-kabhi temporarily rok deti hai.\n\n"
+                              "🕐 <b>15-30 minute baad dobara try karo.</b>\n"
+                              "<i>❌ Aapka credit NAHI kata.</i>")}
         if n_rl and n_rl == tried:
             return {"ok": False, "service_busy": True, "uid": uid,
                     "error": ("⏳ Service ne abhi <b>rate-limit</b> laga rakha hai "

@@ -1,16 +1,24 @@
-# ⚡ Utility Duniya Super-Bot — **v54.0 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v54.1 Premium Earning**
 
-## 🆕 v54.0 me kya badla — **"SAAF BAAT, POORI DETAIL"**
+## 🆕 v54.1 me kya badla — **"LIVE SCREENSHOTS WALE BUGS FIX"**
 
-| Badlav | Detail |
+Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
+
+| Bug (screenshot me dikha) | Ab kya hota hai |
 |---|---|
-| ✍️ **Minimal prompts** | Saare 28 tools ka prompt ab ek line: `🎮 BGMI UID — UID bhejo (e.g. 1067824210):` (inline example, koi lecture nahi). Privacy warnings result ke saath. |
-| 🔥 **FF UID images** | `profileCard` banner photo result ke saath; character portrait + outfit/loadout on-demand inline buttons se. |
-| 📲 **IMEI full chain** | `/api/imei` (TAC) → `/api/device-specs` (nanoreview) → poora spec sheet + photo, 0.3s. Model-code ho to DuckDuckGo se marketing naam resolve. |
-| 🚗 **Vehicle/RTO removed** | Licensed key ke bina reliably kaam nahi kar sakta tha (hub 410/401, govt CAPTCHA). Menu+premium+engine+selftest delete; purane keyboard par official VAHAN/eChallan links ka message. |
+| 📌 Pinterest **Download** par "⚠️ Chhota sa ghatna ho gaya" | Wajah: bina filename wala BytesIO → Telegram 400 → crash. Ab filename set + try/except + `send_document` fallback. **Credit sirf tab katta hai jab media actually deliver ho.** |
+| 🔥 FF UID par English "The API returned an HTTP 403 error." | 403 = API ne **Render ke server IP** ko temporarily block kiya (aapki UID kharab nahi). Ab Hinglish card: "API ne humare server ko block kar rakha hai — 15-30 min baad try karo, credit nahi kata." |
+| 📡 TG PUBLIC INFO card me khali rows | Double newline hata diya — card ab saaf. |
+| 🏦 UPI verify ka look competitor-jaisa chahiye tha | Ab boxed **UPI VERIFY REPORT** card (VPA, format, bank handle, bank, local part) + brand tag. **Sirf public data.** |
 
-**Tests: 734 checks · 0 fail** (106+127+208+14+279).
-> 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.0 section.
+### 🔒 UPI + mobile number — zaroori baat
+Kuch bots 10-digit mobile se **account-holder ka naam** nikaalte hain. Wo NPCI/bank ka
+**leaked private data** hai — India me privacy-law ke khilaaf, aur fraud me use hota hai.
+Ye bot wo kabhi nahi karega. Mobile bhejoge to saaf refusal + 2 legal options
+(Number Info → operator/circle, VPA Verify → bank/format), **bina credit kaate**.
+
+**Tests: 795 checks · 0 fail** (106+127+208+14+279+61).
+> 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
 
 ---
 
