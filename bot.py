@@ -1211,7 +1211,6 @@ MEDIA_MENU_TEXT = (
     f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
     "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, "
     "trim/compress, 🗣️ text→Hindi voice. <b>No watermark.</b>\n"
-    "⚡ Har option = <b>1 credit</b>\n"
     "👇 <b>Neeche se chuno:</b>"
 )
 
@@ -1310,16 +1309,45 @@ def kagaz_ask_next(key: str, data: dict, step: int = 0) -> str:
             f"📊 Step {step + 1} / {len(fields)}")
 
 
-def tool_prompt(action: str) -> str:
-    """Tool ka prompt — v58 ka naya format (header + ✨ ask + 📝 Examples).
+# ============================================================
+#  v58 — PERMANENT GUARD: ye do lines KABHI, KAHIN, KISI BHI
+#  HAALAT ME tool start par nahi dikh sakti (user ka strict order).
+#
+#  Code me se lines hata di gayi hain, PAR ab ek aakhri suraksha bhi hai:
+#  har prompt yahan se guzarta hai, aur agar kisi wajah se (purana cache,
+#  future edit, kisi module se aaya text) ye lines aa jayein to yahin
+#  delete ho jaati hain. Test bhi hai jo isko guard karta hai.
+# ============================================================
+_BANNED_PROMPT_PATTERNS = (
+    re.compile(r"^.*Credits:\s*♾️\s*Unlimited.*$", re.M),
+    re.compile(r"^.*Credits:\s*Unlimited.*$", re.M),
+    re.compile(r"^.*Tap\s*/cancel any time.*$", re.M),
+    re.compile(r"^.*/cancel any time to stop.*$", re.M),
+)
 
-    Tool start par NA credits line hoti hai, NA "/cancel" wali line — user ka order.
+
+def _sanitize_prompt(text: str) -> str:
+    """Banned lines (credits-unlimited + /cancel hint) nikaal do + extra blank hatао."""
+    if not text:
+        return ""
+    out = text
+    for rx in _BANNED_PROMPT_PATTERNS:
+        out = rx.sub("", out)
+    out = re.sub(r"\n{3,}", "\n\n", out).strip()
+    return out
+
+
+def tool_prompt(action: str) -> str:
+    """Tool ka prompt — v58 format (header + ✨ ask + 📝 Examples).
+
+    Har prompt `_sanitize_prompt()` se guzarta hai — isliye credits/cancel
+    wali lines **permanently** gayab hain (structural guarantee).
     """
     body = PROMPTS.get(action)
-    if body:
-        return body
-    # purane ASK_LINES wale sub-modes (agar koi bacha ho) — safe fallback
-    return strip_tutorial_lines(ASK_LINES.get(action, "")).strip()
+    if not body:
+        # purane ASK_LINES wale sub-modes (agar koi bacha ho) — safe fallback
+        body = strip_tutorial_lines(ASK_LINES.get(action, "")).strip()
+    return _sanitize_prompt(body)
 
 
 def publish_tutorial_now(force: bool = False) -> str:

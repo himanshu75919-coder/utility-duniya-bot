@@ -387,6 +387,48 @@ check("credits_line() ab kahin CALL nahi hoti (poori tarah hata)",
       f"count={BOT_SRC.count('credits_line(')}")
 
 
+# =====================================================================
+section("9) 🔒 PERMANENT GUARD — banned lines kabhi wapas nahi aa sakti")
+# =====================================================================
+check("_sanitize_prompt() helper hai", hasattr(bot, "_sanitize_prompt"))
+check("_BANNED_PROMPT_PATTERNS maujood hai (4 patterns)",
+      hasattr(bot, "_BANNED_PROMPT_PATTERNS")
+      and len(bot._BANNED_PROMPT_PATTERNS) >= 3)
+
+# --- sanitizer behaviour: inject karo, delete hona chahiye ---
+_inj1 = bot._sanitize_prompt("⚡ TOOL — link bhejo:\n\n⚡ Credits: ♾️ Unlimited (VIP)\n\nAndar text")
+check("sanitizer: '⚡ Credits: ♾️ Unlimited (VIP)' delete karta hai",
+      "Credits" not in _inj1 and "Unlimited" not in _inj1, repr(_inj1))
+check("sanitizer: baaki text safe rakhta hai", "link bhejo" in _inj1 and "Andar text" in _inj1)
+_inj2 = bot._sanitize_prompt("Header\n\nTap /cancel any time to stop.\n\nBody")
+check("sanitizer: 'Tap /cancel any time to stop.' delete karta hai",
+      "cancel" not in _inj2.lower(), repr(_inj2))
+check("sanitizer: body bachi rehti hai", "Header" in _inj2 and "Body" in _inj2)
+_inj3 = bot._sanitize_prompt("Credits: Unlimited\nTap /cancel any time")
+check("sanitizer: dono line ek saath aayein to bhi saaf", _inj3 == "", repr(_inj3))
+check("sanitizer: khaali input par khaali", bot._sanitize_prompt("") == "")
+check("sanitizer: None par crash nahi", bot._sanitize_prompt(None) == "")
+check("sanitizer: extra blank lines collapse karta hai",
+      "\n\n\n" not in bot._sanitize_prompt("A\n\n\n\nB"))
+check("sanitizer: 'Unlimited' ka doosra roop bhi pakadta hai",
+      "Unlimited" not in bot._sanitize_prompt("Credits: Unlimited (VIP)"))
+
+# --- tool_prompt har baar sanitizer se guzarta hai ---
+check("tool_prompt() sanitizer use karta hai",
+      "return _sanitize_prompt(body)" in BOT_SRC)
+check("saare 22 prompts sanitizer ke baad bhi saaf",
+      all(("Credits:" not in bot.tool_prompt(k)
+           and "cancel" not in bot.tool_prompt(k).lower())
+          for k in bot.PROMPT_DATA))
+# sub-mode fallback bhi sanitizer se guzre
+check("unknown/ASK_LINES fallback bhi sanitized return karta hai",
+      bot.tool_prompt("koi_galat") == "")
+
+# --- MEDIA menu se credit line gayi ---
+check("MEDIA STUDIO menu se 'Har option = 1 credit' line gayi",
+      "Har option = <b>1 credit" not in BOT_SRC)
+
+
 print("\n" + "=" * 62)
 print(f"  v58 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 print("=" * 62)
