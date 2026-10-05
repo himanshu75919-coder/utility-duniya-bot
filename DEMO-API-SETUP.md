@@ -49,6 +49,14 @@ main exact baaki values 1 minute me bana dunga:
 → Bot turant wahi card bhejega jo **aapki API lagne par aayega** — bas usme
 **SAMPLE (nakli) data** hoga, taaki koi asli vyakti ka data na dikhe.
 
+**Tarika 1.5 — apni API ka response → card (sabse kaam ka):**
+```
+/numtest {"carrier":"Jio","location":"Bihar","name":"Rahul Kumar","address":"Ward 2, Sitamarhi"}
+```
+Apni API ke **docs wala sample JSON** is command ke saath paste karo → bot turant
+dikha dega ki **card kaisa banega** aur kaunsi fields map hui. Koi API call nahi hoti,
+koi credit nahi katta, kuch save nahi hota. *(Admin command — sirf aap chala sakte ho.)*
+
 **Tarika 2 — poora tool flow dekhna hai:**
 Render → Environment → ye line daalo → Save:
 | Key | Value |
@@ -206,6 +214,7 @@ bot khud andar chala jaata hai.
 | `/numapi 9876543210` | **Live test** — aapki API se asli data maangta hai |
 | 📱 **Number Info** daba ke `9876543210` | 10-digit number → aapke format ka card |
 | `/numdemo` | **SAMPLE card** — koi API lagaye bina dekh lo kaisa aayega (admin) |
+| `/numtest <JSON>` | apni API ka **sample response paste karo** → card preview + kaunsi field map hui (admin) |
 
 > ⚠️ **`/numapi` ek private command hai** — sirf aap (admin) chala sakte ho.
 

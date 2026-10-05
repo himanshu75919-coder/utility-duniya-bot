@@ -166,6 +166,7 @@ Aapne kaha: *"hardcore proof built core rakhiye ki crash na ho"*. Ab ye 4 layer 
 |---|---|
 | ⚡ **Command** | Telegram me **`/numdemo`** (admin) → wahi card, SAMPLE (nakli) data ke saath |
 | 🧪 **Poora flow** | Render me `NUMINFO_DEMO=on` → 📱 Number Info me koi bhi number → card aayega, Source line par `🧪 DEMO SAMPLE` likha hoga |
+| 🔎 **Apni API ka response** | **`/numtest {"carrier":"Jio", ...}`** — apni API ke docs wala sample JSON paste karo → bot dikha dega card kaisa banega + kaunsi field map hui (koi API call nahi, koi credit nahi) |
 
 - Card ka layout **ek hi renderer** (`numinfo_card()`) se banta hai — jo aap
   `/numdemo` me dekhte ho, **bilkul wahi** asli API lagne par aayega.
