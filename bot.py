@@ -1622,7 +1622,7 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎟️ <b>CREDITS (for premium tools)</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"• New user gets: <b>{CREDITS_START}</b> credits (one time, not daily)\n"
-            "• Premium: Video Downloader · Number Info · Channel Cloner · Private Setup · "
+            "• Premium: Video Downloader · Number Info · IMEI · Channel Cloner · "
             "Bank PDF → Excel · Document Suite · Media Studio\n"
             "• All other tools are <b>free</b> (no credits)\n\n"
             "<b>How to use:</b>\n"
@@ -1642,7 +1642,7 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             target,
             f"🎁 <b>Great news!</b> You received <b>{n} credits</b> (total: {new_val}).\n"
-            "📥 Video Downloader · 📱 Number Info · 🔄 Cloner · 🔒 Private Setup · 🏦 Bank PDF → Excel · "
+            "📥 Video Downloader · 📱 Number Info · 📲 IMEI · 🔄 Cloner · 🏦 Bank PDF → Excel · "
             "📜 Document Suite · ⚡ Media Studio are now unlocked. 🚀",
             parse_mode=HTML)
     except Exception:
@@ -4850,8 +4850,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "   <i>(Jahan real email zaroori ho — bank/office — wahan mat use karo.)</i>\n\n"
             "🔑 <b>OTP khud nikal jayega</b> — message aate hi "
             "<b>🔄 Inbox refresh</b> dabao, code sabse upar dikhega.\n"
-            f"⏳ Valid: ~{int((res.get('expires_in') or 2592000) // 86400)} din\n"
-            "🔒 Ye email sirf isi chat me hai — koi aur nahi dekh sakta.",
+            f"⏳ Valid: ~{int((res.get('expires_in') or 2592000) // 86400)} din",
             parse_mode=HTML, reply_markup=_tm_kb)
         add_use(uid)
         return
@@ -5106,7 +5105,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _obits.append(f"🆔 <b>Govt ID:</b> {hesc(str(_ow['govt_id']))}")
         _addr = str(_ow.get("address") or "").strip()
         if _addr:
-            _obits.append("🏠 <b>Address(es):</b>")
+            # user ka exact format: label ke baad ek khali line, phir "   └ ..."
+            _obits.append("🏠 <b>Address(es):</b>\n")
             for _ap in [x.strip() for x in _addr.split("|") if x.strip()][:4]:
                 _obits.append(f"   └ {hesc(_ap[:300])}")
         # extra address list (agar API array bheje)

@@ -87,21 +87,30 @@ Aapki apni API lagani hai to — **5 minute ka kaam**:
 3. **Save** → Render khud restart karega
 4. Telegram me bhejo: **`/numapi`** → phir **`/numapi 9876543210`**
    *(live test — naam aaya to API chal rahi hai)*
-5. Ab **📱 Number Info** me 10-digit number bhejo → card **aapke format** me:
+5. Ab **📱 Number Info** me 10-digit number bhejo → card **aapke format** me
+   (bilkul aisa — mere test ka asli output):
 
 ```
 👤 Name: Sanjay Sah
+
 👨 Father: Ram Akwal Sah
+
 📱 Phones/Alt: 7305190526
+
 🌐 Region: BIHAR JIO
+
 🆔 Govt ID: 401635555849
+
 🏠 Address(es):
-   └ S/O Ram Akwal Sah, ward 02, ...
+
+   └ S/O  Ram Akwal Sah, ward 02, B machhpakauni, village bela khurd, post
+     bela machchhapakauni, Bela Khurd Parihar, Sitamarhi, Bihar, 843324
+
 ──────────────────────────────
 📞 Number: +91 98765 43210
 🏢 Operator: Jio  •  📍 Bihar
 📡 Source: 🟢 LIVE — aapki API se
-⚡ Response: 240ms
+⚡ Response: 291ms
 ──────────────────────────────
 🔥 Powered by …
 ```
