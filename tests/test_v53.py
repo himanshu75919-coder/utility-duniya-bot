@@ -490,7 +490,7 @@ check("App Finder not-found par credit nahi katta",
 # =====================================================================
 section("10) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
 # =====================================================================
-check("bot.py version v56 par hai", 'BOT_VERSION = "v57.' in _bot_src)
+check("bot.py version v56 par hai", 'BOT_VERSION = "v58.' in _bot_src)
 check("build_qr_image helper maujood hai", "def build_qr_image(" in _bot_src)
 check("teeno QR handler build_qr_image use karte hain",
       _bot_src.count("build_qr_image") >= 4)
@@ -521,15 +521,21 @@ check("WiFi open-network detection (none/no/skip/open)",
       'pwd.lower() in ("none", "no", "skip", "-", "open", "")' in _bot_src)
 check("WiFi QR me security warning hai (password encode hota hai)",
       "trusted logon ko scan karne do" in _bot_src)
-# v54.0: prompts ab MINIMAL one-liner hain (user order) — lamba lecture nahi
-check("appfind prompt minimal one-liner hai (example ke saath)",
-      '"appfind": (' in _bot_src and "app ka naam bhejo" in _bot_src
-      and "e.g." in bot.PROMPTS.get("appfind", ""))
-check("saare prompts chhote hain (koi 4-line lecture nahi)",
-      all(len(v) < 200 for v in bot.PROMPTS.values()))
-check("har prompt me inline example hai (e.g. ya code)",
-      all(("e.g." in v) or ("<code>" in v) or ("chuno" in v) or ("NEW" in v)
-          for v in bot.PROMPTS.values()))
+# v58.0: prompts ka NAYA format (user order) — header + ✨ ask + 📝 Examples
+check("appfind prompt v58 format me hai (head + ask + Examples)",
+      '"appfind": {' in _bot_src and "APP FINDER" in _bot_src
+      and "📝 <b>Examples:</b>" in bot.PROMPTS.get("appfind", ""))
+check("har prompt me ✨ ask line hai",
+      all("✨" in v for v in bot.PROMPTS.values()))
+check("har prompt me 📝 Examples block hai",
+      all("📝 <b>Examples:</b>" in v for v in bot.PROMPTS.values()))
+check("har prompt me kam se kam 1 example hai",
+      all(v.count("• ") >= 1 for v in bot.PROMPTS.values()))
+# v58: user ka strict order — tool start par ye DO lines kabhi na aayein
+check("kisi bhi tool prompt me credits line nahi",
+      not any("Credits:" in v for v in bot.PROMPTS.values()))
+check("kisi bhi tool prompt me /cancel line nahi",
+      not any("cancel" in v.lower() for v in bot.PROMPTS.values()))
 
 # --- build_qr_image live behaviour ---
 _q1 = bot.build_qr_image("https://t.me/Supermannn_x", tool="qr")

@@ -277,6 +277,35 @@ def lookup(number: str) -> dict:
         return {"ok": False, "error": ("Provider ne carrier data nahi diya — response "
                                        "ka format match nahi hua. URL/params check karo.")}
 
+    # ---------- v58: OWNER / EXTRA fields (agar AAPKI API bheje) ----------
+    # Ye sirf tab bharte hain jab aapki API response me ye fields hon.
+    # Hum khud kahin se ye data NAHI laate — jo API deti hai wahi dikhate hain.
+    _owner = {
+        "name": _clean_name(_pick(flat, "name", "ownername", "ownername",
+                                  "subscribername", "customername", "fullname",
+                                  "holdername", "username")),
+        "father": _clean_name(_pick(flat, "father", "fathername", "fathersname",
+                                    "guardian", "guardianname", "sonof", "so")),
+        "alt": _clean_name(_pick(flat, "alt", "altmobile", "alternate",
+                                 "altnumber", "phones", "altphones",
+                                 "othernumbers", "linkednumbers")),
+        "region": _clean_name(_pick(flat, "region", "state", "circle",
+                                    "telecomcircle", "location", "area")),
+        "govt_id": _clean_name(_pick(flat, "govtid", "idnumber", "aadhaar",
+                                     "uid", "documentid", "idproof")),
+        "address": _clean_name(_pick(flat, "address", "addresses", "fulladdress",
+                                     "permanentaddress", "addr")),
+    }
+    _extra = {}
+    if isinstance(data, dict):
+        for _k in ("addresses", "address_list", "alt_numbers", "numbers",
+                   "phones_list", "other_numbers"):
+            if isinstance(data.get(_k), list):
+                _extra[_k] = [str(x) for x in data[_k][:6] if x]
+            _flatk = _k.replace("_", "").lower()
+            if _flatk in flat and isinstance(flat.get(_flatk), list):
+                _extra[_k] = [str(x) for x in flat[_flatk][:6] if x]
+
     out = {
         "ok": True,
         "source": "provider",
@@ -286,6 +315,8 @@ def lookup(number: str) -> dict:
         "ported": ported,
         "country": country,
         "country_code": country_code,
+        "owner": {k: v for k, v in _owner.items() if v},
+        "extra": _extra,
         "latency_ms": ms,
         "provider_live": True,
         "provider_host": re.sub(r"^https?://", "", provider_url()).split("/")[0][:40],

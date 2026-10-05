@@ -1,4 +1,21 @@
-# ⚡ Utility Duniya Super-Bot — **v57.0 Number-Info API + Premium Cards**
+# ⚡ Utility Duniya Super-Bot — **v58.0 Naya Prompt System + IMEI Photo + API Panels**
+
+## 🆕 v58.0 — "NAYA PROMPT SYSTEM + IMEI PHOTO + API PANELS"
+
+**🎨 Saare 22 tools ka prompt naya** (aapka diya format): header + `✨` ask + `📝 Examples`
+bullets. Video Downloader me 5 app examples (YouTube·Instagram·Facebook·TikTok·X).
+**🚫 Do lines poori tarah gayi** — `⚡ Credits: ♾️ Unlimited (VIP)` aur
+`Tap /cancel any time to stop.` ab tool start par kahin nahi.
+**📸 IMEI me photo fix** — adhoora TAC naam (`XIAOMI NOTE 10 PRO`) ab nanoreview
+search API se theek hota hai (`Xiaomi Redmi Note 10 Pro`) + direct photo URL;
+galat-photo guard bhi (model code se galat device ka photo nahi).
+**🔎 Device naam / model code se search** — pehle kaam hi nahi karta tha, ab chalta hai.
+**🏦 UPI naam API** (naya `modules/upi_provider.py` + `/upiapi`, legal + opt-in) aur
+**📱 Number Info owner panel** (aapke diye format me). Poore numbers: **`V58-KYA-BADLA.md`**
+
+📊 **Tests: 837 checks — 0 fail** (naya `tests/test_v58.py` = 113 checks)
+
+## 🕘 v57.0 — "NUMBER INFO API + PREMIUM CARDS"
 
 ## 🆕 v57.0 — "NUMBER INFO API + PREMIUM CARDS"
 

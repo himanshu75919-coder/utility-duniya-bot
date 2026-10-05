@@ -166,7 +166,7 @@ section("3) 🚨 BRAND_TAG CRASH FIX (asli bug)")
 # =====================================================================
 import bot  # noqa: E402
 
-check("BOT_VERSION v57 par hai", 'BOT_VERSION = "v57.' in BOT_SRC)
+check("BOT_VERSION v57+ par hai", 'BOT_VERSION = "v58.' in BOT_SRC)
 check("BRAND_TAG bot.py me DEFINED hai (pehle NameError crash tha)",
       hasattr(bot, "BRAND_TAG"))
 check("BRAND_TAG ki value sahi hai", str(bot.BRAND_TAG).startswith("@"))

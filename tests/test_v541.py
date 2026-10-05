@@ -227,7 +227,7 @@ check("upi_to_vpa → mode 'upi' set hota hai",
 
 # =====================================================================
 section("3) 🧾 Version + overall sanity")
-check("BOT_VERSION v56 par hai", 'BOT_VERSION = "v57.' in _bot_src)
+check("BOT_VERSION v56+ par hai", 'BOT_VERSION = "v58.' in _bot_src)
 
 # --- v54.2: UPI status section (public-only, jhootha 'ACTIVE' nahi) ---
 _up2 = _bot_src[_bot_src.index('if mode == "upi":'):]
@@ -236,10 +236,14 @@ check("UPI card me ACCOUNT DETAILS & STATUS section hai",
       "ACCOUNT DETAILS & STATUS" in _up2)
 check("status section me Source Type + Query Entity hai",
       "Source Type" in _up2 and "Query Entity" in _up2)
-check("jhootha 'VALID / ACTIVE' claim NAHI hota (active public nahi)",
-      "VALID / ACTIVE" not in _up2)
-check("saaf likha hai ki active-status sirf bank jaanta hai",
-      "sirf bank jaanta hai" in _up2)
+# v58: "VALID / ACTIVE" ab SIRF tab dikhta hai jab AAPKI UPI/KYC API confirm kare
+# (_up_live branch). Bina API par jhootha claim nahi hota — tab "FORMAT VALID".
+check("'VALID / ACTIVE' sirf API-confirmed branch me hai (bina API jhootha claim nahi)",
+      'if _up_live else' in _up2 and "_up_live" in _up2)
+check("bina API par 'FORMAT VALID' + honest note dikhta hai",
+      "FORMAT VALID" in _up2 and "sirf bank jaanta hai" in _up2)
+check("API lagi ho to Source Type 'YOUR UPI/KYC API (consented)' likhta hai",
+      "YOUR UPI/KYC API (consented)" in _up2)
 import bot as _bot  # noqa: E402
 _cot = _bot.get_credits_over_text("imei")
 check("credits-over text me hata hua 'Vehicle' tool advertise NAHI hota",
