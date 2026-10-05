@@ -9,6 +9,9 @@ Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
 | 📌 Pinterest **Download** par "⚠️ Chhota sa ghatna ho gaya" | Wajah: bina filename wala BytesIO → Telegram 400 → crash. Ab filename set + try/except + `send_document` fallback. **Credit sirf tab katta hai jab media actually deliver ho.** |
 | 🔥 FF UID par English "The API returned an HTTP 403 error." | 403 = API ne **Render ke server IP** ko temporarily block kiya (aapki UID kharab nahi). Ab Hinglish card: "API ne humare server ko block kar rakha hai — 15-30 min baad try karo, credit nahi kata." |
 | 📡 TG PUBLIC INFO card me khali rows | Double newline hata diya — card ab saaf. |
+| 💳 Pinterest download par **credit gate** nahi tha | 0-credit user bhi free download kar leta tha. Ab gate hai — credits khatam to VIP card. |
+| 🩺 `/health` par commit pata nahi chalta tha | Ab `version + commit SHA + branch + uptime` dikhta hai → "live par kaunsa code hai" ek nazar me. |
+| 🧹 Purane (hataaye hue) tools ads me dikhte the | Credits-over aur VIP-wall text se 🚗 Vehicle/Challan aur 🔒 Private Channel Setup hata diye. |
 | 🏦 UPI verify ka look competitor-jaisa chahiye tha | Ab boxed **UPI VERIFY REPORT** card (VPA, format, bank handle, bank, local part) + brand tag. **Sirf public data.** |
 
 ### 🔒 UPI + mobile number — zaroori baat
@@ -17,7 +20,7 @@ Kuch bots 10-digit mobile se **account-holder ka naam** nikaalte hain. Wo NPCI/b
 Ye bot wo kabhi nahi karega. Mobile bhejoge to saaf refusal + 2 legal options
 (Number Info → operator/circle, VPA Verify → bank/format), **bina credit kaate**.
 
-**Tests: 795 checks · 0 fail** (106+127+208+14+279+61).
+**Tests: 803 checks · 0 fail** (106+127+208+14+279+69).
 > 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
 
 ---

@@ -304,6 +304,25 @@ section("5) 🧾 Version + overall sanity")
 check("BOT_VERSION v54.1 par hai", 'BOT_VERSION = "v54.1' in _bot_src)
 check("prompts abhi bhi minimal one-liners hain (v54 feature zinda)",
       _bot_src.count("PROMPTS") >= 1 and "tool_prompt(" in _bot_src)
+# --- pinpick credit gate + removed-tools ka jhootha advertisement ---
+_pp = _bot_src[_bot_src.index('if data.startswith("pinpick:")'):]
+_pp = _pp[:_pp.index('_dl = await asyncio.to_thread(_pinpick_download')]
+check("pinpick par credit GATE hai (0-credit user free download na kar paye)",
+      "can_use_premium_tool(_u_pp, uid)" in _pp)
+check("gate fail par credits-over card + VIP keyboard dikhta hai",
+      'get_credits_over_text()' in _pp and "get_limit_exceeded_kb()" in _pp)
+check("gate download se PEHLE hai (order sahi)",
+      _bot_src.index("can_use_premium_tool(_u_pp, uid)") <
+      _bot_src.index('_dl = await asyncio.to_thread(_pinpick_download'))
+
+import bot as _bot  # noqa: E402
+_cot = _bot.get_credits_over_text()
+check("credits-over text me hata hua 'Vehicle' tool advertise NAHI hota",
+      "Vehicle" not in _cot)
+check("VIP wall me hata hua Vehicle/Challan NAHI hai",
+      "Vehicle" not in _bot.VIP_WALL_TEXT and "Challan" not in _bot.VIP_WALL_TEXT)
+check("VIP wall me hata hua 'Private Channel Setup' NAHI hai",
+      "Private Channel" not in _bot.VIP_WALL_TEXT)
 check("/health par git commit SHA dikhta hai (deploy verify karne ke liye)",
       "RENDER_GIT_COMMIT" in _bot_src and "commit: {_GIT_COMMIT" in _bot_src)
 check("/health par branch + uptime bhi hai",
