@@ -250,9 +250,51 @@ check("provider alt mobile parse", NP._clean_name(NP._pick(_flat, "alt", "altmob
 check("provider region parse", NP._clean_name(NP._pick(_flat, "region", "state")) == "BIHAR JIO")
 check("provider govt id parse", NP._clean_name(NP._pick(_flat, "govtid", "idnumber")) == "401635555849")
 check("provider address parse", "ward 02" in NP._clean_name(NP._pick(_flat, "address")))
+check("POST support hai (NUMINFO_PROVIDER_METHOD)",
+      "NUMINFO_PROVIDER_METHOD" in NP_SRC and "def provider_method()" in NP_SRC
+      and "http_post" in NP_SRC)
+check("owner-only API bhi chalti hai (carrier data ke bina) — 'format match nahi hua' nahi",
+      "and not any(_owner.values())" in NP_SRC)
 check("owner dict me paanch field map hote hain",
       all(f'"{_f}": _clean_name' in NP_SRC
           for _f in ("name", "father", "alt", "region", "govt_id", "address")))
+
+# ---- LIVE: POST + sirf owner data wali API ----
+
+
+class _HPost(BaseHTTPRequestHandler):
+    def do_POST(self):                                       # noqa: N802
+        self.rfile.read(int(self.headers.get("Content-Length") or 0))
+        b = json.dumps({"name": "POST WALA NAAM", "address": "Sitamarhi, Bihar"}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(b)))
+        self.end_headers()
+        self.wfile.write(b)
+
+    def log_message(self, *a):                               # noqa: D102
+        pass
+
+
+_srv2 = HTTPServer(("127.0.0.1", 0), _HPost)
+threading.Thread(target=_srv2.serve_forever, daemon=True).start()
+os.environ["NUMINFO_PROVIDER_URL"] = f"http://127.0.0.1:{_srv2.server_address[1]}/api"
+os.environ["NUMINFO_PROVIDER_KEY"] = "TESTKEY"
+os.environ["NUMINFO_PROVIDER_METHOD"] = "POST"
+try:
+    _r2 = NP.lookup("9876543210")
+    check("LIVE POST: ok=True (POST API chalti hai)", _r2.get("ok") is True, str(_r2)[:110])
+    check("LIVE POST: sirf naam/pata wali API se bhi owner data aaya",
+          (_r2.get("owner") or {}).get("name") == "POST WALA NAAM", str(_r2.get("owner")))
+finally:
+    _srv2.shutdown()
+    os.environ.pop("NUMINFO_PROVIDER_URL", None)
+    os.environ.pop("NUMINFO_PROVIDER_KEY", None)
+    os.environ.pop("NUMINFO_PROVIDER_METHOD", None)
+    try:
+        NP._CACHE.clear()                                    # type: ignore[attr-defined]
+    except Exception:                                        # noqa: BLE001
+        pass
 
 # ---- LIVE-ish: chhota fake API server, phir numprov.lookup ----
 _SAMPLE = {"data": {"name": "Sanjay Sah", "fatherName": "Ram Akwal Sah",
@@ -398,6 +440,67 @@ for _n in ast.walk(_t):
         if _d:
             _dup.append(sorted(_d))
 check("bot.py me duplicate dict keys nahi", not _dup, str(_dup[:2]))
+
+
+# =====================================================================
+section("7) 🛡️ HARDCORE CRASH-PROOF CORE (self-check + self-heal + guards)")
+# =====================================================================
+check("_startup_selfcheck() helper hai", callable(getattr(bot, "_startup_selfcheck", None)))
+check("_supervise() helper hai (self-heal supervisor)",
+      callable(getattr(bot, "_supervise", None)))
+check("_CRASH_STATE counter maujood hai",
+      isinstance(getattr(bot, "_CRASH_STATE", None), dict)
+      and "count" in bot._CRASH_STATE)
+check("__main__ supervisor se chalta hai (seedha main() nahi)",
+      "_supervise()" in BOT_SRC and BOT_SRC.rstrip().endswith("_supervise()"))
+check("--check flag se sirf self-check chalta hai (deploy verify)",
+      '"--check" in sys.argv' in BOT_SRC)
+check("self-check me version + commit print hote hain",
+      "🩺 SELF-CHECK" in BOT_SRC and "{_GIT_COMMIT}" in BOT_SRC)
+check("self-check me modules verify hote hain", "modules: sab OK" in BOT_SRC)
+check("self-check me API status sirf set/not-set (key never printed)",
+      "Number Info API:" in BOT_SRC and "provider_key()" not in BOT_SRC.split("_startup_selfcheck")[1][:2000])
+check("self-heal crash hone par dobara chalta hai (loop)",
+      "while True:" in BOT_SRC.split("def _supervise")[1][:900])
+check("bahut zyada crash par 60s wait (loop na bane)",
+      "_wait = 60 if len(_fast) >= 8 else 5" in BOT_SRC)
+check("KeyboardInterrupt par crash-restart nahi (clean exit)",
+      "except KeyboardInterrupt:" in BOT_SRC.split("def _supervise")[1][:900])
+check("traceback log hota hai (debugging ke liye)",
+      "traceback.print_exc()" in BOT_SRC.split("def _supervise")[1][:2500])
+check("loop exception handler laga hai (background task crash se bot nahi girta)",
+      "set_exception_handler" in BOT_SRC)
+check("/health me self-heal crash counter dikhta hai",
+      "self-heal: crashes=" in BOT_SRC)
+check("self-check boot par chalta hai (banner ke baad)",
+      "_startup_selfcheck()" in BOT_SRC.split("print(f\"🚀 Starting ToolVault")[1][:300])
+check("self-check crash kar bhi jaye to bot rukta nahi (try/except)",
+      "self-check skip (crash nahi)" in BOT_SRC)
+check("banner me ab commit + pid bhi dikhta hai",
+      "   commit {_GIT_COMMIT} | pid {os.getpid()}" in BOT_SRC)
+
+# --- LIVE proof: supervisor do crash ke baad khud chalu hota hai ---
+_calls = []
+_orig_main, _orig_sleep = bot.main, bot.time.sleep
+
+
+def _fake_main():
+    _calls.append(1)
+    if len(_calls) < 3:
+        raise RuntimeError("test crash %d" % len(_calls))
+
+
+bot.main = _fake_main
+bot.time.sleep = lambda s: None                     # test me wait skip
+try:
+    bot._supervise()
+finally:
+    bot.main, bot.time.sleep = _orig_main, _orig_sleep
+
+check("LIVE: 2 crash ke baad 3rd try chala (self-heal kaam karta hai)",
+      len(_calls) == 3, str(len(_calls)))
+check("LIVE: crash counter badha", bot._CRASH_STATE["count"] >= 2,
+      str(bot._CRASH_STATE["count"]))
 
 
 print("\n" + "=" * 62)

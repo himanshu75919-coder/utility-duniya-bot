@@ -137,11 +137,34 @@ FAIL kar dega.
 
 ---
 
+## 7️⃣ 🛡️ HARDCORE CRASH-PROOF CORE (v59.3) — "pehli baar hi crash"
+
+Aapne kaha: *"hardcore proof built core rakhiye ki crash na ho"*. Ab ye 4 layer hain:
+
+| Layer | Kya karta hai |
+|---|---|
+| 🩺 **Boot self-check** | Logs me saaf report: `version` + `commit` + `modules: sab OK` + API `set / not set`. Ab ek nazar me pata chal jaata hai kaunsa code chal raha hai |
+| 🔁 **Self-heal supervisor** | `main()` crash ho to bot **khud restart** ho jaata hai (pehle process mar jaata tha = Render 502) |
+| 🧯 **Loop guard** | Background task me error aaye to sirf log hota hai — poora bot nahi girta |
+| 📊 **Crash counter** | `/health` par `self-heal: crashes=N` — sach dikhta hai, chhupaya nahi jaata |
+
+**Live proof (test me):** `main()` ko 2 baar jaan-boojh kar crash karaya → bot **3rd try par khud chalu** ho gaya, counter me `crashes=2` — process zinda raha ✅
+
+**Saath me 2 asli bug fix (jo "pehli baar" me hi dikhte the):**
+1. **Owner-only API** — agar aapki API sirf naam/pata bheje (operator/circle ke bina) to bot
+   pehle *"format match nahi hua"* bolta tha. **Ab chalti hai** ✅
+2. **POST wali API** — pehle sirf GET chalta tha. Ab `NUMINFO_PROVIDER_METHOD=POST` laga do
+   to number+key body me chale jaate hain ✅
+
+📖 Render me key/value exactly kya likhna hai → **`DEMO-API-SETUP.md`**
+
+---
+
 ## 📊 Test status
 
 | File | Kya check karta hai |
 |---|---|
-| `tests/test_v59.py` | **naya** — UPI delete, privacy text gone, naya Number Info card, YT speed, IMEI, /version lock |
+| `tests/test_v59.py` | **naya** — UPI delete, lecture text gone, naya Number Info card, YT speed, IMEI, /version lock, **crash-proof core (self-heal live test)** |
 | `tests/test_v58.py` | prompt system + guard + `/version` (v59 ke hisaab se update) |
 | `tests/test_v57/v56/v55/v53/v541/v50_core` | purane sab tests update — UPI wale assertions ab "UPI gaya" verify karte hain |
 

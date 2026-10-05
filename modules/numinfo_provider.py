@@ -14,6 +14,7 @@ NUMINFO_PROVIDER_PARAM = number wale param ka naam (default: number)
 NUMINFO_PROVIDER_AUTH  = query | header | bearer | none   (default: query)
 NUMINFO_PROVIDER_KEY_PARAM = key wale param ka naam (default: key)
 NUMINFO_PROVIDER_HEADER    = header ka naam (auth=header par, default: X-Api-Key)
+NUMINFO_PROVIDER_METHOD    = GET (default) | POST
 ------------------------------------------------------------------
 
 URL me `{number}` placeholder bhi chalta hai — jaise:
@@ -33,11 +34,12 @@ import re
 import time
 
 try:
-    from modules.core.net import NetError, http_get
+    from modules.core.net import NetError, http_get, http_post
     _NET = True
 except Exception:                                            # pragma: no cover
     NetError = Exception                                     # type: ignore
     http_get = None                                          # type: ignore
+    http_post = None                                         # type: ignore
     _NET = False
 
 try:
@@ -80,6 +82,11 @@ def provider_auth() -> str:
     """query | header | bearer | none."""
     a = _env("NUMINFO_PROVIDER_AUTH", "query").lower()
     return a if a in ("query", "header", "bearer", "none") else "query"
+
+
+def provider_method() -> str:
+    """GET (default) ya POST — kuch APIs POST maangti hain (v59.3)."""
+    return "post" if _env("NUMINFO_PROVIDER_METHOD", "GET").strip().lower().startswith("p") else "get"
 
 
 def provider_key_param() -> str:
@@ -223,8 +230,14 @@ def lookup(number: str) -> dict:
 
     t0 = time.time()
     try:
-        r = http_get(url, params=params or None, headers=headers,
-                     timeout=provider_timeout(), retries=1)
+        if provider_method() == "post" and http_post is not None:
+            # POST API: number/key body me jaate hain (JSON)
+            _body = dict(params)
+            r = http_post(url, json=_body or None, params=None, headers=headers,
+                          timeout=provider_timeout(), retries=1)
+        else:
+            r = http_get(url, params=params or None, headers=headers,
+                         timeout=provider_timeout(), retries=1)
         ms = int((time.time() - t0) * 1000)
         if r.status_code == 401 or r.status_code == 403:
             return {"ok": False, "auth": True, "status": r.status_code,
@@ -273,10 +286,6 @@ def lookup(number: str) -> dict:
     country = _clean_name(_pick(flat, "countryname", "country", "countryname_en"))
     country_code = _clean_name(_pick(flat, "countrycode", "countryprefix", "dialcode"))
 
-    if not any((operator, circle, line_type)):
-        return {"ok": False, "error": ("Provider ne carrier data nahi diya — response "
-                                       "ka format match nahi hua. URL/params check karo.")}
-
     # ---------- v58: OWNER / EXTRA fields (agar AAPKI API bheje) ----------
     # Ye sirf tab bharte hain jab aapki API response me ye fields hon.
     # Hum khud kahin se ye data NAHI laate — jo API deti hai wahi dikhate hain.
@@ -296,6 +305,13 @@ def lookup(number: str) -> dict:
         "address": _clean_name(_pick(flat, "address", "addresses", "fulladdress",
                                      "permanentaddress", "addr")),
     }
+    # v59.3: agar aapki API sirf owner data (naam/pita/pata) bhejti hai aur
+    # operator/circle nahi — to bhi kaam kare (pehle "format match nahi hua"
+    # bolta tha, jabki naam aa gaya tha). Ab dono me se kuch bhi ho to OK.
+    if not any((operator, circle, line_type)) and not any(_owner.values()):
+        return {"ok": False, "error": ("Provider ne carrier/owner data nahi diya — response "
+                                       "ka format match nahi hua. URL/params check karo.")}
+
     _extra = {}
     if isinstance(data, dict):
         for _k in ("addresses", "address_list", "alt_numbers", "numbers",

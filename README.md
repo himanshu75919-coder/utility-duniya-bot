@@ -1,5 +1,13 @@
 # ⚡ Utility Duniya Super-Bot — **v59.0 UPI Verify Removed + Deep Clean + Fast YouTube**
 
+## 🆕 v59.3 — 🛡️ HARDCORE CRASH-PROOF CORE
+
+**Boot self-check** (logs me version + commit + modules + API status) ·
+**Self-heal supervisor** (main() crash ho to bot khud restart — Render 502 nahi) ·
+**loop exception guard** (background task error se bot nahi girta) ·
+**crash counter** `/health` par · **owner-only API** aur **POST API** support.
+Guide: **`DEMO-API-SETUP.md`** (Render me key/value exact) + **`AB-KYA-KARNA-HAI.md`**
+
 ## 🆕 v59.0 — "UPI GAYA + DEEP CLEAN + FAST YOUTUBE"
 
 **🏦 UPI VERIFY poora delete** (user ka order) — tool handler, prompt, keyboard button,
