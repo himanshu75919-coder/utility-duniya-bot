@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import ast
 import json
+from pathlib import Path
 import os
 import re
 import sys
@@ -695,6 +696,31 @@ check("LIVE: menu se SUPPORT dabane par card aaya (clickable link ke saath)",
 check("LIVE: us card me 📩 Message button bhi hai",
       any(b.url and "t.me/" in b.url
           for _r in _BB.kw["reply_markup"].inline_keyboard for b in _r))
+
+# --- v59.9: AUTO-WEBHOOK (Conflict-free) + live version proof -----------------
+check("v59.9: webhook preflight bot me lagi hai (Telegram se pehle poochta hai)",
+      "webhook_preflight(WEBHOOK_URL" in BOT_SRC)
+check("v59.9: preflight fail ho to POLLING par girta hai (crash nahi)",
+      "WEBHOOK preflight fail" in BOT_SRC and 'WEBHOOK_URL = ""' in BOT_SRC)
+check("v59.9: polling branch purani webhook hata deta hai (getUpdates Conflict 0)",
+      "delete_webhook(drop_pending_updates=True)" in BOT_SRC
+      and "Purani webhook (agar thi) hata di" in BOT_SRC)
+check("v59.9: health_html() shared hai — webhook mode me bhi poora report",
+      callable(getattr(bot, "health_html", None))
+      and "install_webhook_health_routes(health_html)" in BOT_SRC)
+_hh = bot.health_html()
+check("v59.9: /health me version + commit + mode + crashes dikhte hain",
+      "version:" in _hh and "commit:" in _hh and "mode:" in _hh and "crashes=" in _hh, _hh[:90])
+check("v59.9: /version me commit + mode + uptime proof hai",
+      "Code commit:" in BOT_SRC and "chal raha:</b>" in BOT_SRC)
+check("v59.9: /version me 'live hai ya nahi' 3-step guide hai",
+      "Naya version live hai ya nahi" in BOT_SRC)
+check("v59.9: self-check asli mode batata hai (raw env nahi)",
+      "webhook_url_from_env() else 'POLLING'" in BOT_SRC)
+check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
+      (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
+      .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
+check("v59.9: BOT_VERSION v59.9 hai", "v59.9" in bot.BOT_VERSION, bot.BOT_VERSION)
 
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))

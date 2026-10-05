@@ -375,8 +375,9 @@ check("/version me prompt system status dikhta hai",
 check("/version me credits/cancel line check dikhta hai",
       "Credits/cancel line:</b>" in BOT_SRC)
 check("/version me IMEI photo status dikhta hai", "IMEI photo:</b>" in BOT_SRC)
-check("/version deploy-pending hint deta hai",
-      "Render me deploy pending hai" in BOT_SRC)
+check("/version naya-version-live proof deta hai (commit + mode + health link)",
+      "Code commit:" in BOT_SRC and "chal raha:</b>" in BOT_SRC
+      and "Naya version live hai ya nahi" in BOT_SRC and "/health" in BOT_SRC)
 check("credits_line() ab kahin CALL nahi hoti (poori tarah hata)",
       BOT_SRC.count("credits_line(") == 1,  # sirf definition
       f"count={BOT_SRC.count('credits_line(')}")
