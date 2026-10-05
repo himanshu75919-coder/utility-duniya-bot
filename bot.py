@@ -165,12 +165,6 @@ from modules.toolkit_extras import (
     expand_url,
     shorten_url,
 )
-from modules.vehicle_challan import (
-    fetch_vehicle_report,
-    is_configured as vehicle_api_ready,
-    render_report as render_vehicle_report,
-    valid_plate as vehicle_plate_ok,
-)
 from modules import api_hub as hubapi
 from modules.render_health import webhook_url_from_env, webhook_url_usable
 from modules.imei_lookup import (
@@ -191,7 +185,6 @@ from modules.osint_tools import (
     lookup_ip_domain,
     lookup_phone_info,
     lookup_pincode,
-    lookup_vehicle_rto,
     domain_osint,
     upi_verify,
     tg_user_public,
@@ -295,7 +288,6 @@ TOOL_RATE_LIMITS = {
     "aadeid":      (15, 60,  "Aadhaar EID"),
     "ifsc":        (15, 60,  "IFSC Info"),
     "pin":         (15, 60,  "Pincode Info"),
-    "rto":         (8,  60,  "Vehicle Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
     "numinfo":     (10, 60,  "Number Info"),
     "linkcheck":   (10, 60,  "Link Check"),
@@ -333,7 +325,7 @@ SUPPORT_USERNAME = "@Supermannn_x"
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = "🚫 Aapka account ban hai. Admin se baat karo: @Supermannn_x"
-BOT_VERSION = "v53.0 Premium Earning"  # v53.0: 🔥 FF UID REAL DATA (0.19s) · 🎮 BGMI honest service-busy (credit nahi katta) · 📌 Pinterest real API (8 pins + video) · 📄 Web Scraper clean markdown + byline · 📧 Temp Mail OTP auto-detect · 📦 App Finder VERIFIED metadata · 📷 Branded QR (logo/colors/contrast) · 📊 Telemetry (/sys) — sab public/legal
+BOT_VERSION = "v54.0 Premium Earning"  # v54.0: ✍️ MINIMAL PROMPTS (ek line + example) · 🔥 FF UID profile-card/character/outfit IMAGES · 📲 IMEI → FULL spec-sheet + photo chain · 🚗 VEHICLE/RTO tool REMOVED (licensed key chahiye tha) · v53 ke sab fixes barkarar
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -373,8 +365,6 @@ PREMIUM_TOOLS = {
     "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
     "kagaz",               # 📜 SARKARI KAGAZ SUITE
     "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
-    # ---- v40 VEHICLE INFO + CHALLAN (live API) ----
-    "rto",                 # 🚗 VEHICLE & CHALLAN REPORT (action key = "rto")
     # ---- v41 IMEI / PHONE DETAILS (live API) ----
     "imei",                # 📲 IMEI & PHONE SPEC CARD
     # ---- v51: baaki saare tools bhi premium (earning model) ----
@@ -408,7 +398,6 @@ PREMIUM_TOOL_NAMES = {
     "bankpdf": "🏦 Bank Statement → Excel",
     "kagaz": "📜 Sarkari Kagaz Suite",
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
-    "rto": "🚗 Vehicle Info + Challan Report",
     "imei": "📲 IMEI / Phone Details",
     "terabox": "⚡ Terabox / Cloud Downloader",
     "vnum": "🌐 Virtual Numbers (OTP)",
@@ -813,7 +802,7 @@ KB_BTNS = [
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
-    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🚗 {to_bold('VEHICLE INFO + CHALLAN')}"],
+    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"❓ {to_bold('HELP / TUTORIAL')}"],
@@ -870,9 +859,6 @@ BTN_MODE_MAP = {
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
     "SARKARI SEVA PORTALS": "sarkari",
-    "RTO VEHICLE INFO": "rto",
-    "VEHICLE INFO + CHALLAN": "rto",
-    "VEHICLE INFO": "rto",
     "IMEI / PHONE DETAILS": "imei",
     "IMEI INFO": "imei",
     "IMEI LOOKUP": "imei",
@@ -905,186 +891,127 @@ BTN_MODE_MAP = {
 }
 
 PROMPTS = {
+    # ══════════════════════════════════════════════════════════════════
+    #  v54.0 — MINIMAL PROMPTS
+    #  Pehle har tool 4-6 line ka lecture deta tha (kya karta hai, kaise
+    #  karta hai, privacy warning, phir "ab bhejo"). User ko tool ke button
+    #  par click karne ke baad sirf EK cheez chahiye: "kya bhejun".
+    #  Ab har prompt = emoji + naam + direct demand + inline example,
+    #  EK line me. Jaise:  🎮 BGMI UID — UID bhejo (8-10 digit):
+    #  Privacy/legal warnings ab result ke saath aate hain (jahan zaroori
+    #  hain), prompt me nahi.
+    #  ⚠️ _verify_v49.py 3 phrases assert karta hai — wo rakhe hain:
+    #     imei  → "Ab 15 digit IMEI bhejo"
+    #     ifsc  → "Ab IFSC code bhejo"
+    #     rto   → "Ab number plate bhejo"
+    # ══════════════════════════════════════════════════════════════════
     "terabox": (
-        f"⚡ <b>{to_bold('TERABOX / CLOUD')}</b>\n"
-        "Terabox, Mediafire, Drive ya Mega ka link bhejo → seedha download link milega.\n"
-        "📌 Jaise: <code>https://terabox.com/s/xxxxx</code>\n"
-        "🔗 <b>Ab apna link bhejo:</b>"
+        f"⚡ <b>{to_bold('TERABOX / CLOUD')}</b> — link bhejo "
+        "(e.g. <code>https://terabox.com/s/xxxx</code>):"
     ),
     "insta_dl": (
-        f"📥 <b>{to_bold('VIDEO DOWNLOADER')}</b>\n"
-        "Instagram, YouTube, Facebook, X, TikTok, Pinterest, Reddit — 20+ sites.\n"
-        "📌 Jaise: <code>https://www.instagram.com/reel/xxxxx</code>\n"
-        "🔗 <b>Ab video ka link bhejo:</b>"
+        f"📥 <b>{to_bold('VIDEO DOWNLOADER')}</b> — video ka link bhejo "
+        "(e.g. <code>instagram.com/reel/xxxx</code>):"
     ),
     "pp_stamp": (
-        f"📸 <b>{to_bold('EXAM PASSPORT PHOTO')}</b>\n"
-        "Photo + naam + date → 3.5 × 4.5 cm ready photo.\n"
-        "📌 Jaise: photo bhejo, phir <code>Rahul Kumar</code>, phir <code>02-10-2026</code>\n"
-        "📸 <b>Ab apni photo bhejo:</b>"
+        f"📸 <b>{to_bold('EXAM PASSPORT PHOTO')}</b> — apni photo bhejo "
+        "(e.g. front-facing, saaf chehra):"
     ),
     "print_sheet": (
-        f"🖨️ <b>{to_bold('8-IN-1 PRINT SHEET')}</b>\n"
-        "Ek photo → 4×6 inch sheet me 8 copies. Dukaan pe ₹10-20 me print.\n"
-        "📌 Jaise: koi bhi passport size photo\n"
-        "📸 <b>Ab ek photo bhejo:</b>"
+        f"🖨️ <b>{to_bold('8-IN-1 PRINT SHEET')}</b> — ek photo bhejo "
+        "(e.g. passport size photo):"
     ),
     "doc_compress": (
-        f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b>\n"
-        "Marksheet ya certificate ki photo → saaf PDF (100KB-500KB).\n"
-        "📌 Jaise: 10th marksheet ki photo\n"
-        "📸 <b>Ab marksheet ya certificate ki photo bhejo:</b>"
+        f"📄 <b>{to_bold('DOCUMENT / MARKSHEET PDF')}</b> — document ki photo bhejo "
+        "(e.g. <code>10th marksheet</code>):"
     ),
     "ip": (
-        f"🌐 <b>{to_bold('DOMAIN OSINT / IP')}</b>\n"
-        "<b>Domain bhejo</b> → full OSINT report (whois/DNS/subdomains/IP location).\n"
-        "<b>IP bhejo</b> → location, ISP, company, proxy check.\n"
-        "📌 Jaise: <code>google.com</code> (domain OSINT) ya <code>8.8.8.8</code> (IP info)\n"
-        "👉 <b>Ab domain ya IP bhejo:</b>"
+        f"🌐 <b>{to_bold('DOMAIN OSINT / IP')}</b> — domain ya IP bhejo "
+        "(e.g. <code>google.com</code> ya <code>8.8.8.8</code>):"
     ),
     "upi": (
-        f"🏦 <b>{to_bold('UPI VERIFY')}</b>\n"
-        "Koi bhi VPA (UPI ID) bhejo → format valid hai ya nahi + kis bank ka handle hai.\n"
-        "📌 Jaise: <code>rahul@sbi</code>, <code>9876543210@hdfcbank</code>\n"
-        "⚠️ Sirf public info — linked mobile/account number kabhi nahi dikhega.\n"
-        "👉 <b>Ab VPA bhejo:</b>"
+        f"🏦 <b>{to_bold('UPI VERIFY')}</b> — UPI ID bhejo "
+        "(e.g. <code>rahul@sbi</code>):"
     ),
     "tginfo": (
-        f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
-        "Koi bhi public @username bhejo → naam, bio/description, member count (agar public channel ho).\n"
-        "📌 Jaise: <code>@telegram</code> ya <code>duaa_channel</code>\n"
-        "⚠️ Sirf public info jo t.me par sab dekh sakte hain — private members/phone nahi.\n"
-        "👉 <b>Ab @username bhejo:</b>"
+        f"📡 <b>{to_bold('TG PUBLIC INFO')}</b> — @username bhejo "
+        "(e.g. <code>@telegram</code>):"
     ),
     "bgmi": (
-        f"🎮 <b>{to_bold('BGMI UID')}</b>\n"
-        "Dost ka <b>BGMI UID</b> bhejo → player ka naam, level, rank, K/D stats.\n"
-        "📌 UID game me Profile me dikhta hai. Jaise: <code>1067824210</code>\n"
-        "⚠️ Sirf public in-game data — private info nahi.\n"
-        "👉 <b>Ab BGMI UID bhejo:</b>"
+        f"🎮 <b>{to_bold('BGMI UID')}</b> — UID bhejo "
+        "(e.g. <code>1067824210</code>):"
     ),
     "ffuid": (
-        f"🔥 <b>{to_bold('FF UID')}</b>\n"
-        "Dost ka <b>Free Fire UID</b> bhejo → player ka naam, level, rank, likes.\n"
-        "📌 UID game me Profile me dikhta hai. Jaise: <code>1633864660</code>\n"
-        "🌍 Region alag ho to aise bhejo: <code>UID BR</code> (IND/BR/SG/US/VN...)\n"
-        "⚠️ Sirf public in-game data — private info nahi.\n"
-        "👉 <b>Ab FF UID bhejo:</b>"
+        f"🔥 <b>{to_bold('FF UID')}</b> — UID bhejo "
+        "(e.g. <code>7860944073</code>, region alag ho to <code>7860944073 BR</code>):"
     ),
     : (
-        f"📌 <b>{to_bold('PINTEREST')}</b>\n"
-        "Do cheezein chalti hain:\n"
-        "1️⃣ <b>PIN LINK</b> bhejo (app me pin → ⋯ → Copy link) → HD image download\n"
-        "2️⃣ <b>KEYWORD</b> bhejo (jaise <code>cat wallpaper</code>) → 6 public images dikhaun, tap karke download\n"
-        "⚠️ Sirf public images. Private pins nahi milenge.\n"
-        "👉 <b>Ab pin link ya keyword bhejo:</b>"
+        f"📌 <b>{to_bold('PINTEREST')}</b> — pin link ya keyword bhejo "
+        "(e.g. <code>hacker wallpaper</code>):"
     ),
     "webscraper": (
-        f"📄 <b>{to_bold('WEB SCRAPER')}</b>\n"
-        "Kisi bhi <b>public page ka link</b> bhejo (article, blog, news) → poora text saaf format me.\n"
-        "📌 Jaise: koi khabar ya Wikipedia page ka link\n"
-        "⚠️ Sirf public pages — login wale / private sites nahi khulti.\n"
-        "👉 <b>Ab page ka link bhejo:</b>"
+        f"📄 <b>{to_bold('WEB SCRAPER')}</b> — public page ka link bhejo "
+        "(e.g. kisi khabar ya Wikipedia ka URL):"
     ),
     "tempmail": (
-        f"📧 <b>{to_bold('TEMP MAIL')}</b>\n"
-        "Ek disposable (ek-baar) ka email ID banata hoon — kisi bhi jagah signup/OTP ke liye.\n"
-        "👉 <b>NEW</b> likh kar bhejo → naya email ban jayega\n"
-        "(inbox check karne ke liye baad me <b>INBOX</b> bhejo)"
+        f"📧 <b>{to_bold('TEMP MAIL')}</b> — <code>NEW</code> bhejo "
+        "(naya email ID ban jayega):"
     ),
     "aadeid": (
-        f"🪪 <b>{to_bold('AADHAAR EID STATUS')}</b>\n"
-        "Aapka <b>APNA 14-digit Enrolment ID (EID/EPIC)</b> bhejo (Aadhaar acknowledgement slip ke top par).\n"
-        "Bot aapko <b>ready SMS</b> bana ke dega jo aap <b>51969</b> pe bhej do — official UIDAI status milega.\n"
-        "⚠️ Ye aapka <b>12-digit Aadhaar number NAHI</b> hai, aur sirf <b>APNA</b> EID daalo.\n"
-        "👉 <b>Ab 14-digit EID bhejo:</b>"
+        f"🪪 <b>{to_bold('AADHAAR EID STATUS')}</b> — apna 14-digit EID bhejo "
+        "(e.g. Aadhaar slip ke top par wala, 12-digit Aadhaar NAHI):"
     ),
     "bankpdf": (
-        f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b>\n"
-        "Bank statement ka <b>PDF</b> bhejo (photo nahi) → Excel/CSV table ban jayegi.\n"
-        "📌 Jaise: SBI / HDFC / PNB ka statement PDF\n"
-        "📄 <b>Ab apna statement PDF bhejo:</b>"
+        f"🏦 <b>{to_bold('BANK STATEMENT PDF → EXCEL')}</b> — statement ka PDF bhejo "
+        "(e.g. SBI / HDFC / PNB ka PDF, photo nahi):"
     ),
     "kagaz": (
-        f"📜 <b>{to_bold('KAGAZ SUITE (BIHAR/UP)')}</b>\n"
-        "Kirayanama, affidavit, notice 138, bayana, loan paper, registry cost, bigha→kattha.\n"
-        "⚡ Har document = 1 credit\n"
-        "👇 <b>Neeche se apna document chuno:</b>"
+        f"📜 <b>{to_bold('KAGAZ SUITE')}</b> — neeche se apna document chuno "
+        "(e.g. <code>kirayanama</code>):"
     ),
     "mediastudio": (
-        f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-        "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim, compress,\n"
-        "🗣️ text→Hindi voice (asli desi awaaz).\n"
-        "👇 <b>Neeche se option chuno:</b>"
-    ),
-    "rto": (
-        f"🚗 <b>{to_bold('VEHICLE / RTO INFO')}</b>\n"
-        "Number plate bhejo → state, RTO office + official RC/challan links.\n"
-        "📌 Jaise: <code>BR30AR0802</code>\n"
-        "🔢 <b>Ab number plate bhejo:</b>"
+        f"⚡ <b>{to_bold('MEDIA STUDIO')}</b> — neeche se option chuno "
+        "(e.g. <code>YouTube → MP3</code>):"
     ),
     "imei": (
-        f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b>\n"
-        "IMEI bhejo → phone ka naam, photo + poori spec sheet + JSON file.\n"
-        "📌 Jaise: <code>353010111111110</code> · IMEI dekhne ke liye <code>*#06#</code> dial karo\n"
-        "🔢 <b>Ab 15 digit IMEI bhejo:</b>"
+        f"📲 <b>{to_bold('IMEI / PHONE DETAILS')}</b> — Ab 15 digit IMEI bhejo "
+        "(e.g. <code>353010111111110</code>, IMEI dekhne ke liye <code>*#06#</code> dial karo):"
     ),
     "numinfo": (
-        f"📱 <b>{to_bold('NUMBER INFO')}</b>\n"
-        "Mobile number bhejo → operator, circle aur number ka type.\n"
-        "📌 Jaise: <code>9876543210</code>\n"
-        "🔢 <b>Ab 10 digit mobile number bhejo:</b>"
+        f"📱 <b>{to_bold('NUMBER INFO')}</b> — 10 digit mobile number bhejo "
+        "(e.g. <code>9876543210</code>):"
     ),
     "ifsc": (
-        f"🏦 <b>{to_bold('IFSC BANK BRANCH')}</b>\n"
-        "IFSC code bhejo → bank, branch, address, MICR.\n"
-        "📌 Jaise: <code>SBIN0000001</code>\n"
-        "🔤 <b>Ab IFSC code bhejo:</b>"
+        f"🏦 <b>{to_bold('IFSC BANK BRANCH')}</b> — Ab IFSC code bhejo "
+        "(e.g. <code>SBIN0000001</code>):"
     ),
     "pin": (
-        f"📮 <b>{to_bold('PINCODE INFO')}</b>\n"
-        "Pincode ya area ka naam bhejo → district, state + saare post office.\n"
-        "📌 Jaise: <code>800001</code> ya <code>Rajendra Nagar</code>\n"
-        "📮 <b>Ab pincode ya area ka naam bhejo:</b>"
+        f"📮 <b>{to_bold('PINCODE INFO')}</b> — pincode ya area ka naam bhejo "
+        "(e.g. <code>800001</code> ya <code>Rajendra Nagar</code>):"
     ),
     "qr": (
-        f"📷 <b>{to_bold('QR CODE MAKER')}</b>\n"
-        "Link ya text bhejo → HD QR code mil jayega.\n"
-        "📌 Jaise: <code>https://t.me/utility_duniya_bot</code>\n"
-        "🔗 <b>Ab text ya link bhejo:</b>"
+        f"📷 <b>{to_bold('QR CODE MAKER')}</b> — text ya link bhejo "
+        "(e.g. <code>https://t.me/Supermannn_x</code>):"
     ),
     "short": (
-        f"🔗 <b>{to_bold('URL SHORTENER')}</b>\n"
-        "Lamba link chhota kar do.\n"
-        "📌 Jaise: <code>https://example.com/very/long/path?x=1</code>\n"
-        "🔗 <b>Ab lamba link bhejo:</b>"
+        f"🔗 <b>{to_bold('URL SHORTENER')}</b> — lamba link bhejo "
+        "(e.g. <code>example.com/very/long/path?x=1</code>):"
     ),
     "linkcheck": (
-        f"🔍 <b>{to_bold('LINK CHECK')}</b>\n"
-        "Link kholne se pehle check karo — nakli hai ya safe.\n"
-        "📌 Jaise: <code>http://sbi-kyc-verify.xyz</code>\n"
-        "🔍 <b>Ab link bhejo:</b>"
+        f"🔍 <b>{to_bold('LINK CHECK')}</b> — link bhejo "
+        "(e.g. <code>http://sbi-kyc-verify.xyz</code>):"
     ),
     "appfind": (
-        f"📦 <b>{to_bold('APP FINDER')}</b>\n"
-        "App ka naam bhejo → <b>verified</b> detail: developer, rating, downloads, "
-        "size + Play Store / F-Droid / APKMirror ke direct link.\n"
-        "📌 Jaise: <code>whatsapp</code> ya seedha package id <code>org.telegram.messenger</code>\n"
-        "⚠️ App na mili to credit nahi katega.\n"
-        "📦 <b>Ab app ka naam bhejo:</b>"
+        f"📦 <b>{to_bold('APP FINDER')}</b> — app ka naam bhejo "
+        "(e.g. <code>whatsapp</code>):"
     ),
     "qr_wifi": (
-        f"📶 <b>{to_bold('WIFI SHARE QR')}</b>\n"
-        "Guest QR scan karega → phone khud WiFi se jud jayega.\n"
-        "📌 Jaise: <code>JioFiber_Home</code>\n"
-        "📶 <b>Ab WiFi ka naam (SSID) bhejo:</b>"
+        f"📶 <b>{to_bold('WIFI SHARE QR')}</b> — WiFi ka naam (SSID) bhejo "
+        "(e.g. <code>JioFiber_Home</code>):"
     ),
     "qr_vcard": (
-        f"👤 <b>{to_bold('CONTACT CARD QR')}</b>\n"
-        "QR scan karte hi contact phone me save ho jayega — naam, number, "
-        "company aur email ke saath (4 chhote step).\n"
-        "📌 Jaise: <code>Himanshu Kumar</code>\n"
-        "👤 <b>Ab apna naam bhejo:</b>"
+        f"👤 <b>{to_bold('CONTACT CARD QR')}</b> — apna naam bhejo "
+        "(e.g. <code>Himanshu Kumar</code>):"
     ),
 }
 TUTORIAL_TEXT = (
@@ -1105,7 +1032,6 @@ TUTORIAL_TEXT = (
     "\n"
     "🔍 <b>Information:</b>\n"
     "• 📲 IMEI → <code>*#06#</code> se IMEI lo, bhejo → full phone details\n"
-    "• 🚗 VEHICLE → number plate bhejo → RTO office + official RC/challan link\n"
     "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
@@ -1687,46 +1613,6 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML)
     except Exception:
         pass
-
-
-def _veh_has_rc_data(live: dict) -> bool:
-    """Live jawab me asli RC/challan data hai?
-
-    Hub khaali/unknown plate par sirf RTO office info deta hai (koi owner/maker/challan nahi).
-    Aisi report par credit nahi katta — purana free RTO card dikha dete hain.
-    """
-    rc = live.get("rc") or {}
-    if any(rc.get(k) for k in ("maker", "model", "owner", "reg_date", "chassis", "engine", "ins_company")):
-        return True
-    if live.get("challans"):
-        return True
-    return bool((live.get("summary") or {}).get("count"))
-
-
-async def cmd_vehstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/vehstatus — admin: check the vehicle API is working (live test on a sample plate)."""
-    if not is_admin(update.effective_user.id):
-        return
-    if not vehicle_api_ready():
-        await update.message.reply_text(
-            "⚠️ <b>Vehicle API key is not set.</b>\n\nAdd this on Render → Environment:\n"
-            "<code>HUB_API_KEY</code> = your hub key  <i>(ek key = vehicle + imei + number + IP + IFSC + GST ...)</i>\n"
-            "<code>VEHICLE_API_PARAM</code> = plate field name (default <code>vehicle_number</code>)\n\n"
-            "Then redeploy. The 🚗 VEHICLE INFO + CHALLAN tool will show the live report.",
-            parse_mode=HTML)
-        return
-    args = [a.strip() for a in (context.args or []) if a.strip()]
-    plate = args[0] if args else "BR30AR0802"
-    st = await update.message.reply_text(f"🔎 Testing the API with <code>{plate}</code>…", parse_mode=HTML)
-    # v50: to_thread — vehicle API 5-70s leta hai; direct call poora bot freeze kar deta tha
-    res = await asyncio.to_thread(fetch_vehicle_report, plate)
-    if res.get("ok"):
-        await st.edit_text(f"✅ <b>API is working</b> — RC fields: {len(res.get('rc') or {})}, "
-                           f"challans: {len(res.get('challans') or [])}\n\n"
-                           + render_vehicle_report(res)[:1500], parse_mode=HTML)
-    else:
-        await st.edit_text(f"❌ <b>API test failed:</b> {hesc(str(res.get('error'))[:200])}\n\n"
-                           "Check VEHICLE_API_URL / KEY / PARAM.", parse_mode=HTML)
 
 
 async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -2670,31 +2556,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML, disable_web_page_preview=True)
         return
 
-    if data.startswith("vehagain:"):
-        plate = data.split(":", 1)[1]
-        _u = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u, uid):
-            await q.answer("Credits khatam — VIP lo, unlimited checks milenge.", show_alert=True)
-            return
-        await q.message.reply_text("🔎 <b>Checking live RC + challan record again…</b>", parse_mode=HTML)
-        # v50: to_thread — event loop block nahi hoga
-        live = await asyncio.to_thread(fetch_vehicle_report, plate)
-        if live.get("ok") and not _veh_has_rc_data(live):
-            await q.answer("Is number ka RC / challan record nahi mila — koi credit nahi kata.", show_alert=True)
-            add_use(uid)
-            return
-        if live.get("ok"):
-            await q.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
-            rows_live = [
-                [InlineKeyboardButton("🔄 Dobara check karo", callback_data=f"vehagain:{live['plate']}")],
-            ]
-            await q.message.reply_text(render_vehicle_report(live), reply_markup=InlineKeyboardMarkup(rows_live),
-                                       parse_mode=HTML)
-        else:
-            await q.answer(str(live.get("error"))[:180], show_alert=True)
-        add_use(uid)
-        return
-
     if data.startswith("imeiagain:"):
         imei = re.sub(r"\D", "", data.split(":", 1)[1])[:15]
         _u_ii = get_user(uid, q.from_user.first_name)
@@ -3395,6 +3256,34 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    if data.startswith("ffimg:"):
+        # v54.0: FF character portrait / outfit breakdown on-demand
+        kind = data.split(":", 1)[1]
+        imgs = context.user_data.get("ff_img") or {}
+        url = imgs.get("char") if kind == "char" else imgs.get("outfit")
+        if not url:
+            await q.message.reply_text(
+                "❌ Pehle FF UID ka result aana chahiye — "
+                "🔥 FF UID me UID bhejo (e.g. <code>7860944073</code>).",
+                parse_mode=HTML)
+            return
+        st = await q.message.reply_text(
+            "️ Image load ho rahi hai..." + (" (outfit badi hai, ~3MB)" if kind == "outfit" else ""))
+        try:
+            await q.message.reply_photo(
+                photo=url,
+                caption=("🧍 <b>Equipped character</b>" if kind == "char"
+                         else "👕 <b>Outfit / loadout breakdown</b>") +
+                        "\n<i>Free Fire public profile data.</i>",
+                parse_mode=HTML)
+            await st.delete()
+        except Exception as e:                               # noqa: BLE001
+            await st.edit_text(
+                f"❌ Image load nahi hui — <code>{hesc(str(e)[:60])}</code>\n"
+                f"🔗 Direct: <code>{hesc(url)}</code>", parse_mode=HTML)
+        tel_note("ffuid", True, 0, credit=False, cache_hit=True)
+        return
+
     if data == "qr_wifi":
         context.user_data["mode"] = "qr_wifi"
         await q.message.reply_text(tool_prompt("qr_wifi"), reply_markup=tool_tutorial_kb("qr_wifi"), parse_mode=HTML)
@@ -3743,6 +3632,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "WEATHER", "MAUSAM", "WEATHER / MAUSAM", "WEATHER / MAUSAM ",
         # v52.1: GOVT SERVICES (v52.0) user order par hataya
         "GOVT SERVICES", "GOVT", "GOVERNMENT", "GOVT SERVICE",
+        # v54.0: VEHICLE / RTO INFO + CHALLAN — live RC/challan ke liye licensed
+        # provider key chahiye jo available nahi hai (hub 410 "disabled" deta hai,
+        # govt portals timeout/CAPTCHA). User order par tool hamesha ke liye hataya.
+        "RTO VEHICLE INFO", "VEHICLE INFO + CHALLAN", "VEHICLE INFO",
+        "VEHICLE / RTO INFO", "VEHICLE", "RTO", "CHALLAN",
     }
     if not action and clean_key in _removed_keys:
         _why = {
@@ -3780,6 +3674,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "GOVT": "🏛️ Govt Services",
             "GOVERNMENT": "🏛️ Govt Services",
             "GOVT SERVICE": "🏛️ Govt Services",
+            "RTO VEHICLE INFO": "🚗 Vehicle / RTO Info",
+            "VEHICLE INFO + CHALLAN": "🚗 Vehicle / RTO Info",
+            "VEHICLE INFO": "🚗 Vehicle / RTO Info",
+            "VEHICLE / RTO INFO": "🚗 Vehicle / RTO Info",
+            "VEHICLE": "🚗 Vehicle / RTO Info",
+            "RTO": "🚗 Vehicle / RTO Info",
+            "CHALLAN": "🚗 Vehicle / RTO Info",
         }.get(clean_key, "Ye tool")
         _alt = {
             "CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
@@ -3816,6 +3717,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "GOVT": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
             "GOVERNMENT": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
             "GOVT SERVICE": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
+            "RTO VEHICLE INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            "VEHICLE INFO + CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            "VEHICLE INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            "VEHICLE / RTO INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            "VEHICLE": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            "RTO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
+            "CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
         }.get(clean_key, "Neeche naya menu check karo")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
@@ -4762,8 +4670,43 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lines.append(f"• <b>Bio:</b> {hesc(str(res['bio'])[:100])}")
             lines += ["━━━━━━━━━━━━━━━━━━━━━━",
                       "<i>Public in-game data (Garena public profile). Private info nahi dikhata.</i>"]
-            await update.message.reply_text(
-                spend_credit_msg(uid, "ffuid") + "\n" + "\n".join(lines), parse_mode=HTML)
+            # ── v54.0: IMAGES ─────────────────────────────────────
+            # Official profile banner (avatar + naam + level) photo ke roop me
+            # jata hai — pehle sirf text card milta tha. Character portrait aur
+            # outfit breakdown on-demand buttons par (outfit ~2.7MB hai, har
+            # query par download wasteful).
+            _pc = res.get("profile_card") or ""
+            _char = res.get("character_image") or ""
+            _outf = res.get("outfit_image") or ""
+            _cap = spend_credit_msg(uid, "ffuid") + "\n" + "\n".join(lines)
+            if res.get("character_name"):
+                _cap = _cap.replace("━━━━━━━━━━━━━━━━━━━━━━\n<i>Public in-game",
+                                    f"• <b>Character:</b> {hesc(str(res['character_name']))}\n"
+                                    "━━━━━━━━━━━━━━━━━━━━━━\n<i>Public in-game", 1)
+            _btns = []
+            if _char:
+                _btns.append([InlineKeyboardButton(
+                    "🧍 Character photo", callback_data="ffimg:char")])
+            if _outf:
+                _btns.append([InlineKeyboardButton(
+                    "👕 Outfit / loadout dekhiye", callback_data="ffimg:outfit")])
+            context.user_data["ff_img"] = {"char": _char, "outfit": _outf,
+                                           "card": _pc}
+            if _pc:
+                # banner URL se photo bhejo; fail ho to gracefully text-only
+                try:
+                    await update.message.reply_photo(
+                        photo=_pc, caption=_cap, parse_mode=HTML,
+                        reply_markup=InlineKeyboardMarkup(_btns) if _btns else None)
+                except Exception as e:                       # noqa: BLE001
+                    log.debug("ff profile_card send fail: %s", str(e)[:80])
+                    await update.message.reply_text(
+                        _cap, parse_mode=HTML,
+                        reply_markup=InlineKeyboardMarkup(_btns) if _btns else None)
+            else:
+                await update.message.reply_text(
+                    _cap, parse_mode=HTML,
+                    reply_markup=InlineKeyboardMarkup(_btns) if _btns else None)
         else:
             _soft = bool(res.get("service_busy"))
             tel_note("ffuid", False, _ms, soft=_soft,
@@ -5086,88 +5029,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🔑 <b>EID bhool gaye?</b> (registered mobile + email se mil jayega)\n"
             f"{res['lost']}\n\n"
             "<i>⚠️ Sirf APNA EID daalo. Kisi aur ka EID / Aadhaar number bot me kabhi mat daalo.</i>")
-        add_use(uid)
-        return
-
-    if mode == "rto":
-        base = lookup_vehicle_rto(raw_text)          # purana free lookup (district + links)
-        if not base.get("ok"):
-            await update.message.reply_text(fail_msg("VEHICLE LOOKUP FAILED", base.get("error", "Invalid plate")),
-                                            parse_mode=HTML)
-            add_use(uid)
-            return
-
-        def _free_card(extra: str = ""):
-            # v49.12: koi website link/button NAHI — sirf SMS tarika (100% free, phone se)
-            _pl = (base.get("plate") or str(raw_text or "").replace(" ", "").upper())
-            sms = ("━━━━━━━━━━━━━━━━━━━━━━\n"
-                   "📲 <b>RC + challan ka poora record — SMS se (30 sec, FREE)</b>\n"
-                   f"1️⃣ SMS likho:  <code>VAHAN {_pl}</code>\n"
-                   f"2️⃣ SMS likho:  <code>CHALLAN {_pl}</code>\n"
-                   "3️⃣ Bhejo is number par:  <code>7738299899</code>\n"
-                   "<i>(Official MoRTH / NIC gateway — reply me: owner naam, maker, model, "
-                   "RC date, insurance, pending challan. Unlimited SMS pack me bilkul ₹0.)</i>\n"
-                   "✅ <b>Koi website kholne ki zaroorat nahi — sab isi card me.</b>")
-            return (
-                f"🚗 <b>{to_bold('VEHICLE / RTO INFO')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🔖 <b>Number Plate:</b> <code>{base['pretty']}</code>\n"
-                f"🗺️ <b>State:</b> {base['state_name']} ({base['state_code']})\n"
-                f"🏢 <b>RTO Office:</b> {base['rto_code']} — {base['district']}\n"
-                + (f"🚙 <b>Vehicle Class (from series):</b> {base['vehicle_class']}\n" if base.get("vehicle_class") else "")
-                + "━━━━━━━━━━━━━━━━━━━━━━\n"
-                + (extra + "\n" if extra else "")
-                + sms
-            ), None
-
-        # ---- live RC + challan report (agar API set hai) ----
-        if vehicle_api_ready() and vehicle_plate_ok(raw_text):
-            _u = get_user(uid, update.effective_user.first_name)
-            if not can_use_premium_tool(_u, uid):
-                await update.message.reply_text(get_credits_over_text("vehicle"),
-                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                card_txt, kb_free = _free_card("✅ <b>Free part:</b> RTO office + district yahan hai, aur neeche SMS se poora record.")
-                await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
-                context.user_data.pop("mode", None)
-                add_use(uid)
-                return
-            wait = await update.message.reply_text("🔎 <b>Checking live RC + challan record…</b>\n<i>Please wait 5-20 seconds.</i>",
-                                                   parse_mode=HTML)
-            # v50: to_thread — 5-70s wala call, bot freeze nahi hoga
-            live = await asyncio.to_thread(fetch_vehicle_report, raw_text)
-            try:
-                await wait.delete()
-            except Exception:
-                pass
-            if live.get("ok") and not _veh_has_rc_data(live):
-                card_txt, kb_free = _free_card(
-                    "🔎 <b>No RC / challan record found for this number.</b>\n"
-                    "✅ <b>No credit was cut</b> — check the number plate once and send again.")
-                await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
-                add_use(uid)
-                return
-            if live.get("ok"):
-                await update.message.reply_text(spend_credit_msg(uid, "vehicle"), parse_mode=HTML)
-                rows_live = [
-                    [InlineKeyboardButton("🔄 Ye number dobara check karo", callback_data=f"vehagain:{live['plate']}")],
-                ]
-                await update.message.reply_text(render_vehicle_report(live),
-                                                reply_markup=InlineKeyboardMarkup(rows_live), parse_mode=HTML)
-                add_use(uid)
-                return
-            # API fail → free card + reason
-            if live.get("hub_disabled"):
-                _why = ("⚠️ <b>Live auto-check abhi band hai.</b>\n"
-                        "<i>Neeche wala SMS tarika hamesha chalta hai (MoRTH ka official number).</i>")
-            else:
-                _why = f"⚠️ <b>Live report not available:</b> {hesc(str(live.get('error'))[:120])}"
-            card_txt, kb_free = _free_card(_why)
-            await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
-            add_use(uid)
-            return
-
-        card_txt, kb_free = _free_card("🚨 <b>Challan + poori RC report ke liye:</b> neeche SMS karo — 30 second me aapke phone par aa jayega.")
-        await update.message.reply_text(card_txt, reply_markup=kb_free, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -6745,7 +6606,6 @@ def main():
     app.add_handler(CommandHandler(["tutorial", "madad", "guide"], cmd_tutorial))
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
-    app.add_handler(CommandHandler(["vehstatus", "vehicleapi"], cmd_vehstatus))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))

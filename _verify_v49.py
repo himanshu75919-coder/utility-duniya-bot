@@ -81,8 +81,8 @@ mmap = re.search(r"^BTN_MODE_MAP = \{(.*?)^\}", src, re.S | re.M).group(1)
 keys = set(re.findall(r'"([^"]+)":\s*"[a-z_0-9]+"', mmap))
 unmapped = [b for b in btns if b not in keys]
 ok(f"Saare {len(btns)} menu buttons mapped", not unmapped, unmapped)
-# NOTE v52.3: +BGMI/FF/PINTEREST/WEB SCRAPER/TEMP MAIL/AADHAAR EID → 33 buttons (v52.2 me 27 the)
-ok("Menu me 33 buttons hain (v52.3: +6 naye tools)", len(btns) == 33, len(btns))
+# NOTE v54: vehicle/RTO hata → 32 buttons (v52.3 me 33 the)
+ok("Menu me 32 buttons hain (v54: vehicle hata → 33-1)", len(btns) == 32, len(btns))
 ok("Koi duplicate button nahi", len(btns) == len(set(btns)))
 ok("Menu rows sahi (har row 1-2 button)", all(1 <= len(r) <= 2 for r in [[1, 2]] ))
 
@@ -116,7 +116,7 @@ ok("WELCOME_TEXT me English marketing nahi", "High-Power Automation" not in bot.
 ok("TUTORIAL_TEXT Hinglish", "bhejo" in bot.TUTORIAL_TEXT and "HAR TOOL EK LINE ME" in bot.unbold(bot.TUTORIAL_TEXT))
 ok("PROMPTS Hinglish (imei)", "Ab 15 digit IMEI bhejo" in bot.PROMPTS["imei"])
 ok("PROMPTS Hinglish (ifsc)", "Ab IFSC code bhejo" in bot.PROMPTS["ifsc"])
-ok("PROMPTS Hinglish (rto)", "Ab number plate bhejo" in bot.PROMPTS["rto"])
+ok("v54: rto prompt hata diya gaya", "rto" not in bot.PROMPTS)
 ok("PROMPTS chhote hain (har prompt < 420 char)",
    all(len(p) < 420 for p in bot.PROMPTS.values()),
    max((len(p), k) for k, p in bot.PROMPTS.items()))
@@ -182,11 +182,13 @@ r = ot.lookup_phone_info("9876543210")
 ok("📱 Number info live", r.get("ok") and r.get("valid"), r.get("error"))
 ok("📱 Operator mila", bool(r.get("operator")))
 
-r = ot.lookup_vehicle_rto("BR30AR0802")
-ok("🚗 RTO free card live", r.get("ok") and r.get("state_name") == "Bihar", r.get("error"))
-ok("🚗 RTO se website links HAT gaye (user ka order)", (r.get("links") or []) == [])
-ok("🚗 RTO me SMS tarika (VAHAN/CHALLAN -> 7738299899)",
-   "7738299899" in str((r.get("sms") or {}).get("number", "")) and "VAHAN" in str((r.get("sms") or {}).get("rc", "")))
+# v54.0: vehicle/RTO tool permanently removed — bot me wiring nahi honi chahiye
+ok("🚗 v54: bot me rto mode handler nahi", "rto" not in bot.PREMIUM_TOOLS and "rto" not in bot.PROMPTS)
+ok("🚗 v54: vehicle_challan module delete",
+   not os.path.exists(os.path.join(os.path.dirname(os.path.abspath(bot.__file__)),
+                            "modules", "vehicle_challan.py")))
+ok("🚗 v54: menu me VEHICLE button nahi",
+   not any("VEHICLE" in bot.unbold(l).upper() for row in bot.KB_BTNS for l in row))
 
 # NOTE v51: ID & USERNAME FINDER tool permanently delete — is live test bhi hata
 r = il.fetch_imei_details("353010111111110")
@@ -215,7 +217,7 @@ section("6) TOOL TEXT / KEYBOARD (bot objects)")
 # ======================================================================
 kb = bot.kb_for(999000111)
 n_btn = sum(len(row) for row in kb.keyboard)
-ok(f"Reply keyboard me {n_btn} button (33 hone chahiye — v52.3 me +6 tools)", n_btn == 33, n_btn)
+ok(f"Reply keyboard me {n_btn} button (32 hone chahiye — v54 me vehicle hata)", n_btn == 32, n_btn)
 labels = [bot.unbold(b.text) for row in kb.keyboard for b in row]
 ok("Keyboard me CLIP MAKER nahi", not any("CLIP MAKER" in bot.unbold(l) for l in labels))
 ok("Keyboard me LINK BYPASS nahi", not any("LINK BYPASS" in bot.unbold(l) for l in labels))
@@ -228,7 +230,7 @@ ok("v51: Keyboard me PRIVATE CHANNEL SETUP nahi (delete)", not any("PRIVATE CHAN
 ok("v51: Keyboard me ID & USERNAME FINDER nahi (delete)", not any("ID & USERNAME FINDER" in bot.unbold(l) for l in labels))
 ok("Keyboard me IMEI hai", any("IMEI" in bot.unbold(l) for l in labels))
 
-for act in ("imei", "rto", "ifsc", "pin", "ip", "numinfo", "terabox", "insta_dl", "qr", "short", "linkcheck"):
+for act in ("imei", "ifsc", "pin", "ip", "numinfo", "terabox", "insta_dl", "qr", "short", "linkcheck"):
     p = bot.tool_prompt(act)
     ok(f"tool_prompt({act}) ban raha", len(p) > 40)
 

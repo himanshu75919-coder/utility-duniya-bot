@@ -28,9 +28,10 @@ Bas. Is ek key se ye sab aapke hub (`osint-api-hub.onrender.com/api`) se chalne 
 | Key | Kyun nahi |
 |---|---|
 | `HUB_API_BASE`, `OSINT_API_BASE` | default me hi `https://osint-api-hub.onrender.com/api` set hai |
-| `IMEI_API_KEY`, `VEHICLE_API_KEY` | khaali chhodo — apne aap `HUB_API_KEY` use karte hain |
+| `IMEI_API_KEY` | khaali chhodo — apne aap `HUB_API_KEY` use karti hai |
+| ~~`VEHICLE_API_KEY`~~ | **v54 me vehicle tool hata diya** — ye var ab kahin use nahi hota |
 | `NUM_INFO_API_KEY` | default `Demo` sahi hai |
-| `VEHICLE_API_URL`, `VEHICLE_API_PARAM` | naya bot hub ke 3 endpoint use karta hai — purane custom provider ke liye hi chahiye |
+| ~~`VEHICLE_API_URL`, `VEHICLE_API_PARAM`~~ | **v54: vehicle tool removed** — inki zaroorat nahi |
 | `YTDLP_COOKIES_FILE` | sirf tab jab YouTube cookies file ho |
 | `CLIP_*`, `GEMINI_*`, `GROQ_*`, `AI_*` | ❌ **ab inka koi kaam nahi** (CLIP MAKER tool v49 me hata diya gaya) — ye vars bot padhta hi nahi |
 

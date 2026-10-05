@@ -33,6 +33,10 @@ import requests
 
 DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"   # v49: naya LIVE hub (purana dead tha)
 TIMEOUT = int(os.environ.get("IMEI_TIMEOUT", "25"))
+# device-specs ka timeout chhota rakha: jab model ek CODE hota hai (T528) to hub
+# ~22s tak ghoom kar fail hota hai — wo wait user ko na deni pade. Marketing naam
+# par ye 0.3-0.6s me aa jata hai, to 8s kaafi hai.
+SPEC_TIMEOUT = int(os.environ.get("IMEI_SPEC_TIMEOUT", "8"))
 CACHE_TTL = 600          # 10 minute — same IMEI dobara check ho to API call na lage
 _FAIL_TTL = 60
 
@@ -386,6 +390,168 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
     }
 
 
+# ---------------------------------------------------------------- spec chain (v54)
+# Pehle IMEI sirf TAC tak ruk jata tha: hub ka /api/imei brand+model deta hai par
+# `specs_pending: true` (poora spec sheet NAHI). User ne kaha "IMEI se PURI detail
+# nikal jaye". Ab ek chain hai:
+#     IMEI → /api/imei (TAC db: brand+model)
+#          → /api/device-specs?model=<naam>  (nanoreview: poora spec + photo)
+# Agar model ek internal CODE hai (T528 / SM-A155F) to device-specs use nahi
+# pehchanta — pehle DuckDuckGo se marketing naam resolve karte hain, phir specs.
+# Sab fail ho to TAC result waisa hi wapas (graceful, koi crash nahi).
+_SPEC_CACHE: dict = {}
+_NAME_CACHE: dict = {}
+_SPEC_TTL = 6 * 3600
+
+# marketing-name ke hints: agar model me inme se kuch hai to wo marketing naam hai
+# (device-specs seedha chala lega), warna wo model CODE hai (resolve karna padega)
+_MKT_HINTS = ("galaxy", "redmi", "note", "spark", "camon", "poco", "iphone", "ipad",
+              "pixel", "nord", "narzo", "realme", "honor", "mate", "nova", "tab",
+              "watch", "band", "pro", "max", "plus", "lite", "ultra", "prime",
+              "power", "magic", "smart", "play", "hot", "pop", "neo", "gt")
+
+# DuckDuckGo ke liye browser-jaisa UA (bot-UA par HTML search block hota hai)
+_DDG_UA = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                          "AppleWebKit/537.36 (KHTML, like Gecko) "
+                          "Chrome/126.0 Safari/537.36"),
+           "Accept-Language": "en-IN,en;q=0.9"}
+
+
+def _looks_marketing(model: str) -> bool:
+    m = (model or "").strip().lower()
+    if not m:
+        return False
+    if " " in m:                       # "REDMI NOTE 6 PRO" → marketing naam
+        return True
+    return any(h in m for h in _MKT_HINTS)
+
+
+def _ddg_marketing_name(brand: str, model: str) -> str:
+    """Model CODE (T528 / SM-A155F / CPH2605) se marketing naam nikalna.
+
+    GSMArena Cloudflare-Turnstile se blocked hai aur nanoreview ka search 404
+    deta hai, isliye DuckDuckGo HTML ke result-titles se naam lete hain:
+        "Tecno T528 Specifications and Price | DroidAfrica" → "Tecno T528"
+    Fail ho to "" (chain gracefully TAC par ruk jayegi).
+    """
+    key = f"{brand}|{model}".lower()
+    with _LOCK:
+        if key in _NAME_CACHE:
+            return _NAME_CACHE[key]
+    name = ""
+    try:
+        r = requests.post("https://html.duckduckgo.com/html/",
+                          data={"q": f'"{model}" {brand} phone specifications'},
+                          headers=_DDG_UA, timeout=8)
+        if r.status_code == 200:
+            for t in re.findall(r"result__a[^>]*>(.*?)</a>", r.text, re.S):
+                t = re.sub(r"<[^>]+>", "", t).strip()
+                if model.lower() not in t.lower() or not (6 <= len(t) <= 80):
+                    continue
+                cand = re.split(r"\s+(?:specifications?|specs?|price|review|full|"
+                                r"dual|features|questions|–|-|\|)", t, flags=re.I)[0].strip()
+                if (brand.split()[0].lower() in cand.lower()
+                        and model.lower() in cand.lower() and len(cand) >= 6):
+                    name = cand
+                    break
+    except Exception:                                        # noqa: BLE001
+        name = ""
+    with _LOCK:
+        _NAME_CACHE[key] = name
+        if len(_NAME_CACHE) > 400:
+            for k in list(_NAME_CACHE)[:100]:
+                _NAME_CACHE.pop(k, None)
+    return name
+
+
+def fetch_device_specs(name: str) -> dict:
+    """`/api/device-specs?model=<marketing naam>` → {ok,name,image,url,sections}.
+
+    Marketing naam par 0.3-0.6s; galat/code naam par timeout SPEC_TIMEOUT par
+    ruk jata hai (result cache hota hai to dobara wait nahi).
+    """
+    key = (name or "").strip().lower()
+    if not key:
+        return {"ok": False}
+    with _LOCK:
+        hit = _SPEC_CACHE.get(key)
+    if hit and (time.time() - hit[0]) < _SPEC_TTL:
+        return dict(hit[1])
+    out = {"ok": False}
+    payload, _err = _get(f"{api_base()}/device-specs",
+                         {"key": api_key(), "model": name}, tmo=SPEC_TIMEOUT)
+    if isinstance(payload, dict) and payload.get("success") is not False \
+            and (payload.get("sections") or payload.get("image")):
+        secs = []
+        for sec in (payload.get("sections") or []):
+            if not isinstance(sec, dict):
+                continue
+            rows = []
+            for kr in (sec.get("rows") or []):
+                try:
+                    k2, v2 = _clean_val(kr[0]), _clean_val(kr[1])
+                except Exception:                            # noqa: BLE001
+                    continue
+                if k2 and v2:
+                    rows.append((k2, v2))
+            if rows:
+                secs.append({"title": _clean_val(sec.get("title")) or "Specs",
+                             "rows": rows})
+        out = {"ok": bool(secs), "name": _clean_val(payload.get("name")),
+               "image": str(payload.get("image") or "").strip(),
+               "url": str(payload.get("url") or "").strip(),
+               "sections": secs}
+    with _LOCK:
+        _SPEC_CACHE[key] = (time.time(), out)
+        if len(_SPEC_CACHE) > 200:
+            for k in sorted(_SPEC_CACHE, key=lambda x: _SPEC_CACHE[x][0])[:60]:
+                _SPEC_CACHE.pop(k, None)
+    return out
+
+
+def _enrich_with_specs(res: dict) -> dict:
+    """TAC-only IMEI result ko full spec sheet + photo se upgrade karo (v54)."""
+    if not res.get("ok") or not res.get("basic"):
+        return res
+    brand = res.get("brand") or ""
+    model = res.get("model") or ""
+    if not (brand or model):
+        return res
+    # brand+model me brand dobara na aaye: hub kai baar model me hi brand bhej
+    # deta hai ("XIAOMI" + "XIAOMI REDMI NOTE 6 PRO") → "XIAOMI XIAOMI ..." banta
+    # tha jo nanoreview match hi nahi karta. Pehla word match ho to sirf model lo.
+    b0 = brand.split()[0].lower() if brand.split() else ""
+    if b0 and model.lower().startswith(b0):
+        name = model.strip()
+    else:
+        name = f"{brand} {model}".strip()
+    sp = fetch_device_specs(name) if _looks_marketing(model) else {"ok": False}
+    if not sp.get("ok"):
+        resolved = _ddg_marketing_name(brand, model)
+        if resolved and resolved.lower() != name.lower():
+            sp = fetch_device_specs(resolved)
+            if sp.get("ok"):
+                name = resolved
+    if not sp.get("ok"):
+        return res
+    if sp.get("image") and not res.get("photo"):
+        res["photo"] = sp["image"]
+        res["photo_hd"] = sp["image"]
+    if sp.get("sections"):
+        res["sections"] = (res.get("sections") or []) + sp["sections"]
+        res["basic"] = False
+        res["specs_pending"] = False
+    if sp.get("name"):
+        res["specs_name"] = sp["name"]
+    if sp.get("url"):
+        res["specs_url"] = sp["url"]
+        res["url"] = sp["url"]
+        res["links"] = ([("🔎 Full specs page (nanoreview)", sp["url"])]
+                        + (res.get("links") or []))[:6]
+    res["_source"] = "hub TAC + device-specs chain"
+    return res
+
+
 # ---------------------------------------------------------------- fetch + cache
 def fetch_imei_details(imei: str, use_cache: bool = True) -> dict:
     """IMEI → device details (cache ke saath). Wrong/unknown IMEI par clear error."""
@@ -410,6 +576,9 @@ def fetch_imei_details(imei: str, use_cache: bool = True) -> dict:
                "imei": safe_tac, "tac": safe_tac}
     else:
         out = parse_imei_payload(payload, clean)
+        # v54: TAC-only result ho to full spec sheet + photo chain karo
+        if out.get("ok"):
+            out = _enrich_with_specs(out)
 
     with _LOCK:
         _CACHE[clean] = (now, out)

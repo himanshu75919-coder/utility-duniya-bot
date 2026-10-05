@@ -8,6 +8,67 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v54.0 UPDATE — "SAAF BAAT, POORI DETAIL" (aapke 4 orders par)
+
+Bhai, is baar aapne 4 cheezein kahi thin — chaaron ho gayi:
+
+### ✍️ 1. Har tool ka prompt ab **EK LINE** ka (jaise aapne samjhaya)
+Pehle har tool kholne par 4-6 line ka lecture aata tha (ye karta hai, wo karta hai,
+privacy warning, phir "ab bhejo"). Ab **seedha kaam ki baat + example**:
+
+| Pehle | Ab |
+|---|---|
+| 🎮 BGMI UID<br>Dost ka BGMI UID bhejo → player ka naam, level…<br>📌 UID game me Profile me dikhta hai…<br>⚠️ Sirf public in-game data…<br>👉 Ab BGMI UID bhejo: | 🎮 **BGMI UID** — UID bhejo (e.g. `1067824210`): |
+| 📱 NUMBER INFO<br>Mobile number bhejo → operator, circle…<br>📌 Jaise: 9876543210<br>🔢 Ab 10 digit mobile number bhejo: | 📱 **NUMBER INFO** — 10 digit mobile number bhejo (e.g. `9876543210`): |
+| 🔥 FF UID …(4 line) | 🔥 **FF UID** — UID bhejo (e.g. `7860944073`, region alag ho to `7860944073 BR`): |
+
+**Saare 28 tools** aise hi ho gaye. Privacy/legal warnings ab **result ke saath** aati
+hain (jahan zaroori hain), prompt me nahi.
+
+### 🔥 2. FF UID me ab **IMAGES** aati hain
+Pehle sirf text card milta tha. Ab Free Fire ke **official public images** bhi:
+- ️ **Profile card banner** (avatar + naam + level) — result ke saath photo me
+- 🧍 **Character photo** — button par tap karo
+- 👕 **Outfit / loadout breakdown** (headgear/torso/weapon…) — button par tap karo
+  (ye ~3MB hai isliye har baar auto-download nahi hota, button se mangwao)
+
+### 📲 3. IMEI se ab **POORI detail** nikalti hai
+Pehle IMEI sirf brand+model tak ruk jata tha (`specs_pending`). Ab ek **chain** hai:
+```
+IMEI → hub TAC database (brand + model)
+     → hub device-specs (nanoreview) → POORA spec sheet + phone ki PHOTO
+```
+Matlab ab IMEI bhejo to milta hai: **brand, model, photo, Display, Design,
+Performance (chipset/CPU/GPU/scores), Camera, Battery…** — sab ek card me +
+`.json` spec file. Modern phones par **0.3 second**.
+(Purane/feature phones jinke specs kahin nahi hain, unke liye brand+model + links
+milte hain — graceful, koi crash nahi.)
+
+### 🚗 4. VEHICLE / RTO / CHALLAN tool **hata diya gaya**
+Sachchi baat: live RC/challan ke liye **licensed provider key** chahiye hoti hai.
+Aapka hub (`osint-api-hub`) ye endpoints **410 "disabled"** deta hai jab tak key na
+ho, aur doosra hub (`osint-apis-hub`) `Demo` key par **401** deta hai. Govt portals
+(VAHAN/eChallan) hub server se **timeout/CAPTCHA** hote hain. Isliye ye tool kabhi
+reliably kaam kar hi nahi sakta tha — aapke order par **permanently hata diya**:
+- Menu se button gaya, premium list se gaya, rate-limit se gaya
+- `modules/vehicle_challan.py` + uska selftest delete
+- Purane keyboard par dabane par saaf message: *"Vehicle/Challan info ke liye
+  official source use karo — VAHAN (RC) vahan.parivahan.gov.in aur eChallan
+  echallan.parivahan.gov.in — bot me ye tool ab nahi hai."*
+- **Koi credit nahi katta** is par
+
+### 🧪 Tests: **734 checks, 0 fail**
+`test_v50_core` 106 · `_verify_v49` 127 · `_selftest_v50` 208 ·
+`test_privacy_safe_lookup` 14 · `test_v53` 279
+
+### ⚠️ Jo ABHI adhoora hai (aapke bola hua, aapka input chahiye)
+- **UPI tool me image** — aapne kaha tha "image dobara bhejta hoon". Jab aap
+  screenshot bhejenge tab main wo banaunga. Abhi UPI tool text report deta hai.
+
+---
+
+---
+
 ## 🆕 v53.0 UPDATE — "PRO ENGINE" UPGRADE (aapke "saare tools ko deeply check karke premium banao" order par)
 
 **Bhai, is baar koi naya tool nahi banaya. Is baar maine jo tools pehle se the unhe
