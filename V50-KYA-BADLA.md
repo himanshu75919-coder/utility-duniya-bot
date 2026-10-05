@@ -8,6 +8,34 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v54.2 UPDATE — screenshots round 2: Pinterest preview + UPI status section
+
+### 1) 📌 Pinterest — "(bina title)" sookha label gaya
+Screenshot me results aise dikhte the: `7. (bina title) · 540×360`. Ab label ka
+fallback chain hai: **title → pinner ka naam → domain → "Pinterest pin"** — har row
+kuch matlab ki batati hai.
+
+### 2) 📌 Top result ka photo preview (competitor-jaisa look)
+Competitor bot search ke saath seedha image bhejta hai. Hum bhi ab list ke **turant
+baad** top (pehla image) result ka photo preview bhejte hain, caption ke saath:
+"Top result ka preview — original quality ke liye 1 button dabao."
+- Search FREE hai → preview par **koi credit nahi** katta.
+- Preview list ke baad jaata hai → list ka wait nahi karna padta.
+- Download fail ho to chup-chaap skip — list + buttons pehle hi ja chuke hote hain.
+
+### 3) 🏦 UPI card me "📊 ACCOUNT DETAILS & STATUS" section
+Competitor ke card jaisa section, par **sirf public sach**:
+- ⚡ VPA Status: ✅ FORMAT VALID — saaf likha hai ki *active/inactive sirf bank jaanta hai*
+  (competitor jo "VALID / ACTIVE" dikhata hai wo private bank-data se aata hai — hum jhooth
+  claim nahi karte).
+- 🔒 Account Category: public nahi (individual/business bank ke paas hota hai)
+- 🔍 Source Type: PUBLIC VPA-FORMAT + BANK-HANDLE DB
+- 🎯 Query Entity: jo VPA aapne bheja
+
+### 🧪 Tests: 813 checks · 0 fail (106+127+208+14+279+79)
+
+---
+
 ## 🆕 v54.1 UPDATE — "LIVE SCREENSHOTS WALE BUGS FIX" (aapke 9 screenshots par)
 
 Aapne bot ke live screenshots bheje. Screenshot = sabse pakka bug-report, kyunki wo

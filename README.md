@@ -1,4 +1,4 @@
-# ⚡ Utility Duniya Super-Bot — **v54.1 Premium Earning**
+# ⚡ Utility Duniya Super-Bot — **v54.2 Premium Earning**
 
 ## 🆕 v54.1 me kya badla — **"LIVE SCREENSHOTS WALE BUGS FIX"**
 
@@ -14,13 +14,21 @@ Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
 | 🧹 Purane (hataaye hue) tools ads me dikhte the | Credits-over aur VIP-wall text se 🚗 Vehicle/Challan aur 🔒 Private Channel Setup hata diye. |
 | 🏦 UPI verify ka look competitor-jaisa chahiye tha | Ab boxed **UPI VERIFY REPORT** card (VPA, format, bank handle, bank, local part) + brand tag. **Sirf public data.** |
 
+## 🆕 v54.2 — screenshots round 2 se polish
+
+| Cheez | Ab |
+|---|---|
+| 📌 Pinterest list me "(bina title)" | Ab smart label: title → pinner ka naam → domain → "Pinterest pin" |
+| 📌 Competitor jaisa photo preview | Search list ke turant baad **top result ka photo preview** (free, koi credit nahi; fail ho to chup-chaap skip) |
+| 🏦 UPI card me status section | Competitor-jaisa **📊 ACCOUNT DETAILS & STATUS** — par sirf public sach: VPA Status = FORMAT VALID (active-status sirf bank jaanta hai), Category = public nahi, Source Type = public DB, Query Entity |
+
 ### 🔒 UPI + mobile number — zaroori baat
 Kuch bots 10-digit mobile se **account-holder ka naam** nikaalte hain. Wo NPCI/bank ka
 **leaked private data** hai — India me privacy-law ke khilaaf, aur fraud me use hota hai.
 Ye bot wo kabhi nahi karega. Mobile bhejoge to saaf refusal + 2 legal options
 (Number Info → operator/circle, VPA Verify → bank/format), **bina credit kaate**.
 
-**Tests: 803 checks · 0 fail** (106+127+208+14+279+69).
+**Tests: 813 checks · 0 fail** (106+127+208+14+279+79).
 > 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
 
 ---

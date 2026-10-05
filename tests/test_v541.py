@@ -301,7 +301,36 @@ check("bio na ho to saaf fallback text hai",
 
 # =====================================================================
 section("5) 🧾 Version + overall sanity")
-check("BOT_VERSION v54.1 par hai", 'BOT_VERSION = "v54.1' in _bot_src)
+check("BOT_VERSION v54.x par hai", 'BOT_VERSION = "v54.' in _bot_src)
+
+# --- v54.2: Pinterest list polish + preview ---
+check("'(bina title)' jaisa sookha label hata diya gaya",
+      "(bina title)" not in _bot_src)
+check("title na ho to pinner-naam/domain fallback hai",
+      'p.get("pinner_name") or p.get("domain")' in _bot_src)
+_pv = _bot_src[_bot_src.index("Top result ka preview") - 900:]
+_pv = _pv[:_pv.index("add_use(uid)", 400)]
+check("search ke baad TOP result ka photo preview bheja jata hai",
+      "reply_photo(" in _pv and "_pinpick_download" in _pv)
+check("preview fail ho to chup-chaap skip (flow nahi tootta)",
+      "pinterest preview skip" in _pv)
+check("preview par credit NAHI katta (search free hai)",
+      "spend_credit_msg" not in _pv)
+check("preview list ke BAAD bheja jata hai (user ko wait nahi)",
+      _bot_src.index('reply_markup=InlineKeyboardMarkup(rows))') <
+      _bot_src.index("Top result ka preview"))
+
+# --- v54.2: UPI status section (public-only, jhootha 'ACTIVE' nahi) ---
+_up2 = _bot_src[_bot_src.index('if mode == "upi":'):]
+_up2 = _up2[:_up2.index('if mode == "tginfo":')]
+check("UPI card me ACCOUNT DETAILS & STATUS section hai",
+      "ACCOUNT DETAILS & STATUS" in _up2)
+check("status section me Source Type + Query Entity hai",
+      "Source Type" in _up2 and "Query Entity" in _up2)
+check("jhootha 'VALID / ACTIVE' claim NAHI hota (active public nahi)",
+      "VALID / ACTIVE" not in _up2)
+check("saaf likha hai ki active-status sirf bank jaanta hai",
+      "sirf bank jaanta hai" in _up2)
 check("prompts abhi bhi minimal one-liners hain (v54 feature zinda)",
       _bot_src.count("PROMPTS") >= 1 and "tool_prompt(" in _bot_src)
 # --- pinpick credit gate + removed-tools ka jhootha advertisement ---
