@@ -33,7 +33,16 @@ def webhook_url_from_env(env=None) -> str:
     # to WEBHOOK_MODE=off likho — wahi ek rasta hai.
     if mode in ("off", "0", "false", "no"):
         return ""
-    return str(values.get("WEBHOOK_URL") or values.get("RENDER_EXTERNAL_URL") or "").strip().rstrip("/")
+    # v59.9.3: sirf ASLI http(s) URL maano. Agar WEBHOOK_URL me kuch aur likha ho
+    # (jaise "on"/"yes"/"1" — galti se flag samajh kar), to usko chhod kar Render
+    # ka apna RENDER_EXTERNAL_URL use karo. Pehle aisi value poori webhook band
+    # kar deti thi (bot chup-chaap polling par chala jaata tha).
+    def _url_like(raw) -> str:
+        v = str(raw or "").strip().rstrip("/")
+        v = v.strip("'\"").strip()
+        return v if v.lower().startswith(("http://", "https://")) else ""
+
+    return _url_like(values.get("WEBHOOK_URL")) or _url_like(values.get("RENDER_EXTERNAL_URL"))
 
 
 def webhook_url_usable(url: str) -> tuple:
