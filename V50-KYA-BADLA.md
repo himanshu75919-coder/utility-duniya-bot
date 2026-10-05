@@ -8,6 +8,69 @@ shuru ho jayega. Agar na ho to: **Render → Manual Deploy → Clear build cache
 
 ---
 
+## 🆕 v54.1 UPDATE — "LIVE SCREENSHOTS WALE BUGS FIX" (aapke 9 screenshots par)
+
+Aapne bot ke live screenshots bheje. Screenshot = sabse pakka bug-report, kyunki wo
+batata hai ki **Render par abhi kaunsa code chal raha hai**. Unse 4 asli problems pakde gaye.
+
+### 1) 📌 Pinterest "Download" dabate hi crash — "⚠️ Chhota sa ghatna ho gaya"
+
+**Jaanch (probe):** search bilkul sahi chal rahi thi (8 results), download bhi sahi tha —
+319,160 bytes ki valid JPEG (`\xff\xd8\xff\xe0 JFIF`). Problem download me nahi,
+**bhejne me** thi:
+
+- Download ke baad file ek `BytesIO` (memory-stream) me hoti hai.
+- Us stream par `.name` (filename) **set nahi tha**.
+- Telegram library (PTB 22.8) aise stream ka filename `application.octet-stream` bana deti hai.
+- Telegram Bot API us par **400 Bad Request** deta hai → library exception phenkti hai.
+- Wo exception seedha bot ke global error-handler tak gaya → "Chhota sa ghatna ho gaya".
+- Aur credit bhi kat gaya tha, halanki user ko kuch mila hi nahi.
+
+**Fix:**
+- Ab stream par asli filename set hota hai (`pinterest.jpg` / `pinterest.mp4`).
+- Poora send-block `try/except` me hai.
+- Agar Telegram photo/video reject kare (format/size) to **automatically `send_document`**
+  se file bhej di jaati hai — user ko file mil jaati hai.
+- Agar phir bhi na ho: saaf message + **"✅ Koi credit nahi kata"**.
+- Credit aur success message **sirf tab** jaata hai jab media actually deliver ho gaya.
+
+### 2) 🔥 FF UID — "The API returned an HTTP 403 error."
+
+- 403 ka matlab "player nahi mila" **nahi** hota — matlab free FF API ne **humare server
+  (Render ka datacenter IP)** ko temporarily rok diya hai. Ye service-side problem hai.
+- Purana code 403 ko ek generic bucket me daal kar "UID ... nahi mila" jaisa message bana
+  deta tha — jhooth, aur user bekaar me apni UID check karta rehta.
+- Ab 401/403 ke liye alag state hai (`blocked`) aur saaf Hinglish card:
+  "🚫 Free Fire API ne abhi humare server ko block kar rakha hai (HTTP 403) —
+  ye service-side problem hai… 15-30 minute baad try karo. ❌ Credit NAHI kata."
+- Note: IND region me us free API ke paas data hai hi nahi (live jaanch: `PLAYER_NOT_FOUND`),
+  isliye Indian UID par "nahi mila" aana normal hai — bot region suggest karta hai.
+
+### 3) 📡 TG PUBLIC INFO card me khali lines
+
+- Card ki har line ke end me ek extra `\n` tha, aur lines ko jodne ka separator bhi `\n` tha
+  → har line ke baad ek khali row ban jaati thi (screenshot me wahi dikha).
+- Ab item me newline nahi, sirf join ka — card ekdum saaf. Dono branches fix kiye
+  (channel/group wala Bot-API branch aur user wala t.me fallback branch).
+
+### 4) 🏦 UPI VERIFY — naya boxed card + privacy line
+
+- Card ab competitor-jaisa **boxed** hai: `┌──── │ 🏦 UPI VERIFY REPORT └────`
+  aur fields: 💳 VPA, ✅ Format Status, 🏷️ Bank Handle, 🏛️ Associated Bank,
+  🧩 Local Part, 🔒 privacy note, 🔥 `Powered by @Supermannn_x`.
+- **Sirf public data.** Holder ka naam, linked mobile ya account number kisi VPA se
+  publicly available hota hi nahi — jo bot wo dikhata hai wo leaked/unauthorized
+  NPCI-bank data use kar raha hai (illegal, aur fraud me use hota hai).
+- 10-digit mobile bhejne par ab **privacy refusal** milta hai (bina credit kaate) +
+  2 legal buttons: 📱 Number Info (operator/circle) aur 🏦 VPA verify.
+
+### 🧪 Tests
+Naya suite `tests/test_v541.py` (61 checks) — FF 403/404/429/503 paths, pinpick crash-fix,
+UPI card + refusal + button wiring, TG spacing.
+**Total: 795 checks · 0 fail** (106 + 127 + 208 + 14 + 279 + 61).
+
+---
+
 ## 🆕 v54.0 UPDATE — "SAAF BAAT, POORI DETAIL" (aapke 4 orders par)
 
 Bhai, is baar aapne 4 cheezein kahi thin — chaaron ho gayi:

@@ -4572,7 +4572,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└──────────────────────────────\n"
             f"💳 <b>VPA / UPI ID:</b> <code>{hesc(res['vpa'])}</code>\n"
             "✅ <b>Format Status:</b> VALID / sahi UPI format\n"
-            f" <b>Bank Handle:</b> <code>@{hesc(res['handle'])}</code>\n"
+            f"🏷️ <b>Bank Handle:</b> <code>@{hesc(res['handle'])}</code>\n"
             f"🏛️ <b>Associated Bank:</b> {hesc(bank_line)}\n"
             f"🧩 <b>Local Part:</b> <code>{hesc(res['local'])}</code>\n"
             "──────────────────────────────\n"
@@ -4635,19 +4635,21 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 add_use(uid)
                 return
             _photo = prof.get("photo") or ""
-            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>\n"
-                 f"🎯 <b>{hesc(prof['name'])}</b>\n"
-                 "━━━━━━━━━━━━━━━━━━━━━━\n"
-                 f"• <b>Username:</b> <code>@{prof['username']}</code>\n"
-                 f"• <b>Type:</b> 👤 User Profile\n"]
+            # v54.1: yahan bhi har item ke end ka extra "\n" hata diya
+            # (join already "\n" se hota hai) — warna beech me khali rows.
+            L = [f"📡 <b>{to_bold('TG PUBLIC INFO')}</b>",
+                 f"🎯 <b>{hesc(prof['name'])}</b>",
+                 "━━━━━━━━━━━━━━━━━━━━━━",
+                 f"• <b>Username:</b> <code>@{prof['username']}</code>",
+                 "• <b>Type:</b> 👤 User Profile"]
             if prof.get("bio"):
-                L.append(f"• <b>Public Bio:</b> {hesc(prof['bio'][:300])}\n")
+                L.append(f"• <b>Public Bio:</b> {hesc(prof['bio'][:300])}")
             else:
-                L.append("• <b>Public Bio:</b> (set nahi hai — ye user ne apna 'About' nahi likha)\n")
-            L.append("━━━━━━━━━━━━━━━━━━━━━━\n"
-                     "<i>Sirf public info (jo t.me par sab dekh sakte hain) — "
-                     "private info nahi dikhata.\n"
-                     "💡 Bio dikhne ke liye user ko Telegram → Settings → Edit → About me likhna padta hai.</i>")
+                L.append("• <b>Public Bio:</b> <i>(public page par nahi likha)</i>")
+            L.append("━━━━━━━━━━━━━━━━━━━━━━")
+            L.append("<i>Sirf public info (jo t.me par sab dekh sakte hain) — "
+                     "private info nahi dikhata.</i>")
+            L.append("💡 Bio dikhne ke liye user ko Telegram → Settings → Edit → About me likhna hoga.")
             card = "\n".join(L)
         _tg_msg = spend_credit_msg(uid, "tginfo") + "\n" + card
         if _photo:
