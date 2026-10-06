@@ -119,6 +119,11 @@ services:
       - key: HANG_RESTART_SECONDS
         value: "0"             # pehle 0 rakho; baar-baar hang ho to 600 karo
 
+      # ---------- v60: 🧹 AUTO CLEANUP ----------
+      # Purane temp files + expired caches khud safai hoti hai (disk bharne se bachao)
+      - key: CLEANUP_MINUTES
+        value: "45"
+
       # ---------- v52: SELF-PING (free instance ko jaagte rakhta hai = FAST respond) ----------
       # Bot apna hi /health ping karta hai -> Render ko inbound traffic lagta hai -> 15-min
       # sleep nahi hota -> cold start (30-60s) sirf pehli baar, baad me bot ~instant respond.

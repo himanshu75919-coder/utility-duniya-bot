@@ -2831,6 +2831,43 @@ def biz_money(v):
 
 # --------- helpers block khatam ---------
 
+def arm_all_handlers(app) -> int:
+    """🛡️ v60: HAR handler ko crash-shield me lapet do (ek hi jagah se).
+
+    Ye "code crash ho jaata hai" ka sabse bada ilaaj hai. Isse pehle har tool
+    ka code apne aap ko bachata tha — lekin koi bhi chhoti bug (kisi field ka
+    missing hona, kisi API ka ajeeb jawab, kisi photo ka kharab format) us
+    tool ke handler ko maar deti thi aur user ko "Chhota sa ghatna ho gaya"
+    dikhta tha (credit bhi kat chuka hota tha).
+
+    Ab: PTB ke saare handlers ka `callback` guard me lapet diya jata hai.
+    Iska matlab:
+      • koi bhi tool bug -> sirf wo ek tool ke liye message fail hota hai
+      • bot kabhi nahi girta
+      • user ko saaf message milta hai ("dobara try karo")
+      • admin ko /sys par "kitne sambhale gaye" dikhta hai
+
+    Returns: kitne handlers lapete gaye.
+    """
+    n = 0
+    try:
+        for group, handlers in (app.handlers or {}).items():
+            for h in handlers:
+                cb = getattr(h, "callback", None)
+                if cb is None or getattr(cb, "_ud_guarded", False):
+                    continue
+                try:
+                    wrapped = guarded(f"handler:{type(h).__name__}")(cb)
+                    wrapped._ud_guarded = True
+                    h.callback = wrapped
+                    n += 1
+                except Exception:                                # noqa: BLE001
+                    continue
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("arm_all_handlers me dikkat (bot normal chalega): %s", str(e)[:130])
+    return n
+
+
 def _uptime_str() -> str:
     s = int(time.time() - _BOOT_TS)
     d, r = divmod(s, 86400)
@@ -8126,6 +8163,11 @@ def main():
     app.add_handler(MessageHandler(filters.PHOTO & _dm_or_group, on_photo))
     app.add_handler(MessageHandler(_any_media & _dm_or_group, on_media))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, on_text))
+
+    # 🛡️ v60: SAARE handlers ko crash-shield me lapeto (sabse zaroori line)
+    _armed = arm_all_handlers(app)
+    log.info("🛡️ CRASH SHIELD: %s handlers lapete gaye — koi bhi tool crash ho to "
+             "bot zinda rahega", _armed)
 
     app.add_error_handler(on_error)
 
