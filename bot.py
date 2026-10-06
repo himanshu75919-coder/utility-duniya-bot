@@ -51,6 +51,7 @@ from telegram.ext import (
     CommandHandler,
     ContextTypes,
     MessageHandler,
+    TypeHandler,
     filters,
 )
 
@@ -313,7 +314,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v59.9 Auto-Webhook (Conflict-Free) + Live Version Proof + Support Clickable"
+BOT_VERSION = "v59.10 Live Proof (Webhook + Aakhri Message) + Support Clickable"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1910,6 +1911,7 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🌐 <b>Mode:</b> {_mode} | ⏱️ <b>chal raha:</b> {_uptime_str()}\n"
         f"🩺 <b>Crashes:</b> {_CRASH_STATE['count']} (self-heal ON)\n"
         f"🌐 <b>Webhook check:</b> {hesc(_WEBHOOK_DIAG['decision'])}\n"
+        f"🤖 <b>Live check:</b> {hesc(_last_update_line())}\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🎨 <b>Naya prompt system:</b> {'✅ CHALU' if _prompt_ok else '❌ purana'}\n"
         f"  • {_n_tools} tools me header + ✨ ask + 📝 Examples\n"
@@ -6855,6 +6857,9 @@ _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 # v59.9.2: webhook kyun on/off hua — /health par saaf dikhe (secret kabhi nahi).
 _WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not set",
                  "decision": "abhi decide nahi hua", "why": "-"}
+# v59.10: "bot sach me jawab de raha hai?" — aakhri update kab aaya (user ki
+# sabse badi confusion: purana screenshot dekh kar lagta hai bot band hai).
+_UPDATE_STATE = {"n": 0, "last_ts": 0.0, "last_at": None}
 
 # v54.1: /health par **git commit SHA** bhi dikhao.
 # Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
@@ -6895,6 +6900,29 @@ def _keepalive_pinger():
                 log.debug("keepalive ping fail: %s", e)
 
 
+async def _track_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har update (message/callback) ka time note karo — /health par dikhta hai.
+
+    Koi reply nahi karta, sirf ginti karta hai (group=-10 me sabse pehle chalta hai).
+    """
+    try:
+        _UPDATE_STATE["n"] += 1
+        _UPDATE_STATE["last_ts"] = time.time()
+        _UPDATE_STATE["last_at"] = time.strftime("%d-%m-%Y %H:%M:%S")
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def _last_update_line() -> str:
+    """"Aakhri message: 3 min pehle" — 0 ho to saaf saaf likho."""
+    if not _UPDATE_STATE["n"] or not _UPDATE_STATE["last_ts"]:
+        return "abhi tak koi message nahi aaya (bot naya start hua hai)"
+    _ago = int(max(0, time.time() - _UPDATE_STATE["last_ts"]))
+    _ago_s = f"{_ago}s" if _ago < 60 else (f"{_ago // 60}m {_ago % 60}s" if _ago < 3600 else f"{_ago // 3600}h")
+    return (f"aakhri message {_ago_s} pehle ({_UPDATE_STATE['last_at']})"
+            f" | total {_UPDATE_STATE['n']} updates")
+
+
 def health_html() -> str:
     """/health ka poora report — POLLING (keepalive server) aur WEBHOOK dono me same.
 
@@ -6912,6 +6940,7 @@ def health_html() -> str:
             f"<p style='font-family:monospace'>{_ka}</p>"
             f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
             f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
+            f"<p style='font-family:monospace'>bot: {_last_update_line()}</p>"
             f"<p style='font-family:monospace'>webhook: mode_env={_WEBHOOK_DIAG['mode_env']}"
             f" | url_env={_WEBHOOK_DIAG['url_env']} | render_url={_WEBHOOK_DIAG['ext_env']}"
             f" | decision={_WEBHOOK_DIAG['decision']} | why: {_WEBHOOK_DIAG['why']}</p>"
@@ -7055,6 +7084,8 @@ def main():
     app.add_handler(CommandHandler("sarkari", _cmd_sarkari))
 
     # Callbacks
+    # v59.10: har update ka hisaab (group=-10 = sabse pehle, koi reply nahi karta)
+    app.add_handler(TypeHandler(Update, _track_update), group=-10)
     app.add_handler(CallbackQueryHandler(on_cb))
 
     # Message Handlers
