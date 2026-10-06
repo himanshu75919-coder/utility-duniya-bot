@@ -151,8 +151,6 @@ Bot khud kahin se personal record nahi uthata. API na ho to tool phir bhi chalta
 |---|---|---|
 | 🔥 **FF UID** | har UID par `Player not found`, **11s**, credit kat-ta tha | **asli data, 0.19s** — SAC region add (jahan asli players the), parallel scan + 6s deadline |
 | 🎮 **BGMI UID** | dead server par bhi **1 credit** kat-ta tha | **availability probe** → `service_busy`, **credit nahi katta**, kabhi fake stats nahi |
-| 📌 **Pinterest** | 6 results, **0 asli ** link | **8/8 asli pins** + original quality + **video pins** + `` resolve + pinner/repin metadata |
-| 📄 **Web Scraper** | **22,515 words** (menu/ads/footer kachra) | **11,339 words saaf article** + Markdown + author/date/site + reading time + `.txt` file |
 | 📧 **Temp Mail** | poora body dump, OTP dhoondhna user ka kaam | **OTP auto-detect 10/10** + false-positive guard + inline buttons + sirf naye messages |
 | 📦 **App Finder** | **8 blind guessed URL**, 2 **piracy** sites | **Google Play se verified** metadata (dev/rating/reviews/downloads/icon) + F-Droid + iOS; nakli app → `found=False`, **credit nahi** |
 | 📷 **QR** | color/logo params **ignore**, lamba text → **crash** | `make_branded_qr()` wired: **center logo**, **custom colors**, **contrast guard**; vCard ab **4 step** (naam/phone/company/email); WiFi special-char escape |

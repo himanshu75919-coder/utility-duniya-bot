@@ -330,7 +330,7 @@ def test_ssrf_wiring():
               "http://192.168.1.1", "http://10.0.0.5", "http://localhost:5000"]:
         ok(f"expand_url BLOCK {u[:32]}", expand_url(u).get("ok") is False)
 
-    for u in ["file:///etc/passwd", "ftp://x.com/a", "gopher://127.0.0.1"]:
+    for u in ["file:///etc/passwd", "ftp://example.com/a", "gopher://127.0.0.1"]:
         r = expand_url(u)
         ok(f"expand_url BLOCK scheme {u[:22]}", r.get("ok") is False)
 
