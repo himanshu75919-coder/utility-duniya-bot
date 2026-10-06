@@ -4629,7 +4629,7 @@ def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
     elif rc:
         L.append("✅ Koi challan nahi — saaf record")
     else:
-        L.append("⚠️ Challan details temporarily live track status failed.")
+        L.append("⚠️ Challan check nahi ho paya — wajah upar ⚠️ Note me likhi hai.")
 
     L.append("")
     L.append(BRAND_LINK)
