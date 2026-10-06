@@ -211,6 +211,14 @@ check("stop set karte hi pinger ruk jata hai", _na == _nb, f"{_nb}->{_na}")
 check("_StatusMsg final edit par khud stop karta hai", _wrapped is True)
 
 # =====================================================================
+section("[D3] 🌐 NETWORK ERROR (aapke log ka 'Unknown error in HTTP implementation')")
+# =====================================================================
+check("connection pool 64 kiya (pehle chhota tha)",
+      "connection_pool_size(64)" in _SRC)
+check("HTTP/1.1 force kiya", 'http_version("1.1")' in _SRC)
+check("get_updates ka apna pool set hai", "get_updates_connection_pool_size(16)" in _SRC)
+
+# =====================================================================
 section("[E] 🔁 PURANA SAFE + VERSION")
 # =====================================================================
 check("purana insta_dl zinda", "insta_dl" in bot.PREMIUM_TOOLS)

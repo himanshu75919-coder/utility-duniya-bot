@@ -9074,9 +9074,15 @@ def main():
         threading.Thread(target=_keepalive_pinger, daemon=True).start()
         log.info("Keepalive pinger ON → %s (har %s min)", ", ".join(_KEEPALIVE_PEERS), _KEEPALIVE_MINUTES)
 
+    # v65: NetworkError ("Unknown error in HTTP implementation") ka pakka ilaaj —
+    #      bada connection pool + HTTP/1.1. Pehle pool chhota hone se
+    #      ek saath kai file/photo bhejne par connection toot jaata tha.
     app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
            .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
-           .media_write_timeout(300.0).pool_timeout(60.0).build())
+           .media_write_timeout(300.0).pool_timeout(60.0)
+           .connection_pool_size(64).http_version("1.1")
+           .get_updates_connection_pool_size(16)
+           .build())
 
     # Commands
     app.add_handler(CommandHandler("start", cmd_start))
