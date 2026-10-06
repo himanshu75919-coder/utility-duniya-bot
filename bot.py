@@ -401,7 +401,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v60.4 FORTRESS — Premium Vault + Crash Shield + Business Studio (10 new tools)"
+BOT_VERSION = "v61.0 FREE4ALL — Saare Tools FREE + v60.4 FORTRESS (Vault + Crash Shield + Business Studio)"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -553,7 +553,14 @@ def is_premium_tool(action: str) -> bool:
 
 
 def credits_left(u: dict, uid: int = 0) -> int:
-    """Bache hue credits (VIP/admin/owner ke liye 999999 = unlimited)."""
+    """Bache hue credits (VIP/admin/owner ke liye 999999 = unlimited).
+
+    v61: ALL_FREE mode me SABKE liye unlimited (999999) — isse credits
+    kabhi khatam nahi hote, "credits khatam, VIP lo" screen kabhi nahi
+    aati, aur saare premium tools sabke liye khul jaate hain.
+    """
+    if ALL_FREE:
+        return 999999
     if uid and is_admin(uid):
         return 999999
     if is_premium(u):
@@ -608,7 +615,28 @@ def get_credits_over_text(action: str = "") -> str:
 # ======================================================================
 # Aapki marzi: "ab se sirf premium users hi use kar sakte hain."
 # PREMIUM_ONLY=off karte hi purana system wapas (free tools + credits).
-PREMIUM_ONLY = _env_bool("PREMIUM_ONLY", True)   # v60: safe bool ("on"/"haan"/"chalu" sab chalega)
+# ======================================================================
+#  v61: 🎉 ALL-FREE MODE  —  SAARE TOOLS SABKE LIYE FREE
+# ======================================================================
+#  Boss ka order: "premium features hata do, saare tools free hone chahiye."
+#
+#  Kaise kaam karta hai:
+#    ALL_FREE = on  (DEFAULT)  ->  har user har tool chala sakta hai.
+#                                  Koi credit nahi, koi VIP wall nahi,
+#                                  koi "premium lo" wala message nahi.
+#    ALL_FREE = off            ->  purana VIP/credits system wapas
+#                                  (ya PREMIUM_ONLY=on likh do — wahi
+#                                   kaam karega).
+#
+#  ⚠️ SABSE ZAROORI: is switch se KISI USER KA DATA DELETE NAHI HOTA.
+#     DB me premium_until, credits, payments, referrals — sab jaisa hai
+#     waisa hi rehta hai. Sirf darwaza khul jata hai. Kabhi bhi
+#     ALL_FREE=off karoge to purane VIP waale wapas VIP honge.
+# ======================================================================
+ALL_FREE = _env_bool("ALL_FREE", True)
+if _env_bool("PREMIUM_ONLY", False):
+    ALL_FREE = False          # saaf-saaf PREMIUM_ONLY=on likha hai -> premium mode
+PREMIUM_ONLY = not ALL_FREE
 
 VIP_WALL_TEXT = (
     "👑 <b>YE TOOL SIRF VIP MEMBERS KE LIYE HAI</b>\n"
@@ -634,6 +662,47 @@ def vip_wall_kb() -> InlineKeyboardMarkup:
         [InlineKeyboardButton("📖 VIP me kya-kya milta hai?", callback_data="toolvid:premium")],
         [InlineKeyboardButton(f"💬 Support {SUPPORT_USERNAME}", url=SUPPORT_URL)],
     ])
+
+
+# ---------- v61: FREE MODE ka apna card (VIP wall ki jagah) ----------
+FREE_MODE_TEXT = (
+    "🎉 <b>SAB TOOLS FREE HAIN!</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Koi VIP nahi, koi credits nahi, koi limit nahi.\n"
+    "Aap seedha menu se <b>koi bhi tool</b> dabao — turant chalega. ✅\n\n"
+    "📥 Video Downloader · 📱 Number Info · 📲 IMEI Details\n"
+    "📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
+    "🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
+    "💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
+    "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n\n"
+    "💡 <i>Naya tool chahiye? Batao — free me add kar dunga.</i>"
+)
+
+
+def free_mode_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📋 Saare tools ki list", callback_data="alltools")],
+        [InlineKeyboardButton("💬 Support / Madad", url=SUPPORT_URL)],
+    ])
+
+
+def all_tools_text() -> str:
+    """v61: poore bot ke saare tools ki list — sab FREE."""
+    _biz = "\n".join(
+        f"   {k}. {v[0]} {hesc(v[1])} — {hesc(v[2])}"
+        for k, v in enumerate(BIZ_MENU.values(), 1) if v and len(v) >= 3)
+    _pv = "\n".join(
+        f"   • {hesc(x)}" for x in sorted(set(PREMIUM_TOOL_NAMES.values())))
+    return (
+        "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<b>💼 Business Studio (photo + PDF, print-ready):</b>\n"
+        f"{_biz}\n\n"
+        "<b>⚡ Baaki saare tools:</b>\n"
+        f"{_pv}\n\n"
+        "✅ Kisi bhi tool ke liye <b>VIP / credits ki zaroorat NAHI</b>.\n"
+        "👉 Neeche keyboard se seedha tool ka naam dabao."
+    )
 
 
 def vip_ok(uid: int) -> bool:
@@ -748,6 +817,8 @@ def get_limit_exceeded_text(action: str = "") -> str:
 
 def spend_credit_msg(uid: int, action: str = "") -> str:
     """1 credit kharch hone ke baad chhota note."""
+    if ALL_FREE:
+        return ""            # v61: free mode me credit kat hi nahi raha
     left = spend_credits(uid, 1)
     name = PREMIUM_TOOL_NAMES.get(action, "Premium tool")
     if left <= 0:
@@ -935,6 +1006,14 @@ KB_BTNS = [
 ]
 
 
+# v61: FREE mode me "💎 VIP PREMIUM" button ki jagah kaam ki cheez
+if ALL_FREE:
+    for _row_v in KB_BTNS:
+        for _i_v, _lab_v in enumerate(_row_v):
+            if "VIP PREMIUM" in unbold(_lab_v).upper():
+                _row_v[_i_v] = f"\U0001F4CB {to_bold('ALL TOOLS (FREE)')}"
+
+
 def main_keyboard(admin: bool = False):
     rows = [row[:] for row in KB_BTNS]
     if admin:
@@ -1014,6 +1093,9 @@ BTN_MODE_MAP = {
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
     "VIP PREMIUM": "premium",
+    "ALL TOOLS (FREE)": "alltools",      # v61
+    "ALL TOOLS": "alltools",
+    "SAARE TOOLS": "alltools",
     "REFER & EARN": "refer",
     "MY ACCOUNT": "account",
     "HELP / TUTORIAL": "tutorial",
@@ -1623,7 +1705,8 @@ WELCOME_TEXT = (
     f"• 📸 <b>Photo &amp; PDF</b> — passport photo, marksheet PDF, 8-in-1 sheet\n"
     f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n"
     f"• 📦 <b>App Finder</b> — app ka naam bhejo → official link + size\n\n"
-    "👇 <b>Neeche menu se koi bhi tool dabao</b>"
+    + ("\n\n🎉 <b>SAARE TOOLS 100% FREE HAIN</b> — na VIP, na credits, na limit ✅"
+       if ALL_FREE else "\n\n👇 <b>Neeche menu se koi bhi tool dabao</b>")
 )
 
 
@@ -1703,6 +1786,21 @@ async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid_ = update.effective_user.id
     u = get_user(uid_, update.effective_user.first_name)
+    if ALL_FREE:
+        _st_f = "👑 OWNER/ADMIN" if is_admin(uid_) else "✅ ALL TOOLS FREE"
+        await update.message.reply_text(
+            f"👤 <b>{to_bold('MERI ACCOUNT')}</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"• <b>Naam:</b> {hesc(u.get('name', 'User'))}\n"
+            f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
+            f"• <b>Status:</b> {_st_f}\n"
+            f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "🎉 <b>Poore bot ke saare tools aapke liye khule hain.</b>\n"
+            "❌ Na koi VIP, na credits, na limit.\n"
+            "👉 Neeche menu se seedha tool dabao.",
+            reply_markup=free_mode_kb(), parse_mode=HTML)
+        return
     vip_status = "👑 VIP ACTIVE" if is_premium(u) else ("👑 OWNER/ADMIN" if is_admin(uid_) else "🆓 Free User")
     expiry = premium_expiry(u)
     left = credits_left(u, uid_)
@@ -1995,6 +2093,11 @@ async def cmd_tutorial(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # v61: free mode me koi VIP bechna hi nahi hai — seedha free card
+    if ALL_FREE and not is_admin(update.effective_user.id):
+        await update.message.reply_text(FREE_MODE_TEXT, reply_markup=free_mode_kb(),
+                                        parse_mode=HTML)
+        return
     if is_admin(update.effective_user.id):
         st = payment_stats()
         await update.message.reply_text(
@@ -5180,6 +5283,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=kb, parse_mode=HTML)
             return
 
+        if action == "alltools":          # v61: saare tools ki list (FREE)
+            await update.message.reply_text(all_tools_text(),
+                                            reply_markup=free_mode_kb() if ALL_FREE else None,
+                                            parse_mode=HTML)
+            return
+
         # 9. VIP Premium, Refer & Account
         if action == "premium":
             await cmd_premium(update, context)
@@ -5567,7 +5676,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _res = await asyncio.get_running_loop().run_in_executor(
             None, functools_partial(biz_build, mode, _d))
         _used = bool(_res and _res.get("ok"))
-        if _used:
+        if _used and not ALL_FREE:      # v61: free mode me credit nahi katta
             spend_credits(uid, 1)
         await biz_send_result(update.message, mode, _res or {}, uid, used=_used)
         return
@@ -7744,7 +7853,8 @@ async def _post_init(app: Application):
     commands = [
         BotCommand("start", "Bot chalu karo / menu kholo"),
         BotCommand("menu", "Saare tools ka menu"),
-        BotCommand("premium", "VIP plan lo (unlimited)"),
+        BotCommand("premium", "Saare tools FREE — list dekho" if ALL_FREE
+                   else "VIP plan lo (unlimited)"),
         BotCommand("refer", "Dost ko bulao = free VIP"),
         BotCommand("account", "Mera account aur credits"),
         BotCommand("cancel", "Chalu kaam band karo"),

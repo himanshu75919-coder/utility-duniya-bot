@@ -7,3 +7,4 @@ botdata.db-shm
 botdata.db.prerestore.*
 vault_local/
 .venv/
+MERI-KEYS*.txt

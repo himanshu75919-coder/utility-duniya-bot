@@ -176,6 +176,17 @@ services:
       - key: VEHICLE_PROVIDER_AUTHORIZED
         value: "0"              # official portal links only unless provider is authorized
 
+      # ---------- v61: 🎉 ALL-FREE MODE (saare tools FREE) ----------
+      # "on"  = HAR USER HAR TOOL CHALA SAKTA HAI — koi VIP nahi, koi credit
+      #         nahi, koi limit nahi. (DEFAULT — isi liye kuch set karne ki
+      #         zaroorat bhi nahi hai.)
+      # "off" = purana VIP/credits system wapas (kisi user ka data delete
+      #         nahi hota — sirf darwaza band ho jata hai).
+      - key: ALL_FREE
+        value: "on"
+      - key: PREMIUM_ONLY
+        value: "off"           # v49.4 wala purana switch — ab ALL_FREE hi chalta hai
+
       # ---------- SETTINGS ----------
       - key: FREE_CREDITS
         value: "25"            # naye user ko itne premium credits
