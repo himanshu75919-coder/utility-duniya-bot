@@ -1470,17 +1470,21 @@ def visiting_card_image(d: dict) -> dict:
             elif style == "clean":
                 dr.rectangle([cx, cy, cx + 14, cy + ch], fill=acc)
             # header
+            _tx = cx + 34
+            if d.get("logo") and style in ("band", "dark"):
+                # v63: logo header ke daayein kinare par (naam ke saath takrata nahi)
+                _paste_logo(img, d.get("logo"), (cx + cw - 118, cy + 16, 88), pad=4, bg=acc)
             if style in ("band", "dark"):
-                f_name.draw(dr, (cx + 34, cy + 18), str(d.get("owner") or "YOUR NAME")[:26], WHITE)
-                f_shop.draw(dr, (cx + 34, cy + 76), str(d.get("shop") or "")[:34], (222, 233, 252))
+                f_name.draw(dr, (_tx, cy + 18), str(d.get("owner") or "YOUR NAME")[:26], WHITE)
+                f_shop.draw(dr, (_tx, cy + 76), str(d.get("shop") or "")[:34], (222, 233, 252))
                 y = cy + 142
             else:
-                f_name.draw(dr, (cx + 40, cy + 30), str(d.get("owner") or "YOUR NAME")[:26], txt)
-                f_shop.draw(dr, (cx + 40, cy + 88), str(d.get("shop") or "")[:34], acc)
+                f_name.draw(dr, (_tx, cy + 30), str(d.get("owner") or "YOUR NAME")[:26], txt)
+                f_shop.draw(dr, (_tx, cy + 88), str(d.get("shop") or "")[:34], acc)
                 y = cy + 152
             tag = str(d.get("tagline") or "").strip()
             if tag:
-                f_sm.draw(dr, (cx + 40, y), tag[:60], sub)
+                f_sm.draw(dr, (_tx, y), tag[:60], sub)
                 y += 34
             svc = str(d.get("services") or "").strip()
             if svc:
@@ -1495,17 +1499,29 @@ def visiting_card_image(d: dict) -> dict:
                     continue
                 f_val.draw(dr, (cx + 40, y), val[:56], txt if style == "dark" else INK)
                 y += 34
+            # UPI QR — card ke daayein-neeche, bada (scan karna aasan)
             upi = str(d.get("upi") or "").strip()
             if upi:
                 try:
-                    qp = _make_qr_png(f"upi://pay?pa={upi}&cu=INR", 130)
+                    qp = _make_qr_png(f"upi://pay?pa={upi}&cn={str(d.get('shop') or '')[:24]}&cu=INR", 190)
                     if qp:
                         from PIL import Image
-                        qr = Image.open(io.BytesIO(qp)).convert("RGB").resize((130, 130))
-                        img.paste(qr, (cx + cw - 170, cy + ch - 160))
-                        f_sm.draw(dr, (cx + cw - 174, cy + ch - 24), "Scan & Pay", sub)
+                        qr = Image.open(io.BytesIO(qp)).convert("RGB").resize((190, 190))
+                        _qy = cy + ch - 226
+                        img.paste(qr, (cx + cw - 224, _qy))
+                        ScriptFont(19).draw_center(dr, (cx + cw - 230, cx + cw - 24),
+                                                   "Scan & Pay", sub, _qy + 196)
+                        if _qy - y > 40:
+                            ScriptFont(21, True).draw(dr, (_tx, y), "Pay via UPI", acc)
+                            ScriptFont(19).draw(dr, (_tx, y + 30), upi[:34], sub)
                 except Exception:                                # noqa: BLE001
                     pass
+            # khaali jagah bhare: services/time ya thanks line
+            _note = str(d.get("note") or "").strip()
+            if _note and y < cy + ch - 90:
+                for _ln in f_sm.wrap(_note, cw - 300, 2):
+                    f_sm.draw(dr, (_tx, y), _ln, sub)
+                    y += 30
 
         coords = [(x1, top + 0 * (ch + gapy)), (x2, top + 0 * (ch + gapy)),
                   (x1, top + 1 * (ch + gapy)), (x2, top + 1 * (ch + gapy)),
@@ -1519,9 +1535,9 @@ def visiting_card_image(d: dict) -> dict:
             for xx in range(cx, cx + cw, 16):
                 dr.line([xx, cy - 16, xx + 8, cy - 16], fill=(196, 202, 212), width=2)
                 dr.line([xx, cy + ch + 16, xx + 8, cy + ch + 16], fill=(196, 202, 212), width=2)
-        ScriptFont(20).draw(dr, (W // 2 - 260, H - 40),
-                            "10 visiting cards · 200 DPI · cut along dotted lines",
-                            (150, 158, 172))
+        ScriptFont(19).draw_center(dr, (40, W - 40),
+                                   "10 visiting cards · 200 DPI · cut along dotted lines",
+                                   (150, 158, 172), H - 32)
         return {"ok": True, "png": _save_png(img), "count": 10, "size": img.size}
     except Exception as e:                                       # noqa: BLE001
         return _err("visiting_card", e)
