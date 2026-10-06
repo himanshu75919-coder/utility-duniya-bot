@@ -136,7 +136,8 @@ _vd = bot.tool_prompt("insta_dl")
 for _app, _url in (("YouTube", "youtube.com"), ("Instagram", "instagram.com"),
                    ("Facebook", "facebook.com"), ("TikTok", "tiktok.com")):
     check(f"Video Downloader me {_app} example hai", _app in _vd and _url in _vd)
-check("v67: Twitter/X example ab nahi hai", "x.com" not in _vd and "Twitter" not in _vd)
+check("v67: sirf 4 app examples hain (purana 5th hata diya)",
+      _vd.count("https://") == 4, str(_vd.count("https://")))
 
 # ---- saare prompts ka structure ----
 check("saare 22 prompts me 📝 Examples block hai",
