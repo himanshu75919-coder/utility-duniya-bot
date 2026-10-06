@@ -74,17 +74,16 @@ check("har tool ka apna prompt hai (PROMPT_DATA)",
 check("prompts render bhi ho gaye (PROMPTS)",
       all(bot.tool_prompt(f"dl_{k}").strip() for k in bot.DL_SITES))
 check("har prompt me Examples block hai (bot ke format me)",
-      all("📝 <b>Examples:</b>" in bot.tool_prompt(f"dl_{k}") for k in bot.DL_SITES))
-check("har prompt me ✨ ask line hai",
-      all("✨" in bot.tool_prompt(f"dl_{k}") for k in bot.DL_SITES))
+      all("<code>" in bot.tool_prompt(f"dl_{k}") for k in bot.DL_SITES))
+check("har prompt me ask line hai (v71)",
+      all("🔗 <b>" in bot.tool_prompt(f"dl_{k}") for k in bot.DL_SITES))
 check("har tool premium ginti me hai",
       all(bot.is_premium_tool(f"dl_{k}") for k in bot.DL_SITES))
 check("rate-limit prefix 'dl' laga hai (saare ek limit me)",
       "dl" in bot.TOOL_RATE_LIMITS)
 check("purana insta_dl bhi premium hai", bot.is_premium_tool("insta_dl"))
-check("purana insta_dl prompt zinda (4 app examples)",
-      all(x in bot.tool_prompt("insta_dl") for x in ("YouTube", "Instagram", "Facebook",
-                                                     "TikTok")))
+check("insta_dl prompt me box + valid example + tip",
+      all(x in bot.tool_prompt("insta_dl") for x in ("┏", "instagram.com", "💡")))
 check("credits ke message me asli app ka naam aata hai",
       "Instagram" in bot.get_credits_over_text("dl_instagram"))
 check("credits ke message me YouTube ka naam",

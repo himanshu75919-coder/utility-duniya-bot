@@ -196,7 +196,8 @@ for _h in ("pcard_title", "pcard_foot", "pcard_sep", "PCARD_TOP", "PCARD_MID", "
     check(f"helper '{_h}' maujood hai", hasattr(bot, _h))
 
 _t = bot.pcard_title("🏦", "TEST CARD")
-check("pcard_title boxed header banata hai", "┌" in _t and "└" in _t and "│" in _t)
+check("pcard_title premium box banata hai (v71 frame)",
+      "┏" in _t and "┗" in _t and "┃" in _t)
 check("pcard_title title ko bold-unicode karta hai", "𝐓𝐄𝐒𝐓" in _t)
 
 _f = bot.pcard_foot(ms=250, source="TestAPI")
@@ -207,7 +208,8 @@ check("pcard_foot 1.5s ko '1.5s' likhta hai", "1.5s" in _f2)
 check("pcard_foot me brand footer hai", bot.BRAND_TAG in _f)
 check("pcard_foot brand=False par footer nahi",
       bot.BRAND_TAG not in bot.pcard_foot(brand=False))
-check("pcard_sep separator deta hai", bot.pcard_sep() == "─" * 30)
+check("pcard_sep separator deta hai (khali line ke saath)",
+      bot.PCARD_MID in bot.pcard_sep() and bot.pcard_sep().startswith("\n"))
 
 # kaunse tools premium ho gaye
 for _tool, _needle in (

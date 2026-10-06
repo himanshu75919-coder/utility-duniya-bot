@@ -229,7 +229,7 @@ except Exception as _e:
 # =====================================================================
 section("[I] 🚪 REACHABILITY — har tool ka darwaza khula hai")
 # =====================================================================
-check(f"PREMIUM_TOOLS me 35 tools hain (12 Business Studio + v70 whois)", len(bot.PREMIUM_TOOLS) == 35,
+check(f"PREMIUM_TOOLS me 36 tools hain (12 Business Studio + whois + vahan)", len(bot.PREMIUM_TOOLS) == 36,
       str(len(bot.PREMIUM_TOOLS)))
 # v64 ke baad 27 downloader prompts bhi jude (33 -> 60). Is liye ab ginti ke
 # bajaye ASLI baat check hoti hai: purane prompts DELETE hue ya nahi.

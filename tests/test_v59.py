@@ -474,10 +474,10 @@ check("kisi bhi tool prompt me Credits/cancel line nahi",
       all("Credits:" not in bot.tool_prompt(k) and "cancel" not in bot.tool_prompt(k).lower()
           for k in bot.PROMPT_DATA))
 _np_p = bot.tool_prompt("numinfo")
-check("NUMBER INFO prompt me 3 example hain (jaise baaki tools me)",
-      _np_p.count("•") >= 3, str(_np_p.count("•")))
-check("NUMBER INFO examples: 10-digit + dusra mobile + +91 wala",
-      "9876543210" in _np_p and "7305190526" in _np_p and "+91 98765 43210" in _np_p)
+check("NUMBER INFO prompt me 1 valid example hai (v71 rule)",
+      _np_p.count("<code>") == 1, str(_np_p.count("<code>")))
+check("NUMBER INFO example asli 10-digit number hai",
+      "7857843092" in _np_p)
 check("NUMBER INFO me koi banned line nahi (credits/cancel)",
       "Credits:" not in _np_p and "cancel" not in _np_p.lower())
 check("BOT_VERSION comment stack nahi hua (ek hi # v59: note)",

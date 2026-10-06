@@ -249,6 +249,11 @@ from modules.imei_lookup import (
     validate_imei as imei_validate,
 )
 from modules import numinfo_provider as numprov
+from modules.vehicle_tool import (
+    vehicle_lookup as vahan_lookup,
+    offline_parse as vahan_offline,
+    provider_ready as vahan_provider_ready,
+)
 from modules.osint_tools import (
     search_by_area_name,
     lookup_ifsc,
@@ -346,6 +351,7 @@ TOOL_RATE_LIMITS = {
     "tempmail":    (10, 120, "Temp Mail"),
     "ifsc":        (15, 60,  "IFSC Info"),
     "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
+    "vahan":       (10, 120, "RC + Challan (Gaadi X-Ray)"),
     "pin":         (15, 60,  "Pincode Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
     "numinfo":     (10, 60,  "Number Info"),
@@ -411,8 +417,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v70.0 FREE4ALL — WEBSITE OWNER X-RAY (result in bot) + "
-               "30-SECOND SPEED + SAMPLE NUMBER CARD")
+BOT_VERSION = ("v71.0 FREE4ALL — RC + CHALLAN (Gaadi X-Ray) + "
+               "PREMIUM EXAMPLES/CARDS + 30-SECOND SPEED")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -505,6 +511,7 @@ PREMIUM_TOOLS = {
     "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
     "osint_whois",         # 🌐 WEBSITE OWNER X-RAY (v70)
+    "vahan",               # 🚗 RC + CHALLAN (v71)
     "pin",                 # 📮 PINCODE INFO
     "bgmi",                # 🎮 BGMI UID
     "ffuid",               # 🔥 FF UID
@@ -545,6 +552,7 @@ PREMIUM_TOOL_NAMES = {
     "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
     "osint_whois": "🌐 Website Owner X-Ray",
+    "vahan": "🚗 RC + Challan (Gaadi X-Ray)",
     "pin": "📮 Pincode Info",
     "bgmi": "🎮 BGMI UID",
     "ffuid": "🔥 FF UID",
@@ -1040,6 +1048,7 @@ KB_BTNS = [
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
     [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}"],   # v70: domain ka public record
+    [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
@@ -1120,6 +1129,12 @@ BTN_MODE_MAP = {
     "WEBSITE OWNER": "osint_whois",
     "WHOIS": "osint_whois",
     "DOMAIN OWNER": "osint_whois",
+    "RC + CHALLAN": "vahan",
+    "RC CHALLAN": "vahan",
+    "GAADI X-RAY": "vahan",
+    "VEHICLE RC": "vahan",
+    "RC CHECK": "vahan",
+    "GAADI KA RECORD": "vahan",
     "PINCODE INFO": "pin",
     "QR CODE": "qr",
     "URL SHORT": "short",
@@ -1197,14 +1212,15 @@ DL_SITES = {
     #  v67: ✅ SIRF 4 DOWNLOADER TOOLS (user ka order)
     #  ❌ 23 services POORI TARAH DELETE (code + bot + GitHub history)
     # ================================================================
+    # v71: examples ab ASLI (valid) links hain — "xxxxx" wale dummy nahi
     "instagram":   ("📸", "Instagram",      ["instagram.com", "instagr.am"],
-                    "https://www.instagram.com/reel/xxxxx"),
+                    "https://www.instagram.com/reel/C8xYzAbCdEf/"),
     "youtube":     ("▶️", "YouTube",        ["youtube.com", "youtu.be"],
-                    "https://www.youtube.com/watch?v=xxxxx"),
+                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
     "facebook":    ("📘", "Facebook",       ["facebook.com", "fb.watch"],
-                    "https://www.facebook.com/watch?v=xxxxx"),
+                    "https://www.facebook.com/watch/?v=10153231379946729"),
     "tiktok":      ("🎵", "TikTok",         ["tiktok.com"],
-                    "https://vt.tiktok.com/xxxxx"),
+                    "https://vt.tiktok.com/ZS6rQpLmK/"),
 }
 
 DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok")
@@ -1249,10 +1265,10 @@ def dl_prompt_data(mode: str) -> dict:
     _eg = DL_SITES[_k][3]
     return {
         "head": f"{_icon} {_name.upper()} VIDEO DOWNLOADER",
-        "ask": f"{_name} ka video / reel / shorts ka link bhejein:",
-        "ex": [(_eg, f"{_name} ka video — HD, bina watermark"),
-               ("Pura link copy karke bhejein, chhota link (share) bhi chalega",
-                "share button se copy kiya hua link bhi theek hai")],
+        "ask": f"{_name} ka video / reel ka link bhejein:",
+        "ex": [(_eg, f"{_name} ka link")],
+        "tip": "Share button se copy kiya pura link bhi chalega",
+        "foot": "HD quality · bina watermark · 30 second me tayyar",
     }
 
 
@@ -1300,151 +1316,174 @@ def dl_url_matches(mode: str, url: str) -> bool:
 # ----------------------------------------------------------------------
 
 
+# v71: premium card/prompt frame — boxes ┏━┓ ┃ ┗━┛ + dotted separator.
+# (PROMPT_DATA se PEHLE hona zaroori hai — prompt renderer inhi ko use karta hai)
+PCARD_TOP = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+PCARD_MID = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
+PCARD_BOT = "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+
 PROMPT_DATA = {
     # ---------------------------------------------------------- DOWNLOADERS
     "terabox": {
         "head": "⚡ TERABOX / CLOUD ENGINE",
         "ask": "Terabox / Drive / MediaFire ka link bhejein:",
-        "ex": [("https://terabox.com/s/xxxxx", "Terabox"),
-               ("https://drive.google.com/file/d/xxxxx", "Google Drive"),
-               ("https://www.mediafire.com/file/xxxxx", "MediaFire")],
+        "ex": [('https://terabox.com/s/1XrQk2mBnPqRtYvWx3cde', 'TeraBox ka share link')],
+        "tip": "TeraBox app se 'Share' dabao → 'Copy link' → wahi link yahan bhejo",
+        "foot": 'Bina ad · bina VIP · seedha download',
     },
     "insta_dl": {
         "head": "📥 VIDEO DOWNLOAD (Insta / YouTube / Facebook / TikTok)",
         "ask": "Apne app ka video link bhejein:",
-        "ex": [("https://www.youtube.com/watch?v=xxxxx", "YouTube"),
-               ("https://www.instagram.com/reel/xxxxx", "Instagram"),
-               ("https://www.facebook.com/watch?v=xxxxx", "Facebook"),
-               ("https://vt.tiktok.com/xxxxx", "TikTok")],
+        "ex": [('https://www.instagram.com/reel/C8xYzAbCdEf/', 'Instagram reel ka link')],
+        "tip": "App me reel par 'Share' → 'Copy link' → yahan paste karo",
+        "foot": 'HD · bina watermark · 30 second me',
     },
     # ---------------------------------------------------------- PHOTO TOOLS
     "pp_stamp": {
         "head": "📸 EXAM PASSPORT PHOTO STUDIO",
         "ask": "Apni front-facing photo bhejein (chehra saaf + roshni achi ho):",
-        "ex": [("Studio photo", "white background best"),
-               ("Mobile selfie", "simple background")],
+        "ex": [('(photo bhejein) — saaf selfie, chehra saamne', 'photo + naam + date of photo')],
+        "tip": 'Ek hi baar me 3 cheez bhejo: photo, naam, DOP (jaise 12-05-2026)',
+        "foot": 'Exam form ke liye 20-50 KB ki ready photo',
     },
     "print_sheet": {
         "head": "🖨️ 8-IN-1 PRINT SHEET MAKER",
         "ask": "Ek photo bhejein — 8-in-1 print sheet ban jayegi:",
-        "ex": [("Passport size photo", "print ke liye"),
-               ("Selfie / family photo", "ek hi photo 8 baar")],
+        "ex": [('(photo bhejein) — passport size ban jayegi', '4x6 inch wali photo')],
+        "tip": 'Ek normal photo bhejo — bot 8 copies ek A4 sheet par laga dega',
+        "foot": 'Ek print me 8 photo · paper bachao',
     },
     "doc_compress": {
         "head": "📄 DOCUMENT CAMERA → PDF",
         "ask": "Document ki photo bhejein (PDF ban jayegi):",
-        "ex": [("10th / 12th marksheet", ""),
-               ("Aadhaar / PAN / Voter ID", ""),
-               ("Bank passbook page", "")],
+        "ex": [('(file bhejein) — marksheet / Aadhaar ka PDF ya photo', 'PDF ya photo dono chalega')],
+        "tip": 'Bada PDF ho to bhi chinta nahi — bot chhota kar dega',
+        "foot": 'Form upload ke liye perfect size',
     },
     # ------------------------------------------------------------- FINANCE
     "bankpdf": {
         "head": "🏦 BANK STATEMENT PDF → EXCEL",
         "ask": "Bank statement ka PDF bhejein (photo nahi, asli PDF):",
-        "ex": [("SBI / HDFC / PNB / ICICI", "statement PDF"),
-               ("Password wala PDF", "pehle password bhejein")],
+        "ex": [('(file bhejein) — bank statement ka asli PDF', 'SBI / HDFC / PNB / ICICI sab chalega')],
+        "tip": 'Photo nahi — bank se mila ASLI PDF bhejo, warna table galat banega',
+        "foot": 'PDF se seedha Excel · hisaab 2 minute me',
     },
     "ifsc": {
         "head": "🏦 IFSC BANK BRANCH ENGINE",
         "ask": "IFSC code bhejein (11 characters):",
-        "ex": [("SBIN0000001", "State Bank of India"),
-               ("HDFC0001234", "HDFC Bank"),
-               ("PUNB0123456", "Punjab National Bank")],
+        "ex": [('SBIN0000001', 'SBI — Kolkata Main Branch')],
+        "tip": 'IFSC aapke passbook ya cheque par likha hota hai',
+        "foot": 'Bank + branch + MICR ek hi card me',
+    },
+    "vahan": {
+        "head": "🚗 RC + CHALLAN (GAADI X-RAY)",
+        "ask": "Gaadi ka number plate bhejein:",
+        "ex": [("BR01AB1234", "RC + challan + insurance sab")],
+        "tip": "Number plate bina space likhein (jaise BR01AB1234) — sabhi state chalte hain",
+        "foot": "RC · owner · insurance · PUC · loan · challan — sab ek card me",
     },
     "osint_whois": {
         "head": "🌐 WEBSITE OWNER X-RAY (WHOIS)",
         "ask": "Website ka naam ya link bhejein:",
-        "ex": [("xyzshop.in", "domain ka public record"),
-               ("https://www.kisi-site.com/page", "link bhi chalega"),
-               ("amazon.in", "kab bani, kiska naam par")],
+        "ex": [('flipkart.co.in', 'website ka naam (link bhi chalega)')],
+        "tip": 'Poora link bhejo ya sirf website ka naam — dono chalega',
+        "foot": 'Site purani hai ya nayi — paisa dene se pehle pata karo',
     },
     # ------------------------------------------------------------- GAMING
     "bgmi": {
         "head": "🎮 BGMI PLAYER CARD ENGINE",
         "ask": "BGMI UID bhejein (8-10 digit):",
-        "ex": [("1067824210", "Player UID"),
-               ("5123456789", "Player UID")],
+        "ex": [('5123456789', 'player ka UID (8-10 digit)')],
+        "tip": 'UID game ke profile me neeche likha hota hai',
+        "foot": 'Naam · level · region sab ek card me',
     },
     "ffuid": {
         "head": "🔥 FREE FIRE UID ENGINE",
         "ask": "Free Fire UID bhejein (8-10 digit):",
-        "ex": [("7860944073", "UID"),
-               ("7860944073 BR", "UID + Region"),
-               ("7860944073 IND", "UID + Region")],
+        "ex": [('7860944073', 'player ka UID (8-10 digit)')],
+        "tip": 'UID ke saath BR / IND likhne se region bhi mil jata hai',
+        "foot": 'Nickname · level · region',
     },
     # -------------------------------------------------------- PHONE / OSINT
     "imei": {
         "head": "🔐 IMEI V2 & GSMARENA SPECS ENGINE",
         "ask": "15-digit IMEI Number ya direct Device Model Name / Code bhejein:",
-        "ex": [("862407054987700", "IMEI Number"),
-               ("M2101K6P", "Model Code"),
-               ("Redmi Note 10 Pro", "Device Name")],
+        "ex": [('862407054987700', '15 digit ka IMEI number')],
+        "tip": 'Phone par *#06# dabao — IMEI apne aap dikh jayega',
+        "foot": 'Phone ka naam · photo · poore specs',
     },
     "numinfo": {
         "head": "📱 NUMBER INFO V2 ENGINE",
         "ask": "10 Digit Number bhejein (API lagane par naam/pata/region bhi aata hai):",
-        "ex": [("9876543210", "10 digit number"),
-               ("7305190526", "koi bhi mobile number"),
-               ("+91 98765 43210", "country code ke saath bhi chalta hai")],
+        "ex": [('7857843092', '10 digit ka mobile number')],
+        "tip": '+91 ya 0 pehle lagane ki zaroorat nahi — seedha 10 digit bhejo',
+        "foot": 'Circle · operator · owner card',
     },
     "appfind": {
         "head": "📦 APP FINDER · PLAY · APPSTORE · F-DROID",
         "ask": "App ka naam ya package code bhejein:",
-        "ex": [("whatsapp", "App ka naam"),
-               ("com.whatsapp", "Package code"),
-               ("free fire", "App ka naam")],
+        "ex": [('whatsapp', 'app ka naam')],
+        "tip": 'App ka naam ya package (com.whatsapp) — dono chalega',
+        "foot": 'Official link · size · version',
     },
     # ------------------------------------------------------------ LOCATION
     "pin": {
         "head": "📮 PINCODE / AREA INFO ENGINE",
         "ask": "Pincode ya area ka naam bhejein:",
-        "ex": [("800001", "Patna ka pincode"),
-               ("Rajendra Nagar", "Area ka naam"),
-               ("Sitamarhi", "District ka naam")],
+        "ex": [('800001', 'Patna GPO')],
+        "tip": '6 digit ka PIN code bhejo — ya ilaake ka naam likho',
+        "foot": 'Post office · taluk · district sab',
     },
     # ---------------------------------------------------------------- LINKS
     "qr": {
         "head": "📷 QR CODE MAKER",
         "ask": "Text ya link bhejein (HD QR ban jayega):",
-        "ex": [(f"https://t.me/{OWNER_USERNAME}", "Telegram link"),
-               ("My WiFi password is 12345", "Simple text")],
+        "ex": [('https://t.me/telegram', 'koi bhi link ya text')],
+        "tip": 'Link, text, number — kuch bhi bhejo, QR ban jayega',
+        "foot": 'Branded QR · scan karte hi khul jaye',
     },
     "short": {
         "head": "🔗 URL SHORTENER · 6 ENGINES",
         "ask": "Lamba link bhejein:",
-        "ex": [("https://example.com/very/long/path?x=1", "Lamba link"),
-               ("https://amazon.in/dp/xxxxx?ref=xyz", "Shopping link")],
+        "ex": [('https://www.amazon.in/dp/B0CX23V2ZK?ref=abc123', 'koi bhi lamba link')],
+        "tip": 'Lamba link bhejo — chhota saaf link wapas milega',
+        "foot": 'WhatsApp/SMS me bhejne layak chhota link',
     },
     "linkcheck": {
         "head": "🔍 LINK CHECK · 6-LAYER SCAN",
         "ask": "Link bhejein — safe hai ya fraud, poora check karunga:",
-        "ex": [("http://sbi-kyc-verify.xyz", "Suspicious link"),
-               ("https://google.com", "Normal link")],
+        "ex": [('https://google.com', 'check karne wala link')],
+        "tip": 'Kisi khaas link par shak ho to bhejo — bot pehle check karega',
+        "foot": 'Khatarnak ya safe — pehle pata karo',
     },
     "qr_wifi": {
         "head": "📶 WIFI SHARE QR",
         "ask": "WiFi ka naam (SSID) bhejein:",
-        "ex": [("JioFiber_Home", "WiFi ka naam"),
-               ("MyHome_5G", "WiFi ka naam")],
+        "ex": [('JioFiber_Home | 12345678', 'WiFi ka naam | password')],
+        "tip": 'Beech me | (pipeline) lagana mat bhoolna',
+        "foot": 'Mehmaan ko password bina bataye WiFi',
     },
     "qr_vcard": {
         "head": "👤 CONTACT CARD QR",
         "ask": "Apna naam bhejein (contact card bane ga):",
-        "ex": [("Himanshu Kumar", "Naam"),
-               ("Rahul Sah", "Naam")],
+        "ex": [('Himanshu Kumar | 9876543210', 'naam | mobile')],
+        "tip": 'Naam aur mobile ke beech | lagao — aur bhejo',
+        "foot": 'Scan karte hi number save ho jaye',
     },
     # ---------------------------------------------------------- MENU TOOLS
     "tempmail": {
         "head": "📧 TEMP MAIL ENGINE",
         "ask": "Naya email banane ke liye <code>NEW</code> bhejein:",
-        "ex": [("NEW", "naya email ID + inbox")],
+        "ex": [('NEW', 'naya mail id banane ke liye')],
+        "tip": 'Naya email chahiye (form bharne ke liye) to bas NEW dabao',
+        "foot": 'Bina number ke email · 10 minute me',
     },
     "kagaz": {
         "head": "📜 KAGAZ SUITE · GOVT PAPERS",
         "ask": "Neeche se apna document chunein:",
-        "ex": [("Kirayanama", "rent agreement"),
-               ("Affidavit / Notice 138", "legal papers"),
-               ("GST / PAN check", "tax papers")],
+        "ex": [('Kirayanama', 'kaunsa kagaz chahiye')],
+        "tip": 'Jaise: Kirayanama, Affidavit, Notice 138, Rent Agreement',
+        "foot": 'Sarkari kagaz ka draft — 2 minute me',
     },
     # ------------------------------------------------- v60.4 BUSINESS STUDIO
     "biz_invoice": {
@@ -1454,6 +1493,7 @@ PROMPT_DATA = {
                 "2 item ka bill"),
                ("Kumar Store | Suresh | Sugar 2x48",
                 "1 item, GST ke bina")],
+        "tip": 'Ek line me: dukaan ka naam | customer | saaman aur rate',
     },
     "biz_resume": {
         "head": "💼 RESUME / CV MAKER",
@@ -1462,6 +1502,7 @@ PROMPT_DATA = {
                 "engineer ka CV"),
                ("Anjali Kumari | Accounts Assistant | 9812345678 | B.Com | Tally, Excel",
                 "accounts ka CV")],
+        "tip": 'Ek line me: naam | kaam | padhai | mobile',
     },
     "biz_biodata": {
         "head": "💍 MARRIAGE BIO-DATA MAKER",
@@ -1470,6 +1511,7 @@ PROMPT_DATA = {
                 "ladke ka biodata"),
                ("Anjali Kumari | 12-03-2000 | B.A | Teacher | Suresh Singh | 9812345678",
                 "ladki ka biodata")],
+        "tip": 'Ek line me: naam | janm tarikh | padhai | kaam | mobile',
     },
     "biz_certificate": {
         "head": "🎓 CERTIFICATE MAKER",
@@ -1478,6 +1520,7 @@ PROMPT_DATA = {
                 "achievement certificate"),
                ("ABC Institute | Rahul Raj | Computer Course | 06-10-2026",
                 "course certificate")],
+        "tip": 'Ek line me: coaching ka naam | student | course | tarikh',
     },
     "biz_idcard": {
         "head": "🪪 ID CARD MAKER (A4 par 10 card)",
@@ -1486,6 +1529,7 @@ PROMPT_DATA = {
                 "student ID"),
                ("Patna Coaching | Rahul Raj | Suresh Raj | XI-B | 2051 | 9812345678",
                 "coaching ID")],
+        "tip": 'Ek line me: school/coaching | naam | class | roll number',
     },
     "biz_vcard": {
         "head": "📇 VISITING CARD MAKER (A4 par 10 card)",
@@ -1494,6 +1538,7 @@ PROMPT_DATA = {
                 "dukaan ka card"),
                ("Dr. S. Sharma | Sharma Clinic | 9812345678 | Kankarbagh Patna",
                 "clinic ka card")],
+        "tip": 'Ek line me: dukaan/kaam | naam | mobile | pata (optional)',
     },
     "biz_letter": {
         "head": "📄 APPLICATION / LETTER MAKER",
@@ -1502,12 +1547,14 @@ PROMPT_DATA = {
                 "chhutti ka application"),
                ("character | Anjali Kumari | Patna College | passport ke liye",
                 "character certificate")],
+        "tip": 'Ek line me: kis liye (leave/character) | naam | jagah',
     },
     "biz_upi": {
         "head": "💳 UPI PAYMENT POSTER MAKER",
         "ask": "Ek line me: <code>UPI ID | dukaan ka naam | phone</code>",
         "ex": [("kumar@upi | Kumar Electronics | 9876543210", "dukaan ka QR board"),
                ("sharma@ybl | Sharma General Store | 9812345678", "kirana dukaan")],
+        "tip": 'Ek line me: UPI ID | dukaan ka naam | mobile',
     },
     "biz_labels": {
         "head": "🏷️ PRICE LABEL / RATE TAG SHEET",
@@ -1515,6 +1562,7 @@ PROMPT_DATA = {
         "ex": [("Kumar Store | Sugar:48:55, Rice:95:110, Oil:165:180",
                 "3 rate tag ek line me"),
                ("Sharma Kirana | Tea:130:150, Dal:140:155", "2 tag")],
+        "tip": 'Ek line me: dukaan | saaman:rate:MRP',
     },
     "biz_salary": {
         "head": "💰 SALARY SLIP MAKER",
@@ -1525,6 +1573,7 @@ PROMPT_DATA = {
                 "advance bhi kat jayega"),
                ("ABC Coaching | Rahul Sir | Teacher | " + "%B %Y" + " | 30000",
                 "month khali chhodo to aaj ka mahina")],
+        "tip": 'Ek line me: company | naam | kaam | salary',
     },
     "biz_menucard": {
         "head": "🍽️ MENU / RATE CARD",
@@ -1535,6 +1584,7 @@ PROMPT_DATA = {
                 "dukaan ka rate list"),
                ("Menu | | Idli:30, Dosa:50, Uttapam:60, Filter Coffee:20",
                 "tagline khali chhodo to sirf list")],
+        "tip": 'Ek line me: dukaan ka naam | saaman:rate, saaman:rate',
     },
     "biz_emi": {
         "head": "🧮 EMI / LOAN CALCULATOR + CARD",
@@ -1542,32 +1592,58 @@ PROMPT_DATA = {
         "ex": [("250000 | 11.5 | 36", "2.5 lakh, 36 mahine"),
                ("500000 | 9.5 | 60", "5 lakh home loan"),
                ("50000 | 18 | 12", "50 hazaar personal loan")],
+        "tip": 'Ek line me: loan kitna | byaaz % | kitne mahine',
     },
     "mediastudio": {
         "head": "⚡ MEDIA STUDIO",
         "ask": "Neeche se option chunein:",
-        "ex": [("YouTube → MP3", ""),
-               ("Status video · Ringtone · Karaoke", ""),
-               ("8D sound · Bass boost · Voice change", "")],
+        "ex": [('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'YouTube link ya apna text')],
+        "tip": 'YouTube link bhejo → MP3; ya apna text bhejo → Hindi awaaz',
+        "foot": 'MP3 · status video · ringtone sab',
     },
 }
 
 
 def _render_tool_prompt(key: str) -> str:
-    """PROMPT_DATA → ready-to-send HTML prompt (naya v58 format)."""
+    """PROMPT_DATA → ready-to-send prompt (v71 — premium aesthetic format).
+
+    Kaise dikhta hai (example):
+
+        ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+        ┃ 📥 𝐈𝐍𝐒𝐓𝐀𝐆𝐑𝐀𝐌 𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑
+        ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+        🔗 <b>Link bhejein:</b>
+
+           https://www.instagram.com/reel/C8xYzAbCdEf/
+           Reel ka link
+
+        💡 <b>Tip:</b> Share button se copy kiya pura link bhi chalega
+        ⚡ HD · bina watermark · 30 second me
+    """
     d = PROMPT_DATA.get(key)
     if not d:
         return ""
-    L = [f"{d['head'].split(' ')[0]} <b>{to_bold(d['head'].split(' ', 1)[1])}</b>"
-         if " " in d["head"] else f"<b>{to_bold(d['head'])}</b>"]
+    head = str(d.get("head") or "")
+    if " " in head:
+        _icon, _rest = head.split(" ", 1)
+        L = [f"{PCARD_TOP}\n┃ {_icon} <b>{to_bold(_rest)}</b>\n{PCARD_BOT}"]
+    else:
+        L = [f"{PCARD_TOP}\n┃ <b>{to_bold(head)}</b>\n{PCARD_BOT}"]
     L.append("")
-    L.append(f"✨ {d['ask']}")
+    L.append(f"🔗 <b>{hesc(str(d.get('ask') or ''))}</b>")
     ex = d.get("ex") or []
     if ex:
         L.append("")
-        L.append("📝 <b>Examples:</b>")
-        for val, label in ex:
-            L.append(f"• <code>{hesc(str(val))}</code>" + (f" ({label})" if label else ""))
+        for val, label in ex[:1]:
+            L.append(f"     <code>{hesc(str(val))}</code>")
+            if label:
+                L.append(f"     <i>{hesc(str(label))}</i>")
+    if d.get("tip"):
+        L.append("")
+        L.append(f"💡 <b>Tip:</b> {hesc(str(d['tip']))}")
+    if d.get("foot"):
+        L.append(f"⚡ {hesc(str(d['foot']))}")
     return "\n".join(L)
 
 
@@ -4227,9 +4303,7 @@ def _qr_luminance(hexcolor: str) -> float:
 #  Pehle har tool apna alag style banata tha (koi boxed, koi plain).
 #  Ab ek jagah se: boxed header + source/time footer + brand line.
 # ============================================================
-PCARD_TOP = "┌──────────────────────────────"
-PCARD_MID = "──────────────────────────────"
-PCARD_BOT = "└──────────────────────────────"
+
 
 
 
@@ -4297,14 +4371,18 @@ def safe_html_err(text) -> str:
 
 
 def pcard_title(icon: str, name: str) -> str:
-    """Premium boxed header:  ┌─── | 🏦 ɪꜰꜱᴄ ʀᴇᴘᴏʀᴛ | └───"""
-    return f"{PCARD_TOP}\n│ {icon} <b>{to_bold(name)}</b>\n{PCARD_BOT}"
+    """Premium boxed header (v71):  ┏━┓ | ┃ 🏦 𝐈𝐅𝐒𝐂 𝐑𝐄𝐏𝐎𝐑𝐓 | ┗━┛
+
+    Aakhir me ek nayi line jaati hai — isse title ke baad hamesha khali
+    line aati hai (aapki shikayat: "likhne ke beech space nahi hota").
+    """
+    return f"{PCARD_TOP}\n┃ {icon} <b>{to_bold(name)}</b>\n{PCARD_BOT}\n"
 
 
 def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
                brand: bool = True) -> str:
     """Premium footer — source + response time + brand (sab optional)."""
-    L = [PCARD_MID]
+    L = ["", PCARD_MID]
     if source:
         L.append(f"📡 <b>Source:</b> {source}")
     if ms:
@@ -4319,7 +4397,8 @@ def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
 
 
 def pcard_sep() -> str:
-    return PCARD_MID
+    """Separator — pehle aur baad me khali line (card saaf-suthra dikhe)."""
+    return "\n" + PCARD_MID + "\n"
 
 
 def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None,
@@ -4418,6 +4497,86 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
     return "\n".join([_l for _l in _card if _l])
 
 
+def vahan_card(res: dict, offline: dict | None = None) -> str:
+    """🚗 RC + CHALLAN ka card (v71) — sab kuch bot ke andar.
+
+    `res`   = provider/hub ka poora record (agar chala)
+    `offline` = plate ka sarkari matlab (state / RTO) — hamesha dikhta hai
+    """
+    res = res or {}
+    offline = offline or {}
+    rc = res.get("rc") or {}
+    ch = res.get("challans") or []
+    L = [pcard_title("🚗", "GAADI X-RAY (RC + CHALLAN)")]
+    _plate = str(rc.get("plate") or offline.get("plate") or "").upper()
+    L.append(f"🔢 <b>Number:</b> <code>{hesc(_plate)}</code>")
+    if offline.get("state_name"):
+        L.append(f"🗺️ <b>State:</b> {hesc(str(offline['state_name']))}")
+    if offline.get("district"):
+        L.append(f"🏢 <b>RTO Office:</b> {hesc(str(offline['district']))}")
+    if offline.get("vehicle_class"):
+        L.append(f"🧾 <b>Class (series se):</b> {hesc(str(offline['vehicle_class']))}")
+
+    if rc or ch:
+        L.append(pcard_sep())
+        if rc.get("maker") or rc.get("model"):
+            L.append(f"🚙 <b>Gaadi:</b> {hesc((str(rc.get('maker','')) + ' ' + str(rc.get('model',''))).strip())}")
+        if rc.get("owner"):
+            L.append(f"👤 <b>Owner:</b> {hesc(str(rc['owner']))}")
+        if rc.get("fuel"):
+            L.append(f"⛽ <b>Fuel:</b> {hesc(str(rc['fuel']))}")
+        if rc.get("colour"):
+            L.append(f"🎨 <b>Colour:</b> {hesc(str(rc['colour']))}")
+        if rc.get("reg_date"):
+            L.append(f"📅 <b>Registered:</b> {hesc(str(rc['reg_date']))}")
+        if rc.get("ins_company") or rc.get("ins_upto"):
+            L.append("🛡️ <b>Insurance:</b> "
+                     + hesc(" · ".join([x for x in (str(rc.get("ins_company") or ""),
+                                                    str(rc.get("ins_upto") or "")) if x])))
+        if rc.get("puc_upto"):
+            L.append(f"🌫️ <b>PUC valid till:</b> {hesc(str(rc['puc_upto']))}")
+        if rc.get("fitness_upto"):
+            L.append(f"🧪 <b>Fitness till:</b> {hesc(str(rc['fitness_upto']))}")
+        if rc.get("financer"):
+            _fin = str(rc["financer"]).strip().lower()
+            if _fin not in ("none", "no", "na", "n/a", "-", "null"):
+                L.append(f"🏦 <b>Loan/Lien:</b> {hesc(str(rc['financer']))}")
+            else:
+                L.append("🏦 <b>Loan/Lien:</b> ✅ koi loan nahi (clear)")
+        if rc.get("blacklist"):
+            _bl = str(rc["blacklist"]).strip().lower()
+            L.append("🚫 <b>Blacklist:</b> " + ("⚠️ HAAN — savdhan!" if _bl in ("yes", "y", "true", "1")
+                                                else "✅ nahi (saaf)"))
+        if res.get("count") is not None:
+            _cnt, _pend, _amt = int(res.get("count") or 0), int(res.get("pending") or 0), int(res.get("amount") or 0)
+            L.append(pcard_sep())
+            if _cnt == 0:
+                L.append("✅ <b>Challan:</b> koi challan nahi — bilkul saaf record")
+            else:
+                L.append(f"📋 <b>Challan:</b> total {_cnt} · pending {_pend}")
+                if _amt:
+                    L.append(f"💰 <b>Pending amount:</b> ₹{_amt:,}")
+                for _c in ch[:4]:
+                    _l1 = " • ".join([x for x in (str(_c.get("date") or ""), str(_c.get("offence") or ""),
+                                                  (f"₹{_c.get('amount')}" if _c.get("amount") else "")) if x])
+                    if _l1:
+                        L.append(f"   └ {hesc(_l1[:120])}")
+        if res.get("cached"):
+            L.append("⚡ <i>(yahi number pehle bhi dekha gaya tha — turant mila)</i>")
+    else:
+        # provider abhi off — jhooth nahi, saaf baat + official SMS tarika
+        L.append(pcard_sep())
+        L.append("💡 <b>Poora RC + challan record ke liye:</b>")
+        L.append("   • Abhi sarkari SMS tarika ye hai: <code>VAHAN %s</code> aur "
+                 "<code>CHALLAN %s</code> likhkar <code>7738299899</code> par bhejo "
+                 "(official MoRTH/NIC gateway — free)" % (hesc(_plate), hesc(_plate)))
+        L.append("   • Live record (owner/insurance/challan) bot me lane ke liye owner ko "
+                 "provider API lagani hogi — bot me sab wiring ready hai.")
+    L.append(pcard_foot(ms=0, source="VAHAN/RTO provider"
+                        if (rc or ch) else "public plate records + official SMS gateway"))
+    return "\n".join([_l for _l in L if _l])
+
+
 def whois_card(res: dict) -> str:
     """🌐 WEBSITE OWNER X-RAY ka card (v70).
 
@@ -4441,17 +4600,18 @@ def whois_card(res: dict) -> str:
     if res.get("changed_fmt"):
         L.append(f"🔄 <b>Last update:</b> {hesc(str(res['changed_fmt']))}")
     if res.get("registrar"):
-        L.append(f"🏢 <b>Registrar:</b> {hesc(str(res['registrar']))}")
+        L.append(f"🏢 <b>Registry Company:</b> {hesc(str(res['registrar']))}")
     _own = str(res.get("registrant") or "").strip()
-    L.append("👤 <b>Malik (public record):</b> "
+    L.append("👤 <b>Owner:</b> "
              + (hesc(_own) if _own else "🔒 Registry me chhupa hua (khula naam nahi mila)"))
     if res.get("nameservers"):
-        L.append("🛰️ <b>Nameservers:</b> " + hesc(", ".join(res["nameservers"][:4])))
+        L.append("🛰️ <b>Servers:</b> " + hesc(", ".join(res["nameservers"][:4])))
     if res.get("status"):
         L.append("📋 <b>Status:</b> " + hesc(" · ".join(res["status"])))
     _dn = str(res.get("dnssec") or "").lower()
     if _dn:
-        L.append("🔐 <b>DNSSEC:</b> " + ("✅ signed (extra safe)" if _dn == "true" else "off"))
+        L.append("🔐 <b>Extra Security:</b> "
+                 + ("✅ haan (extra safe)" if _dn == "true" else "❌ nahi (basic hai)"))
 
     # aam aadmi ke liye seedha matlab
     # v70: umar "7 mahine" bhi ho sakti hai — sirf saal ginte hain (month bug fix)
@@ -7614,6 +7774,38 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tel_note("numinfo", True, _ms, credit=True)
         await update.message.reply_text(
             spend_credit_msg(uid, "numinfo") + "\n" + card, parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "vahan":
+        # v71: 🚗 GAADI X-RAY — provider laga ho to poora record BOT KE ANDAR,
+        # warna plate ka sarkari matlab + official SMS tarika (jhooth nahi).
+        _u_v = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_v, uid):
+            await update.message.reply_text(get_credits_over_text("vahan"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _t0v = time.perf_counter()
+        _off = await asyncio.to_thread(vahan_offline, raw_text)
+        _vres = {}
+        if _off.get("ok"):
+            try:
+                _vres = await asyncio.wait_for(asyncio.to_thread(vahan_lookup, raw_text), timeout=35)
+            except Exception:                                      # noqa: BLE001
+                _vres = {}
+        _msv = (time.perf_counter() - _t0v) * 1000
+        if not _off.get("ok") and not _vres.get("ok"):
+            tel_note("vahan", False, _msv, error="bad plate")
+            await update.message.reply_text(
+                "❌ " + str(_off.get("error") or _vres.get("error") or "Record nahi mila."),
+                parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _card_v = vahan_card(_vres if _vres.get("ok") else {}, _off)
+        tel_note("vahan", True, _msv, credit=True)
+        await update.message.reply_text(
+            spend_credit_msg(uid, "vahan") + "\n" + _card_v, parse_mode=HTML)
         add_use(uid)
         return
 

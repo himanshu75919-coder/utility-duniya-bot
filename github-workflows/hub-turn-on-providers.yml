@@ -1,0 +1,56 @@
+# ⚡ HUB PROVIDERS ON (v71) — OPTIONAL
+# ---------------------------------------------------------------
+# Isse aap Render dashboard khole bina hi hub ke provider env vars
+# set kar sakte ho (RC+Challan aur baaki live tools chalane ke liye).
+#
+# Kaise use karein:
+#   1) GitHub repo → Settings → Secrets and variables → Actions
+#   2) Ye 2 secrets banao:
+#        HUB_RENDER_API_KEY   = Render → Account Settings → API Keys (naya key)
+#        HUB_SERVICE_ID       = Render par hub (osint-api-hub) ka service id (srv-...)
+#      (Aur jo provider key lagani ho wo bhi secret bana do, neeche dekho)
+#   3) Actions → "Hub: providers ON" → Run workflow
+#
+# Note: ye SIRF env vars set karta hai — koi data nahi bhejta, kuch delete nahi karta.
+name: "Hub: providers ON"
+
+on:
+  workflow_dispatch:
+    inputs:
+      vehicle_provider_url:
+        description: "VEHICLE_PROVIDER_URL (RC+Challan API ka URL — khali chhodo to set nahi hoga)"
+        required: false
+        default: ""
+      vehicle_provider_key:
+        description: "VEHICLE_PROVIDER_KEY"
+        required: false
+        default: ""
+      gst_provider_key:
+        description: "GST_PROVIDER_KEY (gstinapi.in — 100 free/month)"
+        required: false
+        default: ""
+
+jobs:
+  set-env:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set Render env vars
+        env:
+          RK: ${{ secrets.HUB_RENDER_API_KEY }}
+          SID: ${{ secrets.HUB_SERVICE_ID }}
+        run: |
+          set -e
+          if [ -z "$RK" ] || [ -z "$SID" ]; then
+            echo "::error::HUB_RENDER_API_KEY / HUB_SERVICE_ID secrets missing hain"; exit 1
+          fi
+          add() {
+            [ -z "$2" ] && { echo "skip $1 (khali)"; return 0; }
+            curl -sS -X PUT "https://api.render.com/v1/services/$SID/env-vars/$1" \
+              -H "Authorization: Bearer $RK" -H "Content-Type: application/json" \
+              -d "{\"value\": \"$2\"}" | head -c 200; echo " <- $1 set"
+          }
+          add VEHICLE_PROVIDER_URL   "${{ inputs.vehicle_provider_url }}"
+          add VEHICLE_PROVIDER_KEY   "${{ inputs.vehicle_provider_key }}"
+          add VEHICLE_PROVIDER_AUTH  "bearer"
+          add GST_PROVIDER_KEY       "${{ inputs.gst_provider_key }}"
+          echo "✅ Env set. Render khud deploy karega (2-4 min)."

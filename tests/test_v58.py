@@ -109,43 +109,40 @@ _imei_p = bot.tool_prompt("imei")
 check("IMEI header 'IMEI V2 & GSMARENA SPECS ENGINE' hai",
       "IMEI V2 & GSMARENA SPECS ENGINE" in _imei_p or
       "𝐈𝐌𝐄𝐈 𝐕𝟐 & 𝐆𝐒𝐌𝐀𝐑𝐄𝐍𝐀 𝐒𝐏𝐄𝐂𝐒 𝐄𝐍𝐆𝐈𝐍𝐄" in _imei_p, _imei_p[:60])
-check("IMEI ask line ✨ ke saath hai",
-      "✨ 15-digit IMEI Number ya direct Device Model Name / Code bhejein:" in _imei_p)
-check("IMEI me teeno examples hain (IMEI/Model Code/Device Name)",
-      "862407054987700" in _imei_p and "M2101K6P" in _imei_p
-      and "Redmi Note 10 Pro" in _imei_p)
-check("IMEI examples me labels hain",
-      "(IMEI Number)" in _imei_p and "(Model Code)" in _imei_p
-      and "(Device Name)" in _imei_p)
-check("Examples '📝 Examples:' heading ke saath aate hain",
-      "📝 <b>Examples:</b>" in _imei_p)
+check("IMEI ask line naye format me hai",
+      "🔗 <b>15-digit IMEI Number ya direct Device Model Name / Code bhejein:</b>" in _imei_p)
+check("IMEI me 1 valid example hai (v71: ek hi saaf example)",
+      "862407054987700" in _imei_p)
+check("IMEI example ke saath label hai", "15 digit ka IMEI number" in _imei_p)
+check("example code-font me aata hai (v71 format)", "<code>" in _imei_p)
 
 # ---- NUMINFO + UPI (user ne jo maanga) ----
 _np = bot.tool_prompt("numinfo")
-check("NUMBER INFO ask line '10 Digit Number bhejein' hai",
-      "✨ 10 Digit Number bhejein" in _np, _np[:120])
-check("NUMBER INFO me 3 Examples hain (10-digit / mobile / +91)",
-      "9876543210" in _np and "7305190526" in _np and "+91 98765 43210" in _np, _np[:200])
+check("NUMBER INFO ask line sahi hai",
+      "🔗 <b>10 Digit Number bhejein" in _np, _np[:140])
+check("NUMBER INFO me 1 valid example hai (10-digit)",
+      "7857843092" in _np and _np.count("<code>") == 1, _np[:200])
 check("NUMBER INFO ask me bataya hai ki API se naam/pata aata hai",
       "naam/pata" in _np)
 # v59: UPI tool poora delete — uska prompt bhi nahi bachna chahiye
 check("v59: UPI prompt ab gayab (tool delete ho gaya)", bot.tool_prompt("upi") == "")
 
-# ---- VIDEO DOWNLOADER: 4 apps (v67 — Twitter/X delete ho gaya) ----
+# ---- VIDEO DOWNLOADER: 4 alag tools (v67) — har tool apna example ----
 _vd = bot.tool_prompt("insta_dl")
-for _app, _url in (("YouTube", "youtube.com"), ("Instagram", "instagram.com"),
-                   ("Facebook", "facebook.com"), ("TikTok", "tiktok.com")):
-    check(f"Video Downloader me {_app} example hai", _app in _vd and _url in _vd)
-check("v67: sirf 4 app examples hain (purana 5th hata diya)",
-      _vd.count("https://") == 4, str(_vd.count("https://")))
+for _k2, _url in (("youtube", "youtube.com"), ("instagram", "instagram.com"),
+                  ("facebook", "facebook.com"), ("tiktok", "tiktok.com")):
+    _p2 = bot.tool_prompt(f"dl_{_k2}")
+    check(f"DL tool '{_k2}' ka apna valid example hai", _url in _p2 and "<code>" in _p2)
+check("v67: purane 5th app ka example nahi aata",
+      "twitter" not in _vd.lower() and "sharechat" not in _vd.lower(),
+      str(_vd.count("https://")))
 
 # ---- saare prompts ka structure ----
-check("saare 22 prompts me 📝 Examples block hai",
-      all("📝 <b>Examples:</b>" in v for v in bot.PROMPTS.values()))
-check("saare prompts me ✨ ask line hai",
-      all("✨" in v for v in bot.PROMPTS.values()))
-check("har prompt me kam se kam 1 bullet example hai",
-      all(v.count("• ") >= 1 for v in bot.PROMPTS.values()))
+check("saare prompts v71 format me (box + example + tip)",
+      all(("┏" in v and "<code>" in v) for v in bot.PROMPTS.values() if v))
+check("saare prompts me ask line hai", all("🔗 <b>" in v for v in bot.PROMPTS.values() if v))
+check("har prompt me example + tip hai",
+      all("<code>" in v and "💡" in v for v in bot.PROMPTS.values() if v))
 check("prompt me <code> me example value hai (copy karne layak)",
       all("<code>" in v for v in bot.PROMPTS.values()))
 check("tool_prompt() unknown key par crash nahi",

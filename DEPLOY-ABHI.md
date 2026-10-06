@@ -31,7 +31,7 @@ Telegram me bot ko likho:
 /version
 ```
 
-**Aana chahiye:** `v70.0`
+**Aana chahiye:** `v71.0`
 
 Agar **v59 / v64 / v67 / kuch purana** dikhe → deploy nahi hua, **Step 2 dobara** karo.
 
@@ -105,7 +105,65 @@ Aapne jo sample diya tha, ab bilkul wahi aayega:
 └ S/O Ram Akwal Sah, ward 02, Sitamarhi, Bihar, 843324
 ```
 
-# 🌐 NAYA TOOL (v70): WEBSITE OWNER X-RAY
+# 💎 v71: PREMIUM EXAMPLES + SAAFE CARDS (aapka order)
+
+**Har tool ka prompt ab aisa dikhta hai** (ek hi **asli** example, box + tip ke saath):
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 📥 𝐈𝐍𝐒𝐓𝐀𝐆𝐑𝐀𝐌 𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🔗 Instagram ka video / reel ka link bhejein:
+
+     https://www.instagram.com/reel/C8xYzAbCdEf/
+     Instagram ka link
+
+💡 Tip: Share button se copy kiya pura link bhi chalega
+⚡ HD quality · bina watermark · 30 second me tayyar
+```
+
+- ❌ "xxxxx" wale dummy examples **saare hata diye** — ab **har tool ka 1 asli example**
+- ✅ Cards me **khali line ka spacing** (title ke baad, footer se pehle)
+- ✅ Aasan shabd: **"Owner"** (pehle "Malik"), **"Registry Company"**, **"Servers"**
+
+---
+
+# 🚗 NAYA TOOL (v71): RC + CHALLAN (GAADI X-RAY)
+
+Keyboard me **`🚗 RC + CHALLAN`** button aa gaya (WEBSITE OWNER X-RAY ke neeche).
+`BR01AB1234` bhejo → result **bot ke andar**:
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🚗 𝐆𝐀𝐀𝐃𝐈 𝐗-𝐑𝐀𝐘 (𝐑𝐂 + 𝐂𝐇𝐀𝐋𝐋𝐀𝐍)
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🔢 Number: BR01AB1234
+🗺️ State: Bihar
+🏢 RTO Office: Patna
+
+┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+👤 Owner: SANJAY SAH
+🚙 Gaadi: MARUTI SWIFT
+🛡️ Insurance: ICICI Lombard · 11-03-2027
+🏦 Loan/Lien: ✅ koi loan nahi (clear)
+🚫 Blacklist: ✅ nahi (saaf)
+✅ Challan: koi challan nahi — bilkul saaf record
+```
+
+**Owner/insurance/challan ke liye provider key chahiye** (VAHAN captcha ke peeche hai —
+bot captcha nahi todta, wo illegal hai). **Poora setup `HUB-SETUP.md` me likha hai —
+10 minute, ₹0 (RapidAPI ka free plan).** Key lagte hi ye card apne aap bharna shuru
+ho jayega — bot me sab wiring PEHLE SE ready hai.
+
+Provider na ho to bhi bot khaali nahi lautta: state + RTO + **official SMS tarika**
+(`VAHAN BR01AB1234` → 7738299899) dikhata hai.
+
+---
+
+# 🌐 PURANA TOOL (v70): WEBSITE OWNER X-RAY
 
 Keyboard me **`🌐 WEBSITE OWNER X-RAY`** button aa gaya hai (NUMBER INFO ke
 theek neeche). Kisi bhi website ka naam ya link bhejo — **result bot ke andar
@@ -187,3 +245,14 @@ Bot me ye bhejo:
 ```
 
 (Aur screenshot bhej do — main turant dekh lunga.)
+
+---
+
+# 🛰️ HUB (osint-api-hub) — KHUD SE CHALU RAHEGA
+
+Nayi file lagi hai: `.github/workflows/keep-hub-awake.yml` — GitHub **har 10 minute**
+hub ko ping karega, taaki Render free plan par hub **sota na rahe** (aur bot ka jawab
+hamesha tez rahe). GitHub Actions bilkul free hai — kuch setup nahi chahiye.
+
+Baaki sab (RC provider key kaise lagayein, hub ke tools ka status, password safety)
+👉 **`HUB-SETUP.md`** kholo.

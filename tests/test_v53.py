@@ -522,15 +522,17 @@ check("WiFi open-network detection (none/no/skip/open)",
 check("WiFi QR me security warning hai (password encode hota hai)",
       "trusted logon ko scan karne do" in _bot_src)
 # v58.0: prompts ka NAYA format (user order) — header + ✨ ask + 📝 Examples
-check("appfind prompt v58 format me hai (head + ask + Examples)",
+check("appfind prompt v71 premium format me hai",
       '"appfind": {' in _bot_src and "APP FINDER" in _bot_src
-      and "📝 <b>Examples:</b>" in bot.PROMPTS.get("appfind", ""))
-check("har prompt me ✨ ask line hai",
-      all("✨" in v for v in bot.PROMPTS.values()))
-check("har prompt me 📝 Examples block hai",
-      all("📝 <b>Examples:</b>" in v for v in bot.PROMPTS.values()))
-check("har prompt me kam se kam 1 example hai",
-      all(v.count("• ") >= 1 for v in bot.PROMPTS.values()))
+      and "🔗 <b>" in bot.PROMPTS.get("appfind", "")
+      and "<code>whatsapp</code>" in bot.PROMPTS.get("appfind", ""))
+check("har prompt me ask line hai (v71: 🔗)",
+      all("🔗 <b>" in v for v in bot.PROMPTS.values() if v))
+check("har prompt me box + ask + example hai (v71)",
+      all(("┏" in v and "🔗 <b>" in v and "<code>" in v) for v in bot.PROMPTS.values()
+          if v))
+check("har prompt me kam se kam 1 example hai (code font me)",
+      all("<code>" in v for v in bot.PROMPTS.values() if v))
 # v58: user ka strict order — tool start par ye DO lines kabhi na aayein
 check("kisi bhi tool prompt me credits line nahi",
       not any("Credits:" in v for v in bot.PROMPTS.values()))

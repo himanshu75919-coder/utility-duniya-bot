@@ -124,9 +124,9 @@ check("card me domain hai", "xyzshop.in" in _PLAIN)
 check("card me 'Banaya' line hai", "📅 Banaya: 12-03-2019" in _PLAIN)
 check("card me umar likhi hai", "saal" in _PLAIN and "purana" in _PLAIN)
 check("card me khatam date + bache din", "⌛ Khatam: 12-03-2027" in _PLAIN)
-check("card me registrar", "🏢 Registrar: GoDaddy.com, LLC" in _PLAIN)
-check("card me malik ka naam (public record)", "XYZ Traders Private Limited" in _PLAIN)
-check("card me nameserver", "ns1.hostinger.com" in _PLAIN)
+check("card me registry company (simple shabd)", "🏢 Registry Company: GoDaddy.com, LLC" in _PLAIN)
+check("card me Owner ka naam (public record)", "XYZ Traders Private Limited" in _PLAIN)
+check("card me servers line", "ns1.hostinger.com" in _PLAIN)
 check("card me status", "📋 Status:" in _PLAIN)
 check("card me aam aadmi ka matlab (verdict)", "💡 Matlab:" in _PLAIN)
 check("purani site → 'bharosa karne layak' verdict",
@@ -179,7 +179,8 @@ check("IFSC/PINCODE/NUMBER INFO zinda",
       all(x in bot.PREMIUM_TOOLS for x in ("ifsc", "pin", "numinfo")))
 check("numinfo card still sample format",
       "📱 <b>Phone:</b>" in BOT_SRC and "🏠 <b>Address:</b>" in BOT_SRC)
-check("version v70+ hai", bot.BOT_VERSION.startswith("v70"), bot.BOT_VERSION)
+check("version v70+ hai",
+      re.search(r"v(?:7[0-9]|[89][0-9])\.", bot.BOT_VERSION) is not None, bot.BOT_VERSION)
 check("koi bhi output me sirf-links wala tool add nahi hua",
       "link_only" not in BOT_SRC and "Direct link" not in BOT_SRC.split("whois_card")[1][:4000])
 
