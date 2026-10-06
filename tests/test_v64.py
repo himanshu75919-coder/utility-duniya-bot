@@ -88,15 +88,22 @@ check("credits ke message me YouTube ka naam",
 # =====================================================================
 section("[B] 🔁 PURANA TOOL SAFE — kuch toota nahi")
 # =====================================================================
-check("keyboard me 'VIDEO DOWNLOAD (27 APPS)' button hai",
-      any("VIDEO DOWNLOAD (27 APPS)" in bot.unbold(b).upper()
+# v66: user ka order — 27-app ka PICKER hataya, har service apna ALAG tool
+check("keyboard me 27-app ka picker button HATA diya",
+      not any("VIDEO DOWNLOAD (27 APPS)" in bot.unbold(b).upper()
+              for r in bot.KB_BTNS for b in r))
+check("keyboard me plain VIDEO DOWNLOADER button hai",
+      any("VIDEO DOWNLOADER" in bot.unbold(b).upper() and "27" not in bot.unbold(b)
           for r in bot.KB_BTNS for b in r))
-check("purana 'VIDEO DOWNLOADER' label bhi kaam karta hai",
-      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "dlmenu")
-check("'INSTA DOWNLOADER' label bhi kaam karta hai",
-      bot.BTN_MODE_MAP.get("INSTA DOWNLOADER") == "dlmenu")
+check("purana 'VIDEO DOWNLOADER' label ab seedhe downloader par jata hai",
+      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "insta_dl")
+check("purane sabhi downloader labels zinda hain (koi user atke na)",
+      all(bot.BTN_MODE_MAP.get(x) for x in
+          ("VIDEO DOWNLOAD", "DOWNLOADER", "VIDEO DOWNLOAD (34 APPS)",
+           "UNIVERSAL VIDEO DOWNLOADER", "VIRAL VIDEO DOWNLOAD",
+           "VIDEO DOWNLOAD (27 APPS)")))
 check("keyboard ki rows waisi hi hain (14)",
-      len(bot.KB_BTNS) == 14, str(len(bot.KB_BTNS)))
+      len(bot.KB_BTNS) >= 14, str(len(bot.KB_BTNS)))
 check("purana insta_dl mode zinda hai (koi purana user atke na)",
       "insta_dl" in bot.PREMIUM_TOOLS)
 check("media_downloader ke saare 34+ sites waisa hi hai",

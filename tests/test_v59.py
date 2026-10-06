@@ -49,6 +49,17 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
+
+def _ver_at_least(n: float) -> bool:
+    """BOT_VERSION se number nikalo (v66.0 -> 66.0) — future versions bhi pass."""
+    try:
+        import re as _r
+        _m = _r.search(r"v(\d+(?:\.\d+)?)", str(bot.BOT_VERSION))
+        return float(_m.group(1)) >= n if _m else False
+    except Exception:
+        return False
+
+
 BOT_SRC = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 MD_SRC = open(os.path.join(ROOT, "modules", "media_downloader.py"), encoding="utf-8").read()
 OT_SRC = open(os.path.join(ROOT, "modules", "osint_tools.py"), encoding="utf-8").read()
@@ -449,7 +460,7 @@ check("saare command handlers ke function zinda hain (patch casualty lock)",
 # =====================================================================
 section("6) 🧾 SANITY — version + kuch toota nahi")
 # =====================================================================
-check("BOT_VERSION v59+ hai", any(f'BOT_VERSION = "v{n}.' in BOT_SRC for n in range(59, 70)),
+check("BOT_VERSION v59+ hai", _ver_at_least(59),
       re.search(r'BOT_VERSION = "([^"]+)"', BOT_SRC).group(1) if
       re.search(r'BOT_VERSION = "([^"]+)"', BOT_SRC) else "?")
 check("prompt system zinda hai (tool_prompt sanitize karta hai)",
@@ -747,8 +758,7 @@ check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
       (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
       .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
 check("BOT_VERSION v59.9+ hai (auto-webhook wala)",
-      any(x in bot.BOT_VERSION for x in ("v59.9", "v59.10", "v59.11", "v60.", "v61.",
-                                          "v62.", "v63.", "v64.", "v65.")), bot.BOT_VERSION)
+      _ver_at_least(59.9), bot.BOT_VERSION)
 check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
       webhook_url_from_env({"WEBHOOK_MODE": "polling",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
@@ -777,9 +787,7 @@ check("v59.10: _last_update_line() kaam karta hai",
 check("v59.9.2+: /health par 'bot:' line (aakhri message) dikhti hai",
       "bot: {_last_update_line()}" in BOT_SRC)
 check("v59.10: /version par 'Live check' line dikhti hai", "Live check:</b>" in BOT_SRC)
-check("BOT_VERSION v59.10+ hai (live proof wala)",
-      any(x in bot.BOT_VERSION for x in ("v59.10", "v59.11", "v60.", "v61.", "v62.",
-                                          "v63.", "v64.", "v65.")), bot.BOT_VERSION)
+check("BOT_VERSION v59.10+ hai (live proof wala)", _ver_at_least(59.10), bot.BOT_VERSION)
 
 # --- v59.11: Conflict aane par auto webhook switch (Render logs ka error khatam) ---
 check("v59.11: _force_webhook_after_conflict() maujood hai",

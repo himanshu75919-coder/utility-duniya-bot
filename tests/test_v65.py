@@ -81,7 +81,7 @@ check("16 parallel chunks (pehle 4 the)",
       _opts["concurrent_fragment_downloads"] == 16, str(_opts["concurrent_fragment_downloads"]))
 check("buffersize 1 MB laga hai", _opts.get("buffersize") == 1024 * 1024)
 check("retries 1 (jaldi fallback)", _opts.get("retries") == 1, str(_opts.get("retries")))
-check("hard deadline (FAST_DEADLINE) set hai", MD.FAST_DEADLINE == 75, str(MD.FAST_DEADLINE))
+check("hard deadline jaldi lagta hai (<=45s)", MD.FAST_DEADLINE <= 45, str(MD.FAST_DEADLINE))
 check("progressive format (18) pehle aata hai — ffmpeg merge nahi = 3x tez",
       "18/" in open(os.path.join(_ROOT, "modules", "media_downloader.py"),
                     encoding="utf-8").read())
@@ -222,11 +222,16 @@ check("get_updates ka apna pool set hai", "get_updates_connection_pool_size(16)"
 section("[E] 🔁 PURANA SAFE + VERSION")
 # =====================================================================
 check("purana insta_dl zinda", "insta_dl" in bot.PREMIUM_TOOLS)
-check("purane labels kaam karte hain", bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "dlmenu")
+check("purane labels kaam karte hain",
+      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "insta_dl")
 check("11 business tools zinda", len(bot.BIZ_MENU) >= 12, str(len(bot.BIZ_MENU)))
 check("wizard zinda", len(bot.BIZ_STEPS) == 12)
-check("keyboard rows 14", len(bot.KB_BTNS) == 14)
-check("version v65 hai", "v65" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("keyboard rows barhe (27 naye tools jude)", len(bot.KB_BTNS) >= 14,
+      str(len(bot.KB_BTNS)))
+import re as _r65                                                      # noqa: E402
+_V65 = float((_r65.search(r"v(\d+(?:\.\d+)?)", str(bot.BOT_VERSION)) or [0, 0])[1]
+             if _r65.search(r"v(\d+(?:\.\d+)?)", str(bot.BOT_VERSION)) else 0)
+check("version v65 ya usse aage hai", _V65 >= 65, bot.BOT_VERSION)
 
 # =====================================================================
 print(f"\n{'=' * 62}")

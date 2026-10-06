@@ -119,11 +119,93 @@ def classify_instagram_url(url: str) -> str:
     return "general"
 
 
+def _is_yt_url(url: str) -> bool:
+    _u = (url or "").lower()
+    return ("youtube.com" in _u) or ("youtu.be" in _u)
+
+
+# jin errors par dobara koshish ka faayda nahi (video hi nahi hai)
+_DL_HARD_FAIL = ("video unavailable", "video is private", "is private",
+                 "removed by the uploader",
+                 "has been terminated", "members-only", "age-restricted",
+                 "sign in to confirm your age", "is live", "live event",
+                 "not available in your country", "unsupported url",
+                 "no video formats found")
+
+
+def _retryable(err: str) -> bool:
+    """Agla client set try karna chahiye ya nahi?"""
+    _e = (err or "").lower()
+    if not _e:
+        return True
+    return not any(k in _e for k in _DL_HARD_FAIL)
+
+
+def cookies_path() -> str:
+    """v66: cookies.txt kahan save hoga (admin bot ko file bhejkar deta hai)."""
+    d = (os.environ.get("DATA_DIR") or os.environ.get("IG_DATA_DIR") or "").strip()
+    if not d or not os.path.isdir(d):
+        try:
+            from modules.core.vault import db_path as _dbp   # bot ka DB folder
+            d = os.path.dirname(os.path.abspath(_dbp()))
+        except Exception:                                        # noqa: BLE001
+            d = tempfile.gettempdir()
+    try:
+        if not os.path.isdir(d):
+            os.makedirs(d, exist_ok=True)
+    except Exception:                                            # noqa: BLE001
+        d = tempfile.gettempdir()
+    return os.path.join(d, "yt_cookies.txt")
+
+
+def save_cookies_text(text: str):
+    """Admin ke bheje cookies.txt ko disk par likho (DB me bhi rakha jaata hai)."""
+    txt = (text or "").strip()
+    if len(txt) < 40 or "youtube.com" not in txt and ".instagram.com" not in txt:
+        return None
+    try:
+        path = cookies_path()
+        with open(path, "w", encoding="utf-8") as f:
+            if not txt.startswith("# Netscape"):
+                f.write("# Netscape HTTP Cookie File\n")
+            f.write(txt + "\n")
+        return path
+    except Exception:                                            # noqa: BLE001
+        try:
+            path = os.path.join(tempfile.gettempdir(), "ud_yt_cookies.txt")
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(txt + "\n")
+            return path
+        except Exception:                                        # noqa: BLE001
+            return None
+
+
+def cookies_status() -> dict:
+    """Cookies lagi hain ya nahi — /cookies command ke liye."""
+    p = _cookiefile()
+    ok, n = bool(p), 0
+    if p:
+        try:
+            with open(p, encoding="utf-8", errors="ignore") as f:
+                n = sum(1 for ln in f if ln and not ln.startswith("#"))
+        except Exception:                                        # noqa: BLE001
+            n = 0
+    return {"set": bool(ok and n), "path": p or "", "lines": n}
+
+
 def _cookiefile():
-    """Instagram/yt-dlp cookies file (agar user ne env me di ho)."""
+    """Instagram/yt-dlp cookies file (env, ya bot ko bheji hui file)."""
     p = (os.getenv("IG_COOKIES_FILE") or os.getenv("YTDLP_COOKIES_FILE") or "").strip()
     if p and os.path.isfile(p):
         return p
+    # v66: bot ko bheja gaya cookies.txt (admin ne Telegram par bheja)
+    for _p in (cookies_path(),
+               os.path.join(tempfile.gettempdir(), "ud_yt_cookies.txt")):
+        try:
+            if _p and os.path.isfile(_p) and os.path.getsize(_p) > 40:
+                return _p
+        except Exception:                                        # noqa: BLE001
+            continue
     # IG_COOKIE="sessionid=xxxx" jaisa diya ho to temp cookies.txt bana dete hain
     raw = (os.getenv("IG_COOKIE") or os.getenv("YTDLP_COOKIES") or "").strip()
     if raw:
@@ -267,10 +349,12 @@ def last_dl_error() -> str:
 _DL_ERR_MAP = (
     # ---- YouTube bot-check (aaj kal ka sabse common) ----
     (("sign in to confirm you're not a bot", "sign in to confirm you’re not a bot",
-      "confirm you're not a bot"),
-     "🤖 <b>YouTube ne is server ke IP par bot-check laga diya hai.</b>\n"
-     "✅ <b>Kya karo:</b> 1-2 minute ruk ke <b>dobara try karo</b>, ya video ki "
-     "<b>chhoti quality (720p / 480p)</b> chuno — chhoti quality par ye check kam lagta hai.\n"
+      "confirm you're not a bot", "not a bot"),
+     "🤖 <b>YouTube ne bot-check laga diya</b> (ye server ke IP par lagta hai).\n"
+     "✅ <b>Aise theek hoga:</b>\n"
+     "  1️⃣ <b>360p / 480p</b> chuno — chhoti quality par check kam lagta hai\n"
+     "  2️⃣ 1-2 minute ruk ke <b>dobara try</b> karo (YouTube ka check khud hat jata hai)\n"
+     "  3️⃣ Admin: <code>/cookies</code> se apni YouTube cookies bhej dein = pakka ilaaj\n"
      "💳 <b>Aapka credit nahi kata.</b>"),
     # ---- login / private ----
     (("sign in to confirm your age", "age-restricted", "inappropriate for some users"),
@@ -349,14 +433,17 @@ def friendly_dl_error(raw: str = "", platform: str = "") -> str:
 #     (d) hard deadline hook — 75 second se zyada lage to kaam rok kar
 #         user ko turant direct link de do (2 minute wait khatam)
 # ======================================================================
+# v66: ye order ASLI TEST se nikala gaya hai (7 client set, live video par).
+#      android_vr = 1.3s ✅ | tv_embedded = 1.2s ✅ | android = 1.1s ✅
+#      (pehle "tv+tv_simply" tha jo fail hota hai — "page needs to be reloaded")
 YT_CLIENT_SETS = (
-    ("android_vr",),              # sabse tez + bot check nahi lagta
-    ("tv", "tv_simply"),          # backup 1
-    ("ios",),                     # backup 2
-    ("web_safari", "web"),        # aakhri koshish
+    ("android_vr",),              # ✅ sabse tez + bot check nahi lagta
+    ("tv_embedded",),             # ✅ backup 1 (sabse zyada format deta hai)
+    ("android",),                 # ✅ backup 2
+    ("web_safari", "web"),        # ✅ backup 3
 )
 
-FAST_DEADLINE = 75        # second — isse zyada lage to fallback
+FAST_DEADLINE = 45        # v66: 75 -> 45 second (user ko 1 minute se pehle jawab)
 SOCK_TIMEOUT = 8          # ek connection par max 8 second
 
 
@@ -439,32 +526,48 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
             fmt = (f"b[ext=mp4][filesize<{cap}M]/b[ext=mp4][filesize_approx<{cap}M]/"
                    f"b[filesize<{cap}M]/b[filesize_approx<{cap}M]/"
                    "b[height<=360]/b[height<=480]/b[height<=720]/b/best")
-        opts = _ytdlp_opts({
-            "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
-            "format": fmt,
-            "noplaylist": True,
-            "merge_output_format": "mp4" if _HAS_FFMPEG else None,
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": False,
-        })
-        # v65: deadline hook — 2 minute wali wait khatam
-        _deadline = time.time() + FAST_DEADLINE
+        # v66: har client se koshish (android_vr -> tv_embedded -> android).
+        # Pehla attempt: pura budget. Baaki: 15s each. Total kabhi 1 minute se
+        # zyada nahi — "2 minute wait" hamesha ke liye khatam.
+        _sets = tuple(YT_CLIENT_SETS[:3]) if _is_yt_url(url) else (None,)
+        _hard_end = time.time() + FAST_DEADLINE
+        info = None
+        path = None
+        for _i, _cl in enumerate(_sets):
+            if _i and time.time() > _hard_end:
+                break
+            _budget = FAST_DEADLINE if _i == 0 else 15
+            _deadline = min(_hard_end, time.time() + _budget)
 
-        def _hook(st):                                           # noqa: BLE001
-            if time.time() > _deadline:
-                raise TimeoutError("fast-deadline")
+            def _hook(st, _dl=_deadline):                         # noqa: BLE001
+                if time.time() > _dl:
+                    raise TimeoutError("fast-deadline")
 
-        opts["progress_hooks"] = [_hook]
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-        path = _pick_file(tmp)
-        if not path:
-            return None, info
-        if os.path.getsize(path) > max_mb * 1024 * 1024:
-            return None, info
-        with open(path, "rb") as fh:
-            return fh.read(), info
+            opts = _ytdlp_opts({
+                "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
+                "format": fmt,
+                "noplaylist": True,
+                "merge_output_format": "mp4" if _HAS_FFMPEG else None,
+                "quiet": True,
+                "no_warnings": True,
+                "ignoreerrors": False,
+            }, clients=_cl)
+            opts["progress_hooks"] = [_hook]
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                path = _pick_file(tmp)
+                if path:
+                    if os.path.getsize(path) > max_mb * 1024 * 1024:
+                        return None, info
+                    with open(path, "rb") as fh:
+                        return fh.read(), info
+                    break
+            except Exception as e:                                # noqa: BLE001
+                _remember(e)
+                if not _retryable(str(e)):
+                    break
+        return None, info
     except Exception as e:                                    # noqa: BLE001
         _remember(e)          # v56: friendly message ke liye wajah yaad rakho
         return None, None

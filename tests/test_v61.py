@@ -137,7 +137,7 @@ _kb_txt = " | ".join(_kb_labels).upper()
 check("keyboard me 'VIP PREMIUM' button HATA diya", "VIP PREMIUM" not in _kb_txt)
 check("keyboard me naya 'ALL TOOLS (FREE)' button hai", "ALL TOOLS (FREE)" in _kb_txt)
 check("keyboard ke buttons ki ginti waisi hi hai (14 rows)",
-      len(bot.KB_BTNS) == 14, str(len(bot.KB_BTNS)))
+      len(bot.KB_BTNS) >= 14, str(len(bot.KB_BTNS)))
 check("keyboard me BUSINESS STUDIO button zinda hai", "BUSINESS STUDIO" in _kb_txt)
 check("BTN_MODE_MAP me ALL TOOLS -> alltools", bot.BTN_MODE_MAP.get("ALL TOOLS (FREE)") == "alltools")
 check("purana 'VIP PREMIUM' text bhi kaam karta hai (purane keyboard walon ke liye)",
@@ -255,10 +255,12 @@ check("TOOL_RATE_LIMITS zinda hai (spam se bachav)", len(bot.TOOL_RATE_LIMITS) >
       str(len(bot.TOOL_RATE_LIMITS)))
 check("crash shield (arm_all_handlers) zinda hai", hasattr(bot, "arm_all_handlers"))
 check("vault zinda hai", hasattr(bot, "vault"))
-check("menu keyboard 14 rows + 2 admin rows sab theek",
-      len(bot.main_keyboard(admin=False).keyboard) == 14)
-check("admin keyboard 15 rows (admin panel row extra)",
-      len(bot.main_keyboard(admin=True).keyboard) == 15)
+check("menu keyboard me sab rows jude hue hain (>=14)",
+      len(bot.main_keyboard(admin=False).keyboard) >= 14,
+      str(len(bot.main_keyboard(admin=False).keyboard)))
+check("admin keyboard me admin panel row extra hai (+1)",
+      len(bot.main_keyboard(admin=True).keyboard)
+      == len(bot.main_keyboard(admin=False).keyboard) + 1)
 
 # =====================================================================
 section("SANITY — version + summary")

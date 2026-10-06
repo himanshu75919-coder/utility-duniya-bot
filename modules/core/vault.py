@@ -92,6 +92,70 @@ __all__ = [
 _RENDER_DISK_DIRS = ("/var/data", "/data", "/mnt/data", "/opt/data")
 
 
+# ----------------------------------------------------------------------
+# v66: MAIN EVENT LOOP ka registry
+# ----------------------------------------------------------------------
+# PROBLEM (aapke log me dikha):
+#   "Telegram backup fail: Unknown error in HTTP implementation:
+#    RuntimeError('<asyncio.locks.Event object ...> is bound to a
+#    different event loop')"
+# Wajah: auto-backup ka thread `asyncio.run()` se NAYA loop banata tha,
+#        par Telegram bot ka HTTP client PURANE (main) loop se juda tha.
+# Ilaaj: thread se hamesha MAIN loop par kaam bhejo
+#        (run_coroutine_threadsafe) — naya loop kabhi mat banao.
+# ----------------------------------------------------------------------
+_MAIN_LOOP = None
+_MAIN_LOOP_LOCK = threading.Lock()
+
+
+def set_main_loop(loop=None) -> None:
+    """Bot boot hote waqt main loop register karo (ek hi baar)."""
+    global _MAIN_LOOP
+    try:
+        if loop is None:
+            import asyncio as _a
+            loop = _a.get_running_loop()
+        with _MAIN_LOOP_LOCK:
+            _MAIN_LOOP = loop
+    except Exception as e:                                       # noqa: BLE001
+        logging.getLogger("vault").debug("set_main_loop skip: %s", str(e)[:80])
+
+
+def main_loop():
+    """Registered main loop (ya None)."""
+    with _MAIN_LOOP_LOCK:
+        lp = _MAIN_LOOP
+    try:
+        if lp is not None and not lp.is_closed():
+            return lp
+    except Exception:                                            # noqa: BLE001
+        pass
+    return None
+
+
+def run_coro_blocking(coro, timeout: float = 120.0):
+    """Kisi bhi thread se coroutine chalao — SAFE tarike se.
+
+    - Main loop zinda hai  -> run_coroutine_threadsafe (wahi loop, same objects)
+    - Nahi hai (CLI/tests) -> asyncio.run (naya loop, koi bot client nahi)
+    """
+    lp = main_loop()
+    if lp is not None:
+        try:
+            import asyncio as _a
+            fut = _a.run_coroutine_threadsafe(coro, lp)
+            return fut.result(timeout=timeout)
+        except Exception as e:                                   # noqa: BLE001
+            logging.getLogger("vault").warning("main-loop task fail: %s", str(e)[:120])
+            return None
+    try:
+        import asyncio as _a
+        return _a.run(coro)
+    except Exception as e:                                       # noqa: BLE001
+        logging.getLogger("vault").warning("vault task fail: %s", str(e)[:120])
+        return None
+
+
 def _writable_dir(path: str) -> bool:
     try:
         if not os.path.isdir(path):
@@ -912,9 +976,11 @@ class Vault:
                 with open(cand["path"], "rb") as f:
                     return f.read()
             if cand["src"] == "telegram":
-                import asyncio
-                f = asyncio.get_event_loop().run_until_complete(
-                    self.bot.get_file(cand["msg_id"]))
+                # v66: bina loop banaye, main loop par bhejo
+                f = run_coro_blocking(self.bot.get_file(cand["msg_id"]),
+                                      timeout=60)
+                if f is None:
+                    return None
                 buf = io.BytesIO()
                 f.download_to_memory(buf)
                 return buf.getvalue()
@@ -1176,7 +1242,9 @@ class Vault:
         while not self._stop.is_set():
             try:
                 if self.bot and self.enabled():
-                    asyncio.run(self.backup_now(reason="auto"))
+                    # v66: naya loop MAT banao — main loop par bhejo,
+                    # warna "bound to a different event loop" error aata hai
+                    run_coro_blocking(self.backup_now(reason="auto"), timeout=300)
             except Exception as e:                               # noqa: BLE001
                 log.warning("auto-backup loop error (chalta rahega): %s", str(e)[:130])
             try:

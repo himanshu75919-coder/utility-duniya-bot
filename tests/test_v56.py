@@ -156,8 +156,15 @@ for _m in _DELETED_MODES:
 # 2c) keyboard me purane labels nahi
 _kb_labels = [lab for row in bot.KB_BTNS for lab in row]
 _kb_txt = " ".join(bot.unbold(x).upper() for x in _kb_labels)
-for _label in ("DOMAIN OSINT", "TG PUBLIC INFO", "PINTEREST", "WEB SCRAPER", "AADHAAR"):
+for _label in ("DOMAIN OSINT", "TG PUBLIC INFO", "WEB SCRAPER", "AADHAAR"):
     check(f"keyboard me '{_label}' button nahi", _label not in _kb_txt)
+# v66: naya "📌 PINTEREST DL" (standalone downloader tool — user ka naya order)
+# allowed hai; sirf PURANA "PINTEREST" tool wapas na aaye.
+import re as _re56                                                    # noqa: E402
+check("keyboard me purana 'PINTEREST' tool wapas nahi aaya "
+      "(naya 'PINTEREST DL' downloader allowed)",
+      not any(_re56.sub(r"^[^\w\s]+\s*", "", bot.unbold(x)).strip().upper()
+              == "PINTEREST" for x in _kb_labels))
 
 # 2d) BTN_MODE_MAP
 for _k in ("DOMAIN OSINT / IP", "TG PUBLIC INFO", "PINTEREST", "WEB SCRAPER", "AADHAAR EID"):

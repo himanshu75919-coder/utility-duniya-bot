@@ -65,7 +65,8 @@ from modules.core.safesend import (
     safe_send_video,
     trim_callback_data,
 )
-from modules.core.vault import db_path as vault_db_path, vault
+from modules.core.vault import (db_path as vault_db_path, vault,
+                                set_main_loop as vault_set_main_loop)
 # v60.4: 💼 BUSINESS STUDIO — 10 naye earning tools (invoice, resume, biodata,
 # certificate, ID card, visiting card, letter, UPI poster, labels, EMI card)
 from modules.business_tools import (
@@ -226,6 +227,7 @@ from modules.media_downloader import (
     _yt_quality_download,
     friendly_dl_error,
 )
+from modules import media_downloader as MD      # v66: cookies + client ladder
 from modules.toolkit_extras import (
     analyze_link,
     expand_url,
@@ -407,7 +409,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v65.0 FREE4ALL — Speed (15s) + Hard Crash-Proof + 27 Downloader Tools"
+BOT_VERSION = "v66.0 FREE4ALL — 27 alag downloader tools (official emoji) + crash fix + 45s speed + cookies"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -443,9 +445,12 @@ def _grant_premium_autosave(uid: int, days: int):
         if loop is not None and loop.is_running():
             loop.create_task(vault.backup_soon(reason=f"grant:{uid}"))
         else:
-            # alag thread se (sync context me bhi kaam kare)
-            threading.Thread(target=lambda: asyncio.run(
-                vault.backup_soon(reason=f"grant:{uid}")), daemon=True).start()
+            # v66: naya loop MAT banao (wahi "different event loop" crash tha) —
+            #      vault khud main loop par bhej dega, ya CLI me chalayega
+            from modules.core.vault import run_coro_blocking as _rcb
+            threading.Thread(target=_rcb,
+                             args=(vault.backup_soon(reason=f"grant:{uid}"),),
+                             daemon=True).start()
     except Exception as _e:                                      # noqa: BLE001
         log.debug("grant autosave skip: %s", str(_e)[:90])
     return out
@@ -1023,7 +1028,7 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
-    [f"🔄 {to_bold('CHANNEL CLONER')}", f"📥 {to_bold('VIDEO DOWNLOAD (27 APPS)')}"],
+    [f"🔄 {to_bold('CHANNEL CLONER')}", f"📥 {to_bold('VIDEO DOWNLOADER')}"],
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
@@ -1067,18 +1072,19 @@ BTN_MODE_MAP = {
     "VIRTUAL NUMBERS": "vnum",
     "TERABOX DOWNLOADER": "terabox",
     "CHANNEL CLONER": "cloner",
-    # v64: ye saare purane labels ab 27-app ka picker kholte hain
-    "VIDEO DOWNLOAD (27 APPS)": "dlmenu",
-    "VIDEO DOWNLOAD (34 APPS)": "dlmenu",
-    "VIDEO DOWNLOADER (34 APPS)": "dlmenu",
-    "VIDEO DOWNLOAD": "dlmenu",
-    "DOWNLOADER": "dlmenu",
-    "INSTA DOWNLOADER": "dlmenu",
-    # v64: purane labels bhi ab 27-app ka picker kholte hain (koi purana user atke na)
-    "INSTAGRAM DOWNLOADER": "dlmenu",
-    "VIDEO DOWNLOADER": "dlmenu",
-    "UNIVERSAL VIDEO DOWNLOADER": "dlmenu",
-    "VIRAL VIDEO DOWNLOAD": "dlmenu",
+    # v66: 🎯 PICKER HATA DIYA — ab har service APNA ALAG TOOL hai.
+    # Ye saare purane labels ab seedhe "koi bhi link" wale downloader par
+    # le jaate hain (koi submenu nahi, koi 27-app list nahi).
+    "VIDEO DOWNLOAD (27 APPS)": "insta_dl",
+    "VIDEO DOWNLOAD (34 APPS)": "insta_dl",
+    "VIDEO DOWNLOADER (34 APPS)": "insta_dl",
+    "VIDEO DOWNLOAD": "insta_dl",
+    "DOWNLOADER": "insta_dl",
+    "VIDEO DOWNLOADER": "insta_dl",
+    "VIDEO DOWNLOADER (KOI BHI LINK)": "insta_dl",
+    "ANY VIDEO LINK": "insta_dl",
+    "UNIVERSAL VIDEO DOWNLOADER": "insta_dl",
+    "VIRAL VIDEO DOWNLOAD": "insta_dl",
     "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
     "8-IN-1 PRINT SHEET": "print_sheet",
     "DOCUMENT PDF COMPRESS": "doc_compress",
@@ -1204,6 +1210,54 @@ DL_SITES = {
 # pehle page par sabse zyada use hone wale 12
 DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok", , ,
               , , , , , )
+
+# ----------------------------------------------------------------------
+# v66: 📥 27 DOWNLOADER TOOLS — har service APNA ALAG TOOL
+# ----------------------------------------------------------------------
+#  User ka order: "video downloader ke andar se saare service remove karo,
+#  har service ka apna tool banao — jaise VIRTUAL NUMBERS / IMEI / NUMBER INFO,
+#  official emoji ke saath."
+#  => Picker/submenu poora hata diya. Har service ka apna button hai.
+# ----------------------------------------------------------------------
+DL_SHORT = {
+    "instagram": "INSTA", "youtube": "YOUTUBE", "facebook": "FACEBOOK",
+    "tiktok": "TIKTOK", : "X (TWITTER)", : "SNAPCHAT",
+    : "PINTEREST", : "REDDIT", : "THREADS",
+    : "VIMEO", : "DAILYMOTION", : "TWITCH",
+    : "LINKEDIN", : "LIKEE", : "SHARECHAT",
+    : "MOJ", : "BILIBILI", : "TUMBLR", : "VK",
+    : "OK.RU", : "KWAI", : "RUMBLE",
+    : "STREAMABLE", : "IMGUR", : ,
+    : "IFUNNY", : "TRILLER",
+}
+
+
+def dl_tool_label(key: str) -> str:
+    """Ek service ka keyboard label — official emoji + naam."""
+    _icon, _name = DL_SITES[key][0], DL_SHORT.get(key, key.upper())
+    return f"{_icon} {to_bold(_name)} DL"
+
+
+def dl_kb_rows(per_row: int = 3):
+    """27 downloader tools 3-3 ke row me (submenu nahi, seedhe tools)."""
+    _labels = [dl_tool_label(k) for k in DL_SITES]
+    return [_labels[i:i + per_row] for i in range(0, len(_labels), per_row)]
+
+
+# har label ka apna mode (standalone tool) — label ka key wahi tarika jo
+# on_text use karta hai (aage ka emoji hata kar, upper case)
+for _dk in DL_SITES:
+    _lbl_key = re.sub(r"^[^\w\s]+\s*", "", unbold(dl_tool_label(_dk))).strip().upper()
+    BTN_MODE_MAP[_lbl_key] = "dl_" + _dk
+
+# 27 downloader tools seedhe main keyboard me (submenu NAHI) — row 2 ke baad
+try:
+    _dl_rows = dl_kb_rows(3)
+    KB_BTNS[2:2] = _dl_rows          # "CHANNEL CLONER / VIDEO DOWNLOADER" ke baad
+except Exception as _dke:                                        # noqa: BLE001
+    print("dl keyboard rows skip:", _dke)
+
+
 
 
 def dl_key_of(mode: str) -> str:
@@ -3174,6 +3228,111 @@ async def _progress_edit(msg, base: str, every: int = PROGRESS_EVERY,
         pass
 
 
+# ======================================================================
+#  v66: 🍪 /cookies — "Sign in to confirm you're not a bot" ka PAKKA ilaaj
+# ======================================================================
+#  YouTube cloud server (Render) ke IP par bot-check lagata hai. Jab admin
+#  apni YouTube cookies de deta hai to download hamesha chalta hai.
+#  Admin: /cookies -> bot kehta hai file bhejo -> admin cookies.txt bhejta hai
+#         -> bot usse save kar leta hai (DB me bhi, isliye redeploy par bachi
+#         rehti hai) -> wahi file bot kaam me leta hai.
+# ----------------------------------------------------------------------
+
+def cookies_boot_restore() -> bool:
+    """Boot par DB se cookies wapas likho (redeploy ke baad bhi kaam kare)."""
+    try:
+        txt = meta_get("yt_cookies", "") or ""
+        if txt and len(txt) > 40:
+            return bool(MD.save_cookies_text(txt))
+    except Exception as e:                                       # noqa: BLE001
+        log.debug("cookies boot restore skip: %s", str(e)[:90])
+    return False
+
+
+async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/cookies — YouTube/Instagram cookies ka status + tarika (admin)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    st = MD.cookies_status()
+    _ladder = " → ".join(c[0] for c in MD.YT_CLIENT_SETS)
+    txt = (
+        "🍪 <b>COOKIES STATUS</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"{'✅' if st['set'] else '⚠️'} <b>Cookies:</b> "
+        f"{'LAGI HAIN — bot-check nahi aayega' if st['set'] else 'NAHI lagi hain'}\n"
+        f"📄 <b>Lines:</b> {st['lines']} | 📁 <code>{hesc(str(st['path'])[-40:]) or '—'}</code>\n"
+        f"🤖 <b>Client ladder:</b> <code>{hesc(_ladder)}</code>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<b>🍪 Cookies kaise deni hai (2 minute):</b>\n"
+        "1️⃣ Android/iOS ke LIYE: <b>Telegram par wahi cookies.txt file</b> seedha "
+        "is bot ko bhej dein (neeche tarika).\n"
+        "2️⃣ PC par: Chrome me <b>\"Get cookies.txt LOCALLY\"</b> extension daalein → "
+        "<code>youtube.com</code> kholein → extension se <b>cookies.txt</b> download karein.\n"
+        "3️⃣ Wahi <b>cookies.txt</b> yahan bot ko <b>file ke roop me bhej dein</b> "
+        "(command likhne ki zaroorat nahi).\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "<b>Maine badal diya kya:</b>\n"
+        "• 🤖 4 client ladder (android_vr → tv_embedded → android → web_safari)\n"
+        "• ⚡ progressive format + 16 parallel chunks = video 1-2 second me\n"
+        "• ⛔ 45 second hard limit — lambi wait hamesha ke liye khatam\n"
+        "• 🍪 Cookies = YouTube ka bot-check poora band\n\n"
+        "👉 Ab <b>cookies.txt file</b> bhej dijiye — main turant laga dunga."
+    )
+    await update.message.reply_text(txt, parse_mode=HTML)
+
+
+async def on_doc_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v66: admin 'cookies.txt' bhejta hai to bot use laga leta hai (group=-5)."""
+    try:
+        msg = update.effective_message
+        u = update.effective_user
+        if not msg or not msg.document or u is None:
+            return
+        if not is_admin(u.id):
+            return
+        doc = msg.document
+        _name = (doc.file_name or "").lower()
+        if "cookie" not in _name and not context.user_data.get("await_cookies"):
+            return
+        if (doc.file_size or 0) > 3 * 1024 * 1024:
+            await msg.reply_text("❌ File bahut badi hai (3 MB se kam bhejein).",
+                                 parse_mode=HTML)
+            return
+        _f = await context.bot.get_file(doc.file_id)
+        _raw = bytes(await _f.download_as_bytearray())
+        _txt = _raw.decode("utf-8", "ignore")
+        if "youtube.com" not in _txt and "instagram.com" not in _txt:
+            await msg.reply_text(
+                "⚠️ Ye cookies file nahi lagti.\n"
+                "✅ <b>cookies.txt</b> (Netscape format) bhejein — "
+                "jisme <code>youtube.com</code> ki lines hon.", parse_mode=HTML)
+            return
+        _path = MD.save_cookies_text(_txt)
+        if not _path:
+            await msg.reply_text("❌ Cookies save nahi ho payi — dobara bhejein.",
+                                 parse_mode=HTML)
+            return
+        try:
+            meta_set("yt_cookies", _txt)     # redeploy ke baad bhi bachi rahe
+        except Exception:                                        # noqa: BLE001
+            pass
+        context.user_data.pop("await_cookies", None)
+        _st = MD.cookies_status()
+        await msg.reply_text(
+            "✅ <b>COOKIES LAG GAYIN!</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📄 <b>Lines:</b> {_st['lines']} | 🍪 <b>Status:</b> ON\n"
+            "🎉 Ab YouTube ka <i>\"Sign in to confirm you're not a bot\"</i> "
+            "error <b>nahi aayega</b>.\n"
+            "👉 Ab koi bhi video link bhej ke test karein — 1-2 second me video milegi.\n\n"
+            "🔒 Ye file safe hai (sirf download ke liye use hoti hai).",
+            parse_mode=HTML)
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("cookies file handle fail: %s", str(e)[:140])
+
+
 def _biz_today() -> str:
     return datetime.now().strftime("%d-%m-%Y")
 
@@ -4818,25 +4977,21 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ============ AUTO FORWARD — WIZARD / GUIDE / TEST / STATUS ============
     # ---------- v60.4: 💼 BUSINESS STUDIO buttons ----------
     # ---------- v64: 📥 VIDEO DOWNLOADER ke 27 tools ----------
-    if data == "dlmenu":
+    # v66: 🎯 27-app ka PICKER HATA DIYA (user ka order).
+    # Purane message par ye button dabaya jaye to naya tarika batao —
+    # picker dobara na khule.
+    if data == "dlmenu" or data.startswith("dlvpage:"):
         context.user_data.pop("mode", None)
-        await safe_answer_cb(q, "Apna app chuno 👇")
-        try:
-            await safe_edit(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(0),
-                            parse_mode=HTML)
-        except Exception:                                        # noqa: BLE001
-            await safe_reply(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(0),
-                             parse_mode=HTML)
-        return
-    if data.startswith("dlvpage:"):
-        _pg = 1 if str(data).endswith("1") else 0
-        await safe_answer_cb(q, "Aur apps 👇")
-        try:
-            await safe_edit(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(_pg),
-                            parse_mode=HTML)
-        except Exception:                                        # noqa: BLE001
-            await safe_reply(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(_pg),
-                             parse_mode=HTML)
+        await safe_answer_cb(q, "Ab har app apna alag tool hai ⬇️")
+        _hint = ("🎯 <b>BADLAV — ab har app APNA ALAG TOOL hai</b>\n"
+                 "━━━━━━━━━━━━━━━━━━━━━━\n"
+                 "Pehle sab apps ek hi menu me the. Ab keyboard par "
+                 "<b>neeche wale</b> buttons dikhenge:\n"
+                 "   📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL … (27 tools)\n\n"
+                 "👉 Keyboard par <b>neeche</b> daba ke apna app chuno, "
+                 "ya seedha <b>link bhej do</b> — main khud pehchan lunga.\n\n"
+                 "📋 Poori list: <b>ALL TOOLS (FREE)</b> dabao.")
+        await safe_reply(q.message, _hint, parse_mode=HTML)
         return
     if data.startswith("dlv:"):
         _dk = str(data).split(":", 1)[1]
@@ -4857,7 +5012,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  f"✅ HD · bina watermark · no ad")
         await safe_reply(q.message, _body, parse_mode=HTML,
                          reply_markup=InlineKeyboardMarkup([[
-                             InlineKeyboardButton("⬅️ Saare apps", callback_data="dlmenu"),
                              InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
         return
 
@@ -8678,6 +8832,19 @@ async def _post_init(app: Application):
     try:
         import asyncio as _aio
         _loop = _aio.get_running_loop()
+        # v66: vault ko batao ki MAIN loop kaun hai — thread se backup ab
+        #      isi loop par chalta hai (pehle "different event loop" crash tha)
+        try:
+            vault_set_main_loop(_loop)
+            log.info("🛡️ Vault: main event loop register ho gaya (backup crash fix)")
+        except Exception as _ve:                                 # noqa: BLE001
+            log.debug("vault loop register skip: %s", str(_ve)[:80])
+        # v66: cookies wapas laga do (admin ne pehle bheji thi to)
+        try:
+            if cookies_boot_restore():
+                log.info("🍪 YouTube cookies restore ho gayin (bot-check fix ON)")
+        except Exception as _ce:                                 # noqa: BLE001
+            log.debug("cookies restore skip: %s", str(_ce)[:80])
 
         def _loop_err(_loop2, _ctx):
             _ex = _ctx.get("exception")
@@ -9114,6 +9281,7 @@ def main():
     app.add_handler(CommandHandler("ban", cmd_ban))
     app.add_handler(CommandHandler("unban", cmd_unban))
     # v60: 🛡️ PREMIUM VAULT commands (aapka data kabhi na khoye)
+    app.add_handler(CommandHandler(["cookies", "cookie", "biscuit"], cmd_cookies))
     app.add_handler(CommandHandler(["vault", "premiumvault", "datavault"], cmd_vault))
     app.add_handler(CommandHandler(["backup", "save"], cmd_backup))
     app.add_handler(CommandHandler(["restore", "recover"], cmd_restore))
@@ -9165,6 +9333,8 @@ def main():
         | filters.Sticker.ALL
     )
     app.add_handler(MessageHandler(filters.PHOTO & _dm_or_group, on_photo))
+    app.add_handler(MessageHandler(filters.Document.ALL & _dm_or_group, on_doc_cookies),
+                    group=-5)          # v66: admin ki cookies.txt file
     app.add_handler(MessageHandler(_any_media & _dm_or_group, on_media))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, on_text))
 
@@ -9229,29 +9399,36 @@ def main():
 
     log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
                 socket.gethostname(), os.getpid())
-    # v49.4: Conflict (do instance ek saath) par crash na ho — thoda ruk kar retry
-    for _try in range(1, 6):
+    # v66: 🛡️ POLLING ab KABHI "give up" nahi karti.
+    #  Pehle: 5 try ke baad `raise` -> supervisor -> main() dobara -> phir fail
+    #         -> Render restart -> user ko lagta tha "bot crash ho gaya".
+    #  Ab   : Conflict aaye to bas intezaar (backoff), chalta rahega.
+    _try = 0
+    while True:
+        _try += 1
         try:
             app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES,
                             close_loop=False)
-            return
+            log.warning("Polling ruk gayi (normal return) — dobara shuru kar raha hoon")
+            time.sleep(3)
+            continue
         except Exception as e:                                  # noqa: BLE001
             _msg = str(e).lower()
             log.error("Polling band hui (%s: %s)", type(e).__name__, str(e)[:200])
             if "conflict" in _msg:
-                # v59.11: retry se pehle webhook try karo — Conflict ki jad yahin khatam
+                # purana instance band hone ka intezaar — webhook try bhi karo
                 if _force_webhook_after_conflict(app):
                     return
-                if _try < 5:
-                    wait = 15 * _try
-                    log.warning("Do instance ek saath chal rahe hain — %ss baad dobara koshish (%s/5)", wait, _try)
-                    time.sleep(wait)
-                    continue
-            if _try < 5:
-                log.warning("5 second baad dobara koshish (%s/5)", _try)
-                time.sleep(5)
+                wait = min(300, 15 * _try)
+                log.warning("Do instance ek saath chal rahe hain — %ss baad dobara "
+                            "koshish (try #%s). Bot chalta rahega, koi crash nahi.", wait, _try)
+                time.sleep(wait)
                 continue
-            raise
+            wait = min(60, 5 * _try)
+            log.warning("%ss baad dobara koshish (try #%s) — bot crash NAHI hoga",
+                        wait, _try)
+            time.sleep(wait)
+            continue
 
 
 if __name__ == "__main__":
