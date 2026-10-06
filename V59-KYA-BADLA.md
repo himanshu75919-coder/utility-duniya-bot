@@ -256,3 +256,42 @@ webhook: mode_env=(not set) | url_env=set | render_url=set | decision=WEBHOOK
 
 **Aap khud kaise check karo:** Telegram me `/version` bhejo → commit `83a16a7` aur
 `Mode: WEBHOOK` dikhna chahiye. Browser me `/health` kholo → `mode: WEBHOOK`.
+
+---
+
+## 11. v59.11 — 🧨 CONFLICT KILLER (Render logs ka baar-baar aane wala error)
+
+Aapke screenshot (1:56 AM) me jo dikha:
+
+```
+01:54:07  WARNING | MODE = POLLING (safe default) | polling mode
+01:54:11  WARNING | STARTING POLLING | only ONE instance must run
+01:54:13  WARNING | CONFLICT (auto-fix hoga): purana + naya instance ek saath chalu the
+```
+
+**Iska matlab:** deploy ke waqt Render 30-60 second **purana + naya** dono instance
+chalata hai. Polling me dono `getUpdates` maangte hain → Telegram "Conflict" deta
+hai → us waqt bot ke jawab late ya miss.
+
+| Pehle | Ab (v59.11) |
+|---|---|
+| Conflict par sirf "15s baad retry" | **Pehla Conflict aate hi bot khud WEBHOOK par switch** |
+| Logs me baar-baar CONFLICT | Webhook me `getUpdates` hota hi nahi → **Conflict namumkin** |
+| — | Switch se pehle keepalive port khaali (warna bind fail) |
+| — | Webhook na mile to purana retry (bot band nahi hota) |
+
+### Aaj ka live proof (06-10-2026)
+
+```
+version: v59.11 Conflict Killer (auto-webhook switch) + Live Proof + Support
+commit: 0afb075 | branch: main | mode: WEBHOOK | crashes=0
+webhook: decision=WEBHOOK | why: Telegram ne URL maan liya ✅
+bot: aakhri message 12s pehle (…13:52:03) | total 47 updates
+```
+
+### Agar 10 minute baad bhi CONFLICT aaye (bahut kam chance)
+
+Matlab **koi doosra service bhi usi bot token par chal raha hai**. Check karo:
+Render → dashboard → services ki list → dekho koi purana `utility-duniya-bot`
+jaisa service **same token** par to nahi chal raha. Usse **Suspend/Delete** kar do.
+(Mujhe bata do, main dekh lunga.)
