@@ -166,7 +166,7 @@ section("3) 🚨 BRAND_TAG CRASH FIX (asli bug)")
 # =====================================================================
 import bot  # noqa: E402
 
-check("BOT_VERSION v57+ par hai", re.search(r'BOT_VERSION = "v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
+check("BOT_VERSION v57+ par hai", re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
 check("BRAND_TAG bot.py me DEFINED hai (pehle NameError crash tha)",
       hasattr(bot, "BRAND_TAG"))
 check("BRAND_TAG ki value sahi hai", str(bot.BRAND_TAG).startswith("@"))
@@ -253,8 +253,9 @@ check("NUMBER INFO: response time card me hai (renderer me)",
       "int(ms)}ms" in BOT_SRC or "int(_ms)}ms" in _ni)
 check("NUMBER INFO: v59 me privacy lecture line NAHI hai (user ka order)",
       "leaked" not in _ni.lower() and "Privacy" not in _ni)
-check("NUMBER INFO: aapke diye format ka owner card hai (_obits)",
-      "_obits" in _ni and "👤 <b>Name:</b>" in _ni and "🏠 <b>Address(es):</b>" in _ni)
+check("NUMBER INFO: aapke diye format ka owner card hai (v69 sample)",
+      "_obits" in BOT_SRC and "👤 <b>Name:</b>" in BOT_SRC
+      and "🏠 <b>Address:</b>" in BOT_SRC)
 
 # =====================================================================
 section("6) 🔌 /numapi ADMIN COMMAND")

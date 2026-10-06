@@ -240,23 +240,28 @@ NI = BOT_SRC[_ni_i:_ni_j]
 _CARD_I = BOT_SRC.index("def numinfo_card(")
 CARD_SRC = BOT_SRC[_CARD_I:BOT_SRC.index("\ndef build_qr_image(", _CARD_I)]
 
-check("naya card block hai (_obits)", "_obits" in NI)
+check("naya card block hai (_obits)", "_obits" in CARD_SRC)
+check("handler card renderer hi use karta hai", "numinfo_card(res" in NI)
 check("purana 'NUMBER INFO REPORT' card POORA DELETE ho gaya",
       "NUMBER INFO REPORT" not in NI and "NUMBER INFO REPORT" not in BOT_SRC)
 check("numinfo me pcard_title ka use hi nahi (ek hi layout)",
       "pcard_title" not in NI)
 check("ek hi card builder hai (_card) — owner lines optional",
-      "_card = list(_obits)" in CARD_SRC and "if not _obits:" in CARD_SRC)
-for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
-             "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>", "🏠 <b>Address(es):</b>"):
+      "_card = list(_obits)" in CARD_SRC
+      and ("if not _obits:" in CARD_SRC or "if not _obits or not _owner_any:" in CARD_SRC))
+for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phone:</b>",
+             "📱 <b>Alt:</b>", "🌐 <b>Circle:</b>", "🆔 <b>Govt ID:</b>",
+             "🏠 <b>Address:</b>"):
     check(f"card me line '{_lbl}'", _lbl in CARD_SRC)
-# user ke format ka order: Name → Father → Phones → Region → Govt ID → Address
-_pos = [CARD_SRC.index(x) for x in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
-                                  "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>",
-                                  "🏠 <b>Address(es):</b>")]
-check("lines user ke diye ORDER me hain", _pos == sorted(_pos))
+# v69: user ke SAMPLE card ka exact order — Name → Father → Phone → Alt →
+#      Circle → Govt ID → Address
+_pos = [CARD_SRC.index(x) for x in ("👤 <b>Name:</b>", "👨 <b>Father:</b>",
+                                   "📱 <b>Phone:</b>", "📱 <b>Alt:</b>",
+                                   "🌐 <b>Circle:</b>", "🆔 <b>Govt ID:</b>",
+                                   "🏠 <b>Address:</b>")]
+check("lines user ke SAMPLE order me hain", _pos == sorted(_pos))
 check("address bullet '└' se aata hai (max 4 line)",
-      '_obits.append(f"   └ ' in CARD_SRC or "   └ " in CARD_SRC)
+      '_obits.append(f"└ ' in CARD_SRC or "└ " in CARD_SRC)
 check("address 300 char par kata jaata hai (Telegram limit safe)", "_ap[:300]" in CARD_SRC)
 check("separator (pcard_sep) owner block ke baad aata hai",
       "pcard_sep()" in CARD_SRC and "👤" in CARD_SRC)
@@ -269,15 +274,15 @@ check("card ke aakhir me brand footer (v59.7: clickable)",
 check("NUMINFO_SHOW_OWNER gate hata diya (card seedha dimaghta hai)",
       "NUMINFO_SHOW_OWNER" not in BOT_SRC)
 check("API na ho to sirf chhota setup hint (koi lecture line nahi)",
-      "NUMINFO_PROVIDER_URL" in NI and "/numapi" in NI)
+      "NUMINFO_PROVIDER_URL" in CARD_SRC and "/numapi" in CARD_SRC)
 check("card me privacy/leaked shabd nahi",
       "leaked" not in NI.lower() and "Privacy" not in NI and "privacy" not in NI)
 check("extra address list (addresses / address_list) support hai",
       "address_list" in CARD_SRC and "addresses" in CARD_SRC)
 # user ka exact format: 🏠 Address(es): ke baad ek khali line, phir "   └ ..."
-check("Address(es) label ke baad blank line aati hai (aapka exact format)",
-      '"🏠 <b>Address(es):</b>\\n"' in CARD_SRC)
-check("address line '└' se shuru hoti hai", 'f"   └ {hesc(' in CARD_SRC)
+check("Address label aapke sample jaisa (v69)",
+      '"🏠 <b>Address:</b>"' in CARD_SRC)
+check("address line '└' se shuru hoti hai", 'f"└ {hesc(' in CARD_SRC)
 check("purana '🔒 Private Setup' ad nahi (hata diya gaya tool)",
       "Private Setup" not in BOT_SRC)
 check("TEMP MAIL card me privacy line nahi",
@@ -527,8 +532,9 @@ _il2.reload(_NP2)
 _demo_card = bot.numinfo_card({"international": "+91 90000 00001", "country": "India"},
                               _NP2.demo_result().get("owner"), {}, "Jio", "Bihar",
                               "📱 Mobile", "", "🧪 SAMPLE", 240)
-for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phones/Alt:</b>",
-             "🌐 <b>Region:</b>", "🆔 <b>Govt ID:</b>", "🏠 <b>Address(es):</b>"):
+for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phone:</b>",
+             "📱 <b>Alt:</b>", "🌐 <b>Circle:</b>", "🆔 <b>Govt ID:</b>",
+             "🏠 <b>Address:</b>"):
     check(f"demo card me '{_lbl}' aata hai", _lbl in _demo_card)
 
 # --- 🔎 /numtest — MAPPING PREVIEW (JSON paste karo → card dikhao) ---

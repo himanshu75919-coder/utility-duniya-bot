@@ -178,7 +178,9 @@ check("purane tools bhi zinda (kuch nahi hata)",
       len(bot.KB_BTNS) >= 16, str(len(bot.KB_BTNS)))
 check("/speed command hai", hasattr(bot, "cmd_speed"))
 check("cache stats function hai", callable(MD.dl_cache_stats))
-check("version v68 hai", "v68" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version naya hai (v68 ya usse upar)",
+      "v68" in bot.BOT_VERSION or bot.BOT_VERSION.startswith("v69"),
+      bot.BOT_VERSION)
 
 # =====================================================================
 section("[G] 🔁 KUCH PURANA TOOTA NAHI")

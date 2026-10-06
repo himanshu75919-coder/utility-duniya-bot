@@ -95,7 +95,7 @@ section("1) 🎨 NAYA PROMPT SYSTEM (head + ✨ ask + 📝 Examples)")
 # =====================================================================
 import bot  # noqa: E402
 
-check("BOT_VERSION v58+ par hai", re.search(r'BOT_VERSION = "v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
+check("BOT_VERSION v58+ par hai", re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
 check("PROMPT_DATA maujood hai (naya system)", hasattr(bot, "PROMPT_DATA"))
 check("PROMPT_DATA me behaviour: har entry me head/ask/ex", all(
     isinstance(v, dict) and v.get("head") and v.get("ask")
@@ -296,8 +296,8 @@ for _f in ("name", "father", "alt", "region", "govt_id", "address"):
     check(f"owner field '{_f}' parse hota hai", f'"{_f}": _clean_name' in open(
         os.path.join(ROOT, "modules", "numinfo_provider.py"), encoding="utf-8").read())
 check("card me OWNER panel rendering hai (_obits)", "_obits" in BOT_SRC)
-for _lbl in ("👤 <b>Name:", "👨 <b>Father:", "📱 <b>Phones/Alt:",
-             "🌐 <b>Region:", "🆔 <b>Govt ID:", "🏠 <b>Address(es):"):
+for _lbl in ("👤 <b>Name:", "👨 <b>Father:", "📱 <b>Phone:",
+             "📱 <b>Alt:", "🌐 <b>Circle:", "🆔 <b>Govt ID:", "🏠 <b>Address:"):
     check(f"panel me '{_lbl}' line hai", _lbl in BOT_SRC)
 check("v59: owner card seedha dikhta hai (koi NUMINFO_SHOW_OWNER gate nahi)",
       "NUMINFO_SHOW_OWNER" not in BOT_SRC)

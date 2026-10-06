@@ -409,7 +409,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v68.0 FREE4ALL — 30-SECOND SPEED (parallel + cache + instant repeat) + tool-fail isolation"
+BOT_VERSION = ("v69.0 FREE4ALL — 30-SECOND SPEED (6-second hub fix) + "
+               "SAMPLE NUMBER CARD + tool-fail isolation")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -4317,27 +4318,61 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
     res = res or {}
     owner = owner or {}
     extra = extra or {}
+
+    def _digits_only(x) -> str:
+        return re.sub(r"\D", "", str(x or ""))
+
+    # ---------- v69: user ka SAMPLE format — bilkul isi tarah ----------
+    #     👤 Name: Sanjay Sah
+    #     👨 Father: Ram Akwal Sah
+    #     📱 Phone: 7857843092
+    #     📱 Alt: 7305190526
+    #     🌐 Circle: BIHAR JIO
+    #     🆔 Govt ID: 401635555849
+    #     🏠 Address:
+    #     └ S/O Ram Akwal Sah, ward 02, ... Sitamari, Bihar, 843324
+    _nat = (_digits_only(res.get("national")) or _digits_only(res.get("number"))
+            or _digits_only(res.get("e164")) or _digits_only(res.get("international")))
+    _phone = _nat[-10:] if len(_nat) >= 10 else _nat
+    _ph = _digits_only(owner.get("phone") or owner.get("mobile") or owner.get("number")) or _phone
+    if _ph:
+        _phone = _ph[-10:] if len(_ph) >= 10 else _ph
+    _alts = []
+    for _a in re.split(r"[,;|/\s]+", str(owner.get("alt") or "")):
+        _ad = _digits_only(_a)
+        if _ad and _ad[-10:] != _phone and _ad not in _alts:
+            _alts.append(_ad)
+    for _k in ("alt_numbers", "numbers", "phones_list", "other_numbers"):
+        for _a2 in (extra.get(_k) or []):
+            _ad = _digits_only(_a2)
+            if _ad and _ad[-10:] != _phone and _ad not in _alts:
+                _alts.append(_ad)
+
     _obits = []
     if owner.get("name"):
         _obits.append(f"👤 <b>Name:</b> {hesc(str(owner['name']))}")
     if owner.get("father"):
         _obits.append(f"👨 <b>Father:</b> {hesc(str(owner['father']))}")
-    if owner.get("alt"):
-        _obits.append(f"📱 <b>Phones/Alt:</b> {hesc(str(owner['alt']))}")
-    if owner.get("region"):
-        _obits.append(f"🌐 <b>Region:</b> {hesc(str(owner['region']))}")
+    if _phone:
+        _obits.append(f"📱 <b>Phone:</b> <code>{hesc(_phone)}</code>")
+    if _alts:
+        _obits.append(f"📱 <b>Alt:</b> <code>{hesc(', '.join(_alts[:4]))}</code>")
+    _circ = " ".join([str(circle or owner.get("region") or "").strip(),
+                      str(operator or "").strip()]).strip()
+    if _circ:
+        _obits.append(f"🌐 <b>Circle:</b> {hesc(_circ)}")
     if owner.get("govt_id"):
-        _obits.append(f"🆔 <b>Govt ID:</b> {hesc(str(owner['govt_id']))}")
+        _obits.append(f"🆔 <b>Govt ID:</b> <code>{hesc(str(owner['govt_id']))}</code>")
     _addr = str(owner.get("address") or "").strip()
-    if _addr:
-        # aapka format: label ke baad ek khali line, phir "   └ <pata>"
-        _obits.append("🏠 <b>Address(es):</b>\n")
-        for _ap in [x.strip() for x in _addr.split("|") if x.strip()][:4]:
-            _obits.append(f"   └ {hesc(_ap[:300])}")
+    _alines = [x.strip() for x in _addr.split("|") if x.strip()][:4]
     for _k in ("addresses", "address_list"):
         for _a2 in (extra.get(_k) or [])[:4]:
             if _a2 and hesc(str(_a2))[:300] not in _addr:
-                _obits.append(f"   └ {hesc(str(_a2)[:300])}")
+                _alines.append(str(_a2))
+    if _alines:
+        _obits.append("🏠 <b>Address:</b>")
+        for _ap in _alines[:4]:
+            _obits.append(f"└ {hesc(_ap[:300])}")
 
     _card = list(_obits)
     if _obits:
@@ -4356,7 +4391,9 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
         _card.append(f"📡 <b>Source:</b> {src_line}")
     _card.append(f"⚡ <b>Response:</b> {int(ms)}ms")
     _card.append(pcard_sep())
-    if not _obits:
+    _owner_any = bool(owner.get("name") or owner.get("father") or owner.get("govt_id")
+                      or owner.get("address"))
+    if not _obits or not _owner_any:
         _card.append("👤 <b>Name / Father / Phones / Region / Govt ID / Address</b> — "
                      "ye data aapki API se aata hai.")
         _card.append("💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> + "
@@ -7488,42 +7525,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             if _pv in ("true", "1", "yes", "haan", "y") else
                             f"• <b>MNP (ported):</b> {hesc(str(_ported))}\n")
 
-        # ---------- v59: 👤 AAPKE DIYE FORMAT ME CARD ----------
-        # Ye card aapki API (Render me NUMINFO_PROVIDER_URL/KEY) ke response se
-        # banta hai. Aapke format me — bilkul waisa hi:
-        #     👤 Name: Sanjay Sah
-        #     👨 Father: Ram Akwal Sah
-        #     📱 Phones/Alt: 7305190526
-        #     🌐 Region: BIHAR JIO
-        #     🆔 Govt ID: 401635555849
-        #     🏠 Address(es):
-        #        └ S/O  Ram Akwal Sah, ...
-        #     ────────────────────────
-        _ow = (_live.get("owner") or {}) if isinstance(_live, dict) else {}
-        _obits = []
-        if _ow.get("name"):
-            _obits.append(f"👤 <b>Name:</b> {hesc(str(_ow['name']))}")
-        if _ow.get("father"):
-            _obits.append(f"👨 <b>Father:</b> {hesc(str(_ow['father']))}")
-        if _ow.get("alt"):
-            _obits.append(f"📱 <b>Phones/Alt:</b> {hesc(str(_ow['alt']))}")
-        if _ow.get("region"):
-            _obits.append(f"🌐 <b>Region:</b> {hesc(str(_ow['region']))}")
-        if _ow.get("govt_id"):
-            _obits.append(f"🆔 <b>Govt ID:</b> {hesc(str(_ow['govt_id']))}")
-        _addr = str(_ow.get("address") or "").strip()
-        if _addr:
-            # user ka exact format: label ke baad ek khali line, phir "   └ ..."
-            _obits.append("🏠 <b>Address(es):</b>\n")
-            for _ap in [x.strip() for x in _addr.split("|") if x.strip()][:4]:
-                _obits.append(f"   └ {hesc(_ap[:300])}")
-        # extra address list (agar API array bheje)
-        _extra = (_live.get("extra") or {}) if isinstance(_live, dict) else {}
-        for _k in ("addresses", "address_list"):
-            for _a2 in (_extra.get(_k) or [])[:4]:
-                if _a2 and hesc(str(_a2))[:300] not in _addr:
-                    _obits.append(f"   └ {hesc(str(_a2)[:300])}")
-
+        # v69: card sirf EK jagah banta hai — renderer `numinfo_card()` (neeche).
+        # (yahan pehle ek purana duplicate block pada tha jo kuch nahi karta tha —
+        #  hata diya, taaki format hamesha ek hi jagah se aaye.)
         # v59.2: EK HI layout — renderer `numinfo_card()` me hai (neeche bhi
         # dekho), taaki `/numdemo` (sample preview) bilkul same dikhe.
         _ow = (_live.get("owner") or {}) if isinstance(_live, dict) else {}
