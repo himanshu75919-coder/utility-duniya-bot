@@ -187,6 +187,31 @@ check("kisi bhi provider ka JSON map ho jata hai",
 os.environ.pop("VEHICLE_PROVIDER_URL", None)
 
 # =====================================================================
+section("[D] ⚡ RAPIDAPI AUTO-DETECT — sirf 2 line me kaam (v71.2)")
+# =====================================================================
+os.environ.pop("VEHICLE_PROVIDER_HEADERS", None)     # pichhla test ka header hatao
+os.environ["VEHICLE_PROVIDER_URL"] = "https://vehicle-rc-information.p.rapidapi.com/vehicle/rc"
+os.environ["VEHICLE_PROVIDER_KEY"] = "ABC123"
+check("RapidAPI URL pehchanta hai", VT.is_rapidapi() is True)
+check("host apne aap nikaalta hai",
+      VT._rapidapi_host(VT._cfg()["url"]) == "vehicle-rc-information.p.rapidapi.com")
+check("headers apne aap bante hain (key + host)",
+      VT._flags().get("X-RapidAPI-Key") == "ABC123"
+      and VT._flags().get("X-RapidAPI-Host") == "vehicle-rc-information.p.rapidapi.com")
+check("provider ready batata hai", VT.provider_ready() is True)
+# normal (non-rapidapi) URL par purana behaviour zinda
+os.environ["VEHICLE_PROVIDER_URL"] = "https://myprovider.example/api/rc"
+os.environ["VEHICLE_PROVIDER_AUTH"] = "bearer"
+check("RapidAPI ke bina bearer auth hi chalta hai",
+      VT.is_rapidapi() is False
+      and VT._flags().get("Authorization") == "Bearer ABC123")
+os.environ.pop("VEHICLE_PROVIDER_URL", None)
+os.environ.pop("VEHICLE_PROVIDER_KEY", None)
+os.environ.pop("VEHICLE_PROVIDER_AUTH", None)
+check("sab hatane par provider off", VT.provider_ready() is False)
+check("/rcsetup command hai (step-by-step help)", callable(getattr(bot, "cmd_rcsetup", None)))
+
+# =====================================================================
 section("[D] 🔁 PURANA KUCH TOOTA NAHI")
 # =====================================================================
 check("4 downloader tools zinda", len(bot.DL_SITES) == 4)

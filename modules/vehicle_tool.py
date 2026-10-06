@@ -65,6 +65,17 @@ def _cfg() -> dict:
     }
 
 
+def _rapidapi_host(url: str) -> str:
+    """URL se RapidAPI host: https://xxx.p.rapidapi.com/api -> xxx.p.rapidapi.com"""
+    u = re.sub(r"^https?://", "", str(url or "").strip())
+    return u.split("/")[0].strip().lower()
+
+
+def is_rapidapi() -> bool:
+    """User sirf URL+key daale — headers/method bot khud samajh le."""
+    return "rapidapi.com" in _cfg().get("url", "").lower()
+
+
 def provider_ready() -> bool:
     c = _cfg()
     return bool(c["url"])
@@ -79,11 +90,16 @@ def _flags() -> dict:
             k, v = part.split(":", 1)
             h[k.strip()] = v.strip().replace("{key}", c.get("key") or "")
     if c.get("key") and not h:
-        a = c.get("auth")
-        if a == "bearer":
-            h["Authorization"] = f"Bearer {c['key']}"
-        elif a == "header":
-            h["Authorization"] = c["key"]
+        if is_rapidapi():
+            # v71.2: RapidAPI par 2 line hi kaafi — headers apne aap
+            h["X-RapidAPI-Key"] = c["key"]
+            h["X-RapidAPI-Host"] = _rapidapi_host(c["url"])
+        else:
+            a = c.get("auth")
+            if a == "bearer":
+                h["Authorization"] = f"Bearer {c['key']}"
+            elif a == "header":
+                h["Authorization"] = c["key"]
     return h
 
 
@@ -213,17 +229,30 @@ def _provider_lookup(plate: str) -> dict:
     if c.get("key") and c.get("auth") == "query":
         params[c.get("keyparam") or "key"] = c["key"]
     hdrs = {**_UA, **_flags()}
-    try:
-        if c["method"] == "POST":
-            body = (c.get("body") or '{"{number}": "x"}').replace("{number}", plate).replace(
-                "{key}", c.get("key") or "")
+
+    def _try(method: str):
+        if method == "POST":
+            body = (c.get("body") or '{"vehicle_number": "{number}"}').replace(
+                "{number}", plate).replace("{key}", c.get("key") or "")
             try:
                 payload = json.loads(body)
             except Exception:                                # noqa: BLE001
-                payload = {c["param"]: plate}
-            r = requests.post(url, json=payload, headers=hdrs, timeout=TIMEOUT)
-        else:
-            r = requests.get(url, params=params, headers=hdrs, timeout=TIMEOUT)
+                payload = {"vehicle_number": plate}
+            return requests.post(url, json=payload, headers=hdrs, timeout=TIMEOUT)
+        return requests.get(url, params=params, headers=hdrs, timeout=TIMEOUT)
+
+    # v71.2: RapidAPI par GET/POST jo chale wahi — bot khud dono try karta hai
+    _plan = ["POST"] if (c["method"] == "POST") else ["GET"]
+    if is_rapidapi() and c["method"] != "POST" and not c.get("body"):
+        _plan = ["GET", "POST"]
+    r = None
+    try:
+        for _m in _plan:
+            r = _try(_m)
+            if r.status_code < 400:
+                break
+            if r.status_code in (401, 403, 429):
+                break
     except Exception as e:                                    # noqa: BLE001
         return {"ok": False, "error": f"Provider tak baat nahi pahunchi ({str(e)[:60]})."}
     if r.status_code in (401, 403):

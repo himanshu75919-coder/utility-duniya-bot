@@ -417,8 +417,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.1 FREE4ALL — SADE PROMPTS (koi tip nahi) + "
-               "VEHICLE INFO REPORT (user format) + 30-SECOND SPEED")
+BOT_VERSION = ("v71.2 FREE4ALL — RC SETUP 2-LINE (RapidAPI auto) + "
+               "SADE PROMPTS + VEHICLE INFO REPORT")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -3283,6 +3283,33 @@ def cookies_boot_restore() -> bool:
     except Exception as e:                                       # noqa: BLE001
         log.debug("cookies boot restore skip: %s", str(e)[:90])
     return False
+
+
+async def cmd_rcsetup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/rcsetup — RC/Challan live karne ka sabse aasan tarika (free)."""
+    _on = carry = ""
+    try:
+        _on = "✅ LAGI HUI HAI" if vahan_provider_ready() else "❌ abhi nahi lagi"
+    except Exception:                                        # noqa: BLE001
+        _on = "❌ abhi nahi lagi"
+    await update.message.reply_text(
+        "🚗 <b>RC + CHALLAN — LIVE KAISE KAREIN (₹0)</b>\n"
+        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        f"📌 <b>Provider status:</b> {_on}\n\n"
+        "<b>Market me ₹100/month wali API ki zaroorat NAHI hai.</b> RapidAPI par "
+        "<b>BASIC plan $0.00/mo</b> hai (card bhi nahi lagta):\n\n"
+        "1️⃣ Kholo 👉 https://rapidapi.com/fatehbrar92/api/vehicle-rc-information\n"
+        "2️⃣ Google se <b>Sign up</b> karo (free, 10 second)\n"
+        "3️⃣ <b>Subscribe to Test</b> / <b>BASIC (Free)</b> dabao\n"
+        "4️⃣ Endpoints tab me apni <b>X-RapidAPI-Key</b> dikhegi — copy karo\n"
+        "5️⃣ Render → utility-duniya-bot → Environment → bas YE 2 line daalo:\n\n"
+        "<code>VEHICLE_PROVIDER_URL = https://vehicle-rc-information.p.rapidapi.com/vehicle/rc</code>\n"
+        "<code>VEHICLE_PROVIDER_KEY = &lt;aapki X-RapidAPI-Key&gt;</code>\n\n"
+        "6️⃣ Manual Deploy (Clear build cache) → phir <code>BR30AR0802</code> bhejo\n\n"
+        "✅ Baaki sab bot khud sambhalta hai — headers, GET/POST, sab.\n"
+        "💡 Provider na ho to bhi bot: State + RTO + challan ka <b>sarkari SMS tarika</b> deta hai.",
+        parse_mode=HTML)
+    return
 
 
 async def cmd_speed(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -9697,6 +9724,7 @@ def main():
     app.add_handler(CommandHandler("unban", cmd_unban))
     # v60: 🛡️ PREMIUM VAULT commands (aapka data kabhi na khoye)
     app.add_handler(CommandHandler(["speed", "tez", "fast"], cmd_speed))
+    app.add_handler(CommandHandler(["rcsetup", "rcsetup_"], cmd_rcsetup))
     app.add_handler(CommandHandler(["cookies", "cookie", "biscuit"], cmd_cookies))
     app.add_handler(CommandHandler(["vault", "premiumvault", "datavault"], cmd_vault))
     app.add_handler(CommandHandler(["backup", "save"], cmd_backup))

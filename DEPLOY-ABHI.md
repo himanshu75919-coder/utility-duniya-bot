@@ -31,7 +31,7 @@ Telegram me bot ko likho:
 /version
 ```
 
-**Aana chahiye:** `v71.1`
+**Aana chahiye:** `v71.2`
 
 Agar **v59 / v64 / v67 / kuch purana** dikhe → deploy nahi hua, **Step 2 dobara** karo.
 
@@ -172,7 +172,9 @@ Yehi saade format **saare 36 tools** me lag gaya.
 - SMS wali lecture lines **poori hata di**.
 - Bihar ke **saare RTO codes** add (BR30 = Sitamarhi — ab "RTO office (district code 30)"
   ki jagah seedha **Sitamarhi** aata hai).
-- **Provider key lagate hi ye card bharna shuru ho jayega** — `HUB-SETUP.md` dekho.
+- **Provider key lagate hi ye card bharna shuru ho jayega** — bot me `/rcsetup` bhejo
+  (ya `HUB-SETUP.md` dekho): RapidAPI ka **BASIC plan $0.00/mo** hai — **₹100/month ki
+  zaroorat NAHI**, card bhi nahi lagta. Sirf **2 line** daalni hai — baaki sab bot khud.
 
 ---
 

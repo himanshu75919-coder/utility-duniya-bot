@@ -35,7 +35,23 @@ uska README padho. Ye optional hai.)
 Bot captcha nahi todta — wo illegal hai. Isliye iske liye **ek licensed provider API**
 chahiye (ye har bada app karta hai).
 
-## 🆓 Sabse sasta rasta — RapidAPI ka BASIC (free) plan
+## 🆓 SABSE AASAN RASTA — sirf 2 LINE (RapidAPI BASIC = $0.00, card bhi nahi)
+
+> **v71.2 se:** bas 2 line daalni hai — headers, GET/POST, sab bot **khud** sambhalta hai.
+> Bot me `/rcsetup` bhejo to yehi steps Telegram me dikh jayenge.
+
+1. Kholo 👉 **https://rapidapi.com/fatehbrar92/api/vehicle-rc-information**
+2. **Sign up** (Google se, 10 second — card NAHI lagta)
+3. **Subscribe to Test** / **BASIC (Free)** dabao
+4. Endpoints tab → apni **`X-RapidAPI-Key`** copy karo
+5. Render → utility-duniya-bot → **Environment** → sirf ye 2 line:
+   ```
+   VEHICLE_PROVIDER_URL = https://vehicle-rc-information.p.rapidapi.com/vehicle/rc
+   VEHICLE_PROVIDER_KEY = <aapki X-RapidAPI-Key>
+   ```
+6. **Manual Deploy** → bot me `BR30AR0802` bhejo → poora card bhar jayega ✅
+
+## 🆓 Aur options (agar ye API kaam na kare)
 
 1. Kholo 👉 **https://rapidapi.com/fatehbrar92/api/vehicle-rc-information**
 2. **Sign up** karo (Google se 10 second) — **card ki zaroorat nahi**
@@ -51,7 +67,7 @@ chahiye (ye har bada app karta hai).
 
 ## 🔧 Lagane ke 2 tarike (dono support hain — jo aasan lage)
 
-### Tarika A — Bot ke Render me (2 minute)
+### (RapidAPI ke alawa) apna provider — bot ke Render me (2 minute)
 Render → **utility-duniya-bot** → **Environment** → ye 4 add karo:
 
 ```
