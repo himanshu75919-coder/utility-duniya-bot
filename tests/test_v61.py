@@ -231,8 +231,22 @@ section("[I] 🚪 REACHABILITY — har tool ka darwaza khula hai")
 # =====================================================================
 check(f"PREMIUM_TOOLS me 34 tools hain (12 Business Studio)", len(bot.PREMIUM_TOOLS) == 34,
       str(len(bot.PREMIUM_TOOLS)))
-check("PROMPT_DATA / PROMPTS waise hi hain (purane badle nahi, sirf 2 naye jude)",
-      len(bot.PROMPT_DATA) == 33,
+# v64 ke baad 27 downloader prompts bhi jude (33 -> 60). Is liye ab ginti ke
+# bajaye ASLI baat check hoti hai: purane prompts DELETE hue ya nahi.
+# NOTE: "cloner", "vnum", "sarkari" PROMPT_DATA me kabhi the hi nahi — wo
+# ASK_LINES wale purane sub-modes hain. Is liye unhe yahan nahi rakha.
+_OLD_PROMPTS = (
+    "insta_dl", "numinfo", "bankpdf", "kagaz", "mediastudio", "imei",
+    "terabox", "pp_stamp", "print_sheet", "doc_compress",
+    "ifsc", "pin", "bgmi", "ffuid", "tempmail", "qr", "short", "linkcheck",
+    "appfind", "biz_invoice", "biz_resume", "biz_biodata", "biz_certificate",
+    "biz_idcard", "biz_vcard", "biz_letter", "biz_upi", "biz_labels", "biz_emi",
+)
+check("purane saare 26 prompts zinda hain (ek bhi delete nahi hua)",
+      all(k in bot.PROMPT_DATA for k in _OLD_PROMPTS),
+      [k for k in _OLD_PROMPTS if k not in bot.PROMPT_DATA])
+check("PROMPT_DATA me purane 33 se kam nahi (naye sirf jude hain)",
+      len(bot.PROMPT_DATA) >= 33,
       str(len(bot.PROMPT_DATA)))
 check("PROMPT ka content bhi waisa hi hai (koi chhed-chhad nahi)",
       all(isinstance(v, (str, tuple, dict)) for v in bot.PROMPT_DATA.values()))

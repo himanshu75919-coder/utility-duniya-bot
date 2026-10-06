@@ -203,8 +203,15 @@ _OLD10 = ("biz_invoice", "biz_resume", "biz_biodata", "biz_certificate", "biz_id
           "biz_vcard", "biz_letter", "biz_upi", "biz_labels", "biz_emi")
 check("v60 ke saare 10 tools aaj bhi hain", all(k in bot.BIZ_MENU for k in _OLD10))
 check("v60 ke saare 10 prompts aaj bhi hain", all(k in bot.PROMPT_DATA for k in _OLD10))
-check("prompts sirf 2 jude (31 -> 33), ek bhi purana nahi hata",
-      len(bot.PROMPT_DATA) == 33, str(len(bot.PROMPT_DATA)))
+# v64 ke baad 27 downloader prompts bhi jude. Asli baat: purane DELETE na hon.
+check("v60 ke saare 10 purane business prompts aaj bhi zinda hain",
+      all(k in bot.PROMPT_DATA for k in
+          ("biz_invoice", "biz_resume", "biz_biodata", "biz_certificate", "biz_idcard",
+           "biz_vcard", "biz_letter", "biz_upi", "biz_labels", "biz_emi")))
+check("v62 ke 2 naye prompts bhi zinda hain",
+      "biz_salary" in bot.PROMPT_DATA and "biz_menucard" in bot.PROMPT_DATA)
+check("prompt ki ginti kam nahi hui (33+ — sirf naye jude hain)",
+      len(bot.PROMPT_DATA) >= 33, str(len(bot.PROMPT_DATA)))
 check("purane invoice prompt ka head waisa hi hai",
       "INVOICE" in str(bot.PROMPT_DATA["biz_invoice"].get("head", "")).upper(),
       str(bot.PROMPT_DATA["biz_invoice"].get("head"))[:40])

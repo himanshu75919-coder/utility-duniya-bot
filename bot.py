@@ -330,6 +330,8 @@ register_gc_trigger(_clear_caches_mem)
 TOOL_RATE_LIMITS = {
     # heavy / mehnga (CPU ya bahut API kharcha)
     "insta_dl":    (6,  120, "Video Downloader"),
+    # v64: prefix key — "dl_instagram", "dl_youtube" … sab isi limit me aate hain
+    "dl":          (15, 120, "Video Downloader"),
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
     "media_ytmp3": (5,  120, "YouTube → MP3"),
@@ -405,7 +407,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v63.0 FREE4ALL — Step-by-Step Wizard + Photo/Logo + saare tools FREE"
+BOT_VERSION = "v64.0 FREE4ALL — Video Downloader ke 27 alag tools + Wizard + saare tools FREE"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -558,7 +560,8 @@ PREMIUM_TOOL_NAMES = {
 
 
 def is_premium_tool(action: str) -> bool:
-    return action in PREMIUM_TOOLS
+    # v64: 27 downloader tools (dl_instagram, dl_youtube …) bhi premium ginti me
+    return action in PREMIUM_TOOLS or str(action or "").startswith("dl_")
 
 
 def credits_left(u: dict, uid: int = 0) -> int:
@@ -600,7 +603,12 @@ def can_use_premium_tool(u: dict, uid: int = 0) -> bool:
 
 
 def get_credits_over_text(action: str = "") -> str:
-    tool_name = PREMIUM_TOOL_NAMES.get(action, "Ye tool")
+    # v64: dl_* ke liye DL_SITES se asli naam (jaise "Instagram Video Downloader")
+    _act = str(action or "")
+    if _act.startswith("dl_") and dl_key_of(_act):
+        tool_name = f"{DL_SITES[dl_key_of(_act)][0]} {DL_SITES[dl_key_of(_act)][1]} Downloader"
+    else:
+        tool_name = PREMIUM_TOOL_NAMES.get(action, "Ye tool")
     return (
         f"⚡ <b>{to_bold('CREDITS KHATAM')}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -999,7 +1007,7 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
-    [f"🔄 {to_bold('CHANNEL CLONER')}", f"📥 {to_bold('VIDEO DOWNLOADER')}"],
+    [f"🔄 {to_bold('CHANNEL CLONER')}", f"📥 {to_bold('VIDEO DOWNLOAD (27 APPS)')}"],
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
@@ -1043,11 +1051,18 @@ BTN_MODE_MAP = {
     "VIRTUAL NUMBERS": "vnum",
     "TERABOX DOWNLOADER": "terabox",
     "CHANNEL CLONER": "cloner",
-    "INSTA DOWNLOADER": "insta_dl",
-    "INSTAGRAM DOWNLOADER": "insta_dl",
-    "VIDEO DOWNLOADER": "insta_dl",
-    "UNIVERSAL VIDEO DOWNLOADER": "insta_dl",
-    "VIRAL VIDEO DOWNLOAD": "insta_dl",
+    # v64: ye saare purane labels ab 27-app ka picker kholte hain
+    "VIDEO DOWNLOAD (27 APPS)": "dlmenu",
+    "VIDEO DOWNLOAD (34 APPS)": "dlmenu",
+    "VIDEO DOWNLOADER (34 APPS)": "dlmenu",
+    "VIDEO DOWNLOAD": "dlmenu",
+    "DOWNLOADER": "dlmenu",
+    "INSTA DOWNLOADER": "dlmenu",
+    # v64: purane labels bhi ab 27-app ka picker kholte hain (koi purana user atke na)
+    "INSTAGRAM DOWNLOADER": "dlmenu",
+    "VIDEO DOWNLOADER": "dlmenu",
+    "UNIVERSAL VIDEO DOWNLOADER": "dlmenu",
+    "VIRAL VIDEO DOWNLOAD": "dlmenu",
     "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
     "8-IN-1 PRINT SHEET": "print_sheet",
     "DOCUMENT PDF COMPRESS": "doc_compress",
@@ -1129,6 +1144,130 @@ BTN_MODE_MAP = {
 #  Ek jagah se poora bot badalta hai: neeche PROMPT_DATA me sirf
 #  head/ask/examples badlo, saare 22 tools ka prompt apne aap badal jayega.
 # =====================================================================
+# ======================================================================
+#  v64: 📥 VIDEO DOWNLOADER — 27 ALAG-ALAG TOOLS (ek-ek app ka apna tool)
+# ======================================================================
+#  Boss ka order: "video downloader me jitni services hain, sabko alag-alag
+#  tool bana do."
+#
+#  Pehle: ek hi tool tha (insta_dl) — user ko samajh nahi aata tha ki kaunsa
+#  link chalega. Ab: har app ka apna tool, apna button, apna prompt, apni
+#  example. Purana "VIDEO DOWNLOADER" button ab YE list kholta hai.
+#
+#  Format: key -> (icon, naam, [domains], example-link)
+DL_SITES = {
+    "instagram":   ("📸", "Instagram",      ["instagram.com", "instagr.am"], "https://www.instagram.com/reel/xxxxx"),
+    "youtube":     ("▶️", "YouTube",        ["youtube.com", "youtu.be"], "https://www.youtube.com/watch?v=xxxxx"),
+    "facebook":    ("📘", "Facebook",       ["facebook.com", "fb.watch"], "https://www.facebook.com/watch?v=xxxxx"),
+    "tiktok":      ("🎵", "TikTok",         ["tiktok.com"], "https://vt.tiktok.com/xxxxx"),
+    :     ("🐦", ,    [, "x.com"], "https://x.com/i/status/xxxxx"),
+    :    ("👻", ,       [], "https://www.snapchat.com/spotlight/xxxxx"),
+    :   ("📌", ,      [, ], "https:/xxxxx"),
+    :      ("🔴", ,         [, ], "https://www.reddit.com/r/xxxxx/comments/xxxxx"),
+    :     ("💬", ,        [, ], "https://www.threads.net/@user/post/xxxxx"),
+    :       ("📺", ,          [], "https:/xxxxx"),
+    : ("🎬", ,    [], "https://www.dailymotion.com/video/xxxxx"),
+    :      ("🟣", ,         [], "https://www.twitch.tv/videos/xxxxx"),
+    :    ("💼", ,       [], "https://www.linkedin.com/posts/xxxxx"),
+    :       ("🎥", ,          [], "https:/@user/video/xxxxx"),
+    :   ("📱", ,      [], "https:/video/xxxxx"),
+    :         ("🎞️", ,            [, "moj."], "https:/@user/video/xxxxx"),
+    :    ("🌏", ,       [], "https://www.bilibili.com/video/xxxxx"),
+    :      ("📓", ,         [], "https://xxxxx.tumblr.com/post/xxxxx"),
+    :          ("🔵", "VK",             [], "https:/video-xxxxx"),
+    :        ("🟠", ,          [], "https:/video/xxxxx"),
+    :        ("⚡", ,           [], "https://www.kwai.com/@user/video/xxxxx"),
+    :      ("🟢", ,         [], "https:/vxxxxx"),
+    :  ("📼", ,     [], "https:/xxxxx"),
+    :       ("🖼️", ,          [], "https:/xxxxx"),
+    :        ("😂", ,           [], "https:/gag/xxxxx"),
+    :      ("🎭", ,         [], "https:/video/xxxxx"),
+    :     ("🎤", ,        [], "https:/@user/video/xxxxx"),
+}
+
+# pehle page par sabse zyada use hone wale 12
+DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok", , ,
+              , , , , , )
+
+
+def dl_key_of(mode: str) -> str:
+    """'dl_instagram' -> 'instagram' (warna '')."""
+    m = str(mode or "")
+    return m[3:] if m.startswith("dl_") and m[3:] in DL_SITES else ""
+
+
+def dl_name(mode: str) -> str:
+    k = dl_key_of(mode)
+    return (DL_SITES[k][1] if k else "Video Downloader")
+
+
+def dl_url_matches(mode: str, url: str) -> bool:
+    """Ye link is app ka hai? (kabhi crash nahi)"""
+    k = dl_key_of(mode)
+    if not k:
+        return True
+    try:
+        u = str(url or "").lower()
+        return any(d in u for d in DL_SITES[k][2])
+    except Exception:                                            # noqa: BLE001
+        return True
+
+
+def dl_prompt_data(mode: str) -> dict:
+    """Us app ke liye prompt (head/ask/ex) — bot ke normal format me."""
+    k = dl_key_of(mode)
+    icon, name, _doms, eg = DL_SITES[k]
+    return {
+        "head": f"{icon} {name.upper()} VIDEO DOWNLOADER",
+        "ask": f"{name} ka video / reel / shorts ka link bhejein:",
+        "ex": [(eg, f"{name} ka video — HD, bina watermark"),
+               ("Pura link copy karke bhejein, chhota link (share) bhi chalega",
+                "share button se copy kiya hua link bhi theek hai")],
+    }
+
+
+def dl_menu_kb(page: int = 0):
+    """Saare 27 downloader tools ka menu — 2 per row."""
+    keys = list(DL_SITES.keys())
+    if page <= 0:
+        keys = [k for k in DL_POPULAR if k in DL_SITES]
+        tail = [[InlineKeyboardButton(f"➕ Aur {len(DL_SITES) - len(keys)} apps dekhein",
+                                      callback_data="dlvpage:1")]]
+    else:
+        keys = [k for k in DL_SITES if k not in DL_POPULAR]
+        tail = [[InlineKeyboardButton("⬅️ Popular apps", callback_data="dlvpage:0")]]
+    rows, pair = [], []
+    for k in keys:
+        icon, name, _d, _e = DL_SITES[k]
+        pair.append(InlineKeyboardButton(f"{icon} {name}", callback_data=f"dlv:{k}"))
+        if len(pair) == 2:
+            rows.append(pair); pair = []
+    if pair:
+        rows.append(pair)
+    rows.extend(tail)
+    rows.append([InlineKeyboardButton("🌐 Sabhi ek saath (purana tool)", callback_data="dlv:any"),
+                 InlineKeyboardButton("🏠 Home", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+DL_MENU_TEXT = (
+    "📥 <b>VIDEO DOWNLOADER — 27 ALAG TOOLS</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Har app ka <b>apna alag tool</b> hai. Jis app ka video chahiye,\n"
+    "usi ko dabayein — bharosa rahega ki link chalega.\n\n"
+    "✅ <b>HD quality</b> · bina watermark · no ad\n"
+    "✅ YouTube par <b>quality chunne</b> ki suvidha (360p–1080p)\n"
+    "✅ Audio bhi alag se (MP3)\n\n"
+    "👇 <b>Apna app chuno:</b>"
+)
+
+
+# ======================================================================
+#  v64: 📥 VIDEO DOWNLOADER — 27 ALAG-ALAG TOOLS (ek-ek app ka apna tool)
+# ======================================================================
+#  Boss ka order: "video downloader me jitni services hain, sabko alag-alag
+#  tool bana do."
+
 PROMPT_DATA = {
     # ---------------------------------------------------------- DOWNLOADERS
     "terabox": {
@@ -1395,6 +1534,10 @@ def _render_tool_prompt(key: str) -> str:
 
 
 # backward-compat: purana naam `PROMPTS` wahi rehta hai (tests/tutorial isko use karte hain)
+# v64: 27 downloader tools ke prompts apne aap ban jate hain (dictionary se)
+for _dlk in DL_SITES:
+    PROMPT_DATA.setdefault("dl_" + _dlk, dl_prompt_data("dl_" + _dlk))
+
 PROMPTS = {k: _render_tool_prompt(k) for k in PROMPT_DATA}
 
 TUTORIAL_TEXT = (
@@ -4524,6 +4667,50 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ============ AUTO FORWARD — WIZARD / GUIDE / TEST / STATUS ============
     # ---------- v60.4: 💼 BUSINESS STUDIO buttons ----------
+    # ---------- v64: 📥 VIDEO DOWNLOADER ke 27 tools ----------
+    if data == "dlmenu":
+        context.user_data.pop("mode", None)
+        await safe_answer_cb(q, "Apna app chuno 👇")
+        try:
+            await safe_edit(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(0),
+                            parse_mode=HTML)
+        except Exception:                                        # noqa: BLE001
+            await safe_reply(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(0),
+                             parse_mode=HTML)
+        return
+    if data.startswith("dlvpage:"):
+        _pg = 1 if str(data).endswith("1") else 0
+        await safe_answer_cb(q, "Aur apps 👇")
+        try:
+            await safe_edit(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(_pg),
+                            parse_mode=HTML)
+        except Exception:                                        # noqa: BLE001
+            await safe_reply(q.message, DL_MENU_TEXT, reply_markup=dl_menu_kb(_pg),
+                             parse_mode=HTML)
+        return
+    if data.startswith("dlv:"):
+        _dk = str(data).split(":", 1)[1]
+        if _dk != "any" and _dk not in DL_SITES:
+            await safe_answer_cb(q, "Ye app nahi mila", show_alert=True)
+            return
+        _dmode = ("insta_dl" if _dk == "any" else "dl_" + _dk)
+        context.user_data["mode"] = _dmode
+        context.user_data.pop("biz_step", None)
+        context.user_data.pop("biz_ans", None)
+        await safe_answer_cb(q, "Link bhejein 👇")
+        _head = ("🌐 <b>SABHI APPS KA DOWNLOADER</b>" if _dk == "any"
+                 else f"{DL_SITES[_dk][0]} <b>{hesc(DL_SITES[_dk][1])} DOWNLOADER</b>")
+        _body = (f"{_head}\n"
+                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                 f"✨ Is app ka video / reel / shorts ka <b>link bhejein</b>:\n\n"
+                 f"💡 <b>Example:</b> <code>{(DL_SITES[_dk][3] if _dk != 'any' else 'https://www.instagram.com/reel/xxxxx')}</code>\n\n"
+                 f"✅ HD · bina watermark · no ad")
+        await safe_reply(q.message, _body, parse_mode=HTML,
+                         reply_markup=InlineKeyboardMarkup([[
+                             InlineKeyboardButton("⬅️ Saare apps", callback_data="dlmenu"),
+                             InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
+        return
+
     if data == "bizstudio":
         context.user_data["mode"] = "biz_menu"
         await safe_edit(q.message, BIZ_MENU_TEXT, reply_markup=biz_menu_kb(), parse_mode=HTML)
@@ -5674,6 +5861,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=kb, parse_mode=HTML)
             return
 
+        if action == "dlmenu":            # v64: 27 downloader tools ka picker
+            context.user_data.pop("mode", None)
+            await update.message.reply_text(DL_MENU_TEXT, reply_markup=dl_menu_kb(0),
+                                            parse_mode=HTML)
+            return
+
         if action == "alltools":          # v61: saare tools ki list (FREE)
             await update.message.reply_text(all_tools_text(),
                                             reply_markup=free_mode_kb() if ALL_FREE else None,
@@ -6166,6 +6359,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # UNIVERSAL VIDEO DOWNLOADER (Instagram + YouTube + Facebook + X + TikTok + 20 platforms)
+    # v64: 27 alag downloader tools — sab isi engine par chalte hain,
+    # bas platform ka naam/check alag. Purana "insta_dl" bhi waise hi chalta hai.
+    _dl_mode_orig = str(mode or "")
+    _dl_here = dl_key_of(_dl_mode_orig)
+    if _dl_here:
+        mode = "insta_dl"
     if mode == "insta_dl":
         if not is_supported_video_url(raw_text):
             await update.message.reply_text(
@@ -6177,6 +6376,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         plat = platform_name(raw_text)
+        # v64: agar user sahi tool me nahi hai to use batao (par kaam ho jaye)
+        if _dl_here and not dl_url_matches(_dl_mode_orig, raw_text):
+            try:
+                await update.message.reply_text(
+                    f"ℹ️ Ye link <b>{hesc(plat)}</b> ka hai — aap "
+                    f"<b>{hesc(DL_SITES[_dl_here][1])}</b> ke tool me hain.\n"
+                    f"Koi baat nahi, main phir bhi download kar deta hoon 👇\n"
+                    f"<i>(Agli baar sahi app ka tool chuno — upar menu me "
+                    f"'📥 VIDEO DOWNLOAD (27 APPS)' hai.)</i>",
+                    parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                pass
         _u = get_user(uid, update.effective_user.first_name)
         if not can_use_premium_tool(_u, uid):
             await update.message.reply_text(get_credits_over_text("insta_dl"),
