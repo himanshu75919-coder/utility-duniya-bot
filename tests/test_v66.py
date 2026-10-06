@@ -175,9 +175,20 @@ check("saare 27 tools MAIN KEYBOARD me hain",
 check("27-app ka purana PICKER button keyboard me nahi hai",
       not any("27 APPS" in bot.unbold(b).upper() for b in _flat))
 import re as _re                                                     # noqa: E402
-check("plain VIDEO DOWNLOADER (koi bhi link) button hai",
-      any(_re.sub(r"^[^\w\s]+\s*", "", bot.unbold(b)).strip().upper()
-          == "VIDEO DOWNLOADER" for b in _flat))
+check("'VIDEO DOWNLOADER' tool POORI TARAH delete (keyboard me nahi)",
+      not any(_re.sub(r"^[^\w\s]+\s*", "", bot.unbold(b)).strip().upper()
+              == "VIDEO DOWNLOADER" for b in _flat))
+check("koi bhi label seedha insta_dl (purana tool) par nahi jata",
+      "insta_dl" not in set(bot.BTN_MODE_MAP.values()))
+check("purane labels par saaf message milta hai (dl_gone)",
+      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "dl_gone"
+      and bot.BTN_MODE_MAP.get("VIDEO DOWNLOAD (27 APPS)") == "dl_gone")
+check("'sabhi apps ek saath' button bhi hata diya",
+      "dlv:any" not in BOT_SRC)
+check("ALL TOOLS list me purana 'Video Downloader' tool nahi",
+      "📥 Video Downloader" not in bot.all_tools_text())
+check("ALL TOOLS list me 27 alag tools hain",
+      len([ln for ln in bot.dl_tools_text().splitlines() if "Downloader" in ln]) == 27)
 check("picker khulne ka koi rasta nahi (BTN_MODE_MAP me dlmenu nahi)",
       "dlmenu" not in set(bot.BTN_MODE_MAP.values()))
 check("har tool apne dl_<app> mode par jata hai (direct)",
@@ -192,7 +203,8 @@ check("video downloader ke andar ab koi service list nahi",
 check("har service ka premium + credit entry zinda",
       all(bot.is_premium_tool("dl_" + k) for k in bot.DL_SITES))
 check("ALL TOOLS list me 27 downloader tools hain",
-      bot.dl_tools_text().count("Video Downloader") == 27)
+      len([ln for ln in bot.dl_tools_text().splitlines()
+           if "Downloader" in ln]) == 27)
 check("purana insta_dl (any link) zinda", "insta_dl" in bot.PREMIUM_TOOLS)
 
 # =====================================================================

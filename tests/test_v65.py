@@ -155,11 +155,12 @@ check("har service ka apna mode hai (dl_<app>)",
       all(f"dl_{k}" in bot.PROMPT_DATA for k in bot.DL_SITES))
 _dt = bot.dl_tools_text()
 check("tools list me saare 27 downloader services hain",
-      _dt.count("Video Downloader") == 27, str(_dt.count("Video Downloader")))
+      len([ln for ln in _dt.splitlines() if "Downloader" in ln]) == 27,
+      str(len([ln for ln in _dt.splitlines() if "Downloader" in ln])))
 check("list me official emojis dikhte hain",
       all(e in _dt for e in ("📸", "▶️", "📘", "🎵", "🐦", "👻")))
 check("ALL TOOLS list me downloader section juda hai",
-      "VIDEO DOWNLOADER — 27 ALAG TOOLS" in bot.all_tools_text())
+      "27 VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)" in bot.all_tools_text())
 check("ALL TOOLS list Telegram limit me fit hai",
       len(bot.all_tools_text()) < 4096, str(len(bot.all_tools_text())))
 check("menu text me '27 alag tools' likha hai", "27" in bot.DL_MENU_TEXT)
@@ -222,8 +223,9 @@ check("get_updates ka apna pool set hai", "get_updates_connection_pool_size(16)"
 section("[E] 🔁 PURANA SAFE + VERSION")
 # =====================================================================
 check("purana insta_dl zinda", "insta_dl" in bot.PREMIUM_TOOLS)
-check("purane labels kaam karte hain",
-      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "insta_dl")
+check("purane labels kaam karte hain (remove-message ya sahi tool)",
+      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "dl_gone"
+      and bot.BTN_MODE_MAP.get("INSTA DOWNLOADER") == "dl_instagram")
 check("11 business tools zinda", len(bot.BIZ_MENU) >= 12, str(len(bot.BIZ_MENU)))
 check("wizard zinda", len(bot.BIZ_STEPS) == 12)
 check("keyboard rows barhe (27 naye tools jude)", len(bot.KB_BTNS) >= 14,

@@ -409,7 +409,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v66.0 FREE4ALL — 27 alag downloader tools (official emoji) + crash fix + 45s speed + cookies"
+BOT_VERSION = "v66.1 FREE4ALL — 27 VIDEO DOWNLOADER TOOLS (sab alag) + VIDEO DOWNLOADER tool deleted + crash fix + 45s speed"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -484,7 +484,7 @@ def to_bold(text: str) -> str:
 #  • VIP / Owner / Admin = unlimited (credits nahi lagte)
 # ============================================================
 PREMIUM_TOOLS = {
-    "insta_dl",            # 📥 VIDEO DOWNLOADER
+    "insta_dl",            # 📥 downloader ENGINE (27 alag tools isi par chalte hain)
     "numinfo",             # 📱 NUMBER INFO
     "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
     # ---- v38 MARU-TOAD PACK (chhupe tools) ----
@@ -709,16 +709,12 @@ def free_mode_kb() -> InlineKeyboardMarkup:
 
 
 def dl_tools_text() -> str:
-    """v65: 27 downloader services ki alag-alag list (official emoji ke saath)."""
-    _rows = []
-    for k, (icon, name, _dom, _eg) in DL_SITES.items():
-        _n = "📥 " + name + " Video Downloader"
-        if k in DL_POPULAR:
-            _rows.append(f"   {icon} {hesc(_n)}")
-        else:
-            _rows.append(f"   {icon} {hesc(_n)}")
-    return ("<b>📥 VIDEO DOWNLOADER — 27 ALAG TOOLS</b>\n"
-            "(har app ka apna tool + apna official emoji)\n"
+    """v66.1: 27 ALAG-ALAG tools ki list — har app ka apna tool (koi
+    "sab apps wala" video downloader tool nahi hai)."""
+    _rows = [f"   {icon} {hesc(name)} Downloader"
+             for _k, (icon, name, _dom, _eg) in DL_SITES.items()]
+    return ("<b>📥 27 VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)</b>\n"
+            "(har app ka apna tool — jaise NUMBER INFO / IMEI alag hain)\n"
             + "\n".join(_rows))
 
 
@@ -727,8 +723,11 @@ def all_tools_text() -> str:
     _biz = "\n".join(
         f"   {k}. {v[0]} {hesc(v[1])} — {hesc(v[2])}"
         for k, v in enumerate(BIZ_MENU.values(), 1) if v and len(v) >= 3)
+    # v66.1: purana "📥 Video Downloader" (ek tool me sab apps) HATA diya —
+    #        uski jagah upar 27 alag tools ki list aa gayi hai.
     _pv = "\n".join(
-        f"   • {hesc(x)}" for x in sorted(set(PREMIUM_TOOL_NAMES.values())))
+        f"   • {hesc(x)}" for x in sorted(
+            {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}))
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
@@ -1028,7 +1027,9 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
-    [f"🔄 {to_bold('CHANNEL CLONER')}", f"📥 {to_bold('VIDEO DOWNLOADER')}"],
+    # v66.1: ❌ "VIDEO DOWNLOADER" tool POORI TARAH HATA DIYA (user ka order).
+    #         Ab sirf 27 alag-alag tools hain (INSTA DL, YOUTUBE DL, ...).
+    [f"🔄 {to_bold('CHANNEL CLONER')}"],
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
@@ -1072,19 +1073,22 @@ BTN_MODE_MAP = {
     "VIRTUAL NUMBERS": "vnum",
     "TERABOX DOWNLOADER": "terabox",
     "CHANNEL CLONER": "cloner",
-    # v66: 🎯 PICKER HATA DIYA — ab har service APNA ALAG TOOL hai.
-    # Ye saare purane labels ab seedhe "koi bhi link" wale downloader par
-    # le jaate hain (koi submenu nahi, koi 27-app list nahi).
-    "VIDEO DOWNLOAD (27 APPS)": "insta_dl",
-    "VIDEO DOWNLOAD (34 APPS)": "insta_dl",
-    "VIDEO DOWNLOADER (34 APPS)": "insta_dl",
-    "VIDEO DOWNLOAD": "insta_dl",
-    "DOWNLOADER": "insta_dl",
-    "VIDEO DOWNLOADER": "insta_dl",
-    "VIDEO DOWNLOADER (KOI BHI LINK)": "insta_dl",
-    "ANY VIDEO LINK": "insta_dl",
-    "UNIVERSAL VIDEO DOWNLOADER": "insta_dl",
-    "VIRAL VIDEO DOWNLOAD": "insta_dl",
+    # v66.1: ❌ "VIDEO DOWNLOADER" (ek hi tool me sab apps) POORI TARAH HATA
+    #        DIYA. Purane keyboard wale ye label dabayein to saaf message
+    #        milega: "ab har app ka apna alag tool hai" + 27 tools ki list.
+    "VIDEO DOWNLOAD (27 APPS)": "dl_gone",
+    "VIDEO DOWNLOAD (34 APPS)": "dl_gone",
+    "VIDEO DOWNLOADER (34 APPS)": "dl_gone",
+    "VIDEO DOWNLOAD": "dl_gone",
+    "DOWNLOADER": "dl_gone",
+    "VIDEO DOWNLOADER": "dl_gone",
+    "VIDEO DOWNLOADER (KOI BHI LINK)": "dl_gone",
+    "ANY VIDEO LINK": "dl_gone",
+    "UNIVERSAL VIDEO DOWNLOADER": "dl_gone",
+    "VIRAL VIDEO DOWNLOAD": "dl_gone",
+    # purane Instagram labels -> seedha INSTA tool (service apni jagah zinda)
+    "INSTA DOWNLOADER": "dl_instagram",
+    "INSTAGRAM DOWNLOADER": "dl_instagram",
     "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
     "8-IN-1 PRINT SHEET": "print_sheet",
     "DOCUMENT PDF COMPRESS": "doc_compress",
@@ -1315,8 +1319,9 @@ def dl_menu_kb(page: int = 0):
     if pair:
         rows.append(pair)
     rows.extend(tail)
-    rows.append([InlineKeyboardButton("🌐 Sabhi ek saath (purana tool)", callback_data="dlv:any"),
-                 InlineKeyboardButton("🏠 Home", callback_data="back_home")])
+    # v66.1: ❌ "Sabhi ek saath (purana tool)" button bhi HATA diya —
+    #         ek tool me saare apps wala system ab bot me kahin nahi hai.
+    rows.append([InlineKeyboardButton("🏠 Home", callback_data="back_home")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -1614,8 +1619,9 @@ TUTORIAL_TEXT = (
     f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
     "📥 <b>Download:</b>\n"
-    "• 📥 VIDEO DOWNLOADER → Insta/YT/FB/X ka link bhejo → video mil jayega\n"
-    "   (YouTube par <b>quality chuno</b>: 1080p/720p/480p/360p — jo chaho wahi milegi)\n"
+    "• 📥 <b>VIDEO DOWNLOAD = 27 ALAG TOOLS</b> (Insta, YouTube, Facebook, TikTok…)\n"
+    "   Keyboard par neeche 📸 INSTA DL · ▶️ YOUTUBE DL … wale buttons hain —\n"
+    "   apna app chuno aur uska link bhejo (YouTube par quality bhi chun sakte ho)\n"
     "• ⚡ TERABOX / CLOUD → Terabox/Drive/MediaFire link bhejo → direct link mil jayega\n"
     "• 🔄 CHANNEL CLONER → Source + Target set karo, FULL AUTO ON karo, posts khud copy honge\n"
     "\n"
@@ -4995,10 +5001,20 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     if data.startswith("dlv:"):
         _dk = str(data).split(":", 1)[1]
-        if _dk != "any" and _dk not in DL_SITES:
+        if _dk == "any":                 # v66.1: purana "sabhi apps" tool gaya
+            context.user_data.pop("mode", None)
+            await safe_answer_cb(q, "Ye purana tool hata diya gaya", show_alert=True)
+            await safe_reply(q.message,
+                             "❌ <b>\"VIDEO DOWNLOADER\" (sabhi apps wala) tool "
+                             "hata diya gaya hai</b>\n\n"
+                             "Ab <b>har app ka apna alag tool</b> hai 👇\n"
+                             + dl_tools_text(),
+                             parse_mode=HTML)
+            return
+        if _dk not in DL_SITES:
             await safe_answer_cb(q, "Ye app nahi mila", show_alert=True)
             return
-        _dmode = ("insta_dl" if _dk == "any" else "dl_" + _dk)
+        _dmode = "dl_" + _dk
         context.user_data["mode"] = _dmode
         context.user_data.pop("biz_step", None)
         context.user_data.pop("biz_ans", None)
@@ -6175,10 +6191,30 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=kb, parse_mode=HTML)
             return
 
-        if action == "dlmenu":            # v64: 27 downloader tools ka picker
+        if action == "dl_gone":            # v66.1: purane "VIDEO DOWNLOADER" label
             context.user_data.pop("mode", None)
-            await update.message.reply_text(DL_MENU_TEXT, reply_markup=dl_menu_kb(0),
-                                            parse_mode=HTML)
+            await update.message.reply_text(
+                "❌ <b>\"VIDEO DOWNLOADER\" tool HATA diya gaya hai</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "Ab <b>har app ka apna ALAG tool</b> hai — jaise NUMBER INFO, "
+                "IMEI, CHANNEL CLONER alag-alag hain:\n\n"
+                + dl_tools_text()
+                + "\n\n👉 Keyboard par <b>neeche</b> wo 27 buttons dikhte hain — "
+                "apna app dabao aur link bhejo.\n"
+                "✅ HD video, bina watermark, 15 second ke andar.",
+                reply_markup=main_keyboard(is_admin(update.effective_user.id)),
+                parse_mode=HTML)
+            return
+
+        if action == "dlmenu":            # purane keyboard ka picker button
+            context.user_data.pop("mode", None)
+            await update.message.reply_text(
+                "🎯 <b>Ab har app ka apna ALAG tool hai</b>\n"
+                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                + dl_tools_text()
+                + "\n\n👉 Keyboard par <b>neeche</b> wale buttons dabao — "
+                "📸 INSTA DL, ▶️ YOUTUBE DL, 📘 FACEBOOK DL …",
+                parse_mode=HTML)
             return
 
         if action == "alltools":          # v61: saare tools ki list (FREE)
@@ -6697,8 +6733,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"ℹ️ Ye link <b>{hesc(plat)}</b> ka hai — aap "
                     f"<b>{hesc(DL_SITES[_dl_here][1])}</b> ke tool me hain.\n"
                     f"Koi baat nahi, main phir bhi download kar deta hoon 👇\n"
-                    f"<i>(Agli baar sahi app ka tool chuno — upar menu me "
-                    f"'📥 VIDEO DOWNLOAD (27 APPS)' hai.)</i>",
+                    f"<i>(Agli baar sahi app ka tool chuno — keyboard par "
+                    f"neeche 📸 INSTA DL … ▶️ YOUTUBE DL wale 27 buttons hain.)</i>",
                     parse_mode=HTML)
             except Exception:                                    # noqa: BLE001
                 pass

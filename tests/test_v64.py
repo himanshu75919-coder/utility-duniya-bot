@@ -92,11 +92,13 @@ section("[B] 🔁 PURANA TOOL SAFE — kuch toota nahi")
 check("keyboard me 27-app ka picker button HATA diya",
       not any("VIDEO DOWNLOAD (27 APPS)" in bot.unbold(b).upper()
               for r in bot.KB_BTNS for b in r))
-check("keyboard me plain VIDEO DOWNLOADER button hai",
-      any("VIDEO DOWNLOADER" in bot.unbold(b).upper() and "27" not in bot.unbold(b)
-          for r in bot.KB_BTNS for b in r))
-check("purana 'VIDEO DOWNLOADER' label ab seedhe downloader par jata hai",
-      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "insta_dl")
+check("keyboard se 'VIDEO DOWNLOADER' tool POORI TARAH hata diya",
+      not any("VIDEO DOWNLOADER" in bot.unbold(b).upper()
+              for r in bot.KB_BTNS for b in r))
+check("purana 'VIDEO DOWNLOADER' label ab hatane ka message deta hai",
+      bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "dl_gone")
+check("purana 'INSTA DOWNLOADER' label INSTA tool par jata hai",
+      bot.BTN_MODE_MAP.get("INSTA DOWNLOADER") == "dl_instagram")
 check("purane sabhi downloader labels zinda hain (koi user atke na)",
       all(bot.BTN_MODE_MAP.get(x) for x in
           ("VIDEO DOWNLOAD", "DOWNLOADER", "VIDEO DOWNLOAD (34 APPS)",
@@ -148,25 +150,23 @@ _kb1 = bot.dl_menu_kb(0).inline_keyboard
 _kb2 = bot.dl_menu_kb(1).inline_keyboard
 _btns1 = [b for r in _kb1 for b in r]
 _btns2 = [b for r in _kb2 for b in r]
-# "dlv:any" = purana universal tool — usse alag ginte hain
+# v66.1: "sabhi apps ek saath" (dlv:any) tool POORI TARAH DELETE
 check("page 1 me 12 popular apps",
-      len([b for b in _btns1
-           if b.callback_data.startswith("dlv:") and b.callback_data != "dlv:any"]) == 12)
+      len([b for b in _btns1 if b.callback_data.startswith("dlv:")]) == 12)
 check("page 1 me 'aur apps' button hai",
       any(b.callback_data == "dlvpage:1" for b in _btns1))
 check("page 2 me baaki apps hain",
-      len([b for b in _btns2
-           if b.callback_data.startswith("dlv:") and b.callback_data != "dlv:any"]) >= 14)
+      len([b for b in _btns2 if b.callback_data.startswith("dlv:")]) >= 14)
 check("page 2 me 'popular' wapas button hai",
       any(b.callback_data == "dlvpage:0" for b in _btns2))
-check("'sabhi ek saath' (purana) button bhi hai",
-      any(b.callback_data == "dlv:any" for b in _btns1))
+check("'sabhi ek saath' (purana tool) button HATA diya",
+      not any(b.callback_data == "dlv:any" for b in _btns1 + _btns2))
 check("Home button hai", any(b.callback_data == "back_home" for b in _btns1))
 check("menu text me 27 likha hai", "27" in bot.DL_MENU_TEXT)
 check("menu text me 'alag tool' likha hai", "alag" in bot.DL_MENU_TEXT.lower())
 _all_cb = [b.callback_data for b in _btns1 + _btns2 if b.callback_data.startswith("dlv:")]
 check("har app ka apna callback hai (27 total)",
-      len([c for c in _all_cb if c != "dlv:any"]) == 27, str(len(_all_cb)))
+      len(_all_cb) == 27, str(len(_all_cb)))
 
 # =====================================================================
 section("[E] 🆓 FREE MODE — sabke liye khula")
