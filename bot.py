@@ -34,6 +34,40 @@ try:
 except Exception:
     pass
 
+# v60: SAFE CONFIG LAYER — peeche `int(os.getenv("ADMIN_ID", "0") or 0)` tha.
+# Render ke Environment tab me galti se aisi value aa jaye:
+#     ADMIN_ID = 12345   # mera id      <- int() CRASH -> bot start hi nahi hota
+#     FREE_CREDITS = 25 credits          <- CRASH
+# ...to "Application failed to start" aata tha aur samajh hi nahi aata ki kyun.
+# Ab `env_int` kachra value ko ignore karke default le leta hai + warn karta hai.
+from modules.core.safeconf import (
+    env_bool as _env_bool,
+    env_float as _env_float,
+    env_int as _env_int,
+    env_str as _env_str,
+)
+from modules.core.guard import (
+    crash_state as guard_crash_state,
+    guarded,
+    install_global_guard,
+    register_gc_trigger,
+    start_hang_watchdog,
+    start_memory_watchdog,
+)
+from modules.core.safesend import (
+    safe_answer_cb,
+    safe_delete,
+    safe_edit,
+    safe_reply,
+    safe_send_document,
+    safe_send_photo,
+    safe_send_text,
+    safe_send_video,
+    trim_callback_data,
+)
+from modules.core.vault import db_path as vault_db_path, vault
+
+
 from telegram import (
     BotCommand,
     InlineKeyboardButton,
@@ -58,6 +92,7 @@ from telegram.ext import (
 # Internal modules
 from database import (
     CREDITS_START,
+    parse_dt,
     add_credits,
     credits_stats,
     get_credits,
@@ -86,6 +121,11 @@ from database import (
     get_user,
     get_user_row,
     grant_premium,
+    # v60: premium ledger — premium ka PERMANENT record (kabhi na khoye)
+    ledger_for,
+    ledger_all,
+    premium_ledger_stats,
+    restore_premium_from_ledger,
     is_banned,
     is_premium,
     premium_expiry,
@@ -236,8 +276,23 @@ from modules.core.html_safe import cut_html, strip_html
 
 # Info-tools ka shared cache (IFSC / pincode / IP / area) — same sawaal par
 # API call dobara nahi hoti. 30 min TTL: ye data din bhar change nahi hota.
-INFO_CACHE = TTLCache(maxsize=int(os.getenv("INFO_CACHE_SIZE", "4096")),
-                      default_ttl=int(os.getenv("INFO_CACHE_TTL", "1800")))
+INFO_CACHE = TTLCache(maxsize=_env_int("INFO_CACHE_SIZE", 4096, lo=64, hi=200000),
+                      default_ttl=_env_int("INFO_CACHE_TTL", 1800, lo=30, hi=86400))
+# v60: memory watchdog in caches ko safai ke waqt khali kar sakta hai (Render
+# free plan par 512 MB se aage jaate hi "Killed" ho jata tha).
+def _clear_caches_mem() -> None:
+    try:
+        INFO_CACHE.clear()
+    except Exception:
+        pass
+    for _c in ("APP_CACHE", "GAME_CACHE", "IMEI_CACHE", "MEDIA_QCACHE", "_HUB_MEM"):
+        _o = globals().get(_c)
+        if _o is not None and hasattr(_o, "clear"):
+            try:
+                _o.clear()
+            except Exception:
+                pass
+register_gc_trigger(_clear_caches_mem)
 
 # ---------------------------------------------------------------------------
 # v50: PER-TOOL RATE LIMITS
@@ -277,11 +332,12 @@ TOOL_RATE_LIMITS = {
 }
 
 # ---------------- CONFIG ----------------
-BOT_TOKEN = os.getenv("BOT_TOKEN", "").strip()
-ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
+BOT_TOKEN = _env_str("BOT_TOKEN", "").strip()
+ADMIN_ID = _env_int("ADMIN_ID", 0)
 
 # v33: ek se zyada admin (ADMINS=123,456) — owner + helper admins kaam kar sakte hain
-_ADMIN_EXTRA = [int(x) for x in re.split(r"[,\s]+", os.getenv("ADMINS", "")) if x.strip().isdigit()]
+_ADMIN_EXTRA = [_env_int(x, 0) for x in re.split(r"[,\s]+", os.getenv("ADMINS", "") or "") if str(x).strip()]
+_ADMIN_EXTRA = [x for x in _ADMIN_EXTRA if x > 0]
 ADMIN_IDS = {x for x in {ADMIN_ID, *_ADMIN_EXTRA} if x}
 OWNER_ID = ADMIN_ID
 
@@ -296,7 +352,7 @@ UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
 # Render ka webhook default overlapping polling instances se Telegram Conflict rokta hai.
 WEBHOOK_URL = webhook_url_from_env()
 # purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
-FREE_LIMIT = int(os.getenv("FREE_LIMIT", "10") or 10)
+FREE_LIMIT = _env_int("FREE_LIMIT", 10, lo=1, hi=100000)
 # v59.7: @username ko CLICKABLE banaya — koi bhi tap kare to seedha owner se
 # chat khul jaati hai (uske baad "Start" dabate hi message bhej sakta hai).
 # Username Render env se badla ja sakta hai (OWNER_USERNAME) — code chhune ki zaroorat nahi.
@@ -311,16 +367,55 @@ SUPPORT_LINK = f'<a href="{SUPPORT_URL}">@{OWNER_USERNAME}</a>'
 BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or SUPPORT_USERNAME)
 # clickable version (HTML messages ke liye) — tap karo → owner se chat khul jaaye
 BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
-REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
+REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v59.11 Conflict Killer (auto-webhook switch) + Live Proof + Support"
+BOT_VERSION = "v60.0 FORTRESS — Premium Vault + Crash Shield + Never-Lose-Data"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("utility-super-bot")
+
+
+# =====================================================================
+#  v60 — 🛡️ EVERY PREMIUM GRANT = INSTANT BACKUP
+# ---------------------------------------------------------------------
+# Sabse bada darr ye tha ki "premium user delete na ho". Isko pakka karne ke
+# liye hum `grant_premium` ko wrap kar dete hain: jaise hi kisi ko VIP milta
+# hai (payment approve, admin grant, referral VIP — kuch bhi), uske 1-2 second
+# ke andar encrypted backup uth jata hai.
+#
+# Matlab: agar aaj raat 11 baje kisi ne VIP liya aur 11:05 par Render ne
+# service restart kar di — to bot dobara uthte hi us VIP ko WAPAS le aayega.
+# Zero loss window.
+# =====================================================================
+_grant_premium_raw = grant_premium
+
+
+def _grant_premium_autosave(uid: int, days: int):
+    """grant_premium ka safe wrapper + turant vault backup."""
+    out = _grant_premium_raw(uid, days)
+    try:
+        loop = None
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        if loop is not None and loop.is_running():
+            loop.create_task(vault.backup_soon(reason=f"grant:{uid}"))
+        else:
+            # alag thread se (sync context me bhi kaam kare)
+            threading.Thread(target=lambda: asyncio.run(
+                vault.backup_soon(reason=f"grant:{uid}")), daemon=True).start()
+    except Exception as _e:                                      # noqa: BLE001
+        log.debug("grant autosave skip: %s", str(_e)[:90])
+    return out
+
+
+grant_premium = _grant_premium_autosave      # poore bot me yahi use hoga
+log.info("🛡️ Premium auto-backup wrapper ON — har VIP grant par backup uthega")
 
 
 # ---------------- AESTHETIC BOLD UNICODE HELPER ----------------
@@ -458,7 +553,7 @@ def get_credits_over_text(action: str = "") -> str:
 # ======================================================================
 # Aapki marzi: "ab se sirf premium users hi use kar sakte hain."
 # PREMIUM_ONLY=off karte hi purana system wapas (free tools + credits).
-PREMIUM_ONLY = str(os.getenv("PREMIUM_ONLY", "on")).strip().lower() in ("on", "1", "yes", "true", "haan", "chalu")
+PREMIUM_ONLY = _env_bool("PREMIUM_ONLY", True)   # v60: safe bool ("on"/"haan"/"chalu" sab chalega)
 
 VIP_WALL_TEXT = (
     "👑 <b>YE TOOL SIRF VIP MEMBERS KE LIYE HAI</b>\n"
@@ -2130,6 +2225,229 @@ async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+# ======================================================================
+#  v60 — 🛡️ PREMIUM VAULT COMMANDS (admin/owner)
+#  Ye wahi 4 command hain jo aapko bharosa dilayenge ki premium safe hai.
+# ======================================================================
+async def cmd_vault(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/vault — premium vault ki poori health report."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        # normal user ko bas itna — andar ki baat nahi
+        await safe_reply(update.effective_message,
+                         "🛡️ Aapka data 24x7 safe rakha jata hai.\n"
+                         "Koi bhi cheez share karne ki zaroorat nahi hai.", parse_mode=HTML)
+        return
+    try:
+        card = vault.status_card()
+    except Exception as e:                                       # noqa: BLE001
+        card = f"⚠️ Vault report banane me dikkat: {safe_html_err(str(e)[:120])}"
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📦 Abhi backup banao", callback_data="vault_backup")],
+        [InlineKeyboardButton("♻️ Backup se restore karo", callback_data="vault_restore")],
+        [InlineKeyboardButton("👑 VIP users list (file)", callback_data="vault_vips")],
+        [InlineKeyboardButton("🏠 Home", callback_data="back_home")],
+    ])
+    await safe_reply(update.effective_message, card, reply_markup=kb, parse_mode=HTML)
+
+
+async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/backup — turant backup (admin)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    msg = await safe_reply(update.effective_message,
+                           "📦 <b>Backup ban raha hai…</b>\n<i>10-30 second lag sakte hain.</i>",
+                           parse_mode=HTML)
+    try:
+        res = await vault.backup_now(reason=f"manual:{uid}", also_telegram=False)
+    except Exception as e:                                       # noqa: BLE001
+        res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
+    ok = res.get("ok")
+    txt = (f"{'✅' if ok else '⚠️'} <b>BACKUP {'OK' if ok else 'NAHI HUA'}</b>\n"
+           "━━━━━━━━━━━━━━━━━━━━━━\n"
+           f"📦 Size: {res.get('bytes', 0)/1024:.1f} KB\n"
+           f"🐙 GitHub: <code>{hesc(str(res.get('github') or '-'))[:80]}</code>\n"
+           f"👑 VIP count: {res.get('premium', {}).get('total_premium', '?')}\n")
+    if not ok:
+        txt += f"\n📄 <b>Wajah:</b> {safe_html_err(str(res.get('why') or 'unknown')[:200])}"
+    if msg and getattr(msg, "msg", None):
+        try:
+            await safe_answer_cb(update.callback_query, "Backup ho gaya" if ok else "Backup fail")
+            from modules.core.safesend import safe_edit
+            await safe_edit(msg.msg, txt, parse_mode=HTML)
+            return
+        except Exception:                                        # noqa: BLE001
+            pass
+    await safe_reply(update.effective_message, txt, parse_mode=HTML)
+
+
+async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/restore — sabse accha backup merge karo (premium-floor protected)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    msg = await safe_reply(update.effective_message,
+                           "♻️ <b>Backup check kar raha hoon…</b>\n"
+                           "<i>VIP users ki ginti se pehle aur baad me milaan hoga.</i>",
+                           parse_mode=HTML)
+    try:
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(None, functools_partial(vault.restore_now, "manual"))
+    except Exception as e:                                       # noqa: BLE001
+        res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
+    ok = res.get("ok")
+    b = res.get("premium_before", {})
+    a = res.get("premium_after", {})
+    txt = [f"{'✅' if ok else '⚠️'} <b>RESTORE {'OK' if ok else 'NAHI HUA'}</b>",
+           "━━━━━━━━━━━━━━━━━━━━━━",
+           f"👑 <b>VIP pehle:</b> {b.get('total_premium', '?')}",
+           f"👑 <b>VIP ab:</b> {a.get('total_premium', '?')}"]
+    if res.get("source"):
+        txt.append(f"📥 <b>Source:</b> <code>{hesc(str(res['source'])[:70])}</code>")
+    if res.get("safety_copy"):
+        txt.append(f"🛟 <b>Safety copy:</b> <code>{hesc(str(res['safety_copy'])[:60])}</code>")
+    if res.get("blocked"):
+        txt.append(f"\n🛑 <b>{len(res['blocked'])} backup BLOCK kiya gaya</b> "
+                   "(VIP ghatt raha tha — aapka data bacha liya)")
+    if not ok and res.get("why"):
+        txt.append(f"\n📄 <b>Wajah:</b> {safe_html_err(str(res['why'])[:200])}")
+    rep = res.get("report", {}).get("users", {})
+    if rep:
+        txt.append(f"\n📊 Users: {rep.get('total', '?')} (naye {rep.get('only_remote', 0)}, "
+                   f"premium upgraded {rep.get('premium_upgraded', 0)})")
+    await safe_reply(update.effective_message, "\n".join(txt), parse_mode=HTML)
+
+
+def functools_partial(fn, *a, **kw):
+    """functools.partial ka chhota wrapper (executor me chalane ke liye)."""
+    import functools as _f
+    return _f.partial(fn, *a, **kw)
+
+
+async def cmd_vips(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/vips — saare premium users ki CSV report (file)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    try:
+        rows = vault.premium_list_rows()
+    except Exception as e:                                       # noqa: BLE001
+        await safe_reply(update.effective_message,
+                         f"⚠️ List nahi bani: {safe_html_err(str(e)[:120])}", parse_mode=HTML)
+        return
+    if not rows:
+        await safe_reply(update.effective_message,
+                         "👑 Abhi koi VIP user nahi hai.", parse_mode=HTML)
+        return
+    active = sum(1 for r in rows if not r["expired"])
+    lines = ["user_id,name,username,premium_until,status,credits,referrals,joined"]
+    for r in rows:
+        nm = str(r["name"]).replace(",", " ").replace("\n", " ")[:40]
+        un = str(r["username"]).replace(",", " ")[:30]
+        lines.append(f"{r['user_id']},{nm},{un},{r['premium_until']},"
+                     f"{'EXPIRED' if r['expired'] else 'ACTIVE'},{r['credits']},"
+                     f"{r['referrals']},{r['joined']}")
+    data = ("\ufeff" + "\n".join(lines)).encode("utf-8")
+    bio = io.BytesIO(data)
+    bio.name = f"vip_users_{datetime.now().strftime('%d%m%Y_%H%M')}.csv"
+    await safe_send_document(
+        update.effective_message.get_bot(), update.effective_chat.id, bio,
+        filename=bio.name,
+        caption=(f"👑 <b>PREMIUM USERS REPORT</b>\n"
+                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                 f"✅ Active: <b>{active}</b>\n"
+                 f"🕓 Expired (record): {len(rows) - active}\n"
+                 f"📊 Total: <b>{len(rows)}</b>\n\n"
+                 f"💡 <i>Ye file kisi bhi backup se restore karne layak hai. "
+                 f"Ise sambhal kar rakhein.</i>"),
+        parse_mode="HTML",
+        fallback_text=(f"👑 PREMIUM USERS — {active} active VIP"
+                       f" + {len(rows) - active} expired (record)\n\n"
+                       + "\n".join(f"• {r['user_id']} — {r['premium_until']}"
+                                   + (" (expired)" if r["expired"] else "")
+                                   for r in rows[:40])))
+
+
+async def cmd_fixvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/fixvip <user_id> — ledger se kisi ka premium WAPAS lagao.
+
+    Naam se hi pata chal jata hai: agar kabhi kisi ka VIP ghumm gaya ho, to
+    ye command uska poora itihaas dekhegi aur sabse zyada wala premium wapas
+    laga degi. Ye bot ki "kabhi premium na kho" wali guarantee ka manual
+    control hai.
+    """
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    args = context.args or []
+    if not args or not str(args[0]).strip().lstrip("-").isdigit():
+        await safe_reply(update.effective_message,
+                         "📘 <b>Use:</b> <code>/fixvip 123456789</code>\n"
+                         "Ledger ke record se us user ka premium wapas lag jayega.",
+                         parse_mode="HTML")
+        return
+    target = int(str(args[0]).strip())
+    try:
+        before = ""
+        row = get_user_row(target) or {}
+        before = str(row.get("premium_until") or "")
+        after = restore_premium_from_ledger(target)
+    except Exception as e:                                       # noqa: BLE001
+        await safe_reply(update.effective_message,
+                         f"⚠️ Dikkat: {safe_html_err(str(e)[:120])}", parse_mode="HTML")
+        return
+    hist = ledger_for(target, 5)
+    lines = [f"👑 <b>PREMIUM LEDGER REPAIR</b>",
+             "━━━━━━━━━━━━━━━━━━━━━━",
+             f"👤 <b>User:</b> <code>{target}</code>",
+             f"📥 <b>Pehle:</b> {hesc(premium_rank_txt(before))}",
+             f"📤 <b>Ab:</b> {hesc(premium_rank_txt(after))}"]
+    if hist:
+        lines.append("\n🧾 <b>Itihaas (aakhri 5):</b>")
+        for h in hist:
+            lines.append(f"• {hesc(str(h.get('created_at', ''))[:16])} — {hesc(str(h.get('action')))}"
+                         f" ({h.get('days')} din) → {hesc(str(h.get('new_until') or '-'))}")
+    if not after and not before:
+        lines.append("\n⚪ Is user ka koi premium record nahi mila.")
+    await safe_reply(update.effective_message, "\n".join(lines), parse_mode="HTML")
+
+
+def premium_rank_txt(v: str) -> str:
+    if not v:
+        return "Free (koi VIP nahi)"
+    try:
+        if str(v).lower() == "lifetime":
+            return "👑 LIFETIME VIP"
+        d = parse_dt(v)
+        return d.strftime("%d-%m-%Y") if d else str(v)
+    except Exception:
+        return str(v)
+
+
+async def cmd_ledger(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/ledger — premium ka poora itihaas (kaun, kab, kitne din)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    rows = ledger_all(30)
+    st = premium_ledger_stats()
+    lines = ["📒 <b>PREMIUM LEDGER (permanent record)</b>",
+             "━━━━━━━━━━━━━━━━━━━━━━",
+             f"✅ Grants: {st['grant']}  |  🚫 Revokes: {st['revoke']}  |  "
+             f"👥 Users: {st['unique_users']}", ""]
+    if not rows:
+        lines.append("Abhi koi entry nahi hai.")
+    for r in rows:
+        lines.append(f"• <code>{r['user_id']}</code> {hesc(str(r['action']))} "
+                     f"{r['days']}d → {hesc(str(r['new_until'] or '-')[:19])} "
+                     f"<i>{hesc(str(r['created_at'])[:16])}</i>")
+    lines += ["", "💡 <i>Ye record users table se alag hai — isliye premium ka "
+              "saboot kabhi nahi khota. Kisi ka VIP ghumm jaye to: "
+              "<code>/fixvip &lt;user_id&gt;</code></i>"]
+    await safe_reply(update.effective_message, "\n".join(lines), parse_mode="HTML")
+
+
 def _uptime_str() -> str:
     s = int(time.time() - _BOOT_TS)
     d, r = divmod(s, 86400)
@@ -2196,9 +2514,59 @@ def system_stats_text() -> str:
         # DEAD upstream (jaise BGMI ke stats servers) sabse upar flag hota hai,
         # aur saaf likha aata hai ki us tool par credit nahi katna chahiye.
         + _telemetry_block()
+        + _vault_admin_block()
         + "━━━━━━━━━━━━━━━━━━━━━━\n"
         "<i>Ye stats live hain — /admin dobara dabao to refresh ho jayenge.</i>"
     )
+
+
+def _vault_admin_block() -> str:
+    """v60: /sys me data-safety + crash-shield + memory ka block.
+
+    Kabhi crash nahi karta — kuch bhi fail ho to khaali string.
+    """
+    try:
+        from modules.core.guard import guard_stats
+        from modules.core.vault import premium_floor_report
+        g = guard_stats()
+        floor = premium_floor_report(vault_db_path())
+        st = vault.stats
+        lb = vault.last_backup or {}
+        lr = vault.last_restore or {}
+        lines = [
+            "🛡️ <b>PREMIUM VAULT (v60):</b>",
+            f"   👑 VIP users: <b>{floor['total_premium']}</b> "
+            f"(lifetime {floor['lifetime']} · active {floor['active']})",
+            f"   💾 DB: <code>{hesc(vault_db_path())[:60]}</code>",
+            f"   🔐 Backup: GitHub {'🟢' if vault.gh_ready() else '⚪'} · "
+            f"Telegram {'🟢' if vault.telegram_ready() else '⚪'} · "
+            f"har {vault.interval_minutes()} min",
+            f"   📦 {st.get('backups', 0)} ✅ backups · {st.get('restores', 0)} restore · "
+            f"{st.get('failures', 0)} fail",
+        ]
+        if lb.get("at"):
+            lines.append(f"   🕒 Aakhri backup: {hesc(str(lb.get('at'))[:19])}")
+        if lr.get("at"):
+            lines.append(f"   ♻️ Aakhri restore: {hesc(str(lr.get('at'))[:19])} "
+                         f"({'OK' if lr.get('ok') else 'fail'})")
+        lines += [
+            "",
+            "🛡️ <b>CRASH SHIELD (v60):</b>",
+            f"   🪖 Sambhale gaye: <b>{g.get('handled', 0)}</b> "
+            f"(handler {g.get('handler', 0)} · task {g.get('task', 0)} · "
+            f"thread {g.get('thread', 0)})",
+            f"   💥 Fatal crashes: {g.get('fatal', 0)}  |  "
+            f"🧠 RAM: {g.get('mem_mb', 0):.0f} MB (peak {g.get('mem_peak_mb', 0):.0f} MB)",
+            f"   🧹 GC runs: {g.get('gc_runs', 0)} · "
+            f"⏱️ loop lag: {g.get('heart_lag', 0)}s · beats {g.get('beats', 0)}",
+        ]
+        if g.get("last_why"):
+            lines.append(f"   🔎 Aakhri: {hesc(str(g['last_why'])[:110])}")
+        lines.append("   💡 Commands: /vault · /backup · /restore · /vips · /ledger · /fixvip")
+        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        return "\n".join(lines)
+    except Exception:                                            # noqa: BLE001
+        return ""
 
 
 def _telemetry_block(max_rows: int = 8) -> str:
@@ -2719,7 +3087,31 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data == "back_home":
-        await q.message.edit_text(WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
+        await safe_edit(q.message, WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
+        return
+
+    # ==================================================================
+    #  v60 — 🛡️ PREMIUM VAULT ke buttons (admin only)
+    # ==================================================================
+    if data in ("vault_backup", "vault_restore", "vault_vips"):
+        if not is_admin(uid):
+            await safe_answer_cb(q, "Ye sirf admin ke liye hai", show_alert=True)
+            return
+        class _Wrap:                                  # command functions ko Update chahiye
+            def __init__(self, q):
+                self.callback_query = q
+                self.effective_user = q.from_user
+                self.effective_chat = q.message.chat if q.message else None
+                self.effective_message = q.message
+        if data == "vault_backup":
+            await safe_answer_cb(q, "Backup shuru…")
+            await cmd_backup(_Wrap(q), context)
+        elif data == "vault_restore":
+            await safe_answer_cb(q, "Restore shuru…")
+            await cmd_restore(_Wrap(q), context)
+        else:
+            await safe_answer_cb(q, "Report bana raha hoon…")
+            await cmd_vips(_Wrap(q), context)
         return
 
     # ---------- 🎬 TOOL KA TUTORIAL VIDEO (har tool ka apna video) ----------
@@ -6815,8 +7207,60 @@ async def _post_init(app: Application):
             log.error("🛡️ background task error (bot chalta rahega): %s: %s",
                       type(_ex).__name__ if _ex else "?", str(_ex)[:200] if _ex else "")
         _loop.set_exception_handler(_loop_err)
+        # v60: heartbeat — hang watchdog ko pata chale ki loop zinda hai
+        from modules.core.guard import start_heartbeat_task
+        start_heartbeat_task(_loop)
     except Exception:                                            # noqa: BLE001
         pass
+
+    # ==================================================================
+    #  v60 — 🛡️ PREMIUM VAULT ko chalu karo
+    #  1) Boot par: pichhla backup MERGE karo (premium-floor protected)
+    #     -> Render ne filesystem wipe kiya ho to bhi premium users wapas
+    #  2) Background auto-backup thread chalu
+    #  Ye dono kabhi crash nahi karte.
+    # ==================================================================
+    try:
+        vault.bot = app.bot
+        vault.owner_id = OWNER_ID
+        _bchat = _env_int("VAULT_BACKUP_CHAT_ID", 0)
+        vault.backup_chat = _bchat or OWNER_ID or None
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("vault init skip: %s", str(e)[:120])
+
+    try:
+        if vault.enabled() and (vault.gh_ready() or vault.telegram_ready()):
+            import asyncio as _aio2
+            _res = await _aio2.get_running_loop().run_in_executor(
+                None, functools_partial(vault.restore_now, "boot"))
+            if _res.get("ok"):
+                log.info("🛡️ BOOT RESTORE OK (%s) — VIP %s -> %s",
+                         _res.get("source"), _res.get("premium_before", {}).get("total_premium"),
+                         _res.get("premium_after", {}).get("total_premium"))
+                if _res.get("n_users_added") or _res.get("report", {}).get("users", {}).get("only_remote"):
+                    try:
+                        await app.bot.send_message(
+                            chat_id=OWNER_ID,
+                            text=(f"🛡️ <b>VAULT BOOT RESTORE</b>\n"
+                                  f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                                  f"📥 Source: <code>{hesc(str(_res.get('source'))[:70])}</code>\n"
+                                  f"👑 VIP: {_res.get('premium_before', {}).get('total_premium')} ➜ "
+                                  f"{_res.get('premium_after', {}).get('total_premium')}\n"
+                                  f"ℹ️ <i>Pichhle backup se data wapas mila gaya.</i>"),
+                            parse_mode="HTML")
+                    except Exception:                            # noqa: BLE001
+                        pass
+            else:
+                log.info("vault boot-restore skip: %s",
+                         str(_res.get("why") or "")[:150])
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("boot restore me dikkat (bot normal chalega): %s", str(e)[:150])
+
+    try:
+        vault.start_background(app.bot, OWNER_ID, vault.backup_chat)
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("vault background skip: %s", str(e)[:120])
+
     commands = [
         BotCommand("start", "Bot chalu karo / menu kholo"),
         BotCommand("menu", "Saare tools ka menu"),
@@ -6926,6 +7370,46 @@ def _last_update_line() -> str:
             f" | total {_UPDATE_STATE['n']} updates")
 
 
+def _vault_health_html() -> str:
+    """v60: /health par data-safety ki live proof (admin ko bharosa dilaane ke liye).
+
+    Ye kabhi crash nahi karta — kuch bhi na mile to khaali string.
+    """
+    try:
+        from modules.core.guard import guard_stats, mem_mb
+        g = guard_stats()
+        try:
+            floor = vault.premium_floor_report_public()
+        except Exception:                                        # noqa: BLE001
+            from modules.core.vault import premium_floor_report
+            floor = premium_floor_report(vault_db_path())
+        lb = vault.last_backup or {}
+        out = ["<p style='font-family:monospace'>--- v60 FORTRESS ---</p>",
+               f"<p style='font-family:monospace'>db: {vault_db_path()} "
+               f"| VIP users: {floor.get('total_premium', 0)} "
+               f"(lifetime {floor.get('lifetime', 0)} + active {floor.get('active', 0)})</p>",
+               f"<p style='font-family:monospace'>vault: enc=ON "
+               f"github={'on' if vault.gh_ready() else 'off'} "
+               f"tg={'on' if vault.telegram_ready() else 'off'} "
+               f"interval={vault.interval_minutes()}m "
+               f"| last_backup={lb.get('at') or 'abhi nahi'} "
+               f"| backups={vault.stats.get('backups', 0)} "
+               f"failures={vault.stats.get('failures', 0)}</p>",
+               f"<p style='font-family:monospace'>crash-shield: caught="
+               f"{g.get('handled', 0)} (handler {g.get('handler', 0)} / task "
+               f"{g.get('task', 0)} / thread {g.get('thread', 0)}) "
+               f"| fatal={g.get('fatal', 0)}</p>",
+               f"<p style='font-family:monospace'>memory: {mem_mb():.0f} MB "
+               f"(peak {g.get('mem_peak_mb', 0):.0f} MB) | gc_runs={g.get('gc_runs', 0)} "
+               f"| loop_lag={g.get('heart_lag', 0)}s | beats={g.get('beats', 0)}</p>"]
+        if g.get("last_why"):
+            out.append(f"<p style='font-family:monospace'>last caught: "
+                       f"{hesc(str(g['last_why'])[:140])}</p>")
+        return "".join(out)
+    except Exception as e:                                       # noqa: BLE001
+        return f"<p style='font-family:monospace'>vault status n/a ({type(e).__name__})</p>"
+
+
 def health_html() -> str:
     """/health ka poora report — POLLING (keepalive server) aur WEBHOOK dono me same.
 
@@ -6943,6 +7427,7 @@ def health_html() -> str:
             f"<p style='font-family:monospace'>{_ka}</p>"
             f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
             f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
+            f"{_vault_health_html()}"
             f"<p style='font-family:monospace'>bot: {_last_update_line()}</p>"
             f"<p style='font-family:monospace'>webhook: mode_env={_WEBHOOK_DIAG['mode_env']}"
             f" | url_env={_WEBHOOK_DIAG['url_env']} | render_url={_WEBHOOK_DIAG['ext_env']}"
@@ -7044,6 +7529,24 @@ def _force_webhook_after_conflict(app) -> bool:
 
 
 def main():
+    # =====================================================================
+    #  v60 — 🛡️ CRASH SHIELD SABSE PEHLE ON KARO
+    #  (guard sabse pehle install hota hai taaki boot ke waqt bhi kuch crash
+    #   ho to log me dikhe aur bot chalta rahe)
+    # =====================================================================
+    try:
+        install_global_guard()
+    except Exception as _e:                                      # noqa: BLE001
+        log.warning("guard install skip: %s", str(_e)[:100])
+    try:
+        start_memory_watchdog()      # 💀 Render free 512MB — OOM kill se bachao
+    except Exception as _e:                                      # noqa: BLE001
+        log.warning("memory watchdog skip: %s", str(_e)[:100])
+    try:
+        start_hang_watchdog()        # 🧟 chup-chaap maut (hung loop) se bachao
+    except Exception as _e:                                      # noqa: BLE001
+        log.warning("hang watchdog skip: %s", str(_e)[:100])
+
     if not BOT_TOKEN:
         print("❌ ERROR: BOT_TOKEN is missing in environment variables or .env file!")
         return
@@ -7126,6 +7629,13 @@ def main():
     app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("ban", cmd_ban))
     app.add_handler(CommandHandler("unban", cmd_unban))
+    # v60: 🛡️ PREMIUM VAULT commands (aapka data kabhi na khoye)
+    app.add_handler(CommandHandler(["vault", "premiumvault", "datavault"], cmd_vault))
+    app.add_handler(CommandHandler(["backup", "save"], cmd_backup))
+    app.add_handler(CommandHandler(["restore", "recover"], cmd_restore))
+    app.add_handler(CommandHandler(["vips", "viplist", "premiums"], cmd_vips))
+    app.add_handler(CommandHandler(["fixvip", "vipfix"], cmd_fixvip))
+    app.add_handler(CommandHandler(["ledger", "viphistory"], cmd_ledger))
 
     # Specific Tool Commands
     # v49.4: tool commands bhi VIP-only (gate andar hai)
