@@ -572,7 +572,14 @@ check("emi galat input se crash nahi", bt.emi_card_image({"loan_amount": "abc"})
 check("upi bina UPI id -> saaf error", bt.upi_qr_image({}).get("ok") is False)
 
 # ---- bot.py integration
-check("BIZ_MENU me 10 tools", len(bot.BIZ_MENU) == 10, len(bot.BIZ_MENU))
+# v62 me 2 naye tools (Salary Slip, Menu Card) aaye — is liye "kam se kam 10":
+# v60 ka original 10-tool batch poora hona chahiye, aur naye tools add ho sakte hain.
+check("BIZ_MENU me kam se kam 10 tools (v60 ka batch)", len(bot.BIZ_MENU) >= 10,
+      len(bot.BIZ_MENU))
+check("v60 ke 10 business tools aaj bhi maujood hain",
+      all(k in bot.BIZ_MENU for k in ("biz_invoice", "biz_resume", "biz_biodata",
+                                      "biz_certificate", "biz_idcard", "biz_vcard",
+                                      "biz_letter", "biz_upi", "biz_labels", "biz_emi")))
 check("biz prompts maujood", all(k in bot.PROMPT_DATA for k in bot.BIZ_MENU),
       [k for k in bot.BIZ_MENU if k not in bot.PROMPT_DATA])
 _kb_flat = [bot.unbold(x) for r in bot.KB_BTNS for x in r]

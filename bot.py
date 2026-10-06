@@ -83,6 +83,8 @@ from modules.business_tools import (
     idcard_image as biz_idcard,
     invoice_image as biz_invoice,
     label_sheet_image as biz_labels,
+    salary_slip_image as biz_salary,       # v62
+    menu_card_image as biz_menucard,       # v62
     letter_image as biz_letter,
 )
 
@@ -360,6 +362,8 @@ TOOL_RATE_LIMITS = {
     "biz_upi":         (12, 120, "UPI Poster"),
     "biz_labels":      (10, 120, "Price Label Sheet"),
     "biz_emi":         (12, 120, "EMI / Loan Card"),
+    "biz_salary":      (10, 120, "Salary Slip"),          # v62
+    "biz_menucard":    (10, 120, "Menu / Rate Card"),     # v62
 }
 
 # ---------------- CONFIG ----------------
@@ -401,7 +405,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v61.0 FREE4ALL — Saare Tools FREE + v60.4 FORTRESS (Vault + Crash Shield + Business Studio)"
+BOT_VERSION = "v62.0 FREE4ALL — Salary Slip + Menu Card (2 naye tools) · saare tools 100% FREE · v60.4 FORTRESS base"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -509,6 +513,9 @@ PREMIUM_TOOLS = {
     "biz_upi",             # 💳 UPI Scan & Pay Poster
     "biz_labels",          # 🏷️ Price Label Sheet
     "biz_emi",             # 🧮 EMI / Loan Card
+    # ---- v62: 2 naye earning tools ----
+    "biz_salary",          # 💰 Salary Slip
+    "biz_menucard",        # 🍽️ Menu / Rate Card
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -545,6 +552,8 @@ PREMIUM_TOOL_NAMES = {
     "biz_upi": "💳 UPI Scan & Pay Poster",
     "biz_labels": "🏷️ Price Label Sheet",
     "biz_emi": "🧮 EMI / Loan Card",
+    "biz_salary": "💰 Salary Slip",
+    "biz_menucard": "🍽️ Menu / Rate Card",
 }
 
 
@@ -1329,6 +1338,26 @@ PROMPT_DATA = {
         "ex": [("Kumar Store | Sugar:48:55, Rice:95:110, Oil:165:180",
                 "3 rate tag ek line me"),
                ("Sharma Kirana | Tea:130:150, Dal:140:155", "2 tag")],
+    },
+    "biz_salary": {
+        "head": "💰 SALARY SLIP MAKER",
+        "ask": "Ek line me: <code>company | naam | post | month | salary | advance</code>",
+        "ex": [("Sharma Kirana | Ramesh Kumar | Salesman | September 2026 | 18000",
+                "poora pay slip — PF, ESI, net pay ke saath"),
+               ("Jai Maa Traders | Sunita Devi | Accountant | Oct 2026 | 25000 | 2000",
+                "advance bhi kat jayega"),
+               ("ABC Coaching | Rahul Sir | Teacher | " + "%B %Y" + " | 30000",
+                "month khali chhodo to aaj ka mahina")],
+    },
+    "biz_menucard": {
+        "head": "🍽️ MENU / RATE CARD",
+        "ask": "Ek line me: <code>naam | tagline | item:rate, item:rate</code>",
+        "ex": [("Hotel Shivam | Shudh Desi Khana | Chai:10, Samosa:15, Veg Thali:80",
+                "dhaba ka menu card"),
+               ("Sharma Kirana | Best Rate in Town | Sugar:48, Rice:95, Atta:32",
+                "dukaan ka rate list"),
+               ("Menu | | Idli:30, Dosa:50, Uttapam:60, Filter Coffee:20",
+                "tagline khali chhodo to sirf list")],
     },
     "biz_emi": {
         "head": "🧮 EMI / LOAN CALCULATOR + CARD",
@@ -2720,13 +2749,15 @@ BIZ_MENU = {
     "biz_letter":      ("📄", "Application / Letter",    "leave · NOC · character"),
     "biz_upi":         ("💳", "UPI Scan & Pay Poster",   "dukaan ka payment board"),
     "biz_labels":      ("🏷️", "Price Label Sheet",      "dukaan ke rate tag"),
+    "biz_salary":      ("💰", "Salary Slip",            "staff ka monthly pay slip"),
+    "biz_menucard":    ("🍽️", "Menu / Rate Card",       "dhaba · hotel · dukaan ka rate list"),
     "biz_emi":         ("🧮", "EMI / Loan Card",         "poora hisaab + schedule"),
 }
 
 BIZ_MENU_TEXT = (
     "💼 <b>𝐁𝐔𝐒𝐈𝐍𝐄𝐒𝐒 𝐒𝐓𝐔𝐃𝐈𝐎</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "Dukaan, school, coaching, job aur loan — <b>10 kaam ki cheezein</b>\n"
+    "Dukaan, school, coaching, job aur loan — <b>12 kaam ki cheezein</b>\n"
     "sirf ek line likh kar banao. Sab <b>print-ready A4 PDF</b> me.\n\n"
     "👇 Neeche se tool chuno:"
 )
@@ -2791,6 +2822,9 @@ def _biz_kind(kind: str) -> str:
             "letter": "biz_letter", "application": "biz_letter",
             "upi": "biz_upi", "qr": "biz_upi",
             "labels": "biz_labels", "label": "biz_labels", "price": "biz_labels",
+            "salary": "biz_salary", "payslip": "biz_salary", "slip": "biz_salary",
+            "menucard": "biz_menucard", "menu": "biz_menucard",
+            "ratecard": "biz_menucard", "ratelist": "biz_menucard",
             "emi": "biz_emi", "loan": "biz_emi"}.get(str(kind or "").lower().strip(), "")
 
 
@@ -2854,6 +2888,40 @@ def biz_parse(key: str, line: str, owner_name: str = "") -> dict:
                                    "mrp": _biz_num(bits[2]) if len(bits) > 2 else 0})
             d = {"shop": p[0] if p else "", "labels": labels,
                  "footer": "Rate " + datetime.now().strftime("%d-%m-%Y") + " se laagu"}
+        elif key == "biz_salary":
+            # COMPANY | NAAM | POST | MONTH | SALARY | ADVANCE
+            parts = [x.strip() for x in p if x.strip()]
+            nums = [x for x in parts if _biz_num(x) > 0]
+            texts = [x for x in parts if _biz_num(x) <= 0]
+            d = {"company": texts[0] if texts else (owner_name or "COMPANY"),
+                 "name": texts[1] if len(texts) > 1 else (owner_name or "Employee"),
+                 "post": texts[2] if len(texts) > 2 else "Staff",
+                 "month": texts[3] if len(texts) > 3 else datetime.now().strftime("%B %Y"),
+                 "gross": _biz_num(nums[0]) if nums else 0,
+                 "advance": _biz_num(nums[1]) if len(nums) > 1 else 0}
+        elif key == "biz_menucard":
+            # DHABA NAAM | TAGLINE | Chai:10, Samosa:15 | CONTACT
+            parts = [x.strip() for x in p if x.strip()]
+            items_src, rest = "", []
+            for x in parts:
+                if ":" in x and re.search(r":\s*\d", x) and not items_src:
+                    items_src = x
+                else:
+                    rest.append(x)
+            items = []
+            for chunk in re.split(r"[,\n;]+", items_src):
+                bits = [b.strip() for b in chunk.split(":") if b.strip()]
+                if len(bits) >= 2:
+                    items.append({"name": bits[0], "price": _biz_num(bits[1]),
+                                  "tag": bits[2] if len(bits) > 2 else ""})
+            _contact = ""
+            for x in rest[2:]:
+                if re.search(r"\d{6,}", x):
+                    _contact = x
+            d = {"name": rest[0] if rest else (owner_name or "MENU"),
+                 "tagline": rest[1] if len(rest) > 1 else "",
+                 "items": items, "contact": _contact,
+                 "footer": "Rates " + datetime.now().strftime("%d-%m-%Y") + " se laagu"}
         elif key == "biz_emi":
             d = {"bank": "EMI / LOAN SUMMARY", "borrower": owner_name,
                  "loan_amount": _biz_num(p[0]) if p else 0,
@@ -2870,7 +2938,8 @@ def biz_build(key: str, d: dict) -> dict:
           "biz_biodata": biz_biodata, "biz_certificate": biz_certificate,
           "biz_idcard": biz_idcard, "biz_vcard": biz_vcard,
           "biz_letter": biz_letter, "biz_upi": biz_upi_qr,
-          "biz_labels": biz_labels, "biz_emi": biz_emi_card}.get(key)
+          "biz_labels": biz_labels, "biz_emi": biz_emi_card,
+          "biz_salary": biz_salary, "biz_menucard": biz_menucard}.get(key)
     if fn is None:
         return {"ok": False, "error": "tool nahi mila"}
     return fn(d)

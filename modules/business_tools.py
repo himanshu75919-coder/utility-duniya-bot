@@ -1820,3 +1820,230 @@ def emi_card_image(d: dict) -> dict:
                 "months": res["months"], "size": img.size}
     except Exception as e:                                       # noqa: BLE001
         return _err("emi", e)
+
+
+# =====================================================================
+#  11. 💰 SALARY SLIP (v62) — staff ka monthly pay slip
+# =====================================================================
+def salary_slip_image(d: dict) -> dict:
+    """Company ka salary slip — A4 print-ready, Hindi/English dono.
+
+    d = {company, name, code, post, month, gross, days, advance,
+         pf_rate, ptax, accent, footer}
+    """
+    try:
+        from PIL import ImageDraw
+        W, H = A4()
+        img = _blank(W, H, WHITE)
+        dr = ImageDraw.Draw(img)
+        acc = _hex(d.get("accent"), (13, 96, 78))
+        M = 70
+        gross = _num(d.get("gross"), 0)
+        if gross <= 0:
+            return {"ok": False, "error": "salary (gross) 0 hai — sahi amount likhiye"}
+
+        basic = round(gross * 0.50, 2)
+        hra = round(gross * 0.20, 2)
+        other = round(gross - basic - hra, 2)
+        pf = round(basic * _num(d.get("pf_rate"), 12.0) / 100.0, 2)
+        esi = round(gross * 0.0075, 2) if gross <= 21000 else 0.0
+        ptax = _num(d.get("ptax"), 200.0)
+        adv = _num(d.get("advance"), 0)
+        ded_total = round(pf + esi + ptax + adv, 2)
+        net = round(gross - ded_total, 2)
+        company = str(d.get("company") or "COMPANY NAME")[:60]
+        month = str(d.get("month") or _today())[:24]
+
+        # ---------- header ----------
+        dr.rectangle([0, 0, W, 158], fill=acc)
+        ScriptFont(48, True).draw(dr, (M, 34), company, WHITE)
+        ScriptFont(34, True).draw_right(dr, W - M, "SALARY SLIP", WHITE, 40)
+        ScriptFont(25).draw_right(dr, W - M, f"Month: {month}", WHITE, 92)
+
+        # ---------- employee box ----------
+        by = 200
+        dr.rectangle([M, by, W - M, by + 300], fill=(247, 249, 252),
+                     outline=LINE, width=2)
+        pairs = [("Employee Name", d.get("name") or "—"),
+                 ("Employee Code", d.get("code") or f"EMP{datetime.now().strftime('%m%d')}"),
+                 ("Designation", d.get("post") or "Staff"),
+                 ("Month", month),
+                 ("Working Days", f"{int(_num(d.get('days'), 30))}"),
+                 ("Paid Days", f"{int(_num(d.get('days'), 30))}")]
+        colw = (W - 2 * M - 60) // 2
+        for i, (lab, val) in enumerate(pairs):
+            cx = M + 30 + (i % 2) * colw
+            cy = by + 34 + (i // 2) * 92
+            ScriptFont(24).draw(dr, (cx, cy), lab.upper(), MUTED)
+            ScriptFont(30, True).draw(dr, (cx, cy + 34), str(val)[:34], INK)
+
+        # ---------- earnings / deductions ----------
+        ty = 560
+        gapx = 44
+        tw = (W - 2 * M - gapx) // 2
+        row_h = 62
+        earn = [("Basic Salary", basic), ("H.R.A.", hra),
+                ("Other Allowance", other), ("Gross Salary", gross)]
+        dedu = [("Provident Fund (PF)", pf), ("E.S.I.", esi),
+                ("Professional Tax", ptax), ("Advance / Loan", adv)]
+
+        for side, (title, rows, total_lbl, total_val) in enumerate((
+                ("EARNINGS", earn, "TOTAL EARNING", gross),
+                ("DEDUCTIONS", dedu, "TOTAL DEDUCTION", ded_total))):
+            x0 = M + side * (tw + gapx)
+            dr.rectangle([x0, ty, x0 + tw, ty + row_h], fill=acc)
+            ScriptFont(27, True).draw(dr, (x0 + 20, ty + 15), title, WHITE)
+            ScriptFont(25).draw_right(dr, x0 + tw - 20, "Amount (Rs.)", WHITE, ty + 17)
+            ry = ty + row_h
+            for i2, (lab, val) in enumerate(rows):
+                if i2 % 2 == 0:
+                    dr.rectangle([x0, ry, x0 + tw, ry + row_h], fill=(249, 251, 253))
+                ScriptFont(26).draw(dr, (x0 + 20, ry + 17), lab[:26], INK)
+                ScriptFont(26).draw_right(dr, x0 + tw - 20, money(val), INK, ry + 17)
+                dr.line([x0, ry, x0 + tw, ry], fill=LINE, width=1)
+                ry += row_h
+            dr.rectangle([x0, ry, x0 + tw, ry + row_h], fill=(236, 242, 248))
+            ScriptFont(26, True).draw(dr, (x0 + 20, ry + 17), total_lbl, INK)
+            ScriptFont(28, True).draw_right(dr, x0 + tw - 20, money(total_val), INK, ry + 15)
+
+        # ---------- net pay ----------
+        ny = ty + 2 * row_h + 4 * row_h + 60
+        dr.rectangle([M, ny, W - M, ny + 150], fill=acc)
+        ScriptFont(38, True).draw(dr, (M + 30, ny + 24), "NET PAY", WHITE)
+        ScriptFont(58, True).draw_right(dr, W - M - 30, f"Rs. {money(net)}", WHITE, ny + 18)
+        ScriptFont(24).draw(dr, (M + 30, ny + 96),
+                            "Amount in words: " + amount_words(net), WHITE)
+
+        # ---------- payment details (khaali jagah bhare, kaam ki baat likhe) ----------
+        py = ny + 210
+        dr.rectangle([M, py, W - M, py + 300], fill=WHITE, outline=LINE, width=2)
+        ScriptFont(28, True).draw(dr, (M + 26, py + 18), "PAYMENT DETAILS", acc)
+        dr.line([M + 26, py + 62, W - M - 26, py + 62], fill=LINE, width=2)
+        pay = [("Payment Mode", d.get("mode") or "Bank Transfer"),
+               ("Bank Name", d.get("bank") or "—"),
+               ("Account No. (last 4)", d.get("account") or "—"),
+               ("Payment Date", d.get("pay_date") or _today()),
+               ("UAN / ESIC No.", d.get("uan") or "—"),
+               ("Paid Days", f"{int(_num(d.get('days'), 30))} / {int(_num(d.get('days'), 30))}")]
+        for i3, (lab, val) in enumerate(pay):
+            cx = M + 26 + (i3 % 2) * ((W - 2 * M - 52) // 2)
+            cy = py + 82 + (i3 // 2) * 72
+            ScriptFont(22).draw(dr, (cx, cy), lab.upper(), MUTED)
+            ScriptFont(27, True).draw(dr, (cx, cy + 30), str(val)[:26], INK)
+
+        # ---------- declaration ----------
+        dy = py + 340
+        note = str(d.get("note") or "").strip() or (
+            f"Ye salary slip {month} ke liye company record se generate ki gayi hai. "
+            "Koi bhi gadbad 7 din me batayein.")
+        dr.rectangle([M, dy, W - M, dy + 160], fill=(247, 249, 252),
+                     outline=(226, 232, 240), width=1)
+        ScriptFont(24, True).draw(dr, (M + 26, dy + 20), "DECLARATION", MUTED)
+        _ny2 = dy + 62
+        for ln in ScriptFont(25).wrap(note, W - 2 * M - 52, 4):
+            ScriptFont(25).draw(dr, (M + 26, _ny2), ln, MUTED)
+            _ny2 += 34
+
+        ScriptFont(24).draw(dr, (M, H - 230),
+                            "This is a computer generated salary slip and does not "
+                            "require a signature.", MUTED)
+        dr.line([W - M - 380, H - 150, W - M, H - 150], fill=INK, width=2)
+        ScriptFont(24).draw_center(dr, (W - M - 380, W - M),
+                                   "Authorised Signatory", MUTED, H - 140)
+        ScriptFont(22).draw(dr, (M, H - 92), f"Computer generated · {_brand()}", FAINT)
+        return {"ok": True, "png": _save_png(img), "amount": net,
+                "gross": gross, "deductions": ded_total, "size": img.size}
+    except Exception as e:                                       # noqa: BLE001
+        return _err("salary", e)
+
+
+# =====================================================================
+#  12. 🍽️ MENU CARD / RATE CARD (v62) — dhaba · hotel · dukaan
+# =====================================================================
+def menu_card_image(d: dict) -> dict:
+    """Dhaba / hotel / dukaan ka menu ya rate card — A4.
+
+    d = {name, tagline, items:[{name, price, tag}], accent, contact, footer}
+    """
+    try:
+        from PIL import ImageDraw
+        W, H = A4()
+        img = _blank(W, H, WHITE)
+        dr = ImageDraw.Draw(img)
+        acc = _hex(d.get("accent"), (176, 46, 30))
+        M = 60
+        items = [x for x in (d.get("items") or []) if isinstance(x, dict)][:80]
+        if not items:
+            return {"ok": False, "error": "koi item nahi diya — kam se kam ek likhiye"}
+
+        # ---------- frame ----------
+        dr.rectangle([36, 36, W - 36, H - 36], outline=acc, width=8)
+        dr.rectangle([56, 56, W - 56, H - 56], outline=(232, 220, 210), width=2)
+
+        # ---------- header ----------
+        name = str(d.get("name") or "MENU")[:44]
+        tagline = str(d.get("tagline") or "").strip()[:70]
+        hy = 76
+        dr.rectangle([76, hy, W - 76, hy + 210], fill=acc)
+        f_n = ScriptFont(64, True)
+        while f_n.width(name) > W - 260 and f_n.size > 26:
+            f_n = ScriptFont(f_n.size - 4, True)
+        f_n.draw_center(dr, (100, W - 100), name, WHITE, hy + 34)
+        if tagline:
+            ScriptFont(30).draw_center(dr, (100, W - 100), tagline, WHITE, hy + 130)
+        ScriptFont(26, True).draw_center(dr, (100, W - 100), "— RATE LIST / MENU —",
+                                         WHITE, hy + 172)
+
+        # ---------- items (2 columns) ----------
+        cols = 2 if len(items) > 6 else 1
+        colw = (W - 2 * M - (60 if cols == 2 else 0)) // cols
+        per_col = (len(items) + cols - 1) // cols
+        top = hy + 240
+        avail = H - top - 300
+        # poori jagah barabar baanto -> page bhara-bhara dikhe (khali na lage)
+        row_h = max(56, avail // max(1, per_col))
+        fs = 34 if row_h >= 110 else (30 if row_h >= 84 else (27 if row_h >= 66 else 23))
+        ytop = top
+        f_it = ScriptFont(fs, True)
+        f_pr = ScriptFont(fs + 4, True)
+        for idx, it in enumerate(items):
+            ci = idx // per_col
+            ri = idx % per_col
+            x0 = M + ci * (colw + 60)
+            y = ytop + ri * row_h
+            nm = str(it.get("name") or "-")[:34]
+            _tg = str(it.get("tag") or "").strip()[:22]
+            if _tg and row_h < fs + 54:
+                nm = (nm + f" ({_tg})")[:46]
+            pr = f"Rs. {money(it.get('price'))}"
+            tag = str(it.get("tag") or "").strip()[:22]
+            f_it.draw(dr, (x0, y), nm, INK)
+            pw = f_pr.width(pr)
+            f_pr.draw_right(dr, x0 + colw, pr, acc, y - 2)
+            nx = x0 + f_it.width(nm) + 12
+            px = x0 + colw - pw - 12
+            dot_y = y + fs // 2 + 8
+            dx = nx
+            while dx < px:
+                dr.ellipse([dx, dot_y, dx + 4, dot_y + 4], fill=(198, 190, 182))
+                dx += 16
+            if tag and row_h >= fs + 54:             # jagah hai -> naam ke neeche
+                ScriptFont(fs - 8).draw(dr, (x0 + 6, y + fs + 16), tag, MUTED)
+
+        # ---------- footer ----------
+        fy = H - 286
+        dr.line([M + 16, fy, W - M - 16, fy], fill=acc, width=4)
+        contact = str(d.get("contact") or "").strip()
+        if contact:
+            ScriptFont(30, True).draw_center(dr, (M, W - M),
+                                             f"📞 {contact}"[:70], INK, fy + 26)
+        ScriptFont(28, True).draw_center(dr, (M, W - M), "THANKS · VISIT AGAIN",
+                                         acc, fy + 84)
+        foot = str(d.get("footer") or "").strip()
+        if foot:
+            ScriptFont(24).draw_center(dr, (M, W - M), foot[:80], MUTED, fy + 132)
+        ScriptFont(21).draw_center(dr, (M, W - M), _brand(), FAINT, H - 104)
+        return {"ok": True, "png": _save_png(img), "count": len(items),
+                "size": img.size}
+    except Exception as e:                                       # noqa: BLE001
+        return _err("menucard", e)

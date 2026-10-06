@@ -66,7 +66,10 @@ BOT_SRC = open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read()
 section("[A] 🌍 DEFAULT FREE — bina kuch set kiye free mode")
 # =====================================================================
 check("bot.py import ho gaya", bool(bot.BOT_VERSION), bot.BOT_VERSION)
-check("BOT_VERSION v61 hai", "v61." in bot.BOT_VERSION, bot.BOT_VERSION)
+# v62 ke baad bhi ALL_FREE feature zinda hai — is liye "v61 ya usse aage" check karte hain.
+# (FREE4ALL ka naam version me rehta hai, chahe number badhta rahe.)
+check("BOT_VERSION v61 ya aage hai (FREE4ALL)",
+      "FREE4ALL" in bot.BOT_VERSION or "v61." in bot.BOT_VERSION, bot.BOT_VERSION)
 check("ALL_FREE = True (default)", bot.ALL_FREE is True, repr(bot.ALL_FREE))
 check("PREMIUM_ONLY = False (default)", bot.PREMIUM_ONLY is False, repr(bot.PREMIUM_ONLY))
 check("ALL_FREE ka master switch bot.py me hai", "ALL_FREE = _env_bool(\"ALL_FREE\", True)" in BOT_SRC)
@@ -226,14 +229,15 @@ except Exception as _e:
 # =====================================================================
 section("[I] 🚪 REACHABILITY — har tool ka darwaza khula hai")
 # =====================================================================
-check(f"PREMIUM_TOOLS me 32 tools hain (10 Business Studio)", len(bot.PREMIUM_TOOLS) == 32,
+check(f"PREMIUM_TOOLS me 34 tools hain (12 Business Studio)", len(bot.PREMIUM_TOOLS) == 34,
       str(len(bot.PREMIUM_TOOLS)))
-check("PROMPT_DATA / PROMPTS waise hi hain (koi prompt nahi badla)", len(bot.PROMPT_DATA) == 31,
+check("PROMPT_DATA / PROMPTS waise hi hain (purane badle nahi, sirf 2 naye jude)",
+      len(bot.PROMPT_DATA) == 33,
       str(len(bot.PROMPT_DATA)))
 check("PROMPT ka content bhi waisa hi hai (koi chhed-chhad nahi)",
       all(isinstance(v, (str, tuple, dict)) for v in bot.PROMPT_DATA.values()))
-check("BIZ_MENU me 10 tools", len(bot.BIZ_MENU) == 10, str(len(bot.BIZ_MENU)))
-check("TOOL_RATE_LIMITS zinda hai (spam se bachav)", len(bot.TOOL_RATE_LIMITS) >= 30,
+check("BIZ_MENU me 12 tools", len(bot.BIZ_MENU) == 12, str(len(bot.BIZ_MENU)))
+check("TOOL_RATE_LIMITS zinda hai (spam se bachav)", len(bot.TOOL_RATE_LIMITS) >= 32,
       str(len(bot.TOOL_RATE_LIMITS)))
 check("crash shield (arm_all_handlers) zinda hai", hasattr(bot, "arm_all_handlers"))
 check("vault zinda hai", hasattr(bot, "vault"))
