@@ -123,7 +123,11 @@ _allowed = ("UPI_ID", "UPI_NAME", "BOT_VERSION", "VIP", "cash or UPI", "UPI tool
             "biz_upi", "biz_upi_qr", "UPI payment board", "UPI QR Poster",
             "UPI ID |",
             # --- v63: wizard ke step-sawal (wahi legal payment poster tool) ---
-            "UPI ID?</b>", "Aapki UPI ID", "UPI accepted")
+            "UPI ID?</b>", "Aapki UPI ID", "UPI accepted",
+            # --- v71.9: 📞 TEMP MAIL (NUMBER) ka SAFETY warning (user ka order:
+            #     "banking OTP par saaf warning"). Ye koi UPI tool nahi — sirf
+            #     mana karta hai ki is public number par bank/UPI kaam na karo. ---
+            "Bank / UPI / KYC", "bank/UPI/KYC")
 _stray = [_l.strip()[:70] for _l in BOT_SRC.split("\n")
           if "UPI" in _l and not any(_a in _l for _a in _allowed)]
 check("UPI ka koi stray reference nahi (sirf payment/IFSC/safety/version)",

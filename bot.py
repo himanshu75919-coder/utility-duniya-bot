@@ -262,6 +262,7 @@ from modules.osint_tools import (
     lookup_whois,        # v70: 🌐 WEBSITE OWNER X-RAY (RDAP public record)
 )
 from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME HUNTER (public only)
+from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -350,6 +351,7 @@ TOOL_RATE_LIMITS = {
     "bgmi":        (8,  60,  "BGMI UID"),
     "ffuid":       (8,  60,  "FF UID"),
     "tempmail":    (10, 120, "Temp Mail"),
+    "tnum":        (25, 300, "Temp Mail (Number)"),    # v71.9: free temp number + OTP
     "ifsc":        (15, 60,  "IFSC Info"),
     "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
     "uhunt":       (10, 60,  "Username Hunter (Public)"),
@@ -419,8 +421,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.8 FREE4ALL — USERNAME HUNTER (public) + "
-               "QUOTA-SAFE RC + PATLI LINES")
+BOT_VERSION = ("v71.9 FREE4ALL — TEMP MAIL (NUMBER): 100% FREE temp number + OTP "
+               "(har user ko ALAG number, 10+ desh, bank warning)")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -745,7 +747,8 @@ def all_tools_text() -> str:
     #        uski jagah upar 27 alag tools ki list aa gayi hai.
     _pv = "\n".join(
         f"   • {hesc(x)}" for x in sorted(
-            {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}))
+            {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}
+            | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP"}))
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
@@ -793,7 +796,8 @@ VIP_FREE_CB_EXACT = {
     "pay_utr_help", "premium_plans", "menu_home", "home", "start",
 }
 VIP_FREE_CB_PREFIX = ("buy_plan_", "toolvid:", "adm", "admin", "ugrant:", "urevoke:", "uban:",
-                      "rpay:", "apay:", "askpay:", "vid:", "refer")
+                      "rpay:", "apay:", "askpay:", "vid:", "refer",
+                      "tnum")     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
 
 
 def vip_free_cb(data: str) -> bool:
@@ -1042,6 +1046,205 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await target.reply_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(), parse_mode=HTML)
 
 
+# ============================================================
+#  v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
+# ------------------------------------------------------------
+#  User ka order: alag tool (Virtual Numbers se bilkul alag), naam
+#  "Temp Mail", 100% FREE (koi credit/paise nahi), har Telegram user
+#  ko ALAG number (owner ko bhi alag), 10+ services + 10+ countries,
+#  bank/UPI/KYC OTP par SAAF warning.
+#  Engine: modules/temp_number.py (public receive-SMS sites, koi login nahi)
+# ============================================================
+TNUM_META_KEY = "tnum_assign_v1"     # user_id -> uska number (alag-alag)
+TNUM_REFRESH_GAP = 9                 # ek number par itne sec se pehle refresh nahi
+TNUM_SAFE_LINE = "🚫 Bank / UPI / KYC / paisa — ye number BILKUL mat do"
+
+TNUM_INTRO = (
+    f"📞 <b>{to_bold('TEMP MAIL (NUMBER)')}</b>\n"
+    "──────────────────────\n"
+    "100% FREE — koi paisa, koi key, koi login nahi.\n"
+    "Har user ko <b>apna alag number</b> milta hai — doosre ka repeat nahi.\n"
+    "10+ desh · 15+ app (WhatsApp, Telegram, Google, Instagram...)\n"
+    "──────────────────────\n"
+    "⚠️ <b>Pehle ye padho:</b>\n"
+    "• Ye <b>public</b> number hai — iska inbox duniya me koi bhi dekh sakta hai.\n"
+    "• Sirf <b>ek-baar ke OTP</b> (signup / verification) ke liye use karo.\n"
+    "• 🚫 Bank / UPI / KYC / paisa wale OTP ke liye ye number <b>bilkul mat</b> do.\n"
+    "──────────────────────\n"
+    "📲 <b>Number kis app/site ke liye chahiye?</b> Neeche se chuno 👇"
+)
+
+
+def _tnum_svc_kb():
+    rows, buf = [], []
+    for k, lbl, em, _rec in TN.SERVICES:
+        buf.append(InlineKeyboardButton(f"{em} {lbl}", callback_data=f"tnum_svc:{k}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _tnum_ctry_kb(svc_key: str = ""):
+    """Desh chuno — jo desh us app ke liye best hai wo ⭐ ke saath upar."""
+    rec_cc = (TN.SVC_BY_KEY.get(svc_key) or ("", "", ()))[2] or ()
+    order = {cc: i for i, cc in enumerate(rec_cc)}
+    items = sorted(TN.COUNTRIES, key=lambda c: (order.get(c["cc"], 99), c["name"]))
+    rows, buf = [], []
+    for c in items:
+        star = "⭐ " if c["cc"] in order else ""
+        buf.append(InlineKeyboardButton(f"{star}{c['flag']} {c['name']}",
+                                        callback_data=f"tnum_ctry:{c['cc']}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    rows.append([InlineKeyboardButton("🔁 App badlo", callback_data="tnum_open"),
+                 InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _tnum_num_kb(rec: dict):
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔁 Naye SMS laao", callback_data="tnum_refresh")],
+        [InlineKeyboardButton("🔄 Doosra number", callback_data="tnum_change"),
+         InlineKeyboardButton("🌍 Desh badlo", callback_data="tnum_countries")],
+        [InlineKeyboardButton("📲 App badlo", callback_data="tnum_open"),
+         InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ])
+
+
+def _tnum_load() -> dict:
+    """Assignment store padho (user_id -> usko mila number)."""
+    try:
+        raw = meta_get(TNUM_META_KEY, "") or ""
+        d = json.loads(raw) if raw else {}
+        return d if isinstance(d, dict) else {}
+    except Exception:                                       # noqa: BLE001
+        return {}
+
+
+def _tnum_save(store: dict) -> None:
+    try:
+        meta_set(TNUM_META_KEY, json.dumps(store, ensure_ascii=False))
+    except Exception:                                       # noqa: BLE001
+        pass
+
+
+def tnum_get_number(uid: int, cc: str, svc_key: str = "", change: bool = False):
+    """User ko uska apna (alag) number do — dobara maangne par wahi milega.
+
+    Return: (rec | None, error-str). rec = {cc, nid, num, dis, src, svc, rot, t}
+    """
+    try:
+        store = _tnum_load()
+        me = store.get(str(uid)) if isinstance(store.get(str(uid)), dict) else {}
+        taken = {v.get("nid") for k, v in store.items()
+                 if k != str(uid) and isinstance(v, dict) and v.get("nid")}
+        if me.get("nid") and me.get("cc") == cc and not change:
+            if svc_key and svc_key != me.get("svc"):
+                me["svc"] = svc_key
+                store[str(uid)] = me
+                _tnum_save(store)
+            return me, ""
+        avoid = set(me.get("avoid") or [])
+        rot = int(me.get("rot") or 0)
+        if change and me.get("nid"):
+            avoid.add(me.get("nid"))
+            rot += 1
+            avoid = set(list(avoid)[-4:])                   # sirf last 4 yaad rakho
+        p = TN.pool(cc)
+        if not p.get("ok"):
+            return None, (p.get("error") or "Is desh me abhi number nahi mila.")
+        chosen = TN.pick(p["numbers"], taken=taken,
+                         uid=int(uid) + rot * 7919, avoid=avoid)
+        if not chosen:
+            return None, "Is desh ke saare number busy hain — doosra desh try karo."
+        rec = {"cc": cc, "nid": chosen.get("nid"), "num": chosen.get("number") or "",
+               "dis": chosen.get("display") or "", "src": chosen.get("src") or "",
+               "svc": svc_key or me.get("svc") or "", "rot": rot,
+               "avoid": sorted(avoid), "t": int(time.time())}
+        store[str(uid)] = rec
+        if len(store) > 5000:                               # purane records hatao
+            olds = sorted(store, key=lambda x: int((store.get(x) or {}).get("t") or 0))
+            for k in olds[:1000]:
+                if k != str(uid):
+                    store.pop(k, None)
+        _tnum_save(store)
+        return rec, ""
+    except Exception as e:                                  # noqa: BLE001
+        return None, f"Technical dikkat ({type(e).__name__})."
+
+
+def tnum_card(rec: dict, ib: dict) -> str:
+    """📞 TEMP MAIL ka number card — inbox + OTP + warnings (patli lines)."""
+    rec = rec or {}
+    ib = ib or {}
+    cc = str(rec.get("cc") or "")
+    c = TN.COUNTRY_BY_CC.get(cc) or {}
+    svc_key = str(rec.get("svc") or "")
+    lbl, em, _ = TN.SVC_BY_KEY.get(svc_key, ("", "📱", ()))
+    num = str(ib.get("number") or rec.get("num") or "")
+    msgs = [m for m in (ib.get("messages") or []) if isinstance(m, dict)]
+    L = [pcard_title("📞", "TEMP MAIL (NUMBER)")]
+    if lbl:
+        L.append(f"{em} <b>App:</b> {hesc(str(lbl))}")
+    L.append(f"{c.get('flag', '🌍')} <b>Desh:</b> {hesc(c.get('name') or cc.upper())}")
+    _pretty = TN.pretty_number(num)
+    _num_line = f"📱 <b>Aapka number:</b> <code>+{hesc(num)}</code>"
+    if _pretty and _pretty != "+" + str(num):
+        _num_line += f"  <i>({hesc(_pretty)})</i>"
+    L.append(_num_line)
+    L.append(pcard_sep())
+    if not ib.get("ok"):
+        L.append("⚠️ Inbox abhi nahi khul paya — " + hesc(str(ib.get("error") or "site slow hai")))
+        L.append("👉 Thodi der baad <b>🔁 Naye SMS laao</b> dabao.")
+    elif msgs:
+        head = f"📥 <b>Inbox:</b> {len(msgs)} SMS"
+        if ib.get("last_activity"):
+            head += f"  ·  🕒 {hesc(str(ib['last_activity'])[:22])}"
+        L.append(head)
+        banky = False
+        for m in msgs[:6]:
+            code = str(m.get("code") or "")
+            frm = hesc(str(m.get("from") or "SMS")[:16])
+            tm = hesc(str(m.get("time") or "")[:18])
+            txt = hesc(str(m.get("text") or "")[:130])
+            if TN.looks_banky(str(m.get("text") or "")):
+                banky = True
+            L.append(f"├ <b>{frm}</b> · {tm}")
+            if code:
+                L.append(f"│  🔑 <b>CODE:</b> <code>{hesc(code)}</code>")
+            L.append(f"│  {txt}")
+        if banky:
+            L.append("")
+            L.append(f"⛔ <b>RUKO!</b> Ye SMS bank/paisa wala lag raha hai — "
+                     "is number se banking kaam <b>mat</b> karo.")
+        if len(msgs) > 6:
+            L.append(f"└ +{len(msgs) - 6} purane SMS")
+        if ib.get("cached"):
+            L.append("<i>🧊 10s purana data — naya chahiye to dobara 🔁 dabao</i>")
+    else:
+        L.append("📭 <b>Abhi koi SMS nahi aaya.</b>")
+        L.append("👉 Ye number app/site ke OTP box me daalo, phir <b>🔁 Naye SMS laao</b> dabao.")
+    L.append(pcard_sep())
+    L.append(TNUM_SAFE_LINE)
+    L.append("👀 Ye PUBLIC number hai — inbox koi bhi dekh sakta hai.")
+    L.append("🔐 Ye number sirf <b>aapke liye</b> assign hua hai (bot side se).")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
+async def send_tnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target = update.callback_query.message if update.callback_query else update.message
+    await target.reply_text(TNUM_INTRO, reply_markup=_tnum_svc_kb(), parse_mode=HTML)
+
+
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
@@ -1055,6 +1258,7 @@ KB_BTNS = [
     [f"🕵️ {to_bold('USERNAME HUNTER')}"],       # v71.8: sirf public profiles (koi login nahi)
     [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
+    [f"📞 {to_bold('TEMP MAIL (NUMBER)')}"],   # v71.9: 100% FREE temp number + OTP (har user ko alag)
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
@@ -1120,6 +1324,9 @@ BTN_MODE_MAP = {
     "FREE FIRE UID": "ffuid",
     "TEMP MAIL": "tempmail",
     "TEMPMAIL": "tempmail",
+    "TEMP MAIL (NUMBER)": "tnum",          # v71.9: 100% FREE temp number + OTP
+    "TEMP NUMBER": "tnum",
+    "TEMP MAIL NUMBER": "tnum",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -1684,6 +1891,7 @@ TUTORIAL_TEXT = (
     "• 🏦 IFSC INFO → IFSC code bhejo → bank + branch + MICR mil jaata hai\n"
     "• 🎮 BGMI UID / 🔥 FF UID → dost ka game UID bhejo → naam, level, rank, stats (public)\n"
     "• 📧 TEMP MAIL → NEW bhejo → ek-baar ka email + inbox (OTP/signup ke liye)\n"
+    "• 📞 TEMP MAIL (NUMBER) → FREE temp number + OTP (har user ko alag number, 10+ desh)\n"
     "\n"
     "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
     "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
@@ -4914,6 +5122,98 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _vnum_say(q, card, kb)
         return
 
+    # ---------- 📞 TEMP MAIL (NUMBER) inline buttons (v71.9) ----------
+    #  100% FREE tool (koi credit nahi) — har user ko apna ALAG number.
+    #  Virtual Numbers (vnum) se bilkul alag hai: uska kaam admin/manual hai.
+    if data == "tnum_open":
+        await _vnum_say(q, TNUM_INTRO, _tnum_svc_kb())
+        return
+
+    if data.startswith("tnum_svc:"):
+        sk = data.split(":", 1)[1]
+        if sk not in TN.SVC_BY_KEY:
+            sk = "whatsapp"
+        context.user_data["tnum_svc"] = sk
+        lbl, em, _rc = TN.SVC_BY_KEY.get(sk, ("App", "📱", ()))
+        await _vnum_say(
+            q,
+            f"{em} <b>{to_bold('STEP 2: DESH CHUNO')}</b>\n"
+            "──────────────────────\n"
+            f"App: <b>{hesc(str(lbl))}</b>\n\n"
+            "⭐ wale desh is app ke liye sabse best chalte hain.\n"
+            "Neeche se desh chuno 👇",
+            _tnum_ctry_kb(sk))
+        return
+
+    if data == "tnum_countries":
+        sk = str(context.user_data.get("tnum_svc") or "whatsapp")
+        lbl, em, _rc = TN.SVC_BY_KEY.get(sk, ("App", "📱", ()))
+        await _vnum_say(
+            q,
+            f"{em} <b>{to_bold('DESH CHUNO')}</b>\n"
+            "──────────────────────\n"
+            f"App: <b>{hesc(str(lbl))}</b>\n\nNeeche se desh chuno 👇",
+            _tnum_ctry_kb(sk))
+        return
+
+    if data.startswith("tnum_ctry:") or data == "tnum_change":
+        sk = str(context.user_data.get("tnum_svc") or "")
+        _me = _tnum_load().get(str(uid)) or {}
+        if data == "tnum_change":
+            cc = str(_me.get("cc") or "")
+            if not cc:
+                await _vnum_say(q, TNUM_INTRO, _tnum_svc_kb())
+                return
+            change = True
+        else:
+            cc = data.split(":", 1)[1]
+            change = False
+        _rlm = check_limit(uid, "tnum", limit=25, window=300,
+                           bypass=has_unlimited(uid), tool_name="Temp Mail (Number)")
+        if _rlm:
+            await q.answer("Thoda slow 🙂", show_alert=False)
+            await _vnum_say(q, _rlm, _tnum_ctry_kb(sk))
+            return
+        await q.answer("Number nikaal raha hoon... ⌛")
+        rec, err = await asyncio.to_thread(tnum_get_number, uid, cc,
+                                           sk or str(_me.get("svc") or ""), change)
+        if not rec:
+            await _vnum_say(
+                q,
+                "⚠️ <b>Number nahi mila.</b>\n"
+                "──────────────────────\n"
+                f"{hesc(str(err or 'Site slow hai — dobara try karo.'))}\n\n"
+                "👉 Doosra desh chuno 👇",
+                _tnum_ctry_kb(sk))
+            return
+        ib = await asyncio.to_thread(TN.inbox, rec["nid"])
+        context.user_data["tnum_last_ref"] = 0
+        await _vnum_say(q, tnum_card(rec, ib), _tnum_num_kb(rec))
+        return
+
+    if data == "tnum_refresh":
+        _me = _tnum_load().get(str(uid)) or {}
+        if not _me.get("nid"):
+            await _vnum_say(q, TNUM_INTRO, _tnum_svc_kb())
+            return
+        _now = time.time()
+        _last = float(context.user_data.get("tnum_last_ref") or 0)
+        if _now - _last < TNUM_REFRESH_GAP:
+            await q.answer(f"⏳ {int(TNUM_REFRESH_GAP - (_now - _last))}s baad dobara dabao 🙂",
+                           show_alert=False)
+            return
+        _rlm = check_limit(uid, "tnum", limit=25, window=300,
+                           bypass=has_unlimited(uid), tool_name="Temp Mail (Number)")
+        if _rlm:
+            await q.answer("Thoda slow 🙂", show_alert=False)
+            await _vnum_say(q, _rlm, _tnum_num_kb(_me))
+            return
+        context.user_data["tnum_last_ref"] = _now
+        await q.answer("🔁 Naye SMS dekh raha hoon...")
+        ib = await asyncio.to_thread(TN.inbox, _me.get("nid"), 1.0, True)
+        await _vnum_say(q, tnum_card(_me, ib), _tnum_num_kb(_me))
+        return
+
     # Sarkari & Student Portals
     if data == "sarkari_citizen":
         await q.message.edit_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
@@ -6515,6 +6815,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             # v58: credits line hatayi (VIP par khaali aati thi)
             await send_vnum_card(update, context)
+            return
+
+        # 1b. v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE, koi credit nahi.
+        #     Ye alag tool hai (Virtual Numbers se bilkul alag).
+        if action == "tnum":
+            await send_tnum_card(update, context)
             return
 
         # 3. Channel Cloner Dashboard (premium — 1 credit per FULL AUTO / Fast-Forward)
