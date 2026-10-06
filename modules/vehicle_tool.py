@@ -139,8 +139,8 @@ def map_provider_payload(raw, plate: str) -> dict:
     """Kisi bhi provider ke JSON ko bot ke card shape me badlo (tolerant)."""
     f = _flatten(raw if isinstance(raw, (dict, list)) else {})
     rc = {
-        "plate": _pick(f, "registrationnumber", "regnumber", "regno", "vehiclenumber",
-                       "rcnumber", "number", "regnno") or plate,
+        "plate": _pick(f, "registrationnumber", "registrationno", "regnumber", "regno",
+                       "vehiclenumber", "rcnumber", "number", "regnno") or plate,
         "owner": _pick(f, "ownername", "owner", "registeredowner", "name"),
         "owner_serial": _pick(f, "ownerserial", "ownernumber", "ownersr"),
         "father": _pick(f, "fathername", "fathersname", "sonof", "guardianname"),
@@ -151,7 +151,7 @@ def map_provider_payload(raw, plate: str) -> dict:
         "reg_validity": _pick(f, "registrationvalidity", "registrationvalidupto", "rcvalidupto"),
         "body_type": _pick(f, "bodytype"),
         "category": _pick(f, "vehiclecategory"),
-        "unladen": _pick(f, "unladenweight", "unladen"),
+        "unladen": _pick(f, "unladenweight", "unloadweight", "unladen", "unload"),
         "sleeper": _pick(f, "sleepercapacity"),
         "data_source": _pick(f, "datasource"),
         "maker": _pick(f, "maker", "makername", "manufacturer"),
@@ -162,7 +162,7 @@ def map_provider_payload(raw, plate: str) -> dict:
         "chassis": _pick(f, "chassisnumber", "chassis", "chassisno"),
         "engine": _pick(f, "enginenumber", "engine", "engineno"),
         "colour": _pick(f, "color", "colour", "vehiclecolor"),
-        "seating": _pick(f, "seatingcapacity", "seats"),
+        "seating": _pick(f, "seatingcapacity", "seatcapacity", "seats"),
         "emission": _pick(f, "fuelnorms", "emissionnorms", "norms", "bsnorm"),
         "reg_date": _pick(f, "registrationdate", "regdate", "registeredon", "registrationvalidfrom"),
         "fitness_upto": _pick(f, "fitnessupto", "fitnesstill", "fitnessvalidupto"),
@@ -173,8 +173,8 @@ def map_provider_payload(raw, plate: str) -> dict:
                           "insurancevalidity"),
         "puc_no": _pick(f, "pucnumber", "pucno"),
         "puc_upto": _pick(f, "pucupto", "puccupto", "pucexpiry", "pollutionvalidupto"),
-        "financer": _pick(f, "financer", "hypothecationbank", "hypothecation",
-                          "hypothecatedto", "financername"),
+        "financer": _pick(f, "financer", "financername", "financiername",
+                          "hypothecationbank", "hypothecation", "hypothecatedto"),
         "blacklist": _pick(f, "blacklist", "blackliststatus", "isblacklisted"),
         "noc": _pick(f, "noc", "nocdetails", "nocstatus"),
         "permit": _pick(f, "permittype", "permit", "permitnumber"),
@@ -211,6 +211,11 @@ def map_provider_payload(raw, plate: str) -> dict:
                 })
     if count == 0 and ch_list:
         count = len(ch_list)
+    # v71.5: "24-11-2017 00:00:00" jaisi dates se bekaar time hata do
+    for _dk in ("reg_date", "ins_upto", "fitness_upto", "puc_upto", "tax_upto",
+                "reg_validity"):
+        if rc.get(_dk):
+            rc[_dk] = re.sub(r"[ T]00:00:00(\.\d+)?Z?$", "", str(rc[_dk])).strip()
     return {"rc": {k: v for k, v in rc.items() if v}, "challans": ch_list,
             "count": count, "pending": pend, "amount": amt}
 
@@ -292,23 +297,30 @@ def _provider_lookup(plate: str) -> dict:
         return requests.get(url, params=params, headers=hdrs, timeout=TIMEOUT)
 
     def _urls():
-        """Kaun-kaun se URL try karne hain — samajhdari se, ek-ek karke."""
-        out = []
+        """Kaun-kaun se URL try karne hain — samajhdari se, ek-ek karke.
+
+        v71.5: ROOT URL (base) pehle try hota hai — kuch RapidAPI endpoints
+        (jaise "Vehicle RC Information") ROOT par hi POST lete hain; pehle
+        unke liye 7 path-candidates bekaar 404 khaate the (~6s).
+        """
+        post = []
         if c.get("path"):
-            out.append(base + "/" + c["path"].lstrip("/")
-                       .replace("{number}", plate).replace("{key}", c.get("key") or ""))
+            post.append(base + "/" + c["path"].lstrip("/")
+                        .replace("{number}", plate).replace("{key}", c.get("key") or ""))
         try:
             from urllib.parse import urlparse
             _has_path = bool(urlparse(base).path.strip("/"))
         except Exception:                                     # noqa: BLE001
             _has_path = base.count("/") > 2
+        post.append(base)                                     # v71.5: root pehle
         if is_rapidapi() and not _has_path:
-            # sirf host diya (jaise .../vehicle-rc-information.p.rapidapi.com) —
-            # aam path candidates try karo, jo chale wahi yaad rakh lo
-            out += [base + "/" + _pc.lstrip("/") for _pc in _PATH_CANDIDATES]
-        out.append(base)
-        if _WORKING_URL[0] and _WORKING_URL[0].startswith(base) and _WORKING_URL[0] not in out:
-            out.insert(0, _WORKING_URL[0])
+            post += [base + "/" + _pc.lstrip("/") for _pc in _PATH_CANDIDATES]
+        out, seen = [], set()
+        if _WORKING_URL[0] and _WORKING_URL[0].startswith(base):
+            out.append(_WORKING_URL[0]); seen.add(_WORKING_URL[0])
+        for _u in post:
+            if _u not in seen:
+                seen.add(_u); out.append(_u)
         return out
 
     def _try_all(url):

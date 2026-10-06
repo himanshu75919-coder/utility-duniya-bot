@@ -417,7 +417,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.4 FREE4ALL — RC AUTO-PATH (sirf host daalo) + "
+BOT_VERSION = ("v71.5 FREE4ALL — RC CHALU (RapidAPI root-auto) + "
                "SADE PROMPTS + VEHICLE INFO REPORT")
 START_TIME = datetime.now()
 
@@ -4550,9 +4550,20 @@ def vahan_card(res: dict, offline: dict | None = None) -> str:
         (str(offline.get("district") or "N/A"))
     _city = _v("city")
     if _city == "-":
-        _auth = str(rc.get("authority") or "")
-        _tok = [t for t in re.split(r"\s+", _auth) if t and not t.upper().startswith("BR")]
-        _city = _tok[1] if len(_tok) > 1 else (str(offline.get("district") or "-"))
+        # v71.5: "BR30 RTA, Sitamarhi" → Sitamarhi ; "SANGRUR RTA, Punjab" → SANGRUR
+        _auth = str(rc.get("authority") or "").strip()
+        _toks = [t for t in (x.strip(".,") for x in re.split(r"\s+", _auth)) if t]
+        _toks = [t for t in _toks if not re.fullmatch(r"[A-Z]{2}\d{1,2}", t.upper())]
+        _off = next((i for i, t in enumerate(_toks) if t.upper() in (
+            "RTA", "RTO", "ARTO", "DTO", "SRTO", "ZRTO", "DTC", "STA")), None)
+        if _off == 0 and len(_toks) > 1:
+            _city = _toks[1]
+        elif _toks and _off not in (0, None):
+            _city = _toks[0]
+        elif _toks:
+            _city = _toks[-1] if len(_toks) > 1 and "," in _auth else _toks[0]
+        else:
+            _city = str(offline.get("district") or "-")
     _status = _v("status", "rc_status")
     _status = "⚠️ N/A" if _status == "-" else _status
     _puc = _v("puc_upto")

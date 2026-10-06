@@ -242,7 +242,7 @@ class _MockRapidAPI(_BHR):
     def do_POST(self):
         _ln = int(self.headers.get("content-length") or 0)
         _b = _json.loads(self.rfile.read(_ln) or b"{}")
-        if self.path.rstrip("/") not in ("/VehicleInformation", ""):
+        if self.path.rstrip("/") != "/VehicleInformation":
             self.send_response(404); self.end_headers(); self.wfile.write(b"{}"); return
         if "VehicleNumber" not in _b:
             self.send_response(400); self.end_headers(); self.wfile.write(b"{}"); return
@@ -267,7 +267,7 @@ _srv = _HS(("127.0.0.1", 0), _MockRapidAPI)
 _port = _srv.server_address[1]
 _thr.Thread(target=_srv.serve_forever, daemon=True).start()
 
-os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port}"
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port}/VehicleInformation"
 os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
 os.environ["VEHICLE_PROVIDER_HEADERS"] = "X-RapidAPI-Key:{key}"
 
@@ -285,6 +285,7 @@ check("galat key par SAFA Hinglish error (hub ka generic message nahi)",
       _r2.get("ok") is False and "key nahi maani" in str(_r2.get("error")), str(_r2)[:130])
 
 os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port}"   # sirf host
 VT._CACHE.clear(); VT._WORKING_URL[0] = ""
 _re = VT.is_rapidapi
 VT.is_rapidapi = lambda: True         # host-only URL wala case
@@ -298,6 +299,80 @@ check("jo URL chala wo YAAD rehta hai (agli baar seedha wahi)",
 _srv.shutdown()
 for _k2 in ("VEHICLE_PROVIDER_URL", "VEHICLE_PROVIDER_KEY", "VEHICLE_PROVIDER_HEADERS"):
     os.environ.pop(_k2, None)
+
+
+# =====================================================================
+section("[F] 🏁 ROOT-URL API — jaise asli 'Vehicle RC Information' (v71.5)")
+# =====================================================================
+class _MockRootAPI(_BHR):
+    """Asli API ka behaviour: POST seedha root ('/') par, body me VehicleNumber."""
+
+    def log_message(self, *a):                                # noqa: ANN002
+        pass
+
+    def do_POST(self):
+        _ln = int(self.headers.get("content-length") or 0)
+        _b = _json.loads(self.rfile.read(_ln) or b"{}")
+        if self.path.rstrip("/") != "":
+            self.send_response(404); self.end_headers(); self.wfile.write(b"{}"); return
+        if "VehicleNumber" not in _b:
+            self.send_response(400); self.end_headers(); self.wfile.write(b"{}"); return
+        if (self.headers.get("X-RapidAPI-Key") or "") != "TESTKEY":
+            self.send_response(403); self.end_headers()
+            self.wfile.write(b'{"message":"Invalid API key"}'); return
+        _out = {"success": True, "data": {
+            "registrationNo": _b["VehicleNumber"],
+            "registrationAuthority": "SANGRUR RTA, Punjab",
+            "registrationDate": "24-11-2017 00:00:00",
+            "ownerName": "S*******P S***H",
+            "makerModel": "TOYOTA KIRLOSKAR MOTOR PVT LTD / FORTUNER 2WD 2.8L 6MT",
+            "fuelType": "DIESEL", "vehicleClass": "Motor Car(LMV)",
+            "vehicleColor": "S WHITE", "rcStatus": "ACTIVE",
+            "insuranceCompany": "United India Insurance Co. Ltd.",
+            "insuranceUpto": "18-02-2022 00:00:00",
+            "fitnessUpto": "23-11-2032 00:00:00",
+            "seatCapacity": "7", "financierName": None, "unloadWeight": "2135"}}
+        _raw = _json.dumps(_out).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(_raw)
+
+    def do_GET(self):
+        self.send_response(404); self.end_headers(); self.wfile.write(b"{}")
+
+
+_srv2 = _HS(("127.0.0.1", 0), _MockRootAPI)
+_port2 = _srv2.server_address[1]
+_thr.Thread(target=_srv2.serve_forever, daemon=True).start()
+
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port2}"
+os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
+os.environ.pop("VEHICLE_PROVIDER_HEADERS", None)
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""
+_re2 = VT.is_rapidapi
+VT.is_rapidapi = lambda: True         # host-only URL wala case
+_r4 = VT.vehicle_lookup("PB65AM0008")
+VT.is_rapidapi = _re2
+check("ROOT-endpoint API turant chalti hai (base URL pehle try)",
+      _r4.get("ok") is True and _r4["rc"].get("plate") == "PB65AM0008", str(_r4)[:130])
+check("'registrationNo' wali key bhi mapper samajhta hai",
+      _r4.get("ok") is True and "SANGRUR" in _r4["rc"].get("authority", ""))
+check("date se '00:00:00' saaf ho jata hai",
+      _r4["rc"].get("reg_date") == "24-11-2017", _r4["rc"].get("reg_date"))
+check("finance null → khaali (card me N/A dikhayega)",
+      not _r4["rc"].get("financer"), _r4["rc"].get("financer"))
+check("root URL memory me set ho jata hai",
+      VT._WORKING_URL[0] == f"http://127.0.0.1:{_port2}", VT._WORKING_URL[0])
+_card_txt = bot.vahan_card({"rc": dict(_r4["rc"]), "challans": []}, None)
+_city_line = _card_txt.split("City:</b>")[1][:26] if "City:</b>" in _card_txt else ""
+check("card me City sahi nikalta hai ('SANGRUR RTA, Punjab' → SANGRUR)",
+      "SANGRUR" in _city_line and "RTA" not in _city_line, _city_line)
+check("card poora banta hai (owner/model/insurance dikhte hain)",
+      "S*******P" in _card_txt and "FORTUNER" in _card_txt and "United India" in _card_txt)
+_srv2.shutdown()
+for _k3 in ("VEHICLE_PROVIDER_URL", "VEHICLE_PROVIDER_KEY"):
+    os.environ.pop(_k3, None)
 
 
 print(f"\n{'=' * 62}")

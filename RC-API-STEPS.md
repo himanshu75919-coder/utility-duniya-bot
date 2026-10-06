@@ -7,6 +7,36 @@
 
 ---
 
+# ✅ v71.5 UPDATE — API CHALU HO GAYI (ye hamesha yaad rakhna)
+
+**Is API ka asli endpoint — ROOT par hai (koi `/path` nahi):**
+
+```
+POST https://vehicle-rc-information.p.rapidapi.com/
+Body: {"VehicleNumber": "PB65AM0008"}
+Headers: X-RapidAPI-Key: <aapki key>
+         X-RapidAPI-Host: vehicle-rc-information.p.rapidapi.com
+```
+
+- **Basic endpoint** = yahi root URL, body me `VehicleNumber` (capital V, capital N)
+- **v2 [Advance]** = alag endpoint (body `vehicle_number`) — abhi Basic chalu hai
+- **Bot ko kuch samjhane ki zaroorat nahi** 🔥 — v71.5 se bot khud:
+  1. **root URL pehle** try karta hai (1 second me jawab aata hai), phir baaki path candidates
+  2. Ghalat body key khud adjust karta hai
+  3. Jo URL chala wo **yaad** rakhta hai
+
+**Render me bas 2 line (bas itna hi):**
+
+```
+VEHICLE_PROVIDER_URL = https://vehicle-rc-information.p.rapidapi.com
+VEHICLE_PROVIDER_KEY = <aapki RapidAPI key>
+```
+
+> 💡 Tip: URL me `/VehicleInformation` **na lagao** — ye API root par chalti hai.
+> Sirf host daalo, bacha hua kaam bot karega (2026-10-07 ko verified: `PB65AM0008` → 1.0s me poora card ✅)
+
+---
+
 # 📋 Step 1 — RapidAPI par jao aur Google se sign up karo
 
 👉 **https://rapidapi.com/auth/sign-up**
