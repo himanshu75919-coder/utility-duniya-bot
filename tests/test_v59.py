@@ -721,8 +721,8 @@ check("v59.9: self-check asli mode batata hai (raw env nahi)",
 check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
       (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
       .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
-check("BOT_VERSION v59.9+ hai (auto-webhook wala)", "v59.9" in bot.BOT_VERSION
-      or "v59.10" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("BOT_VERSION v59.9+ hai (auto-webhook wala)",
+      any(x in bot.BOT_VERSION for x in ("v59.9", "v59.10", "v59.11")), bot.BOT_VERSION)
 check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
       webhook_url_from_env({"WEBHOOK_MODE": "polling",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
@@ -748,10 +748,28 @@ check("v59.10: TypeHandler se har update count hota hai (group=-10, reply nahi)"
 check("v59.10: _last_update_line() kaam karta hai",
       callable(getattr(bot, "_last_update_line", None))
       and "koi message nahi aaya" in bot._last_update_line())
-check("v59.10: /health par 'bot:' line (aakhri message) dikhti hai",
+check("v59.9.2+: /health par 'bot:' line (aakhri message) dikhti hai",
       "bot: {_last_update_line()}" in BOT_SRC)
 check("v59.10: /version par 'Live check' line dikhti hai", "Live check:</b>" in BOT_SRC)
-check("v59.10: BOT_VERSION v59.10 hai", "v59.10" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("BOT_VERSION v59.10+ hai (live proof wala)",
+      any(x in bot.BOT_VERSION for x in ("v59.10", "v59.11")), bot.BOT_VERSION)
+
+# --- v59.11: Conflict aane par auto webhook switch (Render logs ka error khatam) ---
+check("v59.11: _force_webhook_after_conflict() maujood hai",
+      callable(getattr(bot, "_force_webhook_after_conflict", None)))
+check("v59.11: polling retry loop me Conflict par webhook switch hota hai",
+      "if _force_webhook_after_conflict(app):" in BOT_SRC)
+check("v59.11: switch se pehle keepalive port khaali hota hai (warna bind fail)",
+      "_stop_keepalive_server()" in BOT_SRC
+      and BOT_SRC.index("_stop_keepalive_server()", BOT_SRC.index("def _force_webhook_after_conflict"))
+      < BOT_SRC.index("run_webhook(", BOT_SRC.index("def _force_webhook_after_conflict")))
+check("v59.11: webhook na mile to polling retry band nahi hota (fallback safe)",
+      "polling retry karega" in BOT_SRC)
+check("v59.11: _stop_keepalive_server() bina server ke bhi safe hai",
+      callable(getattr(bot, "_stop_keepalive_server", None))
+      and bot._stop_keepalive_server() is None)
+check("v59.11: diag me auto-switch ki wajah likhi jaati hai",
+      "Conflict ke baad auto-switch" in BOT_SRC)
 
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))

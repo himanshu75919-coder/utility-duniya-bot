@@ -314,7 +314,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = int(os.getenv("REFER_NEED", "5") or 5)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v59.10 Live Proof (Webhook + Aakhri Message) + Support Clickable"
+BOT_VERSION = "v59.11 Conflict Killer (auto-webhook switch) + Live Proof + Support"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -6860,6 +6860,9 @@ _WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not 
 # v59.10: "bot sach me jawab de raha hai?" — aakhri update kab aaya (user ki
 # sabse badi confusion: purana screenshot dekh kar lagta hai bot band hai).
 _UPDATE_STATE = {"n": 0, "last_ts": 0.0, "last_at": None}
+# v59.11: polling -> webhook switch ke waqt keepalive server ka port khaali karna
+# padta hai (warna PTB webhook usi port par bind nahi kar payega).
+_KEEPALIVE_SERVER = {"srv": None}
 
 # v54.1: /health par **git commit SHA** bhi dikhao.
 # Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
@@ -6970,10 +6973,74 @@ def _keepalive():
 
     try:
         with socketserver.TCPServer(("0.0.0.0", port), Handler) as httpd:
+            _KEEPALIVE_SERVER["srv"] = httpd
             log.info("Keepalive server listening on port %s for UptimeRobot / Render", port)
             httpd.serve_forever()
     except Exception as e:
         log.warning("Keepalive server warning: %s", e)
+    finally:
+        _KEEPALIVE_SERVER["srv"] = None
+
+
+def _stop_keepalive_server() -> None:
+    """Keepalive server band karo — port khaali ho jaye (webhook ke liye zaroori)."""
+    _srv = _KEEPALIVE_SERVER.get("srv")
+    if _srv is None:
+        return
+    try:
+        _srv.shutdown()          # doosre thread se call — blocked loop khul jaata hai
+        _srv.server_close()
+        log.info("Keepalive server band kiya — port %s khaali (webhook ke liye)",
+                 os.environ.get("PORT", "10000"))
+    except Exception as e:                                        # noqa: BLE001
+        log.warning("Keepalive server band karte waqt dikkat: %s", str(e)[:90])
+
+
+def _force_webhook_after_conflict(app) -> bool:
+    """Polling me Conflict aa gaya? Webhook par switch kar do (wahan Conflict nahi hota).
+
+    v59.11: pehle yahan sirf "15s baad try karo" hota tha — user ko Render logs me
+    baar-baar CONFLICT dikhta tha. Ab pehla Conflict aate hi bot khud webhook par
+    chala jata hai (Render URL + Telegram preflight pass hone par). Wahan
+    getUpdates hota hi nahi -> Conflict dobara aana namumkin.
+
+    True = webhook par switch ho gaya (process yahin chal raha hai).
+    """
+    global WEBHOOK_URL
+    url = webhook_url_from_env()
+    if not url:
+        return False
+    ok, why = webhook_url_usable(url)
+    if not ok:
+        log.warning("Conflict ke baad webhook bhi nahi chal sakta (%s) — polling retry karega", why)
+        return False
+    secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
+    pf_ok, pf_why = webhook_preflight(url, f"/webhook/{secret}", BOT_TOKEN,
+                                      os.environ.get("WEBHOOK_SECRET_TOKEN") or None)
+    if not pf_ok:
+        log.warning("Conflict ke baad webhook preflight fail (%s) — polling retry karega", pf_why)
+        return False
+    WEBHOOK_URL = url
+    _WEBHOOK_DIAG.update({"decision": "WEBHOOK (Conflict ke baad auto-switch)",
+                          "why": "polling me Conflict tha — webhook par switch"})
+    _stop_keepalive_server()
+    from modules.render_health import install_webhook_health_routes
+    install_webhook_health_routes(health_html)
+    port = int(os.environ.get("PORT", "10000"))
+    log.warning("🔁 POLLING me Conflict tha → ab WEBHOOK par switch kar raha hoon "
+                "(getUpdates band, Conflict ab nahi aayega) | pid=%s", os.getpid())
+    try:
+        app.run_webhook(
+            listen="0.0.0.0", port=port, url_path=f"/webhook/{secret}",
+            webhook_url=url.rstrip("/") + f"/webhook/{secret}",
+            allowed_updates=Update.ALL_TYPES, drop_pending_updates=True,
+            secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
+        )
+        return True
+    except Exception as e:                                        # noqa: BLE001
+        log.error("Webhook switch fail (%s: %s) — polling retry karega", type(e).__name__, str(e)[:150])
+        WEBHOOK_URL = ""
+        return False
 
 
 def main():
@@ -7172,11 +7239,15 @@ def main():
         except Exception as e:                                  # noqa: BLE001
             _msg = str(e).lower()
             log.error("Polling band hui (%s: %s)", type(e).__name__, str(e)[:200])
-            if "conflict" in _msg and _try < 5:
-                wait = 15 * _try
-                log.warning("Do instance ek saath chal rahe hain — %ss baad dobara koshish (%s/5)", wait, _try)
-                time.sleep(wait)
-                continue
+            if "conflict" in _msg:
+                # v59.11: retry se pehle webhook try karo — Conflict ki jad yahin khatam
+                if _force_webhook_after_conflict(app):
+                    return
+                if _try < 5:
+                    wait = 15 * _try
+                    log.warning("Do instance ek saath chal rahe hain — %ss baad dobara koshish (%s/5)", wait, _try)
+                    time.sleep(wait)
+                    continue
             if _try < 5:
                 log.warning("5 second baad dobara koshish (%s/5)", _try)
                 time.sleep(5)
