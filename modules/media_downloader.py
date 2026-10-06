@@ -2,11 +2,11 @@
 """
 Universal Video & Social Media Downloader Engine (v31 PRO)
 ==========================================================
-Pehle sirf Instagram chalta tha. Ab 3-engine chain + 20+ platforms:
+v67: sirf 4 platforms — Instagram, YouTube, Facebook, TikTok.
+(baaki 23 services user ke order par POORI TARAH DELETE kar di gayi hain)
 
 ENGINE CHAIN (Instagram):  parth-dl  ->  yt-dlp  ->  og:video scrape  ->  mirrors
-ENGINE (baaki sites):      yt-dlp     (YouTube, Shorts, FB, X/Twitter, TikTok, Snapchat,
-                                        Pinterest, Reddit, Vimeo, Dailymotion, Threads...)
+ENGINE:                    yt-dlp     (Instagram, YouTube, Facebook, TikTok)
 
 2026 fixes:
 - kkinstagram mirror dead tha -> hataya, yt-dlp engine add kiya (verified working).
@@ -63,13 +63,11 @@ if not _FFMPEG_LOC:
         _FFMPEG_LOC = None
 _HAS_FFMPEG = bool(_FFMPEG_LOC)
 
+# v67: sirf 4 platform (Instagram, YouTube, Facebook, TikTok) — baaki 23
+#      services user ke order par POORI TARAH DELETE kar di gayi hain.
 SUPPORTED_SITES = (
     "instagram.com", "instagr.am", "youtube.com", "youtu.be", "facebook.com", "fb.watch",
-    , "x.com", "tiktok.com", , , ,
-    , , , , , ,
-    , , , , , ,
-    , , , , , , ,
-    , , ,
+    "tiktok.com",
 )
 
 
@@ -89,14 +87,10 @@ def is_supported_video_url(url: str) -> bool:
 def platform_name(url: str) -> str:
     u = (url or "").lower()
     table = [
-        ("instagram.com", "Instagram"), ("instagr.am", "Instagram"), ("youtube.com", "YouTube"),
-        ("youtu.be", "YouTube"), ("facebook.com", "Facebook"), ("fb.watch", "Facebook"),
-        (, ), ("x.com", ), ("tiktok.com", "TikTok"),
-        (, ), (, ), (, ),
-        (, ), (, ), (, ),
-        (, ), (, ), (, ),
-        (, ), (, ), (, ), (, ),
-        (, ), (, ), ("snssh", "Social"),
+        ("instagram.com", "Instagram"), ("instagr.am", "Instagram"),
+        ("youtube.com", "YouTube"), ("youtu.be", "YouTube"),
+        ("facebook.com", "Facebook"), ("fb.watch", "Facebook"),
+        ("tiktok.com", "TikTok"),
     ]
     for key, name in table:
         if key in u:
@@ -757,9 +751,6 @@ def download_instagram_media(url: str) -> dict:
 # UNIVERSAL DOWNLOADER (Instagram + YouTube + FB + X + TikTok + ...)
 # =====================================================================================
 def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
-    _hubres = __download(url, max_mb)
-    if _hubres.get("ok"):
-        return _hubres
     url = (url or "").strip()
     # v47: YouTube ke liye hub ka naya /youtube-download (hub v2.2 — proxy link IP-lock free)
     if re.search(r"(youtube\.com|youtu\.be)/", url):
@@ -928,37 +919,6 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
                          "poora video 1080p me download ho jayega.") if mb else
                         "Video ready hai — direct link se poori quality me download karein."}
     return {"ok": False}
-
-
-def __download(url: str, max_mb: int) -> dict:
-    """v45: X/Twitter video user ke hub se (fallback purana engine)."""
-    try:
-        from modules import api_hub as hub
-    except Exception:
-        return {"ok": False}
-    if not hub.hub_ready() or not re.search(r"(twitter\.com|x\.com)/", url or ""):
-        return {"ok": False}
-    res = hub._video(url)
-    if not res.get("ok"):
-        return {"ok": False}
-    try:
-        r = requests.get(res["url"], headers=DESKTOP_UA, timeout=90, stream=True)
-        if r.status_code != 200:
-            return {"ok": False}
-        buf = io.BytesIO()
-        for chunk in r.iter_content(262144):
-            buf.write(chunk)
-            if buf.tell() > max_mb * 1048576 * 1.05:
-                break
-        data = buf.getvalue()
-        if len(data) < 50_000:
-            return {"ok": False}
-        return {"ok": True, "type": "video", "bytes": data,
-                "size_mb": round(len(data) / 1048576, 2),
-                "engine": res.get("source", "hub-video"),
-                "title": res.get("title") or "", "duration": 0}
-    except Exception:
-        return {"ok": False}
 
 
 async def download_video_async(url: str, max_mb: int = MAX_TG_MB) -> dict:

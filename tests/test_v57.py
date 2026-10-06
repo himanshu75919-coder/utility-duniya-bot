@@ -333,7 +333,7 @@ check("bot.py me duplicate dict keys nahi", not _dup_keys(os.path.join(ROOT, "bo
 # purane crash patterns wapas na aayein
 _bad = re.findall(r"\b\w*message\.send_(?:photo|document|video)\s*\(", BOT_SRC)
 check("Message.send_* crash pattern wapas nahi aaya", not _bad, str(_bad[:2]))
-for _m in ("ip", , "webscraper", "aadeid", "tginfo"):
+for _m in ("ip", "webscraper", "aadeid", "tginfo"):
     check(f'deleted tool "{_m}" ka handler nahi aaya', f'if mode == "{_m}":' not in BOT_SRC)
 
 # saare modules import

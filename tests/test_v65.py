@@ -140,12 +140,10 @@ async def _main():
 asyncio.run(_main())
 
 # =====================================================================
-section("[D] 📥 27 DOWNLOADER SERVICES — alag tools, official emoji")
+section("[D] 📥 DOWNLOADER SERVICES — alag tools, official emoji")
 # =====================================================================
-check("27 services hain", len(bot.DL_SITES) == 27, str(len(bot.DL_SITES)))
-_OFC = {"instagram": "📸", "youtube": "▶️", "facebook": "📘", "tiktok": "🎵",
-        : "🐦", : "📌", : "🔴", : "💬",
-        : "👻", : "💼", : "📺", : "🟣"}
+check("4 services hain (v67)", len(bot.DL_SITES) == 4, str(len(bot.DL_SITES)))
+_OFC = {"instagram": "📸", "youtube": "▶️", "facebook": "📘", "tiktok": "🎵"}
 for _k, _e in _OFC.items():
     check(f"{_k} ka official emoji {_e} laga hai", bot.DL_SITES[_k][0] == _e,
           f"mila: {bot.DL_SITES[_k][0]}")
@@ -154,16 +152,17 @@ check("har service ka apna nam hai (khaali nahi)",
 check("har service ka apna mode hai (dl_<app>)",
       all(f"dl_{k}" in bot.PROMPT_DATA for k in bot.DL_SITES))
 _dt = bot.dl_tools_text()
-check("tools list me saare 27 downloader services hain",
-      len([ln for ln in _dt.splitlines() if "Downloader" in ln]) == 27,
+check("tools list me saare 4 downloader services hain",
+      len([ln for ln in _dt.splitlines() if "Downloader" in ln]) == 4,
       str(len([ln for ln in _dt.splitlines() if "Downloader" in ln])))
 check("list me official emojis dikhte hain",
-      all(e in _dt for e in ("📸", "▶️", "📘", "🎵", "🐦", "👻")))
+      all(e in _dt for e in ("📸", "▶️", "📘", "🎵")))
 check("ALL TOOLS list me downloader section juda hai",
-      "27 VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)" in bot.all_tools_text())
+      "4 VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)" in bot.all_tools_text())
 check("ALL TOOLS list Telegram limit me fit hai",
       len(bot.all_tools_text()) < 4096, str(len(bot.all_tools_text())))
-check("menu text me '27 alag tools' likha hai", "27" in bot.DL_MENU_TEXT)
+check("purana picker menu code delete ho gaya",
+      not hasattr(bot, "DL_MENU_TEXT") and not hasattr(bot, "dl_menu_kb"))
 
 # =====================================================================
 section("[D2] ⏱️ \"2 MINUTE\" WALA MESSAGE HAMESHA KE LIYE KHATAM")

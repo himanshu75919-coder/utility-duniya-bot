@@ -409,7 +409,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v66.1 FREE4ALL — 27 VIDEO DOWNLOADER TOOLS (sab alag) + VIDEO DOWNLOADER tool deleted + crash fix + 45s speed"
+BOT_VERSION = "v67.0 FREE4ALL — 4 VIDEO DOWNLOADER TOOLS (Insta/YouTube/FB/TikTok alag-alag) + 23 tools deleted + crash fix"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -620,10 +620,11 @@ def get_credits_over_text(action: str = "") -> str:
         f"{tool_name} ek <b>premium tool</b> hai — 1 use = 1 credit.\n"
         f"Aapke <b>{CREDITS_START} free credits khatam ho gaye.</b>\n\n"
         "👑 <b>VIP lene se POORA bot UNLIMITED ho jayega:</b>\n"
-        "• 📥 Video Downloader • 📱 Number Info • 🔄 Channel Cloner\n"
+        "• 📥 Instagram/YouTube/Facebook/TikTok Downloader • 📱 Number Info\n"
+        "• 🔄 Channel Cloner\n"
         "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
         "• 🏦 Bank PDF→Excel • 📜 Kagaz Suite • ⚡ Media Studio\n"
-        "• 📲 IMEI • 📦 App Finder • 📌 Pinterest Download • aur saare tools\n"
+        "• 📲 IMEI • 📦 App Finder • aur saare tools\n"
         "• 💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
         "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n"
         "• ♾️ 30/60/90/120 din ya LIFETIME — sab plans\n\n"
@@ -709,11 +710,11 @@ def free_mode_kb() -> InlineKeyboardMarkup:
 
 
 def dl_tools_text() -> str:
-    """v66.1: 27 ALAG-ALAG tools ki list — har app ka apna tool (koi
+    """v67: alag-alag downloader tools ki list — har app ka apna tool (koi
     "sab apps wala" video downloader tool nahi hai)."""
     _rows = [f"   {icon} {hesc(name)} Downloader"
              for _k, (icon, name, _dom, _eg) in DL_SITES.items()]
-    return ("<b>📥 27 VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)</b>\n"
+    return (f"<b>📥 {len(DL_SITES)} VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)</b>\n"
             "(har app ka apna tool — jaise NUMBER INFO / IMEI alag hain)\n"
             + "\n".join(_rows))
 
@@ -1182,57 +1183,31 @@ BTN_MODE_MAP = {
 #
 #  Format: key -> (icon, naam, [domains], example-link)
 DL_SITES = {
-    "instagram":   ("📸", "Instagram",      ["instagram.com", "instagr.am"], "https://www.instagram.com/reel/xxxxx"),
-    "youtube":     ("▶️", "YouTube",        ["youtube.com", "youtu.be"], "https://www.youtube.com/watch?v=xxxxx"),
-    "facebook":    ("📘", "Facebook",       ["facebook.com", "fb.watch"], "https://www.facebook.com/watch?v=xxxxx"),
-    "tiktok":      ("🎵", "TikTok",         ["tiktok.com"], "https://vt.tiktok.com/xxxxx"),
-    :     ("🐦", ,    [, "x.com"], "https://x.com/i/status/xxxxx"),
-    :    ("👻", ,       [], "https://www.snapchat.com/spotlight/xxxxx"),
-    :   ("📌", ,      [, ], "https:/xxxxx"),
-    :      ("🔴", ,         [, ], "https://www.reddit.com/r/xxxxx/comments/xxxxx"),
-    :     ("💬", ,        [, ], "https://www.threads.net/@user/post/xxxxx"),
-    :       ("📺", ,          [], "https:/xxxxx"),
-    : ("🎬", ,    [], "https://www.dailymotion.com/video/xxxxx"),
-    :      ("🟣", ,         [], "https://www.twitch.tv/videos/xxxxx"),
-    :    ("💼", ,       [], "https://www.linkedin.com/posts/xxxxx"),
-    :       ("🎥", ,          [], "https:/@user/video/xxxxx"),
-    :   ("📱", ,      [], "https:/video/xxxxx"),
-    :         ("🎞️", ,            [, "moj."], "https:/@user/video/xxxxx"),
-    :    ("🌏", ,       [], "https://www.bilibili.com/video/xxxxx"),
-    :      ("📓", ,         [], "https://xxxxx.tumblr.com/post/xxxxx"),
-    :          ("🔵", "VK",             [], "https:/video-xxxxx"),
-    :        ("🟠", ,          [], "https:/video/xxxxx"),
-    :        ("⚡", ,           [], "https://www.kwai.com/@user/video/xxxxx"),
-    :      ("🟢", ,         [], "https:/vxxxxx"),
-    :  ("📼", ,     [], "https:/xxxxx"),
-    :       ("🖼️", ,          [], "https:/xxxxx"),
-    :        ("😂", ,           [], "https:/gag/xxxxx"),
-    :      ("🎭", ,         [], "https:/video/xxxxx"),
-    :     ("🎤", ,        [], "https:/@user/video/xxxxx"),
+    # ================================================================
+    #  v67: ✅ SIRF 4 DOWNLOADER TOOLS (user ka order)
+    #  ❌ 23 services POORI TARAH DELETE (code + bot + GitHub history)
+    # ================================================================
+    "instagram":   ("📸", "Instagram",      ["instagram.com", "instagr.am"],
+                    "https://www.instagram.com/reel/xxxxx"),
+    "youtube":     ("▶️", "YouTube",        ["youtube.com", "youtu.be"],
+                    "https://www.youtube.com/watch?v=xxxxx"),
+    "facebook":    ("📘", "Facebook",       ["facebook.com", "fb.watch"],
+                    "https://www.facebook.com/watch?v=xxxxx"),
+    "tiktok":      ("🎵", "TikTok",         ["tiktok.com"],
+                    "https://vt.tiktok.com/xxxxx"),
 }
 
-# pehle page par sabse zyada use hone wale 12
-DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok", , ,
-              , , , , , )
+DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok")
 
 # ----------------------------------------------------------------------
-# v66: 📥 27 DOWNLOADER TOOLS — har service APNA ALAG TOOL
+# v67: 📥 4 DOWNLOADER TOOLS — har app apna ALAG tool
 # ----------------------------------------------------------------------
-#  User ka order: "video downloader ke andar se saare service remove karo,
-#  har service ka apna tool banao — jaise VIRTUAL NUMBERS / IMEI / NUMBER INFO,
-#  official emoji ke saath."
-#  => Picker/submenu poora hata diya. Har service ka apna button hai.
+#  Har service ka apna keyboard button hai (jaise NUMBER INFO / IMEI alag
+#  hain). "sabhi apps ek saath" wala purana tool bot me NAHI hai.
 # ----------------------------------------------------------------------
 DL_SHORT = {
-    "instagram": "INSTA", "youtube": "YOUTUBE", "facebook": "FACEBOOK",
-    "tiktok": "TIKTOK", : "X (TWITTER)", : "SNAPCHAT",
-    : "PINTEREST", : "REDDIT", : "THREADS",
-    : "VIMEO", : "DAILYMOTION", : "TWITCH",
-    : "LINKEDIN", : "LIKEE", : "SHARECHAT",
-    : "MOJ", : "BILIBILI", : "TUMBLR", : "VK",
-    : "OK.RU", : "KWAI", : "RUMBLE",
-    : "STREAMABLE", : "IMGUR", : ,
-    : "IFUNNY", : "TRILLER",
+    "instagram": "INSTA", "youtube": "YOUTUBE",
+    "facebook": "FACEBOOK", "tiktok": "TIKTOK",
 }
 
 
@@ -1242,8 +1217,8 @@ def dl_tool_label(key: str) -> str:
     return f"{_icon} {to_bold(_name)} DL"
 
 
-def dl_kb_rows(per_row: int = 3):
-    """27 downloader tools 3-3 ke row me (submenu nahi, seedhe tools)."""
+def dl_kb_rows(per_row: int = 2):
+    """4 downloader tools keyboard rows (submenu nahi, seedhe tools)."""
     _labels = [dl_tool_label(k) for k in DL_SITES]
     return [_labels[i:i + per_row] for i in range(0, len(_labels), per_row)]
 
@@ -1254,10 +1229,29 @@ for _dk in DL_SITES:
     _lbl_key = re.sub(r"^[^\w\s]+\s*", "", unbold(dl_tool_label(_dk))).strip().upper()
     BTN_MODE_MAP[_lbl_key] = "dl_" + _dk
 
-# 27 downloader tools seedhe main keyboard me (submenu NAHI) — row 2 ke baad
+
+def dl_prompt_data(mode: str) -> dict:
+    """Ek downloader tool ka prompt (head / ask / examples) — auto banta hai."""
+    _k = str(mode)[3:] if str(mode).startswith("dl_") else ""
+    if _k not in DL_SITES:
+        return {}
+    _icon, _name = DL_SITES[_k][0], DL_SITES[_k][1]
+    _eg = DL_SITES[_k][3]
+    return {
+        "head": f"{_icon} {_name.upper()} VIDEO DOWNLOADER",
+        "ask": f"{_name} ka video / reel / shorts ka link bhejein:",
+        "ex": [(_eg, f"{_name} ka video — HD, bina watermark"),
+               ("Pura link copy karke bhejein, chhota link (share) bhi chalega",
+                "share button se copy kiya hua link bhi theek hai")],
+    }
+
+
+# 4 downloader tools seedhe main keyboard me (submenu NAHI) — row 2 ke baad
 try:
-    _dl_rows = dl_kb_rows(3)
-    KB_BTNS[2:2] = _dl_rows          # "CHANNEL CLONER / VIDEO DOWNLOADER" ke baad
+    _dl_rows = dl_kb_rows(2)
+    KB_BTNS[2:2] = _dl_rows          # "CHANNEL CLONER" row ke baad
+    # v67: keyboard ab 16 rows — aakhri do rows (REFER/ACCOUNT, HELP/SUPPORT)
+    #      ko 2 buttons wali rows me rakho (sundar lage)
 except Exception as _dke:                                        # noqa: BLE001
     print("dl keyboard rows skip:", _dke)
 
@@ -1287,61 +1281,11 @@ def dl_url_matches(mode: str, url: str) -> bool:
         return True
 
 
-def dl_prompt_data(mode: str) -> dict:
-    """Us app ke liye prompt (head/ask/ex) — bot ke normal format me."""
-    k = dl_key_of(mode)
-    icon, name, _doms, eg = DL_SITES[k]
-    return {
-        "head": f"{icon} {name.upper()} VIDEO DOWNLOADER",
-        "ask": f"{name} ka video / reel / shorts ka link bhejein:",
-        "ex": [(eg, f"{name} ka video — HD, bina watermark"),
-               ("Pura link copy karke bhejein, chhota link (share) bhi chalega",
-                "share button se copy kiya hua link bhi theek hai")],
-    }
+# ----------------------------------------------------------------------
+# v67: ❌ PURANA PICKER CODE (dl_menu_kb / DL_MENU_TEXT) POORI TARAH DELETE.
+#      Ab 4 tools seedhe keyboard par hain — koi picker menu nahi.
+# ----------------------------------------------------------------------
 
-
-def dl_menu_kb(page: int = 0):
-    """Saare 27 downloader tools ka menu — 2 per row."""
-    keys = list(DL_SITES.keys())
-    if page <= 0:
-        keys = [k for k in DL_POPULAR if k in DL_SITES]
-        tail = [[InlineKeyboardButton(f"➕ Aur {len(DL_SITES) - len(keys)} apps dekhein",
-                                      callback_data="dlvpage:1")]]
-    else:
-        keys = [k for k in DL_SITES if k not in DL_POPULAR]
-        tail = [[InlineKeyboardButton("⬅️ Popular apps", callback_data="dlvpage:0")]]
-    rows, pair = [], []
-    for k in keys:
-        icon, name, _d, _e = DL_SITES[k]
-        pair.append(InlineKeyboardButton(f"{icon} {name}", callback_data=f"dlv:{k}"))
-        if len(pair) == 2:
-            rows.append(pair); pair = []
-    if pair:
-        rows.append(pair)
-    rows.extend(tail)
-    # v66.1: ❌ "Sabhi ek saath (purana tool)" button bhi HATA diya —
-    #         ek tool me saare apps wala system ab bot me kahin nahi hai.
-    rows.append([InlineKeyboardButton("🏠 Home", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-DL_MENU_TEXT = (
-    "📥 <b>VIDEO DOWNLOADER — 27 ALAG TOOLS</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
-    "Har app ka <b>apna alag tool</b> hai. Jis app ka video chahiye,\n"
-    "usi ko dabayein — bharosa rahega ki link chalega.\n\n"
-    "✅ <b>HD quality</b> · bina watermark · no ad\n"
-    "✅ YouTube par <b>quality chunne</b> ki suvidha (360p–1080p)\n"
-    "✅ Audio bhi alag se (MP3)\n\n"
-    "👇 <b>Apna app chuno:</b>"
-)
-
-
-# ======================================================================
-#  v64: 📥 VIDEO DOWNLOADER — 27 ALAG-ALAG TOOLS (ek-ek app ka apna tool)
-# ======================================================================
-#  Boss ka order: "video downloader me jitni services hain, sabko alag-alag
-#  tool bana do."
 
 PROMPT_DATA = {
     # ---------------------------------------------------------- DOWNLOADERS
@@ -1353,13 +1297,12 @@ PROMPT_DATA = {
                ("https://www.mediafire.com/file/xxxxx", "MediaFire")],
     },
     "insta_dl": {
-        "head": "📥 VIDEO DOWNLOADER · 10+ APPS",
-        "ask": "Kisi bhi app ka video link bhejein:",
+        "head": "📥 VIDEO DOWNLOAD (Insta / YouTube / Facebook / TikTok)",
+        "ask": "Apne app ka video link bhejein:",
         "ex": [("https://www.youtube.com/watch?v=xxxxx", "YouTube"),
                ("https://www.instagram.com/reel/xxxxx", "Instagram"),
                ("https://www.facebook.com/watch?v=xxxxx", "Facebook"),
-               ("https://vt.tiktok.com/xxxxx", "TikTok"),
-               ("https://x.com/i/status/xxxxx", "Twitter / X")],
+               ("https://vt.tiktok.com/xxxxx", "TikTok")],
     },
     # ---------------------------------------------------------- PHOTO TOOLS
     "pp_stamp": {
@@ -1619,7 +1562,7 @@ TUTORIAL_TEXT = (
     f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
     "📥 <b>Download:</b>\n"
-    "• 📥 <b>VIDEO DOWNLOAD = 27 ALAG TOOLS</b> (Insta, YouTube, Facebook, TikTok…)\n"
+    "• 📥 <b>VIDEO DOWNLOAD = 4 ALAG TOOLS</b> (Insta, YouTube, Facebook, TikTok)\n"
     "   Keyboard par neeche 📸 INSTA DL · ▶️ YOUTUBE DL … wale buttons hain —\n"
     "   apna app chuno aur uska link bhejo (YouTube par quality bhi chun sakte ho)\n"
     "• ⚡ TERABOX / CLOUD → Terabox/Drive/MediaFire link bhejo → direct link mil jayega\n"
@@ -4993,7 +4936,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  "━━━━━━━━━━━━━━━━━━━━━━\n"
                  "Pehle sab apps ek hi menu me the. Ab keyboard par "
                  "<b>neeche wale</b> buttons dikhenge:\n"
-                 "   📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL … (27 tools)\n\n"
+                 "   📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL · 🎵 TIKTOK DL\n\n"
                  "👉 Keyboard par <b>neeche</b> daba ke apna app chuno, "
                  "ya seedha <b>link bhej do</b> — main khud pehchan lunga.\n\n"
                  "📋 Poori list: <b>ALL TOOLS (FREE)</b> dabao.")
@@ -5339,7 +5282,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ---------- v52: 🎞️ YOUTUBE QUALITY PICKER ----------
-    # ---------- v52.3: 📌 PINTEREST — image pick (search results me se tap) ----------
     # ---------- 📧 TEMP MAIL inline buttons (v53.0) ----------
     if data in ("tm_inbox", "tm_otp"):
         sess = context.user_data.get("tempmail") or {}
@@ -5950,12 +5892,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # govt portals timeout/CAPTCHA). User order par tool hamesha ke liye hataya.
         "RTO VEHICLE INFO", "VEHICLE INFO + CHALLAN", "VEHICLE INFO",
         "VEHICLE / RTO INFO", "VEHICLE", "RTO", "CHALLAN",
-        # v56.0: user order par 5 tools PERMANENTLY delete —
-        # (1) 🌐 DOMAIN OSINT / IP  (2) 📌 PINTEREST  (3) 📄 WEB SCRAPER
-        # (4) 🪪 AADHAAR EID       (5) 📡 TG PUBLIC INFO
+        # v56.0: user order par 4 tools PERMANENTLY delete —
+        # (1) 🌐 DOMAIN OSINT / IP  (2) 📄 WEB SCRAPER
+        # (3) 🪪 AADHAAR EID       (4) 📡 TG PUBLIC INFO
         "DOMAIN OSINT / IP", "DOMAIN OSINT", "OSINT", "DOMAIN INFO",
         "IP INFO", "IP / DOMAIN INFO", "IP", "DOMAIN",
-        "PINTEREST", "PINTEREST DOWNLOADER", "PINTEREST SEARCH",
         "WEB SCRAPER", "WEBSCRAPER", "SCRAPER", "WEB SCRAPE",
         "AADHAAR EID", "AADHAAR STATUS", "AADHAAR", "AADHAR", "EID",
         "TG PUBLIC INFO", "TG INFO", "TELEGRAM INFO", "TG PUBLIC",
@@ -6004,8 +5945,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "OSINT": "🌐 OSINT", "DOMAIN INFO": "🌐 Domain Info",
             "IP INFO": "🌐 IP Info", "IP / DOMAIN INFO": "🌐 IP / Domain Info",
             "IP": "🌐 IP Info", "DOMAIN": "🌐 Domain Info",
-            "PINTEREST": "📌 Pinterest", "PINTEREST DOWNLOADER": "📌 Pinterest",
-            "PINTEREST SEARCH": "📌 Pinterest",
             "WEB SCRAPER": "📄 Web Scraper", "WEBSCRAPER": "📄 Web Scraper",
             "SCRAPER": "📄 Web Scraper", "WEB SCRAPE": "📄 Web Scraper",
             "AADHAAR EID": "🪪 Aadhaar EID", "AADHAAR STATUS": "🪪 Aadhaar EID",
@@ -6062,9 +6001,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "IP / DOMAIN INFO": "🌐 IP / Domain info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
             "IP": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
             "DOMAIN": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "PINTEREST": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> (status/ringtone/MP3) use karo",
-            "PINTEREST DOWNLOADER": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> use karo",
-            "PINTEREST SEARCH": "📌 Pinterest ki jagah → 📥 <b>Video Downloader</b> ya ⚡ <b>Media Studio</b> use karo",
             "WEB SCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo, ya ⚡ <b>Media Studio</b> use karo",
             "WEBSCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
             "SCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
@@ -6199,7 +6135,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "Ab <b>har app ka apna ALAG tool</b> hai — jaise NUMBER INFO, "
                 "IMEI, CHANNEL CLONER alag-alag hain:\n\n"
                 + dl_tools_text()
-                + "\n\n👉 Keyboard par <b>neeche</b> wo 27 buttons dikhte hain — "
+                + "\n\n👉 Keyboard par <b>neeche</b> wo 4 buttons dikhte hain — "
                 "apna app dabao aur link bhejo.\n"
                 "✅ HD video, bina watermark, 15 second ke andar.",
                 reply_markup=main_keyboard(is_admin(update.effective_user.id)),
@@ -6719,8 +6655,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_supported_video_url(raw_text):
             await update.message.reply_text(
                 fail_msg("UNSUPPORTED LINK",
-                         "This link is not supported. Send links from Instagram, YouTube, Facebook, X (Twitter), TikTok, "
-                         "Snapchat, Pinterest, Reddit or Vimeo."),
+                         "This link is not supported. Send links from Instagram, YouTube, Facebook or TikTok."),
                 parse_mode=HTML,
             )
             return
@@ -6734,7 +6669,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"<b>{hesc(DL_SITES[_dl_here][1])}</b> ke tool me hain.\n"
                     f"Koi baat nahi, main phir bhi download kar deta hoon 👇\n"
                     f"<i>(Agli baar sahi app ka tool chuno — keyboard par "
-                    f"neeche 📸 INSTA DL … ▶️ YOUTUBE DL wale 27 buttons hain.)</i>",
+                    f"neeche 📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL · 🎵 TIKTOK DL.)</i>",
                     parse_mode=HTML)
             except Exception:                                    # noqa: BLE001
                 pass

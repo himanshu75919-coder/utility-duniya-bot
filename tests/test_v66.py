@@ -157,19 +157,28 @@ check("16 parallel chunks zinda",
       MD._ytdlp_opts({}).get("concurrent_fragment_downloads") == 16)
 
 # =====================================================================
-section("[E] 🎯 27 SERVICES = 27 ALAG TOOLS (picker REMOVED)")
+section("[E] 🎯 4 TOOLS = 4 ALAG TOOLS (v67: 23 services deleted)")
 # =====================================================================
-check("27 services hain", len(bot.DL_SITES) == 27, str(len(bot.DL_SITES)))
+check("4 services hain (v67)", len(bot.DL_SITES) == 4, str(len(bot.DL_SITES)))
+check("sirf Insta/YouTube/Facebook/TikTok bache",
+      set(bot.DL_SITES) == {"instagram", "youtube", "facebook", "tiktok"},
+      str(sorted(bot.DL_SITES)))
+check("sirf 4 dl_* prompts bache (baaki sab gaye)",
+      sorted(k for k in bot.PROMPT_DATA if k.startswith("dl_")) ==
+      ["dl_facebook", "dl_instagram", "dl_tiktok", "dl_youtube"],
+      str(sorted(k for k in bot.PROMPT_DATA if k.startswith("dl_"))))
+check("media_downloader me sirf 4 platform support",
+      len(bot.MD.SUPPORTED_SITES) == 7, str(len(bot.MD.SUPPORTED_SITES)))
 check("har service ka apna label function hai", callable(bot.dl_tool_label))
 check("labels me official emoji hain",
       bot.dl_tool_label("instagram").startswith("📸")
       and bot.dl_tool_label("youtube").startswith("▶️")
       and bot.dl_tool_label("facebook").startswith("📘"))
-_rows = bot.dl_kb_rows(3)
-check("27 tools 9 rows me (3-3)", len(_rows) == 9 and sum(len(r) for r in _rows) == 27,
+_rows = bot.dl_kb_rows(2)
+check("4 tools 2 rows me (2-2)", len(_rows) == 2 and sum(len(r) for r in _rows) == 4,
       f"{len(_rows)} rows")
 _flat = [b for r in bot.KB_BTNS for b in r]
-check("saare 27 tools MAIN KEYBOARD me hain",
+check("saare 4 tools MAIN KEYBOARD me hain",
       all(bot.dl_tool_label(k) in _flat for k in bot.DL_SITES),
       [k for k in bot.DL_SITES if bot.dl_tool_label(k) not in _flat][:4])
 check("27-app ka purana PICKER button keyboard me nahi hai",
@@ -187,8 +196,8 @@ check("'sabhi apps ek saath' button bhi hata diya",
       "dlv:any" not in BOT_SRC)
 check("ALL TOOLS list me purana 'Video Downloader' tool nahi",
       "📥 Video Downloader" not in bot.all_tools_text())
-check("ALL TOOLS list me 27 alag tools hain",
-      len([ln for ln in bot.dl_tools_text().splitlines() if "Downloader" in ln]) == 27)
+check("ALL TOOLS list me 4 alag tools hain",
+      len([ln for ln in bot.dl_tools_text().splitlines() if "Downloader" in ln]) == 4)
 check("picker khulne ka koi rasta nahi (BTN_MODE_MAP me dlmenu nahi)",
       "dlmenu" not in set(bot.BTN_MODE_MAP.values()))
 check("har tool apne dl_<app> mode par jata hai (direct)",
@@ -202,19 +211,19 @@ check("video downloader ke andar ab koi service list nahi",
       "BADLAV — ab har app APNA ALAG TOOL hai" in BOT_SRC)
 check("har service ka premium + credit entry zinda",
       all(bot.is_premium_tool("dl_" + k) for k in bot.DL_SITES))
-check("ALL TOOLS list me 27 downloader tools hain",
+check("ALL TOOLS list me 4 downloader tools hain",
       len([ln for ln in bot.dl_tools_text().splitlines()
-           if "Downloader" in ln]) == 27)
+           if "Downloader" in ln]) == 4)
 check("purana insta_dl (any link) zinda", "insta_dl" in bot.PREMIUM_TOOLS)
 
 # =====================================================================
 section("[F] 🔁 KUCH PURANA TOOTA NAHI + VERSION")
 # =====================================================================
-check("version v66 hai", "v66" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v66+ hai", "v6" in bot.BOT_VERSION, bot.BOT_VERSION)
 check("12 business tools zinda", len(bot.BIZ_MENU) >= 12)
 check("wizard zinda", len(bot.BIZ_STEPS) == 12)
 check("saare tools FREE mode ON", bot.ALL_FREE is True)
-check("prompts 60 (33 purane + 27 dl)", len(bot.PROMPT_DATA) >= 60, str(len(bot.PROMPT_DATA)))
+check("prompts 37 (33 purane + 4 dl)", len(bot.PROMPT_DATA) >= 37, str(len(bot.PROMPT_DATA)))
 check("vault wahi hai (premium safe)", hasattr(V, "vault"))
 check("safe_tool_call zinda (global crash guard)", callable(bot.safe_tool_call))
 check("progress pinger zinda", callable(bot._progress_pinger))

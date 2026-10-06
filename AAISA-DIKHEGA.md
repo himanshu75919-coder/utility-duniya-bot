@@ -97,7 +97,7 @@ Jo-jo tha, sab gaya:
 
 ---
 
-## 4️⃣ ⚡ VIDEO DOWNLOADER (YouTube) — ab late nahi
+## 4️⃣ ⚡ DOWNLOADER TOOLS (Insta/YouTube/FB/TikTok) — ab late nahi
 
 **Pehle:** YouTube link bhejte hi bot chup — 5 se 20 second wait, phir quality buttons.
 **Wajah:** buttons dikhane se pehle poora video metadata fetch hota tha.

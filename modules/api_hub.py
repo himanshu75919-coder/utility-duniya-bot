@@ -549,42 +549,7 @@ def hub_youtube(url: str) -> dict:
 
 
 # =====================================================================
-# 🐦 X / TWITTER VIDEO  →  -video-v6 → hd-video → v5 → v2
-# =====================================================================
-def _video(url: str) -> dict:
-    res = hub_try([("-video-v6", {"url": url}), ("-hd-video", {"url": url}),
-                   ("-video-v5", {"url": url}), ("-video-v2", {"url": url})], timeout=60)
-    if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Hub se jawab nahi aaya"}
-    d = res["data"]
-    link = ""
-    for key in ("hd", "url", "video", "videourl", "download", "link", "mp4", "sd"):
-        v = d.get(key) if isinstance(d, dict) else None
-        if isinstance(v, str) and v.startswith("http"):
-            link = v
-            break
-        if isinstance(v, dict):
-            for sub in ("url", "link", "hd", "download"):
-                if isinstance(v.get(sub), str) and v[sub].startswith("http"):
-                    link = v[sub]
-                    break
-        if link:
-            break
-    for f in _find_list(d, keys=("variants", "formats", "medias", "videos", "urls", "data")):
-        if link:
-            break
-        if isinstance(f, dict):
-            ln = str(_pick(f, "url", "link", "src", default="") or "")
-            if ln.startswith("http") and (".mp4" in ln or "video" in ln):
-                link = ln
-    if not link:
-        return {"ok": False, "error": "Hub ne video link nahi diya"}
-    return {"ok": True, "source": f"hub{res.get('endpoint')}", "url": link,
-            "title": str(_pick(d, "title", "text", "description", default="") or "")}
-
-
-# =====================================================================
-# 📸 SOCIAL PROFILES (ID finder upgrade)  →  instagram / snap / twitter
+# 📸 SOCIAL PROFILES
 # =====================================================================
 def hub_insta_profile(username: str) -> dict:
     res = hub_try([("/instagram-profile", {"username": username.lstrip("@")})], timeout=45)
@@ -664,22 +629,6 @@ def hub_snap_stories(username: str) -> dict:
     err = str(_pick(res["data"], "error", "message", default="") or "")
     return {"ok": False, "urls": [], "count": 0,
             "error": err or "Is username ki koi public story nahi mili"}
-
-
-def _profile(username: str) -> dict:
-    res = hub_try([("-profile-v2", {"username": username.lstrip("@")}),
-                   ("-profile", {"url": f"https://x.com/{username.lstrip('@')}"})], timeout=45)
-    if not res.get("ok"):
-        return {"ok": False, "error": res.get("error")}
-    d = res["data"]
-    return {"ok": True, "source": "hub-profile",
-            "name": str(_pick(d, "name", "displayname", "fullname", default="") or ""),
-            "handle": str(_pick(d, "username", "screenname", "handle", default=username) or username),
-            "bio": str(_pick(d, "description", "bio", default="") or "")[:180],
-            "followers": _pick(d, "followers", "followerscount", "followers_count", default=""),
-            "tweets": _pick(d, "tweets", "statusescount", "tweetcount", default=""),
-            "verified": _b(_pick(d, "verified", "isverified", "isblueverified", default=False)),
-            "pic": str(_pick(d, "profileimage", "profile_image_url", "pic", "avatar", default="") or "")}
 
 
 # =====================================================================
@@ -889,7 +838,7 @@ def status_card() -> str:
               "⛔ <b>Hub par abhi OFF:</b> 🚗 Vehicle RC/challan · 📱 Number records (naam/address)",
               "<i>Ye hub ke apne switch se band hain. Chalu karne ke liye hub ke",
               "dashboard/settings me sensitive endpoints ON karo ya UPSTREAM_KEY set karo.</i>",
-              "⛔ <b>Upstream key chahiye:</b> ⚡ TeraBox · 📸 Instagram · 👻 Snapchat"]
+              "⛔ <b>Upstream key chahiye:</b> ⚡ TeraBox · 📸 Instagram"]
     if not ready:
         lines += ["", "Render → Environment: <code>HUB_API_KEY</code> = <code>Demo</code> (ya apni key)"]
     return "\n".join(lines)

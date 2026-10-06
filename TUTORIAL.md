@@ -19,7 +19,7 @@ Premium tools me **credit** lagta hai (naye user ko 25 free). Baaki saare tools 
 
 | Tool | Kya bhejo | Kya milega |
 |---|---|---|
-| 📥 **VIDEO DOWNLOADER** | Insta / YouTube / FB / X ka link | video (48MB tak seedha, bada ho to download link) |
+| 📥 **DOWNLOADER (4 ALAG TOOLS)** | 📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL · 🎵 TIKTOK DL | video (48MB tak seedha, bada ho to download link) |
 | ⚡ **TERABOX / CLOUD** | Terabox / MediaFire / Drive / Mega link | seedha download link |
 | 🔄 **CHANNEL CLONER** | setup ek baar | posts apne aap copy |
 

@@ -44,7 +44,7 @@ log = logging.getLogger("utility-super-bot.safeconf")
 
 # Ek env value se "asli hissa" nikaalo:
 #   " 25   # naye user ko itne credits "  ->  "25"
-#   '"https://x.com/"'                    ->  "https://x.com/"
+#   '"https://youtube.com/"'              ->  "https://youtube.com/"
 #   "on "                                 ->  "on"
 _QUOTES = "\"'`“”‘’"
 

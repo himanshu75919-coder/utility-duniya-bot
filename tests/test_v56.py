@@ -18,12 +18,11 @@ v56 me do bade kaam hue:
 
   B) 🗑️ USER ORDER PAR 5 TOOLS PERMANENTLY DELETE
      1. 🌐 DOMAIN OSINT / IP   (mode "ip")
-     2. 📌 PINTEREST           (mode )
      3. 📄 WEB SCRAPER         (mode "webscraper")
      4. 🪪 AADHAAR EID         (mode "aadeid")
      5. 📡 TG PUBLIC INFO      (mode "tginfo")
      Code (keyboard, BTN_MODE_MAP, PROMPTS, rate-limits, premium lists,
-     handlers, helpers), modules (.py, web_tools.py,
+     handlers, helpers), modules (web_tools.py,
      osint_tools ke domain/tg functions, desi_tools ka aadhaar helper),
      tests aur docs — sab se.
 
@@ -119,9 +118,9 @@ section("2) 🗑️ 5 TOOLS PERMANENTLY DELETE — code se poora saaf")
 # =====================================================================
 import bot  # noqa: E402
 
-_DELETED_MODES = ("ip", , "webscraper", "aadeid", "tginfo")
+_DELETED_MODES = ("ip", "webscraper", "aadeid", "tginfo")
 _DELETED_WORDS = ("tginfo", "aadeid", "webscraper", "pinpick",
-                  "scrape_public_text", , "domain_osint",
+                  "scrape_public_text", "domain_osint",
                   "tg_user_public", "lookup_ip_domain")
 
 # 2a) bot.py me koi ACTIVE handler / import bacha na ho.
@@ -132,7 +131,7 @@ for _m in _DELETED_MODES:
     check(f'bot.py me `if mode == "{_m}":` handler nahi bacha',
           f'if mode == "{_m}":' not in BOT_SRC)
 for _imp in ("lookup_ip_domain", "domain_osint", "tg_user_public",
-             "scrape_public_text", "pinterest_search", "pinterest_from_pin_link",
+             "scrape_public_text",
              "pin_download_media", "_pinpick_download", "_pin_meta_line"):
     check(f"bot.py me '{_imp}' import/call nahi bacha",
           f"    {_imp},\n" not in BOT_SRC and f"{_imp}(" not in BOT_SRC)
@@ -171,7 +170,7 @@ for _k in ("DOMAIN OSINT / IP", "TG PUBLIC INFO", "PINTEREST", "WEB SCRAPER", "A
     check(f"BTN_MODE_MAP me '{_k}' nahi", _k not in bot.BTN_MODE_MAP)
 
 # 2e) module files delete ho gayi
-for _f in ("modules/.py", "modules/web_tools.py"):
+for _f in ("modules/web_tools.py",):
     check(f"{_f} delete ho gayi", not os.path.exists(os.path.join(ROOT, _f)))
 
 # 2f) osint_tools se domain/tg functions gaye, baaki zinda hain
@@ -233,12 +232,11 @@ for _node in ast.walk(_tree):
 
 _NEW_LABELS = ["DOMAIN OSINT / IP", "DOMAIN OSINT", "OSINT", "DOMAIN INFO",
                "IP INFO", "IP / DOMAIN INFO", "IP", "DOMAIN",
-               "PINTEREST", "PINTEREST DOWNLOADER", "PINTEREST SEARCH",
                "WEB SCRAPER", "WEBSCRAPER", "SCRAPER", "WEB SCRAPE",
                "AADHAAR EID", "AADHAAR STATUS", "AADHAAR", "AADHAR", "EID",
                "TG PUBLIC INFO", "TG INFO", "TELEGRAM INFO", "TG PUBLIC"]
 
-check("_removed_keys me v56 ke sabhi 24 labels hain",
+check("_removed_keys me v56 ke sabhi labels hain (PINTEREST v67 me poora gaya)",
       all(k in _removed_keys for k in _NEW_LABELS),
       f"missing={[k for k in _NEW_LABELS if k not in _removed_keys][:4]}")
 check("_why me sabhi 24 labels ka friendly naam hai",
@@ -259,7 +257,7 @@ check("'PIN' standalone label removed_keys me nahi (Pincode tool zinda rahe)",
 
 # _why = chhota label (jaise "📌 Pinterest"), _alt = "kya use karo" suggestion.
 # Final user message:  "ℹ️ {_why} hata diya gaya hai.\n• {_alt}"
-for _k in ("PINTEREST", "AADHAAR EID", "TG PUBLIC INFO", "WEB SCRAPER", "DOMAIN OSINT / IP"):
+for _k in ("AADHAAR EID", "TG PUBLIC INFO", "WEB SCRAPER", "DOMAIN OSINT / IP"):
     check(f"'{_k}' ka label chhota hai (naam hi dikhe)",
           0 < len(str(_why[_k])) <= 24, str(_why[_k])[:50])
     check(f"'{_k}' ke liye alternative diya gaya hai",

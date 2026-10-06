@@ -131,12 +131,12 @@ check("NUMBER INFO ask me bataya hai ki API se naam/pata aata hai",
 # v59: UPI tool poora delete — uska prompt bhi nahi bachna chahiye
 check("v59: UPI prompt ab gayab (tool delete ho gaya)", bot.tool_prompt("upi") == "")
 
-# ---- VIDEO DOWNLOADER: 5 apps ----
+# ---- VIDEO DOWNLOADER: 4 apps (v67 — Twitter/X delete ho gaya) ----
 _vd = bot.tool_prompt("insta_dl")
 for _app, _url in (("YouTube", "youtube.com"), ("Instagram", "instagram.com"),
-                   ("Facebook", "facebook.com"), ("TikTok", "tiktok.com"),
-                   ("Twitter / X", "x.com")):
+                   ("Facebook", "facebook.com"), ("TikTok", "tiktok.com")):
     check(f"Video Downloader me {_app} example hai", _app in _vd and _url in _vd)
+check("v67: Twitter/X example ab nahi hai", "x.com" not in _vd and "Twitter" not in _vd)
 
 # ---- saare prompts ka structure ----
 check("saare 22 prompts me 📝 Examples block hai",
@@ -344,7 +344,7 @@ check("imei_lookup.py me duplicate dict keys nahi",
       not _dup_keys(os.path.join(ROOT, "modules", "imei_lookup.py")))
 _bad = re.findall(r"\b\w*message\.send_(?:photo|document|video)\s*\(", BOT_SRC)
 check("Message.send_* crash pattern wapas nahi aaya", not _bad, str(_bad[:2]))
-for _m in ("ip", , "webscraper", "aadeid", "tginfo"):
+for _m in ("ip", "webscraper", "aadeid", "tginfo"):
     check(f'deleted tool "{_m}" ka handler nahi aaya', f'if mode == "{_m}":' not in BOT_SRC)
 
 import importlib as _il  # noqa: E402

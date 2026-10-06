@@ -31,7 +31,7 @@ Telegram me bot ko likho:
 /version
 ```
 
-**Aana chahiye:** `v66.1`
+**Aana chahiye:** `v67.0`
 Agar **v59 / v64 / kuch purana** dikhe → deploy nahi hua, **Step 2 dobara** karo.
 
 ## ✅ STEP 4 — Naya keyboard dekho
@@ -45,17 +45,18 @@ Telegram me bot ko bhejo:
 Ab keyboard par **neeche scroll** karo. Aise dikhna chahiye:
 
 ```
-🌐 VIRTUAL NUMBERS   | ⚡ TERABOX DOWNLOADER
+🌐 VIRTUAL NUMBERS     | ⚡ TERABOX DOWNLOADER
 🔄 CHANNEL CLONER
-📸 INSTA DL | ▶️ YOUTUBE DL | 📘 FACEBOOK DL
-🎵 TIKTOK DL | 🐦 X (TWITTER) DL | 👻 SNAPCHAT DL
-📌 PINTEREST DL | 🔴 REDDIT DL | 💬 THREADS DL
-📺 VIMEO DL | 🎬 DAILYMOTION DL | 🟣 TWITCH DL
-... (27 tools — har app ka apna alag tool)
+📸 INSTA DL | ▶️ YOUTUBE DL
+📘 FACEBOOK DL | 🎵 TIKTOK DL
+📸 PASSPORT PHOTO | 🖨️ 8-IN-1 PRINT SHEET
+... (baaki tools jaise pehle the)
 ```
 
-❌ **"VIDEO DOWNLOADER" naam ka tool ab NAHI hoga.** (Wo delete kar diya.)
-✅ Ab **har app apna alag tool** hai — jaise NUMBER INFO / IMEI / CLONER alag hain.
+❌ **23 downloader tools POORI TARAH DELETE** — ab bot me unka code bhi nahi hai.
+
+✅ Sirf **4 downloader tools** bache: **INSTA · YOUTUBE · FACEBOOK · TIKTOK**
+(har ek apna alag tool — jaise NUMBER INFO / IMEI alag hain)
 
 ---
 
@@ -65,7 +66,7 @@ Ab keyboard par **neeche scroll** karo. Aise dikhna chahiye:
 |---|---|---|
 | 1️⃣ **Insta** | `📸 INSTA DL` dabao → Insta reel ka link bhejo | 15 second ke andar video |
 | 2️⃣ **YouTube** | `▶️ YOUTUBE DL` dabao → YouTube link bhejo | quality buttons, phir video (1-2 sec) |
-| 3️⃣ **Purana button** | Purane keyboard ka `VIDEO DOWNLOADER` dabao | Saaf message: "ye tool hata diya — ab 27 alag tools hain" |
+| 3️⃣ **Purana button** | Purane keyboard ka `VIDEO DOWNLOADER` dabao | Saaf message: "ye tool hata diya — ab 4 alag tools hain" |
 
 ---
 
@@ -93,7 +94,7 @@ RuntimeError('<asyncio.locks.Event ...> is bound to a different event loop')
 
 **Matlab:** bot ka backup ek alag thread se naya "loop" bana raha tha — usi se bot tut raha tha.
 
-**v66.1 me dono theek hain:**
+**v67.0 me dono theek hain:**
 1. ✅ Backup ab **main loop** par chalta hai (crash khatam)
 2. ✅ Polling (bot ka dil) ab **kabhi haar nahi maanta** — Conflict aaye to
    ruk kar dobara chalata hai (pehle 5 try ke baad chhod deta tha → Render restart)
