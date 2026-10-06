@@ -261,6 +261,7 @@ from modules.osint_tools import (
     lookup_pincode,
     lookup_whois,        # v70: 🌐 WEBSITE OWNER X-RAY (RDAP public record)
 )
+from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME HUNTER (public only)
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -351,6 +352,7 @@ TOOL_RATE_LIMITS = {
     "tempmail":    (10, 120, "Temp Mail"),
     "ifsc":        (15, 60,  "IFSC Info"),
     "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
+    "uhunt":       (10, 60,  "Username Hunter (Public)"),
     "vahan":       (10, 120, "RC + Challan (Gaadi X-Ray)"),
     "pin":         (15, 60,  "Pincode Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
@@ -417,8 +419,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.7 FREE4ALL — QUOTA-SAFE + MULTI-PROVIDER RC + "
-               "SAAF ERROR + PATLI LINES")
+BOT_VERSION = ("v71.8 FREE4ALL — USERNAME HUNTER (public) + "
+               "QUOTA-SAFE RC + PATLI LINES")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -511,6 +513,7 @@ PREMIUM_TOOLS = {
     "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
     "osint_whois",         # 🌐 WEBSITE OWNER X-RAY (v70)
+    "uhunt",               # 🕵️ USERNAME HUNTER (v71.8)
     "vahan",               # 🚗 RC + CHALLAN (v71)
     "pin",                 # 📮 PINCODE INFO
     "bgmi",                # 🎮 BGMI UID
@@ -552,6 +555,7 @@ PREMIUM_TOOL_NAMES = {
     "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
     "osint_whois": "🌐 Website Owner X-Ray",
+    "uhunt": "🕵️ Username Hunter",
     "vahan": "🚗 RC + Challan (Gaadi X-Ray)",
     "pin": "📮 Pincode Info",
     "bgmi": "🎮 BGMI UID",
@@ -1048,6 +1052,7 @@ KB_BTNS = [
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
     [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}"],   # v70: domain ka public record
+    [f"🕵️ {to_bold('USERNAME HUNTER')}"],       # v71.8: sirf public profiles (koi login nahi)
     [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
@@ -1129,6 +1134,8 @@ BTN_MODE_MAP = {
     "WEBSITE OWNER": "osint_whois",
     "WHOIS": "osint_whois",
     "DOMAIN OWNER": "osint_whois",
+    "USERNAME HUNTER": "uhunt",
+    "USERNAME HUNTER (PUBLIC)": "uhunt",
     "RC + CHALLAN": "vahan",
     "RC CHALLAN": "vahan",
     "GAADI X-RAY": "vahan",
@@ -1388,6 +1395,13 @@ PROMPT_DATA = {
         "ex": [('flipkart.co.in', 'website ka naam (link bhi chalega)')],
         "tip": 'Poora link bhejo ya sirf website ka naam — dono chalega',
         "foot": 'Site purani hai ya nayi — paisa dene se pehle pata karo',
+    },
+    "uhunt": {
+        "head": "🕵️ USERNAME HUNTER (PUBLIC PROFILES)",
+        "ask": "Username bhejein (jo log sites par rakhte hain):",
+        "ex": [('rahul_99', 'jaise instagram / github par hota hai')],
+        "tip": '',
+        "foot": '',
     },
     # ------------------------------------------------------------- GAMING
     "bgmi": {
@@ -4640,6 +4654,39 @@ def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
     L.append("")
     L.append(BRAND_LINK)
     return "\n".join([_l for _l in L if _l is not None])
+
+
+def uhunt_card(res: dict) -> str:
+    """🕵️ USERNAME HUNTER ka card (v71.8) — sirf PUBLIC profiles."""
+    res = res or {}
+    un = str(res.get("username") or "")
+    found = list(res.get("found") or [])
+    unknown = list(res.get("unknown") or [])
+    nf = int(res.get("not_found") or 0)
+    ms = float(res.get("ms") or 0)
+    EM = {"dev": "💻", "social": "💬", "creative": "🎨", "music": "🎵",
+          "video": "🎬", "gaming": "🎮", "other": "🔹"}
+    L = [pcard_title("🕵️", "USERNAME HUNTER"),
+         f"🔎 <b>Username:</b> <code>{hesc(un)}</code>",
+         pcard_sep()]
+    if found:
+        L.append(f"✅ <b>Mila — {len(found)} jagah:</b>")
+        for it in found[:24]:
+            L.append(f"├ {EM.get(str(it.get('cat')), '🔹')} "
+                     f"<b>{hesc(str(it.get('site')))}</b> — "
+                     f"<code>{hesc(str(it.get('url')))}</code>")
+        L.append(pcard_sep())
+    else:
+        L.append("😕 <b>Kisi bhi site par ye username nahi mila.</b>")
+        L.append(pcard_sep())
+    _tail = f"❌ Nahi mila: <b>{nf}</b>"
+    if unknown:
+        _tail += f"  •  ⚪ Check nahi ho paya: <b>{len(unknown)}</b>"
+    L.append(_tail)
+    L.append(f"🕒 {int(res.get('checked') or 0)} sites · {ms / 1000:.1f}s")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
 
 
 def whois_card(res: dict) -> str:
@@ -7903,6 +7950,38 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "❌ " + str(w_res.get("error") or "Record nahi mila.") + "\n\n"
                 "💡 <b>Example:</b> <code>xyzshop.in</code> ya <code>flipkart.co.in</code>",
                 parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "uhunt":
+        # v71.8: 🕵️ USERNAME HUNTER — sirf PUBLIC profiles (koi login/OTP/session nahi)
+        _u_h = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_h, uid):
+            await update.message.reply_text(get_credits_over_text("uhunt"),
+                                            reply_markup=get_limit_exceeded_kb(),
+                                            parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _t0h = time.perf_counter()
+        _h_res = {}
+        try:
+            _h_res = await asyncio.wait_for(asyncio.to_thread(hunt_username, raw_text),
+                                            timeout=45)
+        except Exception:                                      # noqa: BLE001
+            _h_res = {}
+        _msh = (time.perf_counter() - _t0h) * 1000
+        if not _h_res.get("ok"):
+            tel_note("uhunt", False, _msh, error="bad username")
+            await update.message.reply_text(
+                "❌ " + str(_h_res.get("error") or "Kuch nahi mila.") + "\n\n"
+                "💡 <b>Example:</b> <code>rahul_99</code>",
+                parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _h_res["ms"] = _h_res.get("ms") or _msh
+        tel_note("uhunt", True, _msh, credit=True)
+        await update.message.reply_text(
+            spend_credit_msg(uid, "uhunt") + "\n" + uhunt_card(_h_res), parse_mode=HTML)
         add_use(uid)
         return
 

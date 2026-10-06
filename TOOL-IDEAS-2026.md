@@ -23,13 +23,14 @@
 - **Kaam ki baat:** WhatsApp/Telegram photos me EXIF **delete** ho jati hai — asli photo
   (camera se seedha) me milti hai. Ye bhi batana.
 
-### 2. 🕵️ USERNAME HUNTER — "kisi bhi username se 300+ sites par profile dhoondho"
+### 2. 🕵️ USERNAME HUNTER — ✅ **BAN GAYA (v71.8, LIVE!)**
 - **Kya dikhta hai:** "Person tracker" — username daalo, internet bhar me dhoondhta hai.
-- **Actually:** Wo sites par **public profile pages** check karta hai (`github.com/username` khula
-  hai kya). Open-source tool **Sherlock / Maigret** — bilkul free, koi key nahi.
-- **API:** ❌ key nahi (open-source script; bot me offline logic bhi ho sakta hai).
-- **Legal kyun:** Sirf **public pages** — jaisa koi Google me naam likhta hai.
-- **VIP-able:** ✅ Haan — bahut "wow" feature hai.
+- **Jo bana:** **33 public sites** (GitHub, GitLab, Reddit, Instagram, Twitch, Steam, Telegram,
+  Snapchat, Codewars, Kick, Chess.com, SoundCloud...). 1 second me jawab. Card me site + profile.
+- **API:** ❌ **koi key nahi chahiye** — sab built-in.
+- **Accuracy:** soft-404 traps ke liye marker system (nakli username par **0 jhoothe result** ✅)
+- **Legal:** Sirf **public profile pages** — koi login/OTP/session nahi (module ke doc me likha hai).
+- **VIP-able:** ✅ (10 credits/use)
 
 ### 3. 📧 EMAIL LEAK CHECK — "kya aapka email dark web me leak hai?"
 - **Kya dikhta hai:** "Dark web scanner" 😱
