@@ -242,7 +242,7 @@ def ff_regions() -> List[str]:
 # ============================================================ FF player lookup
 _UID_ERR_HELP = (
     "Valid Free Fire UID bhejo (8-10 digit number).\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "📌 <b>UID kahan milega:</b>\n"
     "Free Fire kholo → upar-left apni <b>profile photo</b> dabao →\n"
     "naam ke neeche <b>UID</b> likha hai (📋 copy icon se copy karo).\n\n"
@@ -409,7 +409,7 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
     if reg and reg not in valid_regions:
         return {"ok": False, "error": (
             f"❌ Region code <b>{reg}</b> valid nahi hai.\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"✅ Valid regions: <code>{' '.join(valid_regions)}</code>\n\n"
             "💡 Region na pata ho to <b>sirf UID bhejo</b> — bot khud "
             "saare regions me dhoondh dega.\n"
@@ -422,7 +422,7 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
         if not st.get("ok"):
             return {"ok": False, "service_busy": True, "uid": uid,
                     "error": ("⏳ <b>Free Fire info service abhi pahunch se bahar hai.</b>\n"
-                              "━━━━━━━━━━━━━━━━━━━━━━\n"
+                              "──────────────────────\n"
                               "Ye ek free third-party service hai — kabhi-kabhi down hoti hai.\n"
                               f"🔧 Problem: <code>{str(st.get('error'))[:70]}</code>\n\n"
                               "🕐 <b>5-10 minute baad dobara try karo.</b>\n"
@@ -450,7 +450,7 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
             return {"ok": False, "service_busy": True, "uid": uid,
                     "dead_regions": exhausted,
                     "error": ("⚠️ <b>Free Fire service ke saare query-accounts abhi khatam hain.</b>\n"
-                              "━━━━━━━━━━━━━━━━━━━━━━\n"
+                              "──────────────────────\n"
                               "Ye free API region ke hisaab se limited accounts rakhti hai —\n"
                               "abhi " + (f"<b>{reg}</b>" if reg else "kisi bhi region") +
                               " me ek bhi available nahi hai.\n\n"
@@ -515,7 +515,7 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
                     "blocked": True, "blocked_regions": n_blk,
                     "error": ("🚫 <b>Free Fire API ne abhi humare server ko block kar rakha hai</b> "
                               f"(HTTP 403 — {n_blk}/{tried} region).\n"
-                              "━━━━━━━━━━━━━━━━━━━━━━\n"
+                              "──────────────────────\n"
                               "Ye <b>service-side</b> problem hai, aapki UID ki nahi.\n"
                               "Free API datacenter IP ko kabhi-kabhi temporarily rok deti hai.\n\n"
                               "🕐 <b>15-30 minute baad dobara try karo.</b>\n"
@@ -554,7 +554,7 @@ def ff_player_info(target: str, region: str = "", use_cache: bool = True) -> Dic
         return {"ok": False, "uid": uid, "notfound": True,
                 "regions_tried": tried, "region_states": states,
                 "error": (f"🔍 UID <code>{uid}</code> {scope} me nahi mila.\n"
-                          "━━━━━━━━━━━━━━━━━━━━━━\n"
+                          "──────────────────────\n"
                           "Ye ho sakta hai agar:\n"
                           "• UID galat type ho gaya ho (ek digit idhar-udhar)\n"
                           "• Account delete/ban ho gaya ho\n"
@@ -687,7 +687,7 @@ def bgmi_player_info(target: str, use_cache: bool = True) -> Dict[str, Any]:
                     "service_busy": True, "uid": uid,
                     "dead_providers": av.get("dead") or [],
                     "error": ("🎮 <b>BGMI public stats abhi available nahi hai.</b>\n"
-                              "━━━━━━━━━━━━━━━━━━━━━━\n"
+                              "──────────────────────\n"
                               "BGMI (India) ke liye officially koi free public stats API "
                               "nahi hai — jo third-party servers the wo ab band ho gaye hain.\n\n"
                               + _OFFICIAL_GUIDE +
@@ -719,7 +719,7 @@ def bgmi_player_info(target: str, use_cache: bool = True) -> Dict[str, Any]:
         return {"ok": False, "fallback": True, "available": bool(alive),
                 "service_busy": True, "uid": uid,
                 "error": ("🎮 <b>BGMI stats is UID ke liye nahi mile.</b>\n"
-                          "━━━━━━━━━━━━━━━━━━━━━━\n"
+                          "──────────────────────\n"
                           f"Server tak pahunch hue ({', '.join(alive)}) par is UID ka "
                           f"public record nahi aaya.\n🔧 <code>{last_err[:60]}</code>\n\n"
                           + _OFFICIAL_GUIDE + "\n<i>❌ Credit nahi kata.</i>")}

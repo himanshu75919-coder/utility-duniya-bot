@@ -37,6 +37,12 @@ VEHICLE_PROVIDER_KEY = <aapki RapidAPI key>
 
 ---
 
+> ⚠️ **Agar bot bole "Is gaadi ka record sarkari database me nahi mila"** — matlab aapka
+> setup **bilkul theek hai**, bas wo number API ke database me nahi hai (jaise demo number
+> `BR30AR0802`). Asli registered gaadi ka number try karo — turant data aayega.
+
+---
+
 # 📋 Step 1 — RapidAPI par jao aur Google se sign up karo
 
 👉 **https://rapidapi.com/auth/sign-up**

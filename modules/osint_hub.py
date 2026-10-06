@@ -297,7 +297,7 @@ def hub_status(sample_plate: str = "", sample_number: str = "") -> str:
 
     lines = [
         "🔌 <b>OSINT HUB STATUS</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"🌐 <b>Health URL:</b> <code>{_e(health_url)}</code>",
         status_line,
     ]

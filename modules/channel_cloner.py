@@ -44,7 +44,7 @@ HTML = "HTML"
 # --------------------------------------------------------------------------------
 CLONER_GUIDE_TEXT = (
     "📘 <b>AUTO FORWARD KAISE CHALTA HAI?</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "1️⃣ <b>SOURCE</b> = jis channel se copy karni hai\n"
     "2️⃣ <b>TARGET</b> = jis channel me post jayegi\n"
     "3️⃣ Bot har <b>nayi</b> post 2-5 second me khud copy kar deta hai,\n"
@@ -67,11 +67,11 @@ def cloner_summary_text(cfg: dict) -> str:
     links = "🟢 ON (URLs/@ hata deta hai)" if cfg.get("remove_links") else "🔴 OFF"
     return (
         "📋 <b>TUMHARI AUTO FORWARD SETTING</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"1️⃣ 📡 <b>Source:</b> <code>{src}</code>\n"
         f"2️⃣ 📑 <b>Target:</b> <code>{tgt}</code>\n"
         f"3️⃣ 🤖 <b>Full Auto:</b> {auto}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🏷️ Tag: {tag}\n💧 Watermark: {wm}\n"
         f"🔗 Links Hatao: {links}\n"
         f"🖼️ Thumbnail: {'✅ set' if cfg.get('thumbnail_file_id') else '❌ no'}"

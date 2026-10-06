@@ -273,23 +273,23 @@ def admin_payment_card(pay: dict, user_row: dict = None, history: dict = None) -
     utr_v = validate_utr(pay.get("utr_ref") or "")
     lines = [
         f"🔔 <b>VERIFY THIS PAYMENT — #{pay['id']}</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"👤 <b>User ID:</b> <code>{pay['user_id']}</code>",
         f"🏷️ <b>Username:</b> @{flags.get('username') or 'NoUser'}",
         f"👋 <b>Name:</b> {flags.get('name') or '-'}",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"💎 <b>Plan:</b> {pay.get('plan_name') or pay.get('plan_key')}",
         f"💰 <b>Amount:</b> ₹{pay.get('amount')}",
         f"📅 <b>Days:</b> {pay.get('plan_days')}",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"🧾 <b>UTR:</b> <code>{pay.get('utr_ref')}</code>",
         f"      • Format: {'✅ correct — ' + utr_v['kind'] if utr_v['ok'] else '❌ WRONG: ' + utr_v.get('reason', '')[:90]}",
         f"      • Used before?: {'⚠️ YES (duplicate!)' if flags.get('utr_dup') else '✅ No — it is new'}",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"🖼️ <b>Screenshot:</b> {'✅ Received' if pay.get('shot_file_id') else '❌ Not found'}",
         shot_verdict_line(flags.get("shot") or {}),
         f"      • Same image again?: {'⚠️ YES (duplicate!)' if flags.get('shot_dup') else '✅ No'}",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"🕒 <b>Sent:</b> {pay.get('created_at', '-')}",
     ]
     if isinstance(user_row, dict) and user_row:
@@ -299,7 +299,7 @@ def admin_payment_card(pay: dict, user_row: dict = None, history: dict = None) -
     if history:
         lines.append(f"📜 <b>This user's history:</b> ✅ {history.get('approved', 0)} approved · "
                      f"❌ {history.get('rejected', 0)} rejected · ⏳ {history.get('pending', 0)} pending")
-    lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+    lines.append("──────────────────────")
     lines.append("🤔 <b>Decision:</b> tap a button below" if not (flags.get("utr_dup") or flags.get("shot_dup"))
                  else "🚨 <b>Careful:</b> a duplicate signal was found — think before approving!")
     return "\n".join(lines)
@@ -308,12 +308,12 @@ def admin_payment_card(pay: dict, user_row: dict = None, history: dict = None) -
 def user_payment_reply(pay_id: int, plan_name: str, amount: int, analysis: dict) -> str:
     return (
         f"✅ <b>Payment proof submitted!</b>\\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\\n"
+        "──────────────────────\\n"
         f"🧾 <b>Payment ID:</b> <code>#{pay_id}</code>\\n"
         f"💎 <b>Plan:</b> {plan_name}\\n"
         f"💰 <b>Amount:</b> ₹{amount}\\n"
         f"{shot_verdict_line(analysis)}\\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\\n"
+        "──────────────────────\\n"
         "⏳ Admin check karke VIP chalu kar dega (aam taur par 5-30 minute).\\n"
         f"📌 To check status send <code>/mypay</code>.\\n\\n"
         "<i>Tip: correct UTR and screenshot get approved faster.</i>"
@@ -324,7 +324,7 @@ def utr_help_text() -> str:
     """UTR kahan milega — chhota Hinglish card."""
     return (
         "🧾 <b>UTR / Transaction ID kahan milega?</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "📱 <b>PhonePe:</b> History → us payment par tap → <b>UTR</b> (12 digit)\n"
         "📱 <b>GPay:</b> Transaction → <b>UPI transaction ID</b>\n"
         "📱 <b>Paytm:</b> Passbook → payment → <b>Order / Txn ID</b>\n"

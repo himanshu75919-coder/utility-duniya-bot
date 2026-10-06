@@ -417,8 +417,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.5 FREE4ALL — RC CHALU (RapidAPI root-auto) + "
-               "SADE PROMPTS + VEHICLE INFO REPORT")
+BOT_VERSION = ("v71.6 FREE4ALL — SAAF ERROR + PATLI LINES + "
+               "RC CHALU (RapidAPI root-auto)")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -629,7 +629,7 @@ def get_credits_over_text(action: str = "") -> str:
         tool_name = PREMIUM_TOOL_NAMES.get(action, "Ye tool")
     return (
         f"⚡ <b>{to_bold('CREDITS KHATAM')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"{tool_name} ek <b>premium tool</b> hai — 1 use = 1 credit.\n"
         f"Aapke <b>{CREDITS_START} free credits khatam ho gaye.</b>\n\n"
         "👑 <b>VIP lene se POORA bot UNLIMITED ho jayega:</b>\n"
@@ -676,7 +676,7 @@ PREMIUM_ONLY = not ALL_FREE
 
 VIP_WALL_TEXT = (
     "👑 <b>YE TOOL SIRF VIP MEMBERS KE LIYE HAI</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "Aapka account <b>free</b> hai — is liye premium tools band hain.\n\n"
     "💎 <b>VIP lene par aapko milega:</b>\n"
     "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
@@ -703,7 +703,7 @@ def vip_wall_kb() -> InlineKeyboardMarkup:
 # ---------- v61: FREE MODE ka apna card (VIP wall ki jagah) ----------
 FREE_MODE_TEXT = (
     "🎉 <b>SAB TOOLS FREE HAIN!</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "Koi VIP nahi, koi credits nahi, koi limit nahi.\n"
     "Aap seedha menu se <b>koi bhi tool</b> dabao — turant chalega. ✅\n\n"
     "📥 Video Downloader · 📱 Number Info · 📲 IMEI Details\n"
@@ -745,7 +745,7 @@ def all_tools_text() -> str:
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "<b>💼 Business Studio (photo + PDF, print-ready):</b>\n"
         f"{_biz}\n\n"
         f"{_dl}\n\n"
@@ -988,10 +988,10 @@ VNUM_COUNTRIES = (
 
 VNUM_INTRO = (
     f"🌐 <b>{to_bold('VIRTUAL NUMBERS (OTP)')}</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "OTP ke liye virtual number — 16 desh, 10 service.\n"
     "📌 Jaise: WhatsApp ke liye number chahiye\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "1️⃣ Service chuno → 2️⃣ Country chuno → 3️⃣ Number lo\n"
     "<i>Sirf account verify karne ke liye. Spam nahi.</i>"
 )
@@ -1316,11 +1316,11 @@ def dl_url_matches(mode: str, url: str) -> bool:
 # ----------------------------------------------------------------------
 
 
-# v71: premium card/prompt frame — boxes ┏━┓ ┃ ┗━┛ + dotted separator.
+# v71: premium card/prompt frame — boxes ┏─┓ ┃ ┗─┛ + dotted separator.
 # (PROMPT_DATA se PEHLE hona zaroori hai — prompt renderer inhi ko use karta hai)
-PCARD_TOP = "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓"
+PCARD_TOP = "┏────────────────────────────┓"
 PCARD_MID = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-PCARD_BOT = "┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛"
+PCARD_BOT = "┗────────────────────────────┛"
 
 PROMPT_DATA = {
     # ---------------------------------------------------------- DOWNLOADERS
@@ -1612,9 +1612,9 @@ def _render_tool_prompt(key: str) -> str:
 
     Isliye har tool ka prompt itna hi:
 
-        ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+        ┏────────────────────────────┓
         ┃ 🚗 𝐑𝐂 + 𝐂𝐇𝐀𝐋𝐋𝐀𝐍 (𝐆𝐀𝐀𝐃𝐈 𝐗-𝐑𝐀𝐘)
-        ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+        ┗────────────────────────────┛
 
         🔗 Gaadi ka number plate bhejein:
 
@@ -1647,7 +1647,7 @@ PROMPTS = {k: _render_tool_prompt(k) for k in PROMPT_DATA}
 
 TUTORIAL_TEXT = (
     f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "📥 <b>Download:</b>\n"
     "• 📥 <b>VIDEO DOWNLOAD = 4 ALAG TOOLS</b> (Insta, YouTube, Facebook, TikTok)\n"
     "   Keyboard par neeche 📸 INSTA DL · ▶️ YOUTUBE DL … wale buttons hain —\n"
@@ -1676,7 +1676,7 @@ TUTORIAL_TEXT = (
     "\n"
     "🧰 <b>Chhote tools:</b> QR code, URL short, link check, app finder\n"
     "\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "⌨️ <b>Commands:</b> /start /menu /help /cancel\n"
     "\n"
     "💬 <b>Atak gaye?</b> Har tool ke neeche 🎬 Tutorial Video button hai. Tool band karne ke liye <b>/cancel</b> dabao."
@@ -1774,7 +1774,7 @@ def tutorial_link_line() -> str:
 # MADAD / TUTORIAL — sirf 🎬 video, koi text tutorial nahi
 TUTORIAL_NOTICE = (
         "❓ <b>MADAD / TUTORIAL</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "Har tool ke saath <b>🎬 30 second ka video</b> hai.\n"
         "📌 Jaise: 📥 Video Downloader kholo → neeche 🎬 button dabao → video dekh lo\n\n"
         "👇 Ya yahan se seedha tool ka video kholo:"
@@ -1814,7 +1814,7 @@ KAGAZ_MENU_TEXT = (
 
 HUB_KEY_MISSING_TEXT = (
     "🔌 <b>API HUB not available</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "Ye check aapke API hub se chalta hai — abhi wo band hai.\n\n"
     "<i>Owner:</i> Render → Environment me <code>HUB_API_KEY</code> = <code>Demo</code> "
     "(ya apni key) daalo, aur <code>HUB_ENABLED=on</code> rakho."
@@ -1915,7 +1915,7 @@ def kagaz_ask_next(key: str, data: dict, step: int = 0) -> str:
         return ""
     fname, label, hint = fields[step]
     return (f"📜 <b>{to_bold('KAGAZ SUITE')}</b> — {key}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"✍️ <b>{label}</b> likho\n"
             f"<i>(jaise: {hint})</i>\n"
             f"🚫 Khaali chhodna hai to <code>skip</code> likho · ❌ Band karne ke liye /cancel\n"
@@ -2068,12 +2068,12 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _st_f = "👑 OWNER/ADMIN" if is_admin(uid_) else "✅ ALL TOOLS FREE"
         await update.message.reply_text(
             f"👤 <b>{to_bold('MERI ACCOUNT')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"• <b>Naam:</b> {hesc(u.get('name', 'User'))}\n"
             f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
             f"• <b>Status:</b> {_st_f}\n"
             f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "🎉 <b>Poore bot ke saare tools aapke liye khule hain.</b>\n"
             "❌ Na koi VIP, na credits, na limit.\n"
             "👉 Neeche menu se seedha tool dabao.",
@@ -2087,14 +2087,14 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cred_line += " — <b>khatam!</b> (premium tools ke liye VIP lo)"
     text = (
         f"👤 <b>{to_bold('MERI ACCOUNT')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"• <b>Naam:</b> {hesc(u.get('name', 'User'))}\n"
         f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
         f"• <b>Status:</b> {vip_status}\n"
         f"• <b>VIP kab tak:</b> {expiry}\n"
         f"• ⚡ <b>Credits (premium tools ke liye):</b> {cred_line}\n"
         f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "💎 <b>AB SAARE tools PREMIUM hain</b> — 1 use = 1 credit\n"
         "🎁 <b>Naye user ko 25 free credits</b> (ek baar ke) — unke baad VIP lo\n"
         "👑 <b>VIP = POORA bot UNLIMITED</b> (koi credit nahi, koi limit nahi)\n\n"
@@ -2154,7 +2154,7 @@ def activate_home_text(uid: int) -> str:
     return (
 
         "🎁 <b>VIP ACTIVATE (for friends / direct payment)</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "If someone paid you <b>directly by cash or UPI</b>, or you want to give <b>free VIP</b> to someone — no proof needed, just activate it.\n"
         f"✅ <b>Selected plan:</b> {pl['name']}\n"
         f"     ₹{pl['price']} · {pl['days']} days\n"
@@ -2223,12 +2223,12 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "✅ <b>VIP ACTIVATED!</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🆔 <b>User:</b> <code>{target}</code> ({hesc(str(uname))[:24]})\n"
         f"👑 <b>VIP:</b> {dur}\n"
         f"📅 <b>Valid till:</b> {exp}\n"
         f"💎 <b>Plan:</b> {plan['name']} · ₹{plan['price']}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "✉️ User has been notified. Full record is saved in <b>Manual VIP Log</b>.",
         reply_markup=InlineKeyboardMarkup([
             [InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}"),
@@ -2242,7 +2242,7 @@ async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             target,
             f"🎉 <b>Congratulations!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"👑 <b>{dur}</b> activated!\n"
             f"📅 Valid till: {exp}\n\n"
             "Ab saare tools <b>unlimited</b> hain 🚀\n"
@@ -2261,7 +2261,7 @@ async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
         st_ = credits_stats()
         await update.message.reply_text(
             "🎟️ <b>CREDITS (for premium tools)</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"• New user gets: <b>{CREDITS_START}</b> credits (one time, not daily)\n"
             "• Premium: Video Downloader · Number Info · IMEI · Channel Cloner · "
             "Bank PDF → Excel · Document Suite · Media Studio\n"
@@ -2380,7 +2380,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         st = payment_stats()
         await update.message.reply_text(
             "👑 <b>Aap is bot ke OWNER / ADMIN ho</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "✅ Aapke liye sab kuch <b>unlimited</b> hai — na daily limit, na VIP payment.\n"
             "Aapko premium khareedne ki zaroorat kabhi nahi 😄\n"
             f"💳 <b>Pending payments (to verify):</b> {st['pending']}\n"
@@ -2533,13 +2533,13 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _mode = "WEBHOOK (Conflict-free)" if webhook_url_from_env() else "POLLING"
     await update.message.reply_text(
         f"⚡ <b>{hesc(BOT_VERSION)}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🔖 <b>Code commit:</b> <code>{hesc(_GIT_COMMIT or 'unknown')}</code>\n"
         f"🌐 <b>Mode:</b> {_mode} | ⏱️ <b>chal raha:</b> {_uptime_str()}\n"
         f"🩺 <b>Crashes:</b> {_CRASH_STATE['count']} (self-heal ON)\n"
         f"🌐 <b>Webhook check:</b> {hesc(_WEBHOOK_DIAG['decision'])}\n"
         f"🤖 <b>Live check:</b> {hesc(_last_update_line())}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🎨 <b>Naya prompt system:</b> {'✅ CHALU' if _prompt_ok else '❌ purana'}\n"
         f"  • {_n_tools} tools me header + ✨ ask + 📝 Examples\n"
         f"🚫 <b>Credits/cancel line:</b> {'✅ poori tarah gayi' if _two_lines_gone else '❌ abhi hai'}\n"
@@ -2548,7 +2548,7 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🏦 <b>UPI tool:</b> 🗑️ hata diya gaya (poori code gayi)\n"
         "⚡ <b>YouTube quality buttons:</b> ✅ instant (cache + background warm)\n"
         "🧹 <b>Purane lecture/note lines:</b> ✅ saare tools se gayi\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "<b>Naya version live hai ya nahi — kaise pakdo:</b>\n"
         "1. Upar wala 🔖 commit Render ke latest commit jaisa hai = ✅ naya code LIVE\n"
         "2. Alag hai = deploy abhi chal raha hai, thodi der baad /version dobara bhejo\n"
@@ -2588,9 +2588,9 @@ async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🧪 <b>NUMBER INFO — SAMPLE PREVIEW</b>\n"
         "Ye bilkul wahi layout hai jo aapki API lagne par aayega.\n"
         "Isme koi asli vyakti ka data <b>nahi</b> hai — sab nakli values hain.\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         + card
-        + "\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        + "\n──────────────────────\n"
         "💡 <b>Asli data ke liye:</b> Render → Environment me\n"
         "<code>NUMINFO_PROVIDER_URL</code> + <code>NUMINFO_PROVIDER_KEY</code> "
         "daalo → <code>/numapi</code> se check karo.",
@@ -2600,7 +2600,7 @@ async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- v59.7: /support — seedha owner se baat karo (clickable) ----------------
 SUPPORT_TEXT = (
     "💬 <b>SUPPORT / MADAD</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"Owner: {SUPPORT_LINK}\n\n"
         "Neeche wala button dabao → seedha owner ki chat khul jaayegi → "
         "<b>Start</b> dabao aur apni baat likho.\n\n"
@@ -2649,7 +2649,7 @@ async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not _raw:
         await update.message.reply_text(
             "🧪 <b>/numtest — MAPPING PREVIEW</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "Apni API ke docs wala <b>sample JSON response</b> is command ke saath\n"
             "paste karo → main dikha dunga ki bot ka card <b>kaisa banega</b>.\n\n"
             "<b>Jaise:</b>\n"
@@ -2675,7 +2675,7 @@ async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             "⚠️ <b>Is response se card nahi bana.</b>\n"
             f"📄 <b>Wajah:</b> {safe_html_err(str(_parsed.get('error') or 'unknown')[:200])}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "Bot in naam se fields dhoondhta hai:\n"
             "• naam → <code>name</code> / <code>ownerName</code> / <code>subscriberName</code>\n"
             "• pita → <code>father</code> / <code>fatherName</code> / <code>guardian</code>\n"
@@ -2697,9 +2697,9 @@ async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
                          "(koi API call nahi hui)", 0)
     await update.message.reply_text(
         "🧪 <b>MAPPING PREVIEW</b> — aapki API ka jawab aise card me badlega:\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         + _card
-        + "\n━━━━━━━━━━━━━━━━━━━━━━\n"
+        + "\n──────────────────────\n"
         "📌 Jo fields aapke JSON me nahi thi, unki line card me nahi aayi.\n"
         "💡 Asli API lagane ke liye: <code>/numapi</code> dekho.",
         parse_mode=HTML)
@@ -2730,22 +2730,22 @@ async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if res.get("ok"):
         await st.edit_text(
             "✅ <b>API CHAL RAHI HAI!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"🏢 <b>Operator:</b> {hesc(str(res.get('operator') or '—'))}\n"
             f"📍 <b>Circle:</b> {hesc(str(res.get('circle') or '—'))}\n"
             f"🔎 <b>Line Type:</b> {hesc(str(res.get('type') or '—'))}\n"
             f"🌍 <b>Country:</b> {hesc(str(res.get('country') or '—'))}\n"
             f"⚡ <b>Latency:</b> {ms}ms\n"
             f"🗄️ <b>Cache:</b> {'Haan (6 ghante)' if res.get('cached') else 'Nahi (fresh)'}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "📱 Ab Number Info tool aapki API se <b>live data</b> dega. 🔥",
             parse_mode=HTML)
         return
     await st.edit_text(
         "❌ <b>API test fail</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:220])}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "<b>Ye 4 cheezein check karo:</b>\n"
         "1️⃣ URL poori hai? (https:// se shuru + <code>/api</code> end)\n"
         "2️⃣ Key sahi hai? (copy-paste me space na ho)\n"
@@ -2797,7 +2797,7 @@ async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
     ok = res.get("ok")
     txt = (f"{'✅' if ok else '⚠️'} <b>BACKUP {'OK' if ok else 'NAHI HUA'}</b>\n"
-           "━━━━━━━━━━━━━━━━━━━━━━\n"
+           "──────────────────────\n"
            f"📦 Size: {res.get('bytes', 0)/1024:.1f} KB\n"
            f"🐙 GitHub: <code>{hesc(str(res.get('github') or '-'))[:80]}</code>\n"
            f"👑 VIP count: {res.get('premium', {}).get('total_premium', '?')}\n")
@@ -2832,7 +2832,7 @@ async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
     b = res.get("premium_before", {})
     a = res.get("premium_after", {})
     txt = [f"{'✅' if ok else '⚠️'} <b>RESTORE {'OK' if ok else 'NAHI HUA'}</b>",
-           "━━━━━━━━━━━━━━━━━━━━━━",
+           "──────────────────────",
            f"👑 <b>VIP pehle:</b> {b.get('total_premium', '?')}",
            f"👑 <b>VIP ab:</b> {a.get('total_premium', '?')}"]
     if res.get("source"):
@@ -2887,7 +2887,7 @@ async def cmd_vips(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update.effective_message.get_bot(), update.effective_chat.id, bio,
         filename=bio.name,
         caption=(f"👑 <b>PREMIUM USERS REPORT</b>\n"
-                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                 f"──────────────────────\n"
                  f"✅ Active: <b>{active}</b>\n"
                  f"🕓 Expired (record): {len(rows) - active}\n"
                  f"📊 Total: <b>{len(rows)}</b>\n\n"
@@ -2931,7 +2931,7 @@ async def cmd_fixvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     hist = ledger_for(target, 5)
     lines = [f"👑 <b>PREMIUM LEDGER REPAIR</b>",
-             "━━━━━━━━━━━━━━━━━━━━━━",
+             "──────────────────────",
              f"👤 <b>User:</b> <code>{target}</code>",
              f"📥 <b>Pehle:</b> {hesc(premium_rank_txt(before))}",
              f"📤 <b>Ab:</b> {hesc(premium_rank_txt(after))}"]
@@ -2965,7 +2965,7 @@ async def cmd_ledger(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rows = ledger_all(30)
     st = premium_ledger_stats()
     lines = ["📒 <b>PREMIUM LEDGER (permanent record)</b>",
-             "━━━━━━━━━━━━━━━━━━━━━━",
+             "──────────────────────",
              f"✅ Grants: {st['grant']}  |  🚫 Revokes: {st['revoke']}  |  "
              f"👥 Users: {st['unique_users']}", ""]
     if not rows:
@@ -3124,7 +3124,7 @@ def biz_step_prompt(key: str, idx: int) -> str:
     bar_total = len(steps)
     bar = "●" * (idx + 1) + "○" * max(0, bar_total - idx - 1)
     return (f"{_icon} <b>{hesc(name)}</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"──────────────────────\n"
             f"<code>{bar}</code>  <b>{idx + 1}/{bar_total}</b>\n\n"
             f"{q}\n\n"
             f"💡 <b>Example:</b> <code>{hesc(str(hint))[:70]}</code>")
@@ -3294,7 +3294,7 @@ async def cmd_rcsetup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _on = "❌ abhi nahi lagi"
     await update.message.reply_text(
         "🚗 <b>RC + CHALLAN — LIVE KAISE KAREIN (₹0)</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"📌 <b>Provider status:</b> {_on}\n\n"
         "<b>Market me ₹100/month wali API ki zaroorat NAHI hai.</b> RapidAPI par "
         "<b>BASIC plan $0.00/mo</b> hai (card bhi nahi lagta):\n\n"
@@ -3325,7 +3325,7 @@ async def cmd_speed(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _ladder = " → ".join(c[0] for c in MD.YT_CLIENT_SETS)
         await update.message.reply_text(
             "⚡ <b>SPEED REPORT</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"⏱️ <b>Max time:</b> {MD.FAST_DEADLINE} second (hard limit)\n"
             f"🧠 <b>Video cache:</b> {_st['items']} video "
             f"({_st['mb']} MB) — ye sab INSTANT milte hain\n"
@@ -3334,7 +3334,7 @@ async def cmd_speed(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🚫 <b>Bad-marked clients:</b> {_st['bad_clients']} "
             "(bot-check wale, 15 min ke liye hata diye)\n"
             f"🔀 <b>Parallel info:</b> ON (4 client ek saath, jo pehle jeete)\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "💡 <b>Tez kaise hoga:</b>\n"
             "• Wahi reel dobara bhejo → 0.1 second me milega\n"
             "• Pehli baar: 2-8 second (normal), max 30 second\n"
@@ -3357,12 +3357,12 @@ async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _ladder = " → ".join(c[0] for c in MD.YT_CLIENT_SETS)
     txt = (
         "🍪 <b>COOKIES STATUS</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"{'✅' if st['set'] else '⚠️'} <b>Cookies:</b> "
         f"{'LAGI HAIN — bot-check nahi aayega' if st['set'] else 'NAHI lagi hain'}\n"
         f"📄 <b>Lines:</b> {st['lines']} | 📁 <code>{hesc(str(st['path'])[-40:]) or '—'}</code>\n"
         f"🤖 <b>Client ladder:</b> <code>{hesc(_ladder)}</code>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "<b>🍪 Cookies kaise deni hai (2 minute):</b>\n"
         "1️⃣ Android/iOS ke LIYE: <b>Telegram par wahi cookies.txt file</b> seedha "
         "is bot ko bhej dein (neeche tarika).\n"
@@ -3370,7 +3370,7 @@ async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "<code>youtube.com</code> kholein → extension se <b>cookies.txt</b> download karein.\n"
         "3️⃣ Wahi <b>cookies.txt</b> yahan bot ko <b>file ke roop me bhej dein</b> "
         "(command likhne ki zaroorat nahi).\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "<b>Maine badal diya kya:</b>\n"
         "• 🤖 4 client ladder (android_vr → tv_embedded → android → web_safari)\n"
         "• ⚡ progressive format + 16 parallel chunks = video 1-2 second me\n"
@@ -3420,7 +3420,7 @@ async def on_doc_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _st = MD.cookies_status()
         await msg.reply_text(
             "✅ <b>COOKIES LAG GAYIN!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"📄 <b>Lines:</b> {_st['lines']} | 🍪 <b>Status:</b> ON\n"
             "🎉 Ab YouTube ka <i>\"Sign in to confirm you're not a bot\"</i> "
             "error <b>nahi aayega</b>.\n"
@@ -3628,7 +3628,7 @@ def biz_answers_to_dict(key: str, ans: dict) -> dict:
 
 BIZ_MENU_TEXT = (
     "💼 <b>𝐁𝐔𝐒𝐈𝐍𝐄𝐒𝐒 𝐒𝐓𝐔𝐃𝐈𝐎</b>\n"
-    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "──────────────────────\n"
     "Dukaan, school, coaching, job aur loan — <b>12 kaam ki cheezein</b>\n"
     "sirf ek line likh kar banao. Sab <b>print-ready A4 PDF</b> me.\n\n"
     "👇 Neeche se tool chuno:"
@@ -3827,7 +3827,7 @@ async def biz_send_result(msg, key: str, res: dict, uid: int, used: bool = True)
         await safe_reply(
             msg,
             f"⚠️ <b>File nahi ban payi</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"──────────────────────\n"
             f"📄 {safe_html_err(str(why)[:200])}\n\n"
             f"💡 <b>Format yaad rakhein:</b> ek line me <code>|</code> se alag likhein.\n"
             f"Example dekhne ke liye tool ka naam dobara dabayein.",
@@ -3837,7 +3837,7 @@ async def biz_send_result(msg, key: str, res: dict, uid: int, used: bool = True)
     bio = io.BytesIO(res["png"])
     bio.name = f"{key.replace('biz_', '')}_{datetime.now().strftime('%d%m_%H%M')}.png"
     cap = (f"✅ <b>{hesc(name)}</b> ready hai!\n"
-           f"━━━━━━━━━━━━━━━━━━━━━━\n"
+           f"──────────────────────\n"
            f"🖨️ <i>A4 @ 200 DPI — seedha print karein</i>\n")
     if res.get("count"):
         cap += f"📦 Total: <b>{res['count']}</b>\n"
@@ -3957,32 +3957,32 @@ def system_stats_text() -> str:
 
     return (
         f"📡 <b>{to_bold('SYSTEM HEALTH')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"⏱️ <b>Uptime:</b> {_uptime_str()}\n"
         f"🧵 <b>Threads:</b> {threads}   |   🧠 <b>RAM:</b> {mem}\n"
         f"📦 <b>Python objects:</b> {objs:,}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🗃️ <b>Cache entries:</b> {cs['entries']} / {cs['maxsize']}\n"
         f"   {hit_icon} <b>Hit rate:</b> {hit}%  "
         f"(hits {cs['hits']} · miss {cs['misses']})\n"
         f"   💡 jitna zyada hit, utni kam API call = fast + free\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🚦 <b>Rate limiter:</b>\n"
         f"   ✅ allowed: {ls['allowed']:,}   "
         f"{blk_icon} blocked: {blk:,}\n"
         f"   🔑 active users tracked: {ls['active_buckets']}\n"
         f"   ⚙️ default: {ls['default_limit']} req / {ls['default_window']}s\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🌐 <b>Mode:</b> {'WEBHOOK' if webhook_url_from_env() else 'POLLING'}\n"
         f"🔌 <b>Premium-only:</b> {'ON' if PREMIUM_ONLY else 'OFF'}\n"
         f"👑 <b>Admins:</b> {len(ADMIN_IDS)}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         # v53.0: per-tool telemetry — ab koi tool chup-chaap fail nahi ho sakta.
         # DEAD upstream (jaise BGMI ke stats servers) sabse upar flag hota hai,
         # aur saaf likha aata hai ki us tool par credit nahi katna chahiye.
         + _telemetry_block()
         + _vault_admin_block()
-        + "━━━━━━━━━━━━━━━━━━━━━━\n"
+        + "──────────────────────\n"
         "<i>Ye stats live hain — /admin dobara dabao to refresh ho jayenge.</i>"
     )
 
@@ -4030,7 +4030,7 @@ def _vault_admin_block() -> str:
         if g.get("last_why"):
             lines.append(f"   🔎 Aakhri: {hesc(str(g['last_why'])[:110])}")
         lines.append("   💡 Commands: /vault · /backup · /restore · /vips · /ledger · /fixvip")
-        lines.append("━━━━━━━━━━━━━━━━━━━━━━")
+        lines.append("──────────────────────")
         return "\n".join(lines)
     except Exception:                                            # noqa: BLE001
         return ""
@@ -4088,16 +4088,16 @@ async def admin_panel_send(message, context, uid: int):
     pend = pending_payments_count()
     text = (
         f"🛠️ <b>{to_bold('ADMIN CONTROL DASHBOARD')}</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"👥 <b>Total Users:</b> {st['total_users']}   |   🟢 <b>Active today:</b> {st['active_today']}\n"
         f"⚡ <b>Uses today:</b> {st['uses_today']}   |   💎 <b>Active VIP:</b> {st['vip_users']}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"💳 <b>Pending Payments:</b> {pend}  {'🔴 (to verify!)' if pend else '✅'}\n"
         f"✅ <b>Approved Total:</b> {ps['approved']}   |   ❌ <b>Rejected:</b> {ps['rejected']}\n"
         f"💰 <b>Total Revenue:</b> ₹{ps['revenue']:,}\n"
         f"🎁 <b>Manual VIP given today:</b> {vip_grants_today()}\n"
         f"🎟️ <b>Credits wale users:</b> {credits_stats()['with_credits']} · <b>khatam:</b> {credits_stats()['out_of_credits']}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "👇 Neeche menu se koi bhi option chuno:"
     )
     kb = InlineKeyboardMarkup([
@@ -4133,7 +4133,7 @@ async def cmd_payments(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     await update.message.reply_text(
         f"💳 <b>{to_bold('PENDING PAYMENTS')}</b> ({len(pend)})\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "Tap any payment to see the <b>full proof + approve/reject</b> buttons 👇",
         reply_markup=admin_pending_kb(pend), parse_mode=HTML)
 
@@ -4175,8 +4175,8 @@ async def cmd_mypay(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"{icons.get(r.get('status'), '❔')} <b>#{r['id']}</b> · {r.get('plan_name')} · ₹{r.get('amount')} · "
                      f"UTR <code>{r.get('utr_ref')}</code> · <b>{str(r.get('status')).upper()}</b>")
     await update.message.reply_text(
-        "🧾 <b>My Payments</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
-        "\n━━━━━━━━━━━━━━━━━━━━━━\n⏳ admin is verifying · ✅ VIP active · ❌ rejected",
+        "🧾 <b>My Payments</b>\n──────────────────────\n" + "\n".join(lines) +
+        "\n──────────────────────\n⏳ admin is verifying · ✅ VIP active · ❌ rejected",
         parse_mode=HTML)
 
 
@@ -4390,7 +4390,7 @@ def safe_html_err(text) -> str:
 
 
 def pcard_title(icon: str, name: str) -> str:
-    """Premium boxed header (v71):  ┏━┓ | ┃ 🏦 𝐈𝐅𝐒𝐂 𝐑𝐄𝐏𝐎𝐑𝐓 | ┗━┛
+    """Premium boxed header (v71):  ┏─┓ | ┃ 🏦 𝐈𝐅𝐒𝐂 𝐑𝐄𝐏𝐎𝐑𝐓 | ┗─┛
 
     Aakhir me ek nayi line jaati hai — isse title ke baad hamesha khali
     line aati hai (aapki shikayat: "likhne ke beech space nahi hota").
@@ -4516,7 +4516,7 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
     return "\n".join([_l for _l in _card if _l])
 
 
-def vahan_card(res: dict, offline: dict | None = None) -> str:
+def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
     """🚘 VEHICLE INFO REPORT — bilkul user ke diye format me (v71.1).
 
     User ka order: "sirf ye format, SMS/lecture lines nahi". Isliye card me
@@ -4569,11 +4569,15 @@ def vahan_card(res: dict, offline: dict | None = None) -> str:
     _puc = _v("puc_upto")
     _puc = "⚠️ N/A" if _puc == "-" else _puc
 
-    VS = "━━━━━━━━━━━━━━━━━━━━"
-    L = ["╔════════════════════════════╗",
+    VS = "────────────────────"
+    L = ["┏────────────────────────────┓",
          f"🚘 <b>{to_bold('VEHICLE INFO REPORT')}</b>",
-         "╚════════════════════════════╝",
-         "",
+         "┗────────────────────────────┛",
+         ""]
+    if note:
+        # v71.6: jab live data na aaye to SAAF wajah yahin dikhao
+        L += [f"⚠️ <b>Note:</b> {note}", ""]
+    L += [
          f"🚗 <b>{to_bold('VEHICLE INFORMATION')}</b>",
          f"🔢 <b>Number:</b> <code>{hesc(_plate)}</code>",
          VS,
@@ -4813,7 +4817,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "vnum_get":
         txt = (
             f"📲 <b>{to_bold('STEP 1: SERVICE CHUNO')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "Number kis kaam ke liye chahiye? Neeche se chuno 👇"
         )
         await _vnum_say(q, txt, _vnum_svc_kb())
@@ -4825,7 +4829,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["vnum_svc"] = svc_name
         txt = (
             f"🌍 <b>{to_bold('STEP 2: DESH CHUNO')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"Service: <b>{svc_name}</b>\n\n"
             "Kis desh ka number chahiye? Neeche se chuno 👇"
         )
@@ -4842,11 +4846,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         card = (
             (f"{_vnum_note}\n" if _vnum_note else "")
             + f"🎯 <b>{to_bold('STEP 3: NUMBER LO')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"📲 <b>Service:</b> {svc_name}\n"
             f"🌍 <b>Desh:</b> {ctry_name}\n"
             "⚡ <b>Agla step:</b> turant — admin ko message bhejo\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            "──────────────────────\n\n"
             "👉 Number lene ke liye neeche <b>Contact Admin</b> dabao:"
         )
         kb = InlineKeyboardMarkup([
@@ -4881,10 +4885,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["pay_shot_tries"] = 0
         caption = (
             f"💎 <b>{to_bold(plan_name)}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"💰 <b>Paisa:</b> ₹{amt}\n"
             f"🏦 <b>UPI ID:</b> <code>{UPI_ID}</code>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "📲 <b>Step 1:</b> Ye QR scan karke ₹" f"{amt} pay karo\n"
             "   (PhonePe / GPay / Paytm / BHIM)\n\n"
             "📝 <b>Step 2:</b> Pay karne ke baad <b>UTR / Transaction ID</b> yahan bhejo\n"
@@ -4953,12 +4957,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} days VIP"
         ok_edit = await _edit_admin_msg(
             f"✅ <b>APPROVED — Payment #{pid}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"👤 <b>User:</b> <code>{target_uid}</code>\n"
             f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
             f"👑 <b>Given:</b> {dur}\n"
             f"🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "✅ User has been notified.",
             kb=InlineKeyboardMarkup([
                 [InlineKeyboardButton(f"💳 Aur Pending ({pending_payments_count()})", callback_data="admpay_list"),
@@ -4970,12 +4974,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.send_message(
                 target_uid,
                 "🎉 <b>CONGRATS! VIP IS ACTIVE</b> 💎\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 f"🧾 <b>Payment ID:</b> #{pid}\n"
                 f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
                 f"👑 <b>VIP:</b> {dur}\n"
                 f"📅 <b>Valid till:</b> {exp}\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "⚡ Ab saare premium tools <b>unlimited</b> hain — credits khatam "
                 "hone ka koi tension nahi.\n\n"
                 "🚀 <b>Start:</b> /menu\n"
@@ -5109,8 +5113,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"• <code>{r.get('user_id')}</code> — {dur} · by <code>{r.get('by_admin')}</code> · "
                          f"{str(r.get('created_at') or '')[:16]}")
         await q.message.reply_text(
-            f"📜 <b>Manual VIP Log (last {len(rows)})</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
-            "\n━━━━━━━━━━━━━━━━━━━━━━\n<i>These are the VIPs you gave with /activate (no payment).</i>",
+            f"📜 <b>Manual VIP Log (last {len(rows)})</b>\n──────────────────────\n" + "\n".join(lines) +
+            "\n──────────────────────\n<i>These are the VIPs you gave with /activate (no payment).</i>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎁 Give VIP", callback_data="admact_home"),
                                                  InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
             parse_mode=HTML)
@@ -5181,8 +5185,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines = [f"{icons.get(r.get('status'), '❔')} <b>#{r['id']}</b> · {r.get('plan_name')} · ₹{r.get('amount')} · "
                  f"UTR <code>{r.get('utr_ref')}</code> · {str(r.get('status')).upper()}" for r in rows]
         await q.message.reply_text(
-            "🧾 <b>My Payments</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
-            "\n━━━━━━━━━━━━━━━━━━━━━━\n⏳ = admin is verifying · ✅ = VIP active · ❌ = rejected",
+            "🧾 <b>My Payments</b>\n──────────────────────\n" + "\n".join(lines) +
+            "\n──────────────────────\n⏳ = admin is verifying · ✅ = VIP active · ❌ = rejected",
             parse_mode=HTML)
         return
 
@@ -5198,8 +5202,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  f"₹{r.get('amount')} · {str(r.get('plan_name'))[:18]} · {str(r.get('created_at'))[:16]}" for r in rows]
         ps = payment_stats()
         await q.message.reply_text(
-            "🧾 <b>Last 10 Payments</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines) +
-            f"\n━━━━━━━━━━━━━━━━━━━━━━\n💰 Revenue: ₹{ps['revenue']:,} · ✅ {ps['approved']} · ❌ {ps['rejected']} · ⏳ {ps['pending']}",
+            "🧾 <b>Last 10 Payments</b>\n──────────────────────\n" + "\n".join(lines) +
+            f"\n──────────────────────\n💰 Revenue: ₹{ps['revenue']:,} · ✅ {ps['approved']} · ❌ {ps['rejected']} · ⏳ {ps['pending']}",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
             parse_mode=HTML)
         return
@@ -5224,7 +5228,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(
 
             "📊 <b>Admin Commands</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "• <code>/payments</code> — verify pending payments\n"
             "• <code>/activate [user_id] [days]</code> — give VIP directly (friend / direct payment, no proof)\n"
             "• <code>/credits [user_id] [n]</code> — give credits (default 25)\n"
@@ -5334,7 +5338,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("mode", None)
         await safe_answer_cb(q, "Ab har app apna alag tool hai ⬇️")
         _hint = ("🎯 <b>BADLAV — ab har app APNA ALAG TOOL hai</b>\n"
-                 "━━━━━━━━━━━━━━━━━━━━━━\n"
+                 "──────────────────────\n"
                  "Pehle sab apps ek hi menu me the. Ab keyboard par "
                  "<b>neeche wale</b> buttons dikhenge:\n"
                  "   📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL · 🎵 TIKTOK DL\n\n"
@@ -5366,7 +5370,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _head = ("🌐 <b>SABHI APPS KA DOWNLOADER</b>" if _dk == "any"
                  else f"{DL_SITES[_dk][0]} <b>{hesc(DL_SITES[_dk][1])} DOWNLOADER</b>")
         _body = (f"{_head}\n"
-                 f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                 f"──────────────────────\n"
                  f"✨ Is app ka video / reel / shorts ka <b>link bhejein</b>:\n\n"
                  f"💡 <b>Example:</b> <code>{(DL_SITES[_dk][3] if _dk != 'any' else 'https://www.instagram.com/reel/xxxxx')}</code>\n\n"
                  f"✅ HD · bina watermark · no ad")
@@ -5437,7 +5441,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(
 
             "🔄 <b>AUTO FORWARD (CLONER) — 3 STEP</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "1️⃣ <b>SOURCE</b> set karo (jis channel se post copy hogi)\n"
             "2️⃣ <b>TARGET</b> set karo (jis channel me post jayegi — bot wahan admin ho)\n"
             "3️⃣ <b>FULL AUTO ON</b> karo — bas, posts khud copy hone lagengi\n"
@@ -5467,11 +5471,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(
 
             "🚀 <b>AUTO FORWARD SETUP — only 3 steps</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "<b>Step 1:</b> SOURCE channel set karo (posts yahan se aayenge)\n"
             "<b>Step 2:</b> TARGET channel set karo (posts yahan jayenge)\n"
             "<b>Step 3:</b> FULL AUTO CHALU karo\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"📡 Source: <code>{cfg.get('source_chat_id') or '— set nahi'}</code>\n"
             f"📑 Target: <code>{cfg.get('target_chat_id') or '— set nahi'}</code>\n\n"
             "⚠️ <b>Yaad rakho:</b> Bot ko dono channels me <b>Admin</b> banao.",
@@ -5530,7 +5534,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 lines.append("\n⚠️ Bot ko target channel me <b>Admin</b> banao (Post Messages permission ke saath) — phir dobara test karo.")
         except Exception as e:
             lines.append(f"\n❌ Dikkat: <code>{hesc(str(e))}</code>\n💡 Check karo: source/target username sahi hain? Bot dono me admin hai?")
-        await q.message.reply_text("🧪 <b>TEST RESULT</b>\n━━━━━━━━━━━━━━━━━━━━━━\n" + "\n".join(lines), parse_mode=HTML)
+        await q.message.reply_text("🧪 <b>TEST RESULT</b>\n──────────────────────\n" + "\n".join(lines), parse_mode=HTML)
         return
 
     if data.startswith("fc_src:"):
@@ -5603,7 +5607,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["mode"] = "kagaz_registry_state"
             await q.message.reply_text(
                 f"🧮 <b>{to_bold('REGISTRY TOTAL COST')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "First tell the <b>state</b>: <code>Bihar</code> / <code>UP</code> / <code>Jharkhand</code>\n"
                 "<i>(Bihar: stamp 6.5% + registration 3% · 1% less for women/joint)</i>", parse_mode=HTML)
             return
@@ -5611,11 +5615,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["mode"] = "kagaz_land_value"
             await q.message.reply_text(
                 f"📐 <b>{to_bold('BIGHA / KATTHA / DHUR CONVERTER')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "Type the area — example:\n"
                 "• <code>2 bigha</code>\n• <code>5 katha</code>\n• <code>10 decimal</code>\n• <code>1200 sqft</code>\n"
                 "• <code>3 dhur</code> / <code>1 acre</code> / <code>2.5 gaj</code>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "📐 <b>Now type your area:</b>", parse_mode=HTML)
             return
         if kind == "gst":
@@ -5719,12 +5723,12 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "👉 Signup karo, phir 30-60 second baad <b>🔄 Inbox refresh</b> dabao.",
                     parse_mode=HTML)
                 return
-            L = ["🔑 <b>AAPKE OTP / CODES</b>", "━━━━━━━━━━━━━━━━━━━━━━"]
+            L = ["🔑 <b>AAPKE OTP / CODES</b>", "──────────────────────"]
             for c in codes[:5]:
                 _src = f"\n   <i>se: {hesc(str(c.get('subject') or c.get('from') or '')[:44])}</i>"
                 L.append(f"  👉 <code>{hesc(str(c['code']))}</code>"
                          f"  ({hesc(str(c.get('label') or ''))}){_src}")
-            L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+            L.append("\n──────────────────────")
             L.append(f"🏆 <b>Sabse likely: <code>{hesc(str(codes[0]['code']))}</b></code>")
             L.append("\n<i>⚠️ Ye code kisi ko mat batao — jis site par signup kiya "
                      "hai sirf wahin daalo.</i>")
@@ -5738,7 +5742,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         L = [f"📧 <b>INBOX</b> — {res.get('count', 0)} message"
              + (f" · <b>{res.get('new_count')} NAYA</b>" if res.get("new_count") else ""),
-             "━━━━━━━━━━━━━━━━━━━━━━"]
+             "──────────────────────"]
         if codes:
             L.append("🔑 <b>CODES:</b> " + " · ".join(
                 f"<code>{hesc(str(c['code']))}</code>" for c in codes[:4]))
@@ -6180,7 +6184,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
         await st.edit_text(
 
             "❌ <b>Ye payment ka screenshot nahi lag raha!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "📸 <b>Aise screenshot bhejo:</b>\n"
             "1️⃣ Phone me PhonePe / GPay / Paytm kholo\n"
             "2️⃣ <b>History / Passbook</b> me jao\n"
@@ -6442,7 +6446,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         }.get(clean_key, "Neeche naya menu check karo")
         await update.message.reply_text(
             f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"• {_alt}\n\n"
             "👇 Naya menu neeche hai:",
             reply_markup=kb_for(uid), parse_mode=HTML)
@@ -6471,7 +6475,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             "👑 VIP me dono unlimited chalte hain (/premium).\n")
             await update.message.reply_text(
                 f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Set nahi'}</code>\n"
                 f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Set nahi'}</code>\n"
                 f"🤖 FULL AUTO: <b>{_auto}</b>\n"
@@ -6545,7 +6549,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
             await update.message.reply_text(
                 f"📷 <b>{to_bold('QR CODE GENERATOR')}</b> — 4 useful QR types\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "🔗 <b>Link/Text</b> — website, YouTube, any text\n"
                 "📶 <b>WiFi</b> — guests scan and connect, no password to tell\n"
                 "👤 <b>Contact Card</b> — scan and the contact saves",
@@ -6556,7 +6560,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             await update.message.reply_text(
                 "❌ <b>\"VIDEO DOWNLOADER\" tool HATA diya gaya hai</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "Ab <b>har app ka apna ALAG tool</b> hai — jaise NUMBER INFO, "
                 "IMEI, CHANNEL CLONER alag-alag hain:\n\n"
                 + dl_tools_text()
@@ -6571,7 +6575,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             await update.message.reply_text(
                 "🎯 <b>Ab har app ka apna ALAG tool hai</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 + dl_tools_text()
                 + "\n\n👉 Keyboard par <b>neeche</b> wale buttons dabao — "
                 "📸 INSTA DL, ▶️ YOUTUBE DL, 📘 FACEBOOK DL …",
@@ -6606,13 +6610,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             await update.message.reply_text(
                 f"👑 <b>{to_bold('OWNER MODE')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
 
                 "You are the owner of this bot — everything is unlimited ✅\n"
                 "• No daily limit\n"
                 "• No VIP payment\n"
                 "• All tools are open\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 "🛠️ <b>Owner tasks:</b>\n"
                 "• Verify payments → <b>/payments</b>\n"
                 "• Give / remove VIP → <b>/grant [user_id] [days]</b>\n"
@@ -6814,7 +6818,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         prem = u.get("premium_until") or ""
         hist = user_payment_history(target)
         await update.message.reply_text(
-            f"👤 <b>USER DETAIL</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"👤 <b>USER DETAIL</b>\n──────────────────────\n"
             f"🆔 <b>ID:</b> <code>{target}</code>\n"
             f"👋 <b>Name:</b> {hesc(str(row.get('name') or u.get('name') or '-'))}\n"
             f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ No')}\n"
@@ -6822,7 +6826,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🎟️ <b>Credits left:</b> {get_credits(target)} / {CREDITS_START}\n"
             f"🚫 <b>Banned:</b> {'Yes' if u.get('banned') else 'No'}\n"
             f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━",
+            "──────────────────────",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("👑 Give 30 days VIP", callback_data=f"ugrant:{target}:30"),
                  InlineKeyboardButton("👑 Give 90 days VIP", callback_data=f"ugrant:{target}:90")],
@@ -6889,10 +6893,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["pay_utr_tries"] = tries
             await update.message.reply_text(
                 f"❌ <b>Ye UTR sahi nahi hai!</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 f"📝 <b>You sent:</b> <code>{hesc(raw_text[:40])}</code>\n"
                 f"⚠️ <b>Reason:</b> {res.get('reason')}\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 + utr_help_text() +
                 f"\n\n🔁 <b>Ab sahi UTR bhejo</b> ({tries}/5 try)",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
@@ -6921,11 +6925,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["pay_utr_kind"] = res.get("kind", "")
         await update.message.reply_text(
             "✅ <b>UTR sahi hai!</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"🧾 <b>UTR:</b> <code>{hesc(utr)}</code>\n"
             f"📋 <b>Type:</b> {res.get('kind')}\n"
             f"💎 <b>Plan:</b> {plan['name']} (₹{plan['price']})\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
 
             "📸 <b>Step 3:</b> Ab payment ka <b>screenshot</b> bhejo\n"
             "⚠️ <b>Dhyan rakho:</b>\n"
@@ -7379,7 +7383,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines = [
                 f"🔥 <b>{to_bold('FREE FIRE PLAYER CARD')}</b>\n"
                 f"🎯 <b>{hesc(str(res.get('nickname') or '—'))}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 f"• <b>UID:</b> <code>{hesc(str(res.get('uid') or ''))}</code>",
                 f"• <b>Level:</b> {hesc(str(res.get('level', '—')))}"
                 + (f" | <b>EXP:</b> {hesc(str(res.get('exp')))}" if res.get("exp") else ""),
@@ -7415,9 +7419,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _outf = res.get("outfit_image") or ""
             _cap = spend_credit_msg(uid, "ffuid") + "\n" + "\n".join(lines)
             if res.get("character_name"):
-                _cap = _cap.replace("━━━━━━━━━━━━━━━━━━━━━━\n<i>Public in-game",
+                _cap = _cap.replace("──────────────────────\n<i>Public in-game",
                                     f"• <b>Character:</b> {hesc(str(res['character_name']))}\n"
-                                    "━━━━━━━━━━━━━━━━━━━━━━\n<i>Public in-game", 1)
+                                    "──────────────────────\n<i>Public in-game", 1)
             _btns = []
             if _char:
                 _btns.append([InlineKeyboardButton(
@@ -7496,7 +7500,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if not msgs:
                 await update.message.reply_text(
                     f"📭 <b>Inbox abhi khali hai</b>\n"
-                    "━━━━━━━━━━━━━━━━━━━━━━\n"
+                    "──────────────────────\n"
                     f"📮 Aapka email: <code>{hesc(sess['address'])}</code>\n\n"
                     "Abhi is address par koi message nahi aaya.\n"
                     "👉 Jahan signup kiya wahan ye address daalo, phir yahan "
@@ -7509,7 +7513,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  f"📮 <code>{hesc(sess['address'])}</code>\n"
                  f"📊 {res.get('count', 0)} message"
                  + (f" · <b>{res.get('new_count')} NAYA</b>" if res.get("new_count") else "")
-                 + "\n━━━━━━━━━━━━━━━━━━━━━━"]
+                 + "\n──────────────────────"]
 
             # 🔑 OTP sabse upar — yahi cheez user dhoondh raha hota hai
             if codes:
@@ -7535,7 +7539,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                          + (f"\n📎 {len(m.get('attachments') or [])} attachment"
                             if m.get("has_attachments") else "")
                          + f"\n{hesc(str(m.get('body') or '')[:420])}")
-            L.append("\n━━━━━━━━━━━━━━━━━━━━━━")
+            L.append("\n──────────────────────")
             L.append("<i>🔄 Refresh dabate raho — OTP aate hi upar highlight ho jayega.</i>")
             await update.message.reply_text(cut_html("\n".join(L), 4000), parse_mode=HTML,
                                             reply_markup=_tm_kb)
@@ -7574,11 +7578,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(
             spend_credit_msg(uid, "tempmail") + "\n" +
             f"📧 <b>{to_bold('TEMP MAIL TAYAR')}</b>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             f"📮 <b>Aapka ek-baar email:</b>\n"
             f"<code>{hesc(res['address'])}</code>\n"
             f"🌐 Domain: <code>{hesc(str(res.get('domain') or ''))}</code>\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             "✅ Ise kisi bhi jagah daalo — signup, OTP, password reset.\n"
             "   <i>(Jahan real email zaroori ho — bank/office — wahan mat use karo.)</i>\n\n"
             "🔑 <b>OTP khud nikal jayega</b> — message aate hi "
@@ -7634,7 +7638,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # v49.13: imei.info wale link buttons hata diye (user ka order)
             await update.message.reply_text(
                 "❌ <b>DEVICE DETAILS NAHI MILE</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 + (f"🔢 <b>Query:</b> <code>{hesc(_dev_q[:40])}</code>\n"
                    if _dev_query else
                    f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n")
@@ -7857,7 +7861,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
-        _card_v = vahan_card(_vres if _vres.get("ok") else {}, _off)
+        _vnote = ""
+        if not _vres.get("ok"):
+            _vnote = str(_vres.get("error") or _vres.get("hub_error") or "").strip()
+            if not _vnote and not vahan_provider_ready():
+                _vnote = ("Live record ke liye provider set nahi hai — <code>/rcsetup</code> "
+                          "bhejo (2 line, free). Neeche plate ka sarkari matlab dikh raha hai.")
+        _card_v = vahan_card(_vres if _vres.get("ok") else {}, _off, note=_vnote)
         tel_note("vahan", True, _msv, credit=True)
         await update.message.reply_text(
             spend_credit_msg(uid, "vahan") + "\n" + _card_v, parse_mode=HTML)
@@ -8143,7 +8153,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = await asyncio.to_thread(hubapi.hub_gst, g)
         if not res.get("ok"):
             await st.edit_text(
-                f"❌ <b>GST CHECK NAHI HO PAYA</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"❌ <b>GST CHECK NAHI HO PAYA</b>\n──────────────────────\n"
                 f"⚠️ {safe_html_err(str(res.get('error'))[:200])}\n"
                 "✅ Koi credit nahi kata. GSTIN 15 character ka hota hai (jaise <code>19BOKPS7056D1ZI</code>).",
                 parse_mode=HTML)
@@ -8163,7 +8173,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + kv_row("Status", res.get("status")) + kv_row("Registered", res.get("reg_date")) \
             + kv_row("Address", res.get("address"))
         card = (f"🏢 <b>{to_bold('GST NUMBER DETAILS')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 f"• <b>GSTIN:</b> <code>{hesc(res.get('gstin'))}</code>\n"
                 + kv_row("State", _st)
                 + kv_row("PAN", res.get("pan"))
@@ -8171,7 +8181,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + kv_row("Registration Type", res.get("registration_type"))
                 + _chk_line
                 + _extra
-                + "━━━━━━━━━━━━━━━━━━━━━━\n"
+                + "──────────────────────\n"
                 + ("" if _extra else
                    "ℹ️ Legal name / address / filing status hub ke records me nahi hain.\n"
                    "Upar ka data GSTIN ke format ka analysis hai (state, PAN, holder type, checksum).\n")
@@ -8188,7 +8198,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         res = await asyncio.to_thread(hubapi.hub_pan, p10)
         if not res.get("ok"):
             await st.edit_text(
-                f"❌ <b>PAN CHECK NAHI HO PAYA</b>\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"❌ <b>PAN CHECK NAHI HO PAYA</b>\n──────────────────────\n"
                 f"⚠️ {safe_html_err(str(res.get('error'))[:200])}\n"
                 "✅ Koi credit nahi kata. PAN 10 character ka hota hai (jaise <code>AAYFK4129N</code>).",
                 parse_mode=HTML)
@@ -8199,7 +8209,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         + (f" — {hesc(g.get('name'))}" if g.get("name") else "")
                         + (f" <i>({hesc(g.get('status'))})</i>" if g.get("status") else ""))
         card = (f"🪪 <b>{to_bold('PAN → GST DETAILS')}</b>\n"
-                "━━━━━━━━━━━━━━━━━━━━━━\n"
+                "──────────────────────\n"
                 f"• <b>PAN:</b> <code>{hesc(res.get('pan'))}</code>\n"
                 + (kv_row("Format", "✅ sahi" if res.get("valid_format") else "")
                    if res.get("valid_format") is not None else "")
@@ -8210,7 +8220,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + f"• <b>GST numbers:</b> {len(res.get('gstins') or [])}\n\n"
                 + ("\n".join(rows) if rows else
                    "<i>Is PAN par hub ke records me koi GST number nahi mila.</i>")
-                + f"\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                + f"\n──────────────────────\n"
                 + ("ℹ️ Hub abhi PAN ka <b>offline analysis</b> deta hai (format + holder type + series).\n"
                    "GSTIN ki poori list ke liye upstream records chahiye.\n"
                    if not rows else "")
@@ -8572,7 +8582,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📊 <b>Risk Score:</b> <code>{bar}</code> {risk}/100\n"
             f"🌐 <b>Final URL:</b> <code>{hesc(str(chk.get('final_url'))[:90])}</code>\n"
             f"🔁 Redirects: {sig.get('redirect_hops', 0)} | 🔓 HTTPS: {'✅' if sig.get('https') else '❌'}\n"
-            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "──────────────────────\n"
             + pcard_sep() + "\n"
             f"🔍 <b>What was found:</b>\n{reasons_txt}\n\n"
             f"💡 <b>What to do:</b> {chk.get('advice')}\n"
@@ -9340,7 +9350,7 @@ async def _post_init(app: Application):
                         await app.bot.send_message(
                             chat_id=OWNER_ID,
                             text=(f"🛡️ <b>VAULT BOOT RESTORE</b>\n"
-                                  f"━━━━━━━━━━━━━━━━━━━━━━\n"
+                                  f"──────────────────────\n"
                                   f"📥 Source: <code>{hesc(str(_res.get('source'))[:70])}</code>\n"
                                   f"👑 VIP: {_res.get('premium_before', {}).get('total_premium')} ➜ "
                                   f"{_res.get('premium_after', {}).get('total_premium')}\n"

@@ -306,14 +306,14 @@ def statement_summary_text(res: dict) -> str:
     s = res["summary"]
     return (
         "🏦 <b>BANK STATEMENT READY ✅</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🏛️ <b>Bank:</b> {res.get('bank', 'UNKNOWN')}\n"
         f"📅 <b>Period:</b> {s['period']}\n"
         f"🧾 <b>Transactions:</b> {s['count']}  ({s['months']} months)\n"
         f"🔴 <b>Total debit:</b> ₹{s['total_debit']:,.2f}\n"
         f"🟢 <b>Total credit (in):</b> ₹{s['total_credit']:,.2f}\n"
         f"📂 <b>Opening:</b> ₹{s['opening']:,.2f}   →   <b>Closing:</b> ₹{s['closing']:,.2f}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "⬇️ Excel/CSV file neeche hai — Google Sheets ya Excel me kholo, table ready hai."
     )
 
@@ -373,12 +373,12 @@ def land_text(res: dict) -> str:
         return f"❌ {res.get('error', 'Error')}"
     return (
         f"📐 <b>{res['input']}</b> = \n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🟩 <b>Sq Feet:</b> {res['sqft']}  |  <b>Sq Meter:</b> {res['sqm']}\n"
         f"🌾 <b>Bigha:</b> {res['bigha']}  |  <b>Kattha:</b> {res['katha']}  |  <b>Dhur:</b> {res['dhur']}\n"
         f"🧮 <b>Decimal (Dismil):</b> {res['decimal']}  |  <b>Gaj:</b> {res['gaj']}\n"
         f"🏞️ <b>Acre:</b> {res['acre']}  |  <b>Hectare:</b> {res['hectare']}  |  <b>Guntha:</b> {res['guntha']}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "<i>Bihar local units: 1 Bigha = 20 Kattha = 1361.25 Sq Ft per Kattha · 1 Dhur = 68.06 Sq Ft</i>\n"
         "<b>Use for:</b> buying/selling land, registry, all land measurement work."
     )
@@ -425,15 +425,15 @@ def registry_text(r: dict) -> str:
         extra = f"🏘️ <b>Panchayat/Anchal (extra {r['panchayat_pct']}%):</b> ₹{r['panchayat']:,.0f}\n"
     return (
         f"🏛️ <b>REGISTRY TOTAL COST ({r['state']})</b>\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"📐 <b>Zameen:</b> {r['area_sqft']:,.0f} Sq Ft  ×  <b>MVR ₹{r['rate']:,.0f}/SqFt</b>\n"
         f"💰 <b>Kul Value:</b> ₹{r['value']:,.0f}\n"
         f"👤 <b>Khareedar:</b> {r['note']}\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"🧾 <b>Stamp Duty ({r['stamp_pct']}%):</b> ₹{r['stamp']:,.0f}\n"
         f"📝 <b>Registration ({r['reg_pct']}%):</b> ₹{r['reg']:,.0f}\n"
         f"{extra}"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         f"💵 <b>Total government cost: ₹{r['total']:,.0f}</b>\n\n"
         "➕ <b>Extra (not included):</b> notary/advocate fee, e-stamp, witness, broker — as per local practice.\n"
         "<i>⚠️ This is an estimate (based on the MVR you gave) — confirm the final amount at the sub-registrar office.</i>"

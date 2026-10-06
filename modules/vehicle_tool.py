@@ -227,6 +227,16 @@ _PATH_CANDIDATES = ("VehicleInformation", "vehicle-information", "vehicle_inform
                     "vehicle", "rc", "v1/vehicle", "api/vehicle")
 
 
+def _vnf(r) -> bool:
+    """404: 'gaadi nahi mili' ya 'endpoint galat'? (v71.6)"""
+    if getattr(r, "status_code", 0) != 404:
+        return False
+    t = (getattr(r, "text", "") or "").lower()
+    if "endpoint" in t or "does not exist" in t:
+        return False        # path galat — aage try karo
+    return ("not found" in t) or ("notfound" in t) or ("nahi mila" in t)
+
+
 def _http_err(r) -> str:
     """HTTP code → saaf Hinglish baat (kya karna hai)."""
     if r.status_code in (401, 403):
@@ -342,6 +352,8 @@ def _provider_lookup(plate: str) -> dict:
                 _err = _http_err(r)
                 if r.status_code in (401, 403, 429):
                     return None, _err
+                if _vnf(r):
+                    return None, "__VNF__"   # v71.6: gaadi DB me hi nahi hai
         for _b in _bodies():
             try:
                 r = _post(url, _b)
@@ -353,6 +365,8 @@ def _provider_lookup(plate: str) -> dict:
             _err = _http_err(r)
             if r.status_code in (401, 403, 429):
                 return None, _err
+            if _vnf(r):
+                return None, "__VNF__"   # v71.6: gaadi DB me hi nahi hai
             if r.status_code != 404:
                 break        # 400/422 jaise case: URL sahi, body galat — agli body try
         return None, _err
@@ -360,6 +374,12 @@ def _provider_lookup(plate: str) -> dict:
     r, err = None, None
     for _u in _urls():
         r, err = _try_all(_u)
+        if err == "__VNF__":
+            return {"ok": False, "not_found": True,
+                    "error": ("Is gaadi ka record sarkari database me nahi mila "
+                              f"(<code>{plate}</code>). Number ek baar phir check karo — "
+                              "gaadi nayi hai / transfer ho rahi hai to record thodi der me "
+                              "update hota hai.")}
         if r is not None:
             _WORKING_URL[0] = _u                            # agli baar seedha yehi
             break

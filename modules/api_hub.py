@@ -827,7 +827,7 @@ def status_card() -> str:
     base = hub_base()
     key = hub_key()
     ready = hub_ready()
-    lines = ["🔌 <b>API HUB — status</b>", "━━━━━━━━━━━━━━━━━━━━━━",
+    lines = ["🔌 <b>API HUB — status</b>", "──────────────────────",
              f"• Base: <code>{base}</code>",
              f"• Key: {'✅ ' + hesc(key[:8]) + '…' if ready else '❌ <b>nahi lagi</b>'}",
              "• Plan: <b>Demo = ALL ENDPOINTS</b> (lifetime) · apni key Dashboard → API Keys se"]

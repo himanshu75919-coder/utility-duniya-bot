@@ -943,7 +943,7 @@ def render_text(res: dict, max_len: int = 3600) -> str:
         return ""
     out = [
         f"📲 <b>{_hesc(device_title(res))}</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━",
+        "──────────────────────",
         f"🏷️ <b>Brand:</b> {_hesc(str(res.get('brand') or '—'))}",
     ]
     # v58: device naam/code se search me IMEI nahi hota — "IMEI: —" badhiya nahi lagta
@@ -952,7 +952,7 @@ def render_text(res: dict, max_len: int = 3600) -> str:
     elif res.get("query"):
         out.append(f"🔎 <b>Search:</b> <code>{_hesc(str(res['query'])[:40])}</code>")
     for s in res.get("sections") or []:
-        out.append("━━━━━━━━━━━━━━━━━━━━━━")
+        out.append("──────────────────────")
         out.append(f"{_sec_icon(s['title'])} <b>{_hesc(str(s['title']))}</b>")
         for k, v in s["rows"]:
             vv = str(v)
@@ -962,7 +962,7 @@ def render_text(res: dict, max_len: int = 3600) -> str:
         if len("\n".join(out)) > max_len:
             out.append("<i>…spec list lambi hai (poori copy neeche .json file me hai)</i>")
             break
-    out.append("━━━━━━━━━━━━━━━━━━━━━━")
+    out.append("──────────────────────")
     if res.get("tac"):
         out.append(f"🔢 <b>TAC:</b> <code>{_hesc(str(res['tac']))}</code>")
     if res.get("specs_url"):
@@ -1032,7 +1032,7 @@ def fallback_links(imei: str = "") -> list:
 
 
 def help_card(error: str = "", imei: str = "") -> str:
-    head = "📲 <b>IMEI / PHONE DETAILS</b>\n━━━━━━━━━━━━━━━━━━━━━━"
+    head = "📲 <b>IMEI / PHONE DETAILS</b>\n──────────────────────"
     if error:
         head += f"\n⚠️ <b>{error}</b>"
     return (

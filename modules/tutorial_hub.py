@@ -234,7 +234,7 @@ def video_caption(action: str) -> str:
     title = VIDEO_TITLES.get(action) or VIDEO_TITLES.get(key, "🎬 TUTORIAL")
     return (
         f"🎬 <b>{title}</b> — TUTORIAL\n"
-        "━━━━━━━━━━━━━━━━━━━━━━\n"
+        "──────────────────────\n"
         "30 second video — poore steps ek-ek karke 🔥\n\n"
         "👤 <b>By:</b> HIMANSHU • @Supermannn_x\n"
         "▶️ Watch it, then open the same tool from the menu below."
@@ -245,10 +245,10 @@ def video_caption(action: str) -> str:
 # 2. TOOL PROMPT SE TUTORIAL LINES HATANA
 # ======================================================================
 def _is_block_start(line: str) -> bool:
-    """Nayi line apna naya block shuru kar rahi hai? (emoji / <tag> / ━)"""
+    """Nayi line apna naya block shuru kar rahi hai? (emoji / <tag> / ─)"""
     if not line:
         return False
-    if line.startswith("━") or line.startswith("<") or line.startswith(">"):
+    if line.startswith("─") or line.startswith("<") or line.startswith(">"):
         return True
     return ord(line[0]) >= 0x2300  # emoji range
 
@@ -276,7 +276,7 @@ def strip_tutorial_lines(text: str) -> str:
 
     # extra blank lines collapse + aakhir ke separators saaf karo
     cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(out)).strip()
-    while cleaned.endswith("━"):
+    while cleaned.endswith("─"):
         cleaned = cleaned[:-1].rstrip()
     return cleaned
 
@@ -325,7 +325,7 @@ def text_to_nodes(text: str) -> list:
         line = raw.strip()
         if not line:
             continue
-        if set(line) <= {"━", "-", "—"} and len(line) > 4:
+        if set(line) <= {"─", "-", "—"} and len(line) > 4:
             nodes.append({"tag": "hr"})
             continue
         if line.startswith("### "):

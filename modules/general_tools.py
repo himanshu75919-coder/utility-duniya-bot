@@ -689,7 +689,7 @@ def app_lookup(name: str, use_cache: bool = True,
             return {"ok": True, "found": False, "query": q,
                     "apps": [], "stores": get_app_store_links(q)["stores"],
                     "error": (f"🔍 <b>'{q}' naam ki koi app nahi mili.</b>\n"
-                              "━━━━━━━━━━━━━━━━━━━━━━\n"
+                              "──────────────────────\n"
                               "Google Play, App Store aur F-Droid — teeno par check kiya.\n\n"
                               "Ye ho sakta hai agar:\n"
                               "• Naam ki spelling alag ho (English me try karo)\n"

@@ -371,8 +371,68 @@ check("card me City sahi nikalta hai ('SANGRUR RTA, Punjab' → SANGRUR)",
 check("card poora banta hai (owner/model/insurance dikhte hain)",
       "S*******P" in _card_txt and "FORTUNER" in _card_txt and "United India" in _card_txt)
 _srv2.shutdown()
-for _k3 in ("VEHICLE_PROVIDER_URL", "VEHICLE_PROVIDER_KEY"):
-    os.environ.pop(_k3, None)
+
+
+# =====================================================================
+section("[G] ✅ v71.6 — 'gaadi nahi mili' ka SAAF message + PATLI lines + Note")
+# =====================================================================
+class _MockNoCar(_BHR):
+    """Asli API jaisa: key sahi, par gaadi DB me nahi → 404 not found."""
+
+    def log_message(self, *a):                                # noqa: ANN002
+        pass
+
+    def do_POST(self):
+        _ln = int(self.headers.get("content-length") or 0)
+        self.rfile.read(_ln)
+        if (self.headers.get("X-RapidAPI-Key") or "") != "TESTKEY":
+            self.send_response(403); self.end_headers()
+            self.wfile.write(b'{"message":"Invalid API key"}'); return
+        _raw = _json.dumps({"success": False,
+                            "error": "Vahan with registrationNo BR30AR0802 not found",
+                            "version": "2.0.142"}).encode()
+        self.send_response(404)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(_raw)
+
+    def do_GET(self):
+        self.send_response(404); self.end_headers(); self.wfile.write(b"{}")
+
+
+_srv3 = _HS(("127.0.0.1", 0), _MockNoCar)
+_port3 = _srv3.server_address[1]
+_thr.Thread(target=_srv3.serve_forever, daemon=True).start()
+
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port3}"
+os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""
+_re6 = VT.is_rapidapi
+VT.is_rapidapi = lambda: True
+_r6 = VT.vehicle_lookup("BR30AR0802")
+VT.is_rapidapi = _re6
+check("gaadi DB me na ho to 'not_found' flag aata hai",
+      _r6.get("ok") is False and _r6.get("not_found") is True, str(_r6)[:130])
+check("message SAFA hai ('database me nahi mila') — path/key wala confusing msg nahi",
+      "nahi mila" in str(_r6.get("error")) and "endpoint ka pata galat" not in str(_r6.get("error")))
+_srv3.shutdown()
+for _k4 in ("VEHICLE_PROVIDER_URL", "VEHICLE_PROVIDER_KEY"):
+    os.environ.pop(_k4, None)
+
+o2 = VT.offline_parse("BR30AR0802")
+_c3 = _clean(bot.vahan_card({}, o2, note="Is gaadi ka record sarkari database me nahi mila (BR30AR0802)."))
+check("card me ⚠️ Note line dikhti hai (khaali card ka raaz khulta hai)",
+      "⚠️ <b>Note:</b> Test wajah" in bot.vahan_card({}, o2, note="Test wajah"))
+check("Note na ho to Note line nahi aati",
+      "⚠️ <b>Note:</b>" not in bot.vahan_card({}, o2))
+check("vahan card me moti line (━) bilkul nahi — sab patli",
+      "━" not in bot.vahan_card({}, o2) and "─" in bot.vahan_card({}, o2))
+check("pcard title bhi patli line ka (har tool me same look)",
+      "━" not in bot.pcard_title("🚘", "TEST") and "─" in bot.pcard_title("🚘", "TEST"))
+check("prompt boxes bhi patle ho gaye (user ki shikayat: white white)",
+      all("━" not in bot.PROMPTS[k] for k in list(bot.PROMPTS)[:40]))
+check("header box upar-neeche patli line ke saath (┏ ─ ┓)",
+      "┏" in bot.vahan_card({}, o2) and "┗" in bot.vahan_card({}, o2))
 
 
 print(f"\n{'=' * 62}")
