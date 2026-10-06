@@ -470,6 +470,18 @@ users_after = len(__import__("modules.core.vault", fromlist=["snapshot_rows"])
 check("users count kam nahi hua", users_after >= users_before,
       f"{users_before} -> {users_after}")
 
+# ---- v60.1 REGRESSION: GitHub backup PATH bug
+# (candidate me poora path hona chahiye, sirf filename nahi — warna
+#  fetch 404 deta hai aur restore chup-chaap fail ho jata tha)
+import inspect as _insp                                                  # noqa: E402
+_fetch_src = _insp.getsource(Vault._fetch)
+check("_fetch poora PATH use karta hai (regression fix)",
+      'cand.get("path")' in _fetch_src, _fetch_src[:200])
+check("vault ka default branch 'main' NAHI hai (deploy loop se bachao)",
+      Vault().gh_branch() != "main", Vault().gh_branch())
+check("restore failure ka karan note hota hai",
+      "skipped" in _insp.getsource(Vault.restore_now))
+
 # =====================================================================
 print("\n[M] VAULT STATUS CARD")
 # =====================================================================
@@ -483,7 +495,104 @@ check("500 list me hai", any(r["user_id"] == 500 for r in plist),
       [r["user_id"] for r in plist][:8])
 
 # =====================================================================
-print("\n[N] PURANI TEST FILES KE SAATH MEL (no regression)")
+print("\n[N] 💼 BUSINESS STUDIO — 10 earning tools")
+# =====================================================================
+import modules.business_tools as bt                                          # noqa: E402
+
+check("business_tools import ho gaya", bool(bt.__name__))
+check("ScriptFont Latin+Devanagari dono alag karta hai",
+      bt.ScriptFont.runs("नाम / Name") == [("नाम /", True), (" Name", False)],
+      bt.ScriptFont.runs("नाम / Name"))
+check("pure Latin ek hi run me", len(bt.ScriptFont.runs("SHARMA ELECTRONICS")) == 1)
+check("pure Hindi ek hi run me", len(bt.ScriptFont.runs("हिमांशु कुमार")) == 1)
+_md = bt.ScriptFont.runs("ब्याज · EMI")
+check("middle-dot Latin run me (▯ se bachao)",
+      any("·" in _t and not d for _t, d in _md), _md)
+check("Hindi font detect hua", bt.FONT_INFO.get("hindi_ok") is True, bt.FONT_INFO)
+
+# ---- money / amount_words
+check("money() Indian format", bt.money(1234567) == "12,34,567", bt.money(1234567))
+check("money() chhota", bt.money(999) == "999", bt.money(999))
+check("money() decimal", bt.money(1047.4) == "1,047.40", bt.money(1047.4))
+check("amount_words 1047", bt.amount_words(1047) == "One Thousand Forty Seven Rupees Only",
+      bt.amount_words(1047))
+check("amount_words lakh", "Lakh" in bt.amount_words(250000), bt.amount_words(250000))
+
+# ---- EMI math (independent formula se milao)
+b = bt.emi_breakup(500000, 9.5, 60)
+mr = 9.5 / 12 / 100.0
+_f = (1 + mr) ** 60
+_exp = 500000 * mr * _f / (_f - 1)
+check("EMI formula sahi", abs(b["emi"] - _exp) < 0.01, f"{b['emi']} vs {_exp}")
+check("EMI rows = tenure", len(b["rows"]) == 60, len(b["rows"]))
+check("schedule ke baad balance 0", b["rows"][-1]["balance"] == 0.0,
+      b["rows"][-1]["balance"])
+check("principal ka jod = loan",
+      abs(sum(r["principal"] for r in b["rows"]) - 500000) < 1.0,
+      sum(r["principal"] for r in b["rows"]))
+check("zero rate EMI = P/n", abs(bt.emi_breakup(12000, 0, 12)["emi"] - 1000) < 0.01)
+check("0 loan -> error (crash nahi)", "error" in bt.emi_breakup(0, 10, 12))
+
+# ---- har tool ek baar chalao
+_BIZ = [
+    ("invoice", bt.invoice_image, {"shop": "Sharma Electronics", "buyer": "Ramesh",
+                                   "items": [{"name": "LED", "qty": 4, "rate": 120, "gst": 18}],
+                                   "upi": "s@upi"}),
+    ("resume", bt.resume_image, {"name": "Himanshu Kumar", "role": "Developer",
+                                 "skills": "Python, SQL", "languages": "Hindi"}),
+    ("biodata", bt.biodata_image, {"name": "हिमांशु कुमार", "dob": "15-08-1998",
+                                   "education": "B.Tech", "phone": "9876543210"}),
+    ("certificate", bt.certificate_image, {"org": "ABC Institute", "name": "Anjali"}),
+    ("idcard", bt.idcard_image, {"org": "ABC School",
+                                 "students": [{"name": "A", "class": "X"}]}),
+    ("vcard", bt.visiting_card_image, {"owner": "Himanshu", "shop": "Kumar Electronics",
+                                       "phone": "9876543210"}),
+    ("letter", bt.letter_image, {"type": "leave", "name": "Himanshu",
+                                 "org": "ABC School", "reason": "wedding"}),
+    ("upi", bt.upi_qr_image, {"upi": "kumar@upi", "shop": "Kumar Store"}),
+    ("labels", bt.label_sheet_image, {"shop": "Store",
+                                      "labels": [{"name": "Sugar", "price": 48, "mrp": 55}]}),
+    ("emi", bt.emi_card_image, {"bank": "SBI", "loan_amount": 250000, "rate": 11.5,
+                                "months": 36}),
+]
+for nm, fn, arg in _BIZ:
+    r = fn(arg)
+    check(f"tool {nm} bana", bool(r.get("ok")), r.get("error"))
+    if r.get("ok"):
+        check(f"tool {nm} me PNG bytes hain", len(r.get("png", b"")) > 2000,
+              len(r.get("png", b"")))
+        pdf = bt.to_pdf(r.get("pages") or [r["png"]])
+        check(f"tool {nm} ka PDF bana", bool(pdf) and len(pdf) > 1000,
+              len(pdf or b""))
+
+# ---- galat input se crash nahi
+check("invoice khaali input se crash nahi", bool(bt.invoice_image({}).get("ok")))
+check("emi galat input se crash nahi", bt.emi_card_image({"loan_amount": "abc"})
+      .get("ok") is False)
+check("upi bina UPI id -> saaf error", bt.upi_qr_image({}).get("ok") is False)
+
+# ---- bot.py integration
+check("BIZ_MENU me 10 tools", len(bot.BIZ_MENU) == 10, len(bot.BIZ_MENU))
+check("biz prompts maujood", all(k in bot.PROMPT_DATA for k in bot.BIZ_MENU),
+      [k for k in bot.BIZ_MENU if k not in bot.PROMPT_DATA])
+_kb_flat = [bot.unbold(x) for r in bot.KB_BTNS for x in r]
+check("menu me BUSINESS STUDIO button",
+      any("BUSINESS STUDIO" in bot.unbold(x).upper() for r in bot.KB_BTNS for x in r),
+      [bot.unbold(x) for r in bot.KB_BTNS for x in r if "BUS" in bot.unbold(x).upper()])
+check("BTN_MODE_MAP me bizstudio", bot.BTN_MODE_MAP.get("BUSINESS STUDIO") == "bizstudio")
+check("EMI ab removed-tool nahi hai (wapas aa gaya)",
+      bot.BTN_MODE_MAP.get("EMI CALC") == "biz_emi",
+      bot.BTN_MODE_MAP.get("EMI CALC"))
+check("biz_menu_kb bana", bot.biz_menu_kb() is not None)
+check("biz_parse invoice", bot.biz_parse("biz_invoice", "A | B | X 2x100")["items"][0]["qty"] == 2)
+check("biz_parse emi", bot.biz_parse("biz_emi", "100000 | 10 | 24")["months"] == 24)
+check("biz_parse labels", len(bot.biz_parse("biz_labels", "S | a:10:12, b:20")["labels"]) == 2)
+check("biz_build dispatch sahi", bot.biz_build("biz_emi", {"loan_amount": 1000, "rate": 10, "months": 12}).get("ok"))
+check("_biz_kind mapping", bot._biz_kind("emi") == "biz_emi" and bot._biz_kind("cv") == "biz_resume")
+
+
+# =====================================================================
+print("\n[O] PURANI TEST FILES KE SAATH MEL (no regression)")
 # =====================================================================
 import inspect                                                              # noqa: E402
 _src = inspect.getsource(__import__("database"))

@@ -66,6 +66,26 @@ from modules.core.safesend import (
     trim_callback_data,
 )
 from modules.core.vault import db_path as vault_db_path, vault
+# v60.4: 💼 BUSINESS STUDIO — 10 naye earning tools (invoice, resume, biodata,
+# certificate, ID card, visiting card, letter, UPI poster, labels, EMI card)
+from modules.business_tools import (
+    BRAND as BIZ_BRAND,
+    visiting_card_image as biz_vcard,
+    upi_qr_image as biz_upi_qr,
+    resume_image as biz_resume,
+    set_brand as biz_set_brand,
+    to_pdf as biz_to_pdf,
+    emi_breakup as biz_emi_breakup,
+    emi_card_image as biz_emi_card,
+    has_devanagari as biz_has_hindi,
+    certificate_image as biz_certificate,
+    biodata_image as biz_biodata,
+    idcard_image as biz_idcard,
+    invoice_image as biz_invoice,
+    label_sheet_image as biz_labels,
+    letter_image as biz_letter,
+)
+
 
 
 from telegram import (
@@ -329,6 +349,17 @@ TOOL_RATE_LIMITS = {
     "print_sheet": (10, 120, "8-in-1 Print Sheet"),
     "doc_compress":(10, 120, "Document PDF"),
     "kagaz":       (15, 120, "Kagaz Suite"),
+    # ---- v60.4: BUSINESS STUDIO (CPU-heavy file generation) ----
+    "biz_invoice":     (12, 120, "Invoice / Bill"),
+    "biz_resume":      (10, 120, "Resume / CV"),
+    "biz_biodata":     (10, 120, "Marriage Bio-data"),
+    "biz_certificate": (12, 120, "Certificate"),
+    "biz_idcard":      (10, 120, "ID Card"),
+    "biz_vcard":       (10, 120, "Visiting Card"),
+    "biz_letter":      (12, 120, "Application / Letter"),
+    "biz_upi":         (12, 120, "UPI Poster"),
+    "biz_labels":      (10, 120, "Price Label Sheet"),
+    "biz_emi":         (12, 120, "EMI / Loan Card"),
 }
 
 # ---------------- CONFIG ----------------
@@ -370,7 +401,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v60.0 FORTRESS — Premium Vault + Crash Shield + Never-Lose-Data"
+BOT_VERSION = "v60.4 FORTRESS — Premium Vault + Crash Shield + Business Studio (10 new tools)"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -467,6 +498,17 @@ PREMIUM_TOOLS = {
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
     "appfind",             # 📦 APP FINDER
+    # ---- v60.4: 💼 BUSINESS STUDIO (10 earning tools) ----
+    "biz_invoice",         # 🧾 Invoice / GST Bill
+    "biz_resume",          # 💼 Resume / CV
+    "biz_biodata",         # 💍 Marriage Bio-data
+    "biz_certificate",     # 🎓 Certificate
+    "biz_idcard",          # 🪪 ID Card
+    "biz_vcard",           # 📇 Visiting Card
+    "biz_letter",          # 📄 Application / Letter
+    "biz_upi",             # 💳 UPI Scan & Pay Poster
+    "biz_labels",          # 🏷️ Price Label Sheet
+    "biz_emi",             # 🧮 EMI / Loan Card
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -492,6 +534,17 @@ PREMIUM_TOOL_NAMES = {
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
     "appfind": "📦 App Finder",
+    # ---- v60.4: 💼 BUSINESS STUDIO ----
+    "biz_invoice": "🧾 Invoice / GST Bill",
+    "biz_resume": "💼 Resume / CV Maker",
+    "biz_biodata": "💍 Marriage Bio-data",
+    "biz_certificate": "🎓 Certificate Maker",
+    "biz_idcard": "🪪 ID Card Maker",
+    "biz_vcard": "📇 Visiting Card Maker",
+    "biz_letter": "📄 Application / Letter",
+    "biz_upi": "💳 UPI Scan & Pay Poster",
+    "biz_labels": "🏷️ Price Label Sheet",
+    "biz_emi": "🧮 EMI / Loan Card",
 }
 
 
@@ -542,6 +595,8 @@ def get_credits_over_text(action: str = "") -> str:
         "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
         "• 🏦 Bank PDF→Excel • 📜 Kagaz Suite • ⚡ Media Studio\n"
         "• 📲 IMEI • 📦 App Finder • 📌 Pinterest Download • aur saare tools\n"
+        "• 💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
+        "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n"
         "• ♾️ 30/60/90/120 din ya LIFETIME — sab plans\n\n"
         f"💎 <b>VIP plans:</b> 30d ₹49 • 60d ₹89 • 90d ₹129 • 120d ₹169 • Lifetime ₹199\n"
         "👇 Neeche se VIP lo, unlimited use karo:"
@@ -873,7 +928,7 @@ KB_BTNS = [
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
-    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
+    [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"❓ {to_bold('HELP / TUTORIAL')}", f"💬 {to_bold('SUPPORT / MADAD')}"],
@@ -937,6 +992,25 @@ BTN_MODE_MAP = {
     "SARKARI KAGAZ SUITE": "kagaz",
     "KAGAZ SUITE": "kagaz",
     "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
+    # ---- v60.4: 💼 BUSINESS STUDIO (earning tools) ----
+    "BUSINESS STUDIO": "bizstudio",
+    "BUSINESS TOOLS": "bizstudio",
+    "INVOICE": "biz_invoice", "INVOICE / BILL": "biz_invoice",
+    "BILL BANAO": "biz_invoice", "GST BILL": "biz_invoice",
+    "RESUME": "biz_resume", "RESUME / CV": "biz_resume", "CV MAKER": "biz_resume",
+    "BIODATA": "biz_biodata", "MARRIAGE BIODATA": "biz_biodata",
+    "SHAADI BIODATA": "biz_biodata", "VIVAH PARICHAY": "biz_biodata",
+    "CERTIFICATE": "biz_certificate", "CERTIFICATE MAKER": "biz_certificate",
+    "ID CARD": "biz_idcard", "ID CARD MAKER": "biz_idcard",
+    "VISITING CARD": "biz_vcard", "VISITING CARD MAKER": "biz_vcard",
+    "APPLICATION LETTER": "biz_letter", "LETTER MAKER": "biz_letter",
+    "LEAVE APPLICATION": "biz_letter",
+    "UPI QR": "biz_upi", "UPI PAYMENT QR": "biz_upi", "SCAN AND PAY": "biz_upi",
+    "PRICE LABEL": "biz_labels", "RATE TAG": "biz_labels", "PRICE TAG": "biz_labels",
+    "EMI / INTEREST CALC": "biz_emi", "EMI CALC": "biz_emi",
+    "EMI CALCULATOR": "biz_emi", "EMI / VYAAJ CALC": "biz_emi",
+    "INTEREST CALC": "biz_emi", "INTEREST CALCULATOR": "biz_emi",
+    "EMI CARD": "biz_emi", "LOAN EMI": "biz_emi",
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
     "VIP PREMIUM": "premium",
@@ -1103,6 +1177,83 @@ PROMPT_DATA = {
         "ex": [("Kirayanama", "rent agreement"),
                ("Affidavit / Notice 138", "legal papers"),
                ("GST / PAN check", "tax papers")],
+    },
+    # ------------------------------------------------- v60.4 BUSINESS STUDIO
+    "biz_invoice": {
+        "head": "🧾 INVOICE / GST BILL MAKER",
+        "ask": "Ek line me likhein: <code>dukaan ka naam | grahak | items</code>",
+        "ex": [("Sharma Electronics | Ramesh | LED 4x120, Wire 1x450",
+                "2 item ka bill"),
+               ("Kumar Store | Suresh | Sugar 2x48",
+                "1 item, GST ke bina")],
+    },
+    "biz_resume": {
+        "head": "💼 RESUME / CV MAKER",
+        "ask": "Ek line me: <code>naam | pad/role | phone | education | skills</code>",
+        "ex": [("Himanshu Kumar | Software Engineer | 9876543210 | B.Tech CSE | Python, SQL",
+                "engineer ka CV"),
+               ("Anjali Kumari | Accounts Assistant | 9812345678 | B.Com | Tally, Excel",
+                "accounts ka CV")],
+    },
+    "biz_biodata": {
+        "head": "💍 MARRIAGE BIO-DATA MAKER",
+        "ask": "Ek line me: <code>naam | dob | education | job | father | phone</code>",
+        "ex": [("Himanshu Kumar | 15-08-1998 | B.Tech | Engineer | Ram Kumar | 9876543210",
+                "ladke ka biodata"),
+               ("Anjali Kumari | 12-03-2000 | B.A | Teacher | Suresh Singh | 9812345678",
+                "ladki ka biodata")],
+    },
+    "biz_certificate": {
+        "head": "🎓 CERTIFICATE MAKER",
+        "ask": "Ek line me: <code>sanstha | student ka naam | kaam/class | date</code>",
+        "ex": [("Saraswati Coaching | Anjali Kumari | Class 10 Maths | 06-10-2026",
+                "achievement certificate"),
+               ("ABC Institute | Rahul Raj | Computer Course | 06-10-2026",
+                "course certificate")],
+    },
+    "biz_idcard": {
+        "head": "🪪 ID CARD MAKER (A4 par 10 card)",
+        "ask": "Ek line me: <code>sanstha | naam | father | class | roll | phone</code>",
+        "ex": [("Saraswati School | Anjali Kumari | Ramesh Kumar | X-A | 1042 | 9876543210",
+                "student ID"),
+               ("Patna Coaching | Rahul Raj | Suresh Raj | XI-B | 2051 | 9812345678",
+                "coaching ID")],
+    },
+    "biz_vcard": {
+        "head": "📇 VISITING CARD MAKER (A4 par 10 card)",
+        "ask": "Ek line me: <code>naam | dukaan | phone | address</code>",
+        "ex": [("Himanshu Kumar | Kumar Electronics | 9876543210 | Main Road Bihta",
+                "dukaan ka card"),
+               ("Dr. S. Sharma | Sharma Clinic | 9812345678 | Kankarbagh Patna",
+                "clinic ka card")],
+    },
+    "biz_letter": {
+        "head": "📄 APPLICATION / LETTER MAKER",
+        "ask": "Ek line me: <code>kaam | naam | sanstha | karan</code>",
+        "ex": [("leave | Himanshu Kumar | Saraswati School | sister wedding",
+                "chhutti ka application"),
+               ("character | Anjali Kumari | Patna College | passport ke liye",
+                "character certificate")],
+    },
+    "biz_upi": {
+        "head": "💳 UPI PAYMENT POSTER MAKER",
+        "ask": "Ek line me: <code>UPI ID | dukaan ka naam | phone</code>",
+        "ex": [("kumar@upi | Kumar Electronics | 9876543210", "dukaan ka QR board"),
+               ("sharma@ybl | Sharma General Store | 9812345678", "kirana dukaan")],
+    },
+    "biz_labels": {
+        "head": "🏷️ PRICE LABEL / RATE TAG SHEET",
+        "ask": "Ek line me: <code>dukaan | item:rate:MRP, item2:rate</code>",
+        "ex": [("Kumar Store | Sugar:48:55, Rice:95:110, Oil:165:180",
+                "3 rate tag ek line me"),
+               ("Sharma Kirana | Tea:130:150, Dal:140:155", "2 tag")],
+    },
+    "biz_emi": {
+        "head": "🧮 EMI / LOAN CALCULATOR + CARD",
+        "ask": "Ek line me: <code>loan amount | byaaj % | mahine</code>",
+        "ex": [("250000 | 11.5 | 36", "2.5 lakh, 36 mahine"),
+               ("500000 | 9.5 | 60", "5 lakh home loan"),
+               ("50000 | 18 | 12", "50 hazaar personal loan")],
     },
     "mediastudio": {
         "head": "⚡ MEDIA STUDIO",
@@ -2448,6 +2599,238 @@ async def cmd_ledger(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await safe_reply(update.effective_message, "\n".join(lines), parse_mode="HTML")
 
 
+
+# ======================================================================
+#  v60.4 — 💼 BUSINESS STUDIO (10 earning tools)
+# ----------------------------------------------------------------------
+# Ye block menu, submenu, aur text-parser sab handle karta hai. Har tool ek
+# line ka input leta hai ("|" se alag) aur A4 print-ready file banata hai.
+# Har function KABHI crash nahi karta — error ho to saaf Hinglish message.
+# ======================================================================
+BIZ_MENU = {
+    "biz_invoice":     ("🧾", "Invoice / GST Bill",      "dukaan ka bill · estimate · quotation"),
+    "biz_resume":      ("💼", "Resume / CV",             "job ke liye professional CV"),
+    "biz_biodata":     ("💍", "Marriage Bio-data",       "shaadi ka biodata · Hindi me bhi"),
+    "biz_certificate": ("🎓", "Certificate",             "achievement · course · bonafide"),
+    "biz_idcard":      ("🪪", "ID Card (10 per page)",   "school / coaching / office"),
+    "biz_vcard":       ("📇", "Visiting Card (10)",      "dukaan / clinic ka card"),
+    "biz_letter":      ("📄", "Application / Letter",    "leave · NOC · character"),
+    "biz_upi":         ("💳", "UPI Scan & Pay Poster",   "dukaan ka payment board"),
+    "biz_labels":      ("🏷️", "Price Label Sheet",      "dukaan ke rate tag"),
+    "biz_emi":         ("🧮", "EMI / Loan Card",         "poora hisaab + schedule"),
+}
+
+BIZ_MENU_TEXT = (
+    "💼 <b>𝐁𝐔𝐒𝐈𝐍𝐄𝐒𝐒 𝐒𝐓𝐔𝐃𝐈𝐎</b>\n"
+    "━━━━━━━━━━━━━━━━━━━━━━\n"
+    "Dukaan, school, coaching, job aur loan — <b>10 kaam ki cheezein</b>\n"
+    "sirf ek line likh kar banao. Sab <b>print-ready A4 PDF</b> me.\n\n"
+    "👇 Neeche se tool chuno:"
+)
+
+
+def biz_menu_kb():
+    rows, pair = [], []
+    for key, (icon, name, _sub) in BIZ_MENU.items():
+        pair.append(InlineKeyboardButton(f"{icon} {name}", callback_data=f"biz:{key}"))
+        if len(pair) == 2:
+            rows.append(pair); pair = []
+    if pair:
+        rows.append(pair)
+    rows.append([InlineKeyboardButton("🏠 Home", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _biz_split(line: str) -> list:
+    """Ek line ko '|' ya ',' par todta hai (smart)."""
+    t = str(line or "").strip()
+    if "|" in t:
+        return [x.strip() for x in t.split("|")]
+    return [t]
+
+
+def _biz_num(v, default=0.0):
+    try:
+        return float(str(v).replace(",", "").replace("₹", "").replace("Rs", "").strip() or default)
+    except Exception:                                            # noqa: BLE001
+        return float(default)
+
+
+def _biz_items(txt: str) -> list:
+    """'LED 4x120, Wire 1x450' -> [{name,qty,rate}]"""
+    out = []
+    for chunk in re.split(r"[,\n;]+", str(txt or "")):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        m = re.search(r"(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)", chunk)
+        if m:
+            name = chunk[:m.start()].strip(" -:") or "Item"
+            out.append({"name": name, "qty": _biz_num(m.group(1), 1),
+                        "rate": _biz_num(m.group(2))})
+        else:
+            m2 = re.search(r"(\d+(?:\.\d+)?)\s*(?:rs|₹)?\s*$", chunk, re.I)
+            if m2:
+                out.append({"name": chunk[:m2.start()].strip(" -:") or "Item",
+                            "qty": 1, "rate": _biz_num(m2.group(1))})
+            else:
+                out.append({"name": chunk, "qty": 1, "rate": 0})
+    return out
+
+
+def _biz_kind(kind: str) -> str:
+    return {"invoice": "biz_invoice", "bill": "biz_invoice",
+            "resume": "biz_resume", "cv": "biz_resume",
+            "biodata": "biz_biodata", "bio": "biz_biodata",
+            "certificate": "biz_certificate", "cert": "biz_certificate",
+            "idcard": "biz_idcard", "id": "biz_idcard",
+            "vcard": "biz_vcard", "visiting": "biz_vcard",
+            "letter": "biz_letter", "application": "biz_letter",
+            "upi": "biz_upi", "qr": "biz_upi",
+            "labels": "biz_labels", "label": "biz_labels", "price": "biz_labels",
+            "emi": "biz_emi", "loan": "biz_emi"}.get(str(kind or "").lower().strip(), "")
+
+
+def biz_parse(key: str, line: str, owner_name: str = "") -> dict:
+    """Ek line ke input ko us tool ke dict me badlo. Kabhi crash nahi."""
+    p = _biz_split(line)
+    d: dict = {}
+    try:
+        if key == "biz_invoice":
+            items = _biz_items(p[2]) if len(p) > 2 else _biz_items(p[-1])
+            d = {"shop": p[0] if p else "", "buyer": p[1] if len(p) > 1 else "",
+                 "items": items or [{"name": "Item", "qty": 1, "rate": 0}],
+                 "doc_type": "TAX INVOICE", "number": f"INV-{datetime.now().strftime('%d%m%H%M')}",
+                 "date": datetime.now().strftime("%d-%m-%Y"), "gstin": "",
+                 "upi": "", "discount": 0, "advance": 0}
+        elif key == "biz_resume":
+            d = {"name": p[0] if p else owner_name,
+                 "role": p[1] if len(p) > 1 else "", "phone": p[2] if len(p) > 2 else "",
+                 "education": [{"course": p[3], "institute": "", "year": "", "percent": ""}]
+                 if len(p) > 3 and p[3] else [],
+                 "skills": p[4] if len(p) > 4 else "",
+                 "email": p[5] if len(p) > 5 else "",
+                 "objective": f"To work in a growth oriented organisation where I can "
+                              f"use my skills as {p[1] if len(p) > 1 else 'a professional'}."}
+        elif key == "biz_biodata":
+            d = {"name": p[0] if p else owner_name, "dob": p[1] if len(p) > 1 else "",
+                 "education": p[2] if len(p) > 2 else "", "job": p[3] if len(p) > 3 else "",
+                 "father": p[4] if len(p) > 4 else "", "phone": p[5] if len(p) > 5 else ""}
+        elif key == "biz_certificate":
+            d = {"org": p[0] if p else "", "name": p[1] if len(p) > 1 else owner_name,
+                 "course": p[2] if len(p) > 2 else "",
+                 "date": p[3] if len(p) > 3 else datetime.now().strftime("%d-%m-%Y"),
+                 "title": "CERTIFICATE OF EXCELLENCE"}
+        elif key == "biz_idcard":
+            d = {"org": p[0] if p else "",
+                 "tagline": "STUDENT IDENTITY CARD", "session": datetime.now().strftime("%Y-%y"),
+                 "students": [{"name": p[1] if len(p) > 1 else owner_name,
+                               "father": p[2] if len(p) > 2 else "",
+                               "class": p[3] if len(p) > 3 else "",
+                               "roll": p[4] if len(p) > 4 else "",
+                               "phone": p[5] if len(p) > 5 else ""}],
+                 "footer": (p[0] if p else "")}
+        elif key == "biz_vcard":
+            d = {"owner": p[0] if p else owner_name, "shop": p[1] if len(p) > 1 else "",
+                 "phone": p[2] if len(p) > 2 else "", "address": p[3] if len(p) > 3 else "",
+                 "style": "band"}
+        elif key == "biz_letter":
+            d = {"type": (p[0] if p else "leave").lower().strip(),
+                 "name": p[1] if len(p) > 1 else owner_name,
+                 "org": p[2] if len(p) > 2 else "", "reason": p[3] if len(p) > 3 else ""}
+        elif key == "biz_upi":
+            d = {"upi": p[0] if p else "", "shop": p[1] if len(p) > 1 else "",
+                 "upi_name": p[1] if len(p) > 1 else "", "phone": p[2] if len(p) > 2 else "",
+                 "note": p[3] if len(p) > 3 else "Payment ka screenshot bhej dein"}
+        elif key == "biz_labels":
+            labels = []
+            for chunk in re.split(r"[,\n;]+", p[1] if len(p) > 1 else ""):
+                bits = [x.strip() for x in chunk.split(":") if x.strip()]
+                if len(bits) >= 2:
+                    labels.append({"name": bits[0], "price": _biz_num(bits[1]),
+                                   "mrp": _biz_num(bits[2]) if len(bits) > 2 else 0})
+            d = {"shop": p[0] if p else "", "labels": labels,
+                 "footer": "Rate " + datetime.now().strftime("%d-%m-%Y") + " se laagu"}
+        elif key == "biz_emi":
+            d = {"bank": "EMI / LOAN SUMMARY", "borrower": owner_name,
+                 "loan_amount": _biz_num(p[0]) if p else 0,
+                 "rate": _biz_num(p[1]) if len(p) > 1 else 10,
+                 "months": int(_biz_num(p[2], 12)) if len(p) > 2 else 12}
+    except Exception:                                            # noqa: BLE001
+        pass
+    return d
+
+
+def biz_build(key: str, d: dict) -> dict:
+    """Sahi function chalao — safe."""
+    fn = {"biz_invoice": biz_invoice, "biz_resume": biz_resume,
+          "biz_biodata": biz_biodata, "biz_certificate": biz_certificate,
+          "biz_idcard": biz_idcard, "biz_vcard": biz_vcard,
+          "biz_letter": biz_letter, "biz_upi": biz_upi_qr,
+          "biz_labels": biz_labels, "biz_emi": biz_emi_card}.get(key)
+    if fn is None:
+        return {"ok": False, "error": "tool nahi mila"}
+    return fn(d)
+
+
+async def biz_send_result(msg, key: str, res: dict, uid: int, used: bool = True) -> None:
+    """Result bhejo — image + PDF dono, aur credit ka message."""
+    if not res or not res.get("ok"):
+        why = (res or {}).get("error") or "kuch gadbad ho gayi"
+        await safe_reply(
+            msg,
+            f"⚠️ <b>File nahi ban payi</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"📄 {safe_html_err(str(why)[:200])}\n\n"
+            f"💡 <b>Format yaad rakhein:</b> ek line me <code>|</code> se alag likhein.\n"
+            f"Example dekhne ke liye tool ka naam dobara dabayein.",
+            parse_mode="HTML")
+        return
+    _icon, name, _sub = BIZ_MENU.get(key, ("📄", "File", ""))
+    bio = io.BytesIO(res["png"])
+    bio.name = f"{key.replace('biz_', '')}_{datetime.now().strftime('%d%m_%H%M')}.png"
+    cap = (f"✅ <b>{hesc(name)}</b> ready hai!\n"
+           f"━━━━━━━━━━━━━━━━━━━━━━\n"
+           f"🖨️ <i>A4 @ 200 DPI — seedha print karein</i>\n")
+    if res.get("count"):
+        cap += f"📦 Total: <b>{res['count']}</b>\n"
+    if res.get("emi"):
+        cap += (f"💰 EMI: <b>Rs. {biz_money(res['emi'])}</b>/month\n"
+                f"📊 Total: Rs. {biz_money(res['total'])} "
+                f"(byaaj Rs. {biz_money(res['interest'])})\n")
+    if res.get("amount"):
+        cap += f"💰 Total: <b>Rs. {biz_money(res['amount'])}</b>\n"
+    if res.get("notice"):
+        cap += f"📌 {hesc(str(res['notice'])[:120])}\n"
+    if used:
+        cap += spend_credit_msg(uid, key)
+    sent = await safe_send_photo(msg.get_bot(), msg.chat_id, bio, caption=cap,
+                                parse_mode="HTML")
+    # PDF bhi bhejo (print aur WhatsApp share ke liye)
+    try:
+        pages = res.get("pages") or [res.get("png")]
+        pdf = biz_to_pdf(pages)
+        if pdf:
+            from io import BytesIO as _B
+            pio = _B(pdf)
+            pio.name = f"{key.replace('biz_', '')}_{datetime.now().strftime('%d%m_%H%M')}.pdf"
+            await safe_send_document(msg.get_bot(), msg.chat_id, pio,
+                                     caption="📄 <b>PDF</b> — print / WhatsApp ke liye",
+                                     parse_mode="HTML", filename=pio.name)
+    except Exception as _e:                                      # noqa: BLE001
+        log.debug("biz pdf skip: %s", str(_e)[:90])
+
+
+def biz_money(v):
+    try:
+        from modules.business_tools import money as _m
+        return _m(v)
+    except Exception:                                            # noqa: BLE001
+        return str(v)
+
+
+# --------- helpers block khatam ---------
+
 def _uptime_str() -> str:
     s = int(time.time() - _BOOT_TS)
     d, r = divmod(s, 86400)
@@ -3642,6 +4025,32 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ============ AUTO FORWARD — WIZARD / GUIDE / TEST / STATUS ============
+    # ---------- v60.4: 💼 BUSINESS STUDIO buttons ----------
+    if data == "bizstudio":
+        context.user_data["mode"] = "biz_menu"
+        await safe_edit(q.message, BIZ_MENU_TEXT, reply_markup=biz_menu_kb(), parse_mode=HTML)
+        return
+    if data.startswith("biz:"):
+        _key = data.split(":", 1)[1]
+        if _key not in BIZ_MENU:
+            await safe_answer_cb(q, "Ye tool nahi mila", show_alert=True)
+            return
+        _u_b = get_user(uid, "")
+        if not can_use_premium_tool(_u_b, uid):
+            await safe_answer_cb(q, "Credits khatam — VIP lene par unlimited", show_alert=True)
+            await safe_reply(q.message, get_credits_over_text(_key),
+                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        await safe_answer_cb(q, "Bhejein 👇")
+        context.user_data["mode"] = _key
+        context.user_data.pop("biz_wait", None)
+        _bk = _biz_kind(_key.replace("biz_", ""))
+        await safe_reply(q.message, tool_prompt(_bk or _key), parse_mode=HTML,
+                         reply_markup=InlineKeyboardMarkup([[
+                             InlineKeyboardButton("⬅️ Business Studio", callback_data="bizstudio"),
+                             InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
+        return
+
     if data == "cloner_guide":
         await q.message.reply_text(
 
@@ -4482,8 +4891,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "PRIVATE CHANNEL SETUP",
         "IMAGE→PDF", "IMAGE TO PDF", "IMAGE - PDF", "IMAGE TO PDF ",
         "SITE SCREENSHOT", "SITE SCREENSHOT (HD)", "SITE SCREENSHOT (FULL PAGE)", "SCREENSHOT",
-        "EMI / INTEREST CALC", "EMI CALC", "EMI CALCULATOR", "EMI / VYAAJ CALC",
-        "INTEREST CALC", "INTEREST CALCULATOR", "INTEREST", "VYAAJ CALC",
+        
+         "INTEREST", "VYAAJ CALC",
         # v51.1: weather tool permanently removed
         "WEATHER", "MAUSAM", "WEATHER / MAUSAM", "WEATHER / MAUSAM ",
         # v52.1: GOVT SERVICES (v52.0) user order par hataya
@@ -4527,11 +4936,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "EMI CALC": "🧮 EMI / Interest Calc",
             "EMI CALCULATOR": "🧮 EMI / Interest Calc",
             "EMI / VYAAJ CALC": "🧮 EMI / Interest Calc",
-            "INTEREST CALC": "🧮 EMI / Interest Calc",
-            "INTEREST CALCULATOR": "🧮 EMI / Interest Calc",
-            "INTEREST": "🧮 EMI / Interest Calc",
-            "VYAAJ CALC": "🧮 EMI / Interest Calc",
-            "WEATHER": "🌦️ Weather / Mausam",
+                "WEATHER": "🌦️ Weather / Mausam",
             "MAUSAM": "🌦️ Weather / Mausam",
             "WEATHER / MAUSAM": "🌦️ Weather / Mausam",
             "WEATHER / MAUSAM ": "🌦️ Weather / Mausam",
@@ -4584,11 +4989,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "EMI CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
             "EMI CALCULATOR": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
             "EMI / VYAAJ CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "INTEREST CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "INTEREST CALCULATOR": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "INTEREST": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "VYAAJ CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "WEATHER": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
+                "WEATHER": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "WEATHER / MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "WEATHER / MAUSAM ": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
@@ -4683,6 +5084,30 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action == "mediastudio":
             context.user_data["mode"] = "media_menu"
             await update.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
+            return
+
+        # 3d. v60.4: 💼 BUSINESS STUDIO (10 earning tools)
+        if action == "bizstudio":
+            context.user_data["mode"] = "biz_menu"
+            await update.message.reply_text(BIZ_MENU_TEXT, reply_markup=biz_menu_kb(),
+                                            parse_mode=HTML)
+            return
+        if action and action.startswith("biz_"):
+            _u_b = get_user(uid, user.first_name)
+            if not can_use_premium_tool(_u_b, uid):
+                await update.message.reply_text(get_credits_over_text(action),
+                                                reply_markup=get_limit_exceeded_kb(),
+                                                parse_mode=HTML)
+                return
+            context.user_data["mode"] = action
+            context.user_data.pop("biz_wait", None)
+            _bk = _biz_kind(action.replace("biz_", ""))
+            await update.message.reply_text(
+                tool_prompt(_bk or action) or f"✍️ <b>{hesc(BIZ_MENU.get(action, ('', action, ''))[1])}</b>",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🎬 Tutorial", callback_data=f"toolvid:{_bk or action}"),
+                    InlineKeyboardButton("🏠 Home", callback_data="back_home")]]),
+                parse_mode=HTML)
             return
 
         # 4. Sarkari Portals (v51: premium — 1 credit per use)
@@ -5092,6 +5517,24 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Tool Execution Modes
+    # ---------- v60.4: 💼 BUSINESS STUDIO input ----------
+    if mode and str(mode).startswith("biz_") and mode != "biz_menu":
+        _u_b = get_user(uid, user.first_name)
+        if not can_use_premium_tool(_u_b, uid):
+            context.user_data.pop("mode", None)
+            await safe_reply(update.message, get_credits_over_text(mode),
+                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            return
+        _owner = (user.first_name or "") + (f" {user.last_name}" if user.last_name else "")
+        _d = biz_parse(mode, raw_text, _owner.strip())
+        _res = await asyncio.get_running_loop().run_in_executor(
+            None, functools_partial(biz_build, mode, _d))
+        _used = bool(_res and _res.get("ok"))
+        if _used:
+            spend_credits(uid, 1)
+        await biz_send_result(update.message, mode, _res or {}, uid, used=_used)
+        return
+
     if mode == "terabox":
         st = await update.message.reply_text("⚡ Resolving the cloud link (6 engines)...")
         res = resolve_cloud_url(raw_text)

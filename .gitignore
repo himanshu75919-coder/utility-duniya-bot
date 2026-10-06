@@ -2,4 +2,8 @@ __pycache__/
 *.pyc
 .env
 botdata.db
+botdata.db-wal
+botdata.db-shm
+botdata.db.prerestore.*
+vault_local/
 .venv/

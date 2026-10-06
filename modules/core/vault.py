@@ -542,10 +542,69 @@ class Vault:
         return (os.environ.get("VAULT_GITHUB_REPO") or "").strip()
 
     def gh_branch(self) -> str:
-        return (os.environ.get("VAULT_GITHUB_BRANCH") or "main").strip() or "main"
+        """⚠️ SABSE ZAROORI DETAIL — backup branch 'main' NAHI hona chahiye!
+
+        Render ke auto-deploy ka matlab hai: **main branch par koi bhi push =
+        naya deploy**. Agar hum backup main me daalte, to:
+            backup push -> Render deploy -> filesystem wipe -> bot restart ->
+            backup push -> Render deploy -> ... (infinite redeploy loop!)
+
+        Isliye backup ek ALAG branch me jata hai (default: `vault-backup`).
+        Render sirf 'main' dekhta hai, isliye us branch ka push koi deploy
+        trigger nahi karta. Zero extra repo, zero extra kharcha.
+
+        Chaho to alag private repo bhi de sakte ho:
+            VAULT_GITHUB_REPO = yourname/vault-private
+        """
+        return (os.environ.get("VAULT_GITHUB_BRANCH") or "vault-backup").strip() or "vault-backup"
 
     def gh_ready(self) -> bool:
         return bool(self.gh_token() and self.gh_repo() and "/" in self.gh_repo())
+
+    def _gh_default_branch(self) -> str:
+        """Repo ka default branch (branch banane ke liye base chahiye)."""
+        try:
+            if "default" in self._gh_cache:
+                return str(self._gh_cache["default"])
+        except Exception:                                        # noqa: BLE001
+            pass
+        ok, data = self._gh("GET", f"/repos/{self.gh_repo()}")
+        name = "main"
+        if ok and isinstance(data, dict):
+            name = str(data.get("default_branch") or "main")
+        try:
+            self._gh_cache["default"] = name
+        except Exception:                                        # noqa: BLE001
+            pass
+        return name
+
+    def _gh_ensure_branch(self) -> bool:
+        """Backup branch (vault-backup) na ho to banado. Returns True agar ready."""
+        want = self.gh_branch()
+        try:
+            ok, data = self._gh("GET",
+                                f"/repos/{self.gh_repo()}/branches/{want}")
+            if ok:
+                return True
+        except Exception:                                        # noqa: BLE001
+            pass
+        base = self._gh_default_branch()
+        ok, data = self._gh("GET", f"/repos/{self.gh_repo()}/git/ref/heads/{base}")
+        sha = ""
+        if ok and isinstance(data, dict):
+            sha = str(((data.get("object") or {}).get("sha")) or "")
+        if not sha:
+            return False
+        ok2, resp = self._gh("POST", f"/repos/{self.gh_repo()}/git/refs",
+                             {"ref": f"refs/heads/{want}", "sha": sha})
+        if ok2:
+            log.info("🌿 Vault branch '%s' banaya (Render isko deploy nahi karega)", want)
+            return True
+        # race: kisi aur ne bana di
+        if "already exists" in str(resp).lower():
+            return True
+        log.warning("Vault branch nahi ban paya: %s", str(resp)[:150])
+        return False
 
     def telegram_ready(self) -> bool:
         return bool(self.bot and self.backup_chat)
@@ -702,6 +761,14 @@ class Vault:
 
             # ---- (a) GITHUB (offsite, encrypted)
             if self.gh_ready():
+                # branch ensure — pehli baar khud ban jayega (Render deploy
+                # trigger na ho, isliye alag branch me)
+                try:
+                    if not self._gh_ensure_branch():
+                        log.warning("vault branch ready nahi — GitHub backup skip")
+                        self.gh_ready = lambda: False          # type: ignore[method-assign]
+                except Exception as _be:                        # noqa: BLE001
+                    log.debug("branch ensure skip: %s", str(_be)[:90])
                 name = f"{self.BACKUP_PREFIX}{stamp}.enc"
                 ok, resp = self._gh_put(name, blob)
                 if ok:
@@ -837,7 +904,10 @@ class Vault:
         """Candidate se encrypted bytes lao."""
         try:
             if cand["src"] == "github":
-                return self._gh_get_blob(cand["name"])
+                # ⚠️ poora PATH chahiye ("vault/udb_xxx.enc"), sirf filename
+                # nahi — warna GitHub 404 deta hai aur restore chup-chaap
+                # fail ho jata tha (yahi bug tha).
+                return self._gh_get_blob(cand.get("path") or cand["name"])
             if cand["src"] == "local":
                 with open(cand["path"], "rb") as f:
                     return f.read()
@@ -1006,12 +1076,16 @@ class Vault:
                 out["tried"].append(f"{cand['src']}:{cand['name']}")
                 blob = self._fetch(cand)
                 if not blob:
+                    out.setdefault("skipped", []).append(f"{cand['name']}: fetch fail")
+                    log.warning("restore: %s fetch nahi hua (%s)", cand["name"], cand["src"])
                     continue
                 plain = decrypt_blob(blob, self.secret)
                 if not plain:
+                    out.setdefault("skipped", []).append(f"{cand['name']}: decrypt fail")
                     continue
                 rows = self._plain_to_rows(plain)
                 if not rows or not rows.get("users"):
+                    out.setdefault("skipped", []).append(f"{cand['name']}: parse fail")
                     continue
                 merged, rep = merge_rows(local_rows, rows)
                 # ---------- 🔒 LAYER 4: PREMIUM FLOOR CHECK

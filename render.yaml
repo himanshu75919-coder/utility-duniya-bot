@@ -1,10 +1,37 @@
 # ===================================================================
-#  Utility Duniya Super Bot — Render Blueprint (v46)
+#  Utility Duniya Super Bot — Render Blueprint (v60 FORTRESS)
 #
-#  Existing Render service: utility-duniya-bot.
-#  Sirf isi bot instance ko active rakhein; duplicate polling instances se
-#  Telegram "Conflict: terminated by other getUpdates request" de sakta hai.
+#  ⚠️⚠️ SABSE ZAROORI BAAT — DATA KAHAN RAKHA JAYEGA ⚠️⚠️
+#
+#  Render ka FREE plan "ephemeral filesystem" deta hai. Iska matlab:
+#      deploy / restart / sleep-wake / maintenance -> SAARA LOCAL DATA GAYAB
+#
+#  PEHLE yahi problem thi: bot ka poora database (VIP premium users,
+#  payments, credits, referrals) ek local file `botdata.db` me tha, aur
+#  deploy hone par wo file delete ho jati thi. Isliye premium users
+#  "delete" ho jaate the.
+#
+#  ✅ AB ISKA HAL v60 me built-in hai — kuch kharidne ki zaroorat NAHI:
+#     1. Local file ke saath-saath poora data ENCRYPTED backup ban kar
+#        (a) aapke Telegram par aur (b) GitHub ke ek alag branch
+#            (`vault-backup`) me chala jata hai.
+#     2. Bot uthte hi pichhla backup MERGE karta hai — premium users
+#        WAPAS aa jaate hain.
+#     3. Restore se pehle aur baad me VIP count milaya jata hai; agar
+#        VIP kam ho raha ho to restore ABORT ho jata hai.
+#     >>> Isliye deploy/restart par premium user kho sakta hi nahi. <<<
+#
+#  💰 (Optional, sirf agar aap Render ka paid plan lein)
+#     Ek persistent disk laga do to local file bhi permanent ho jayegi —
+#     bot khud use detect kar lega, koi code change nahi:
+#         disk:
+#           name: utility-data
+#           mountPath: /var/data      <- bot yahan khud botdata.db bana lega
+#           sizeGB: 1
+#     Free plan par disk available nahi hai — isliye upar wala vault
+#     system hi asli bharosa hai. (Wahi default rehta hai.)
 # ===================================================================
+
 services:
   - type: web
     name: utility-duniya-bot
@@ -48,6 +75,50 @@ services:
         sync: false            # khali rakho = polling. Webhook ke liye service ka pura URL
       - key: WEBHOOK_SECRET
         sync: false            # webhook path ka optional secret (khali = token ka hissa)
+      # ==================================================================
+      #  v60 — 🛡️ PREMIUM VAULT (data kabhi na khoye) — YE ZAROOR BHARO
+      # ==================================================================
+      # Backup kahan jayega. Do jagah — dono free, dono automatic:
+      #
+      #  (a) TELEGRAM — backup aapko bot se ek file ke roop me milta hai
+      #      (aapke ADMIN_ID wali chat me). Iske liye KUCH set karne ki
+      #      zaroorat nahi — apne aap chalu rehta hai.
+      #      Alag chat/channel chahiye to:
+      #         VAULT_BACKUP_CHAT_ID = -1001234567890
+      #
+      #  (b) GITHUB — aapke token se offsite backup, AES-level encrypted
+      #      (SHAKE256 + HMAC). Repo public ho to bhi koi padh nahi sakta.
+      #      ⚠️ Ye token Render me hi daalo (SECRET), yaml me kabhi nahi.
+      #      ⚠️ Backup ek ALAG branch (`vault-backup`) me jata hai — 'main'
+      #         me nahi! Warna har backup Render ka naya deploy trigger kar
+      #         deta aur bot ka infinite restart loop ban jata. Isliye
+      #         VAULT_GITHUB_BRANCH ko 'main' NA karein.
+      - key: VAULT_GITHUB_REPO
+        value: himanshu75919-coder/utility-duniya-bot
+      - key: VAULT_GITHUB_BRANCH
+        value: vault-backup
+      - key: VAULT_GITHUB_TOKEN
+        sync: false            # 🔑 GitHub token (SECRET — sirf Render me daalo)
+      - key: VAULT_KEY
+        sync: false            # 🔑 (optional) apna encryption password. Khali = BOT_TOKEN se
+      - key: VAULT_BACKUP_MINUTES
+        value: "30"            # kitne minute me auto-backup (min 5)
+      - key: VAULT_ENABLED
+        value: "on"            # off = poora vault band
+      - key: VAULT_BACKUP_CHAT_ID
+        sync: false            # (optional) backup alag chat me bhejni ho to
+
+      # ---------- v60: 🛡️ CRASH SHIELD ----------
+      # Render free plan me sirf 512 MB RAM milti hai. Video + ffmpeg + PDF
+      # ek saath chalein to process "Killed" ho jata hai (aapko crash dikhta
+      # hai). Memory watchdog 400 MB par khud cache saaf karta hai.
+      - key: MEMORY_LIMIT_MB
+        value: "512"           # plan ki RAM (Starter=512, Standard=2048)
+      # Bot "zinda" dikhe par jawab na de (hung loop) — tab khud restart.
+      # 0 = sirf log karega. 600 = 10 minute se atka ho to restart.
+      - key: HANG_RESTART_SECONDS
+        value: "0"             # pehle 0 rakho; baar-baar hang ho to 600 karo
+
       # ---------- v52: SELF-PING (free instance ko jaagte rakhta hai = FAST respond) ----------
       # Bot apna hi /health ping karta hai -> Render ko inbound traffic lagta hai -> 15-min
       # sleep nahi hota -> cold start (30-60s) sirf pehli baar, baad me bot ~instant respond.

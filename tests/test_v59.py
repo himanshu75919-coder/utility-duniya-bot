@@ -96,22 +96,45 @@ _BOT_USER = "\n".join(_l for _l in BOT_SRC.split("\n")
                       if "BOT_VERSION =" not in _l)      # version comment chhod do
 check("UPI VERIFY text kahin nahi (user-facing code me)", "UPI VERIFY" not in _BOT_USER)
 # bot.py me 'UPI' shabd sirf VIP payment / IFSC service flag / safety advice /
-# version line me bache — tool ka koi zikr nahi
+# version line me bache — PURANE tool ka koi zikr nahi.
+#
+# ⚠️ v60.4 update: 💳 "UPI PAYMENT POSTER" naam ka NAYA tool juda hai. Ye
+# purane 🏦 UPI VERIFY se bilkul alag cheez hai —
+#     PURANA (deleted): kisi ka UPI ID daalo -> uska NAAM/pata nikaalo  (osint)
+#     NAYA  (v60.4)   : aapki UPI ID daalo -> apni dukaan ka "Scan & Pay"
+#                       poster / QR banao                          (business)
+# Naya tool kisi ka data nahi nikalta, sirf apna payment QR banata hai —
+# isliye ye legal aur safe hai. Guard ab purane tool par hi lagta hai.
 _allowed = ("UPI_ID", "UPI_NAME", "BOT_VERSION", "VIP", "cash or UPI", "UPI tool:",
-            "UPI ID:", "UPI PIN", "UPI {'✅'", "UPI Verify Removed")
-_stray = [_l.strip()[:60] for _l in BOT_SRC.split("\n")
+            "UPI ID:", "UPI PIN", "UPI {'✅'", "UPI Verify Removed",
+            # --- v60.4: naya (legal) UPI payment-poster tool ---
+            "UPI poster", "UPI PAYMENT POSTER", "UPI QR", "UPI Scan",
+            "biz_upi", "biz_upi_qr", "UPI payment board", "UPI QR Poster",
+            "UPI ID |")
+_stray = [_l.strip()[:70] for _l in BOT_SRC.split("\n")
           if "UPI" in _l and not any(_a in _l for _a in _allowed)]
 check("UPI ka koi stray reference nahi (sirf payment/IFSC/safety/version)",
       not _stray, str(_stray[:3]))
 check("keyboard me UPI button nahi",
       not any("UPI" in bot.unbold(_b).upper() for _r in bot.KB_BTNS for _b in _r))
-check("BTN_MODE_MAP me UPI nahi",
-      not any("upi" in str(k).lower() for k in bot.BTN_MODE_MAP))
+# BTN_MODE_MAP ke jo bhi UPI wale keys hain, wo SIRF naye payment-poster tool
+# par jaate hain — purane verify tool par kabhi nahi.
+_upi_keys = [k for k in bot.BTN_MODE_MAP if "upi" in str(k).lower()]
+check("BTN_MODE_MAP ke UPI keys sirf biz_upi par jaate hain (verify par nahi)",
+      all(bot.BTN_MODE_MAP[k] == "biz_upi" for k in _upi_keys), _upi_keys)
+check("BTN_MODE_MAP me purana 'upi' action nahi",
+      "upi" not in {str(v).lower() for v in bot.BTN_MODE_MAP.values()},
+      {str(v).lower() for v in bot.BTN_MODE_MAP.values()} & {"upi"})
 check("PREMIUM_TOOLS me UPI nahi",
       "upi" not in {str(x).lower() for x in bot.PREMIUM_TOOLS})
-check("PREMIUM_TOOL_NAMES me UPI nahi",
-      not any("upi" in str(x).lower() for x in bot.PREMIUM_TOOL_NAMES.values()
-              if not isinstance(x, (list, tuple, dict))) if isinstance(bot.PREMIUM_TOOL_NAMES, dict) else True)
+# v60.4: naya UPI PAYMENT POSTER tool allowed hai (purana VERIFY tool nahi).
+# Verify tool ki pehchaan: uska naam "UPI Verify"/"UPI Info" jaisa hota, jo
+# kisi aur ka data nikaalta — wo abhi bhi banned hai.
+_ptn_upi = [str(x) for x in bot.PREMIUM_TOOL_NAMES.values()
+            if not isinstance(x, (list, tuple, dict)) and "upi" in str(x).lower()]
+check("PREMIUM_TOOL_NAMES me purana UPI verify tool nahi (sirf poster allowed)",
+      all("Poster" in x or "Scan" in x or "Payment" in x for x in _ptn_upi),
+      _ptn_upi)
 check("TOOL_RATE_LIMITS me UPI nahi",
       "upi" not in {str(x).lower() for x in bot.TOOL_RATE_LIMITS})
 check("dono callbacks (upi_to_num / upi_to_vpa) gaye",
