@@ -721,7 +721,8 @@ check("v59.9: self-check asli mode batata hai (raw env nahi)",
 check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
       (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
       .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
-check("v59.9: BOT_VERSION v59.9 hai", "v59.9" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("BOT_VERSION v59.9+ hai (auto-webhook wala)", "v59.9" in bot.BOT_VERSION
+      or "v59.10" in bot.BOT_VERSION, bot.BOT_VERSION)
 check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
       webhook_url_from_env({"WEBHOOK_MODE": "polling",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
@@ -740,6 +741,17 @@ check("v59.9.2: diag me koi secret (token/webhook path) nahi jaata",
 check("v59.9.1: WEBHOOK_MODE=off hi zabardasti polling karta hai",
       webhook_url_from_env({"WEBHOOK_MODE": "off",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "")
+
+# --- v59.10: "bot zinda hai ya nahi" ka live proof ---------------------------
+check("v59.10: TypeHandler se har update count hota hai (group=-10, reply nahi)",
+      "app.add_handler(TypeHandler(Update, _track_update), group=-10)" in BOT_SRC)
+check("v59.10: _last_update_line() kaam karta hai",
+      callable(getattr(bot, "_last_update_line", None))
+      and "koi message nahi aaya" in bot._last_update_line())
+check("v59.10: /health par 'bot:' line (aakhri message) dikhti hai",
+      "bot: {_last_update_line()}" in BOT_SRC)
+check("v59.10: /version par 'Live check' line dikhti hai", "Live check:</b>" in BOT_SRC)
+check("v59.10: BOT_VERSION v59.10 hai", "v59.10" in bot.BOT_VERSION, bot.BOT_VERSION)
 
 check("SANKHYA: prompt wale tools 20+ hain (UPI hata ke bhi)",
       len(bot.PROMPT_DATA) >= 20, str(len(bot.PROMPT_DATA)))
