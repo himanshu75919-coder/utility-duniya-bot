@@ -50,11 +50,11 @@ def _clean_plate(plate: str) -> str:
     return re.sub(r"[^A-Za-z0-9]", "", str(plate or "")).upper()
 
 
-def _cfg() -> dict:
+def _cfg(url: str = "", key: str = "") -> dict:
     g = lambda n, d="": (os.environ.get(f"VEHICLE_PROVIDER_{n}") or d).strip()   # noqa: E731
     return {
-        "url": g("URL"),
-        "key": g("KEY"),
+        "url": url or g("URL"),
+        "key": key or g("KEY"),
         "param": g("PARAM", "number") or "number",
         "method": (g("METHOD", "GET") or "GET").upper(),
         "body": g("BODY"),
@@ -65,15 +65,42 @@ def _cfg() -> dict:
     }
 
 
+def _cfg_all() -> list:
+    """v71.7: VEHICLE_PROVIDER_URL me '|' se ALAG-ALAG providers.
+
+    Misal:  https://host1|https://host2   aur   key1|key2
+    Ek hi key ho to wo sab par chalegi. (RapidAPI BASIC = sirf 10 req/month —
+    isliye 2-3 free API mila kar chalane ki sauvidha.)
+    """
+    raw = (os.environ.get("VEHICLE_PROVIDER_URL") or "").strip()
+    keys = (os.environ.get("VEHICLE_PROVIDER_KEY") or "").strip()
+    urls = [u.strip() for u in re.split(r"[|\n]+", raw) if u.strip()]
+    klist = [k.strip() for k in re.split(r"[|\n]+", keys) if k.strip()]
+    out = []
+    for i, u in enumerate(urls):
+        k = klist[i] if i < len(klist) else (klist[0] if klist else "")
+        out.append({"url": u, "key": k})
+    return out
+
+
+def _exhausted(url: str) -> bool:
+    """v71.7: jis provider ki monthly limit khatam — usko skip karo (quota bachao)."""
+    return time.time() < (_EXHAUSTED.get(_rapidapi_host(url)) or 0)
+
+
+def _mark_exhausted(url: str) -> None:
+    _EXHAUSTED[_rapidapi_host(url)] = time.time() + 21600      # 6 ghante skip
+
+
 def _rapidapi_host(url: str) -> str:
     """URL se RapidAPI host: https://xxx.p.rapidapi.com/api -> xxx.p.rapidapi.com"""
     u = re.sub(r"^https?://", "", str(url or "").strip())
     return u.split("/")[0].strip().lower()
 
 
-def is_rapidapi() -> bool:
+def is_rapidapi(c: dict | None = None) -> bool:
     """User sirf URL+key daale — headers/method bot khud samajh le."""
-    return "rapidapi.com" in _cfg().get("url", "").lower()
+    return "rapidapi.com" in (c or _cfg()).get("url", "").lower()
 
 
 def provider_ready() -> bool:
@@ -81,9 +108,9 @@ def provider_ready() -> bool:
     return bool(c["url"])
 
 
-def _flags() -> dict:
+def _flags(c: dict | None = None) -> dict:
     """RapidAPI jaise custom headers parse karo: A:{key}|B:value"""
-    c = _cfg()
+    c = c or _cfg()
     h = {}
     for part in (c.get("headers") or "").split("|"):
         if ":" in part:
@@ -222,9 +249,19 @@ def map_provider_payload(raw, plate: str) -> dict:
 
 # v71.4: jo URL/body ek baar chal gaya, wo yaad rakho (agli baar turant)
 _WORKING_URL: list = [""]
+_EXHAUSTED: dict = {}      # v71.7: host -> skip-until timestamp
 # RapidAPI par sirf host diya ho to ye aam paths try hote hain (vehicle RC wali API)
 _PATH_CANDIDATES = ("VehicleInformation", "vehicle-information", "vehicle_information",
                     "vehicle", "rc", "v1/vehicle", "api/vehicle")
+
+
+_QUOTA_MSG = ("<b>Is API ke free plan ki MONTHLY limit khatam ho gayi.</b> "
+              "BASIC plan me sirf <b>10 requests/mahina</b> milti hain.\n"
+              "Aage ke liye 2 rasta:\n"
+              "1\ufe0f\u20e3 RapidAPI → is API ka <b>PRO plan</b> ($10/mo = 1000 requests) — ya\n"
+              "2\ufe0f\u20e3 Ek aur <b>free</b> RC API subscribe karo aur <code>/rcsetup</code> ke hisaab se "
+              "dono ko <code>|</code> se jod do — bot khud badal-badal kar chalayega.\n"
+              "Agla mahina shuru hone par BASIC apne aap reset ho jayegi.")
 
 
 def _vnf(r) -> bool:
@@ -269,7 +306,7 @@ def _key_error(raw) -> str:
     return ""
 
 
-def _provider_lookup(plate: str) -> dict:
+def _provider_lookup(plate: str, pr: dict | None = None) -> dict:
     """Provider (authorized/licensed) se poora record — result bot ke ANDAR.
 
     v71.4 — RapidAPI ke liye "dimaag" laga diya:
@@ -280,21 +317,18 @@ def _provider_lookup(plate: str) -> dict:
       • Jo path ek baar chal gaya, wo yaad rakhta hai (agli baar seedha wahi).
       • Key/subscription ki galti ho to saaf Hinglish message deta hai.
     """
-    c = _cfg()
+    c = _cfg((pr or {}).get("url", ""), (pr or {}).get("key", ""))
     base = (c["url"] or "").rstrip("/")
     params = {c["param"]: plate}
     if c.get("key") and c.get("auth") == "query":
         params[c.get("keyparam") or "key"] = c["key"]
-    hdrs = {**_UA, **_flags()}
+    hdrs = {**_UA, **_flags(c)}
 
     def _bodies():
-        """POST body ke saare mumkin shape (jo user ne diya ho to wahi pehle)."""
-        out = []
+        """POST body — v71.7 QUOTA-SAFE: max 2 request (explicit body ho to sirf 1)."""
         if c.get("body"):
-            out.append(c["body"].replace("{number}", plate).replace("{key}", c.get("key") or ""))
-        for k in ("VehicleNumber", "vehicle_number", "vehicleNumber", "regNumber", "number"):
-            out.append(json.dumps({k: plate}))
-        return out
+            return [c["body"].replace("{number}", plate).replace("{key}", c.get("key") or "")]
+        return [json.dumps({k: plate}) for k in ("VehicleNumber", "vehicle_number")]
 
     def _post(url, body_txt):
         try:
@@ -323,7 +357,7 @@ def _provider_lookup(plate: str) -> dict:
         except Exception:                                     # noqa: BLE001
             _has_path = base.count("/") > 2
         post.append(base)                                     # v71.5: root pehle
-        if is_rapidapi() and not _has_path:
+        if is_rapidapi(c) and not _has_path:
             post += [base + "/" + _pc.lstrip("/") for _pc in _PATH_CANDIDATES]
         out, seen = [], set()
         if _WORKING_URL[0] and _WORKING_URL[0].startswith(base):
@@ -337,7 +371,7 @@ def _provider_lookup(plate: str) -> dict:
         """Ek URL par: POST (saare body shapes) phir GET — jo kaam kare."""
         _err = None
         for _m in ("POST", "GET"):
-            if _m == "POST" and c["method"] == "GET" and not is_rapidapi():
+            if _m == "POST" and c["method"] == "GET" and not is_rapidapi(c):
                 continue
             if _m == "GET" and c["method"] == "POST":
                 continue
@@ -350,8 +384,10 @@ def _provider_lookup(plate: str) -> dict:
                 if r.status_code < 400:
                     return r, None
                 _err = _http_err(r)
-                if r.status_code in (401, 403, 429):
-                    return None, _err
+                if r.status_code in (401, 403):
+                    return None, "__AUTH__"
+                if r.status_code == 429:
+                    return None, "__QUOTA__"
                 if _vnf(r):
                     return None, "__VNF__"   # v71.6: gaadi DB me hi nahi hai
         for _b in _bodies():
@@ -363,19 +399,27 @@ def _provider_lookup(plate: str) -> dict:
             if r.status_code < 400:
                 return r, None
             _err = _http_err(r)
-            if r.status_code in (401, 403, 429):
-                return None, _err
+            if r.status_code in (401, 403):
+                return None, "__AUTH__"
+            if r.status_code == 429:
+                return None, "__QUOTA__"
             if _vnf(r):
                 return None, "__VNF__"   # v71.6: gaadi DB me hi nahi hai
-            if r.status_code != 404:
-                break        # 400/422 jaise case: URL sahi, body galat — agli body try
+            # v71.7: 404/400/422 → agli body try karo (max 2 bodies, quota-safe)
         return None, _err
 
     r, err = None, None
     for _u in _urls():
         r, err = _try_all(_u)
+        if err == "__QUOTA__":
+            return {"ok": False, "kind": "quota", "error": _QUOTA_MSG}
+        if err == "__AUTH__":
+            return {"ok": False, "kind": "auth",
+                    "error": ("Provider ne key nahi maani (401/403). RapidAPI → Manage Apps → "
+                              "apna app → Security → Application Key dobara copy karo "
+                              "(poori line).")}
         if err == "__VNF__":
-            return {"ok": False, "not_found": True,
+            return {"ok": False, "not_found": True, "kind": "not_found",
                     "error": ("Is gaadi ka record sarkari database me nahi mila "
                               f"(<code>{plate}</code>). Number ek baar phir check karo — "
                               "gaadi nayi hai / transfer ho rahi hai to record thodi der me "
@@ -437,17 +481,52 @@ def vehicle_lookup(plate: str) -> dict:
         return {**hit[0], "cached": True}
 
     out = {"ok": False}
-    _tried_provider = provider_ready()
+    provs = _cfg_all()
+    _tried_provider = bool(provs) or provider_ready()
+    _errs = []      # (kind, message) har provider se
     if _tried_provider:
-        out = _provider_lookup(p)
+        # v71.7: saare providers ek-ek karke — ek ki limit khatam to doosra
+        for _pr in provs:
+            _u = _pr.get("url") or ""
+            if not _u:
+                continue
+            if _exhausted(_u):
+                _errs.append(("quota", _QUOTA_MSG))
+                continue
+            _po = _provider_lookup(p, _pr)
+            if _po.get("ok"):
+                _po["provider"] = _rapidapi_host(_u) or "provider"
+                out = _po
+                break
+            _k = _po.get("kind") or "other"
+            if _k == "quota":
+                _mark_exhausted(_u)          # agli baar isko chhodo (quota bachao)
+            _errs.append((_k, str(_po.get("error") or "")))
+    # koi provider na chala to hub dekho (uske apne env me provider ho sakta hai)
     if not out.get("ok"):
         h = _hub_lookup(p)
         if h.get("ok"):
             out = h
         elif h.get("hub_error") and not _tried_provider:
-            # provider laga hi nahi tha — tab hub ki baat dikhao; warna provider ka
-            # asli error (key/limit/URL) hi sabse kaam ki baat hai
             out = {"ok": False, "hub_error": h.get("hub_error")}
+        elif _errs:
+            # sabse kaam ki baat pehle: quota > auth > gaadi-na-mili > baaki
+            _pri = {"quota": 0, "auth": 1, "not_found": 2}
+            _errs.sort(key=lambda x: _pri.get(x[0], 3))
+            out = {"ok": False, "error": _errs[0][1], "kind": _errs[0][0]}
+            if _errs[0][0] == "not_found":
+                out["not_found"] = True
+            if _errs[0][0] == "quota":
+                _CACHE[ck] = (out, time.time(), 1800)   # 30 min tak wahi baat dikhao
+            if len(provs) > 1:
+                _tag = {"quota": "limit khatam", "auth": "key galat",
+                        "not_found": "gaadi nahi mili", "other": "jawab nahi aaya"}
+                _summ = []
+                for _i, (_kk, _mm) in enumerate(_errs):
+                    _host = _rapidapi_host((provs[_i].get("url") if _i < len(provs) else "") or "")
+                    _summ.append(f"  • {_host or ('provider ' + str(_i + 1))}: "
+                                 f"{_tag.get(_kk, 'fail')}")
+                out["error"] = out["error"] + "\n\n<b>Providers:</b>\n" + "\n".join(_summ[:3])
 
     if out.get("ok"):
         _CACHE[ck] = (out, time.time(), _CACHE_TTL)

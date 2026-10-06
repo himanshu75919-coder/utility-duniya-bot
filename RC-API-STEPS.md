@@ -1,5 +1,20 @@
 # 🚗 RC + CHALLAN — RAPIDAPI SE API LENE KA POORA TARIKA (step by step)
 
+> ## ⚠️ PEHLE YE SACH JAN LO (v71.7 me laazim)
+> **Is API ke free plan (BASIC) me sirf 10 requests/MONTH milti hain.**
+> Har lookup = 1 request. 10 ke baad API `429 (MONTHLY quota exceeded)` deti hai —
+> bot ab ye SAFA message dikhata hai. Isiliye:
+> - **1-2 lookup raoz** ke liye theek hai (limit 10/mahina)
+> - **public bot ke liye** — **PRO plan ($10/mo = 1000 lookups)** ya
+> - **2-3 free APIs ko jod do**: <code>VEHICLE_PROVIDER_URL = url1|url2</code>
+>   + <code>VEHICLE_PROVIDER_KEY = key1|key2</code> → ek ki limit khatam to bot khud doosre par.
+>
+> ### ⭐ v2 [Advance] = ZYADA DATA (chassis, engine, owner mobile, PUCC, hypothecation)
+> Playground → **Vehicle Information v2 [Advance]** → **Request** tab → poora URL copy →
+> Render me URL wahi paste karo, aur ek line aur daalo:
+> <code>VEHICLE_PROVIDER_BODY = {"vehicle_number":"{number}"}</code>
+> (v71.7 me bot explicit body ho to SIRF 1 request leta hai — quota bachta hai.)
+
 > **Kitna paisa?** ₹0. RapidAPI par is API ka **BASIC plan $0.00/month** hai —
 > **card, UPI, kuch bhi nahi lagta.** Login ke liye bas Google/Gmail chahiye.
 > **Kitna time?** ~10 minute.

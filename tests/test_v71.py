@@ -288,7 +288,7 @@ os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
 os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port}"   # sirf host
 VT._CACHE.clear(); VT._WORKING_URL[0] = ""
 _re = VT.is_rapidapi
-VT.is_rapidapi = lambda: True         # host-only URL wala case
+VT.is_rapidapi = lambda *a, **k: True         # host-only URL wala case
 _r3 = VT.vehicle_lookup("BR30AR0802")
 VT.is_rapidapi = _re
 check("sirf HOST diya ho to path KHUD dhoondh leta hai",
@@ -351,7 +351,7 @@ os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
 os.environ.pop("VEHICLE_PROVIDER_HEADERS", None)
 VT._CACHE.clear(); VT._WORKING_URL[0] = ""
 _re2 = VT.is_rapidapi
-VT.is_rapidapi = lambda: True         # host-only URL wala case
+VT.is_rapidapi = lambda *a, **k: True         # host-only URL wala case
 _r4 = VT.vehicle_lookup("PB65AM0008")
 VT.is_rapidapi = _re2
 check("ROOT-endpoint API turant chalti hai (base URL pehle try)",
@@ -408,7 +408,7 @@ os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port3}"
 os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
 VT._CACHE.clear(); VT._WORKING_URL[0] = ""
 _re6 = VT.is_rapidapi
-VT.is_rapidapi = lambda: True
+VT.is_rapidapi = lambda *a, **k: True
 _r6 = VT.vehicle_lookup("BR30AR0802")
 VT.is_rapidapi = _re6
 check("gaadi DB me na ho to 'not_found' flag aata hai",
@@ -433,6 +433,138 @@ check("prompt boxes bhi patle ho gaye (user ki shikayat: white white)",
       all("━" not in bot.PROMPTS[k] for k in list(bot.PROMPTS)[:40]))
 check("header box upar-neeche patli line ke saath (┏ ─ ┓)",
       "┏" in bot.vahan_card({}, o2) and "┗" in bot.vahan_card({}, o2))
+
+
+# =====================================================================
+section("[H] 💰 v71.7 — QUOTA-SAFE + MULTI-PROVIDER (RapidAPI BASIC = 10/month)")
+# =====================================================================
+from http.server import ThreadingHTTPServer as _THS  # noqa: E402
+
+
+class _MockQuotaH(_BHR):
+    """Asli jaisa: 429 'exceeded the MONTHLY quota for Requests'."""
+
+    hits = 0
+
+    def log_message(self, *a):                                # noqa: ANN002
+        pass
+
+    def _quota(self):
+        type(self).hits += 1
+        self.send_response(429)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(_json.dumps({"message": "You have exceeded the MONTHLY quota "
+                                      "for Requests on your current plan, BASIC."}).encode())
+
+    do_POST = _quota
+    do_GET = _quota
+
+
+class _MockV2OK(_BHR):
+    """v2 [Advance] jaisa: body key `vehicle_number`, jawab BUZZ format me."""
+
+    hits = 0
+
+    def log_message(self, *a):                                # noqa: ANN002
+        pass
+
+    def do_POST(self):
+        _ln = int(self.headers.get("content-length") or 0)
+        _b = _json.loads(self.rfile.read(_ln) or b"{}")
+        type(self).hits += 1
+        if "vehicle_number" not in _b:
+            self.send_response(400); self.end_headers(); self.wfile.write(b"{}"); return
+        _raw = _json.dumps({"API_Developer": "@ProPortalx", "Today_Used": 7,
+                            "result": {"vehicle_number": _b["vehicle_number"], "data": {
+                                "Registration Number": _b["vehicle_number"],
+                                "Maker Name": "HONDA", "Model Name": "SHINE",
+                                "Fuel Type": "PETROL", "Cubic Capacity": "99.0"}}}).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers(); self.wfile.write(_raw)
+
+    def do_GET(self):
+        self.send_response(404); self.end_headers(); self.wfile.write(b"{}")
+
+
+def _start_h(cls):
+    srv = _THS(("127.0.0.1", 0), cls)
+    _thr.Thread(target=srv.serve_forever, daemon=True).start()
+    return srv, srv.server_address[1]
+
+
+# --- (A) multi-provider parsing ---
+os.environ["VEHICLE_PROVIDER_URL"] = "https://a.p.rapidapi.com|https://b.p.rapidapi.com"
+os.environ["VEHICLE_PROVIDER_KEY"] = "KEY1|KEY2"
+_ca = VT._cfg_all()
+check("do URL '|' se alag ho kar 2 providers bante hain", len(_ca) == 2, str(_ca))
+check("dono ki apni-apni key judti hai", _ca[0]["key"] == "KEY1" and _ca[1]["key"] == "KEY2")
+os.environ["VEHICLE_PROVIDER_KEY"] = "SAMEKEY"
+_ca2 = VT._cfg_all()
+check("ek hi key ho to sab providers par wahi chalti hai",
+      all(p["key"] == "SAMEKEY" for p in _ca2))
+
+# --- (B) provider 1: 429 khaye -> provider 2 (v2 jaisa) se data aa jaye ---
+_srvQ, _portQ = _start_h(_MockQuotaH)
+_srvV2, _portV2 = _start_h(_MockV2OK)
+os.environ["VEHICLE_PROVIDER_URL"] = (f"http://127.0.0.1:{_portQ}"
+                                      f"|http://127.0.0.1:{_portV2}")
+os.environ["VEHICLE_PROVIDER_KEY"] = "ANYKEY|TESTKEY"
+os.environ.pop("VEHICLE_PROVIDER_BODY", None)
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""; VT._EXHAUSTED.clear()
+_re7 = VT.is_rapidapi
+VT.is_rapidapi = lambda *a, **k: True
+_r7 = VT.vehicle_lookup("PB65AM0008")
+VT.is_rapidapi = _re7
+check("provider 1 ki limit khatam ho to bot KHUD provider 2 par jaata hai",
+      _r7.get("ok") is True and _r7["rc"].get("model") == "SHINE", str(_r7)[:130])
+check("data kis provider se aaya — wahi dikhta hai",
+      _r7.get("provider") == f"127.0.0.1:{_portV2}", _r7.get("provider"))
+check("limit wala provider skip-list me chadh gaya (quota bachega)",
+      bool(VT._EXHAUSTED), str(VT._EXHAUSTED))
+
+# --- (C) SIRF quota wala provider: saaf message + sirf 1 request ---
+_srvQ2, _portQ2 = _start_h(_MockQuotaH)
+_h0 = _MockQuotaH.hits
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_portQ2}"
+os.environ["VEHICLE_PROVIDER_KEY"] = "ANYKEY"
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""; VT._EXHAUSTED.clear()
+_re8 = VT.is_rapidapi
+VT.is_rapidapi = lambda *a, **k: True
+_r8 = VT.vehicle_lookup("BR30AR0802")
+VT.is_rapidapi = _re8
+_h1 = _MockQuotaH.hits - _h0
+check("monthly limit khatam par SAFA message (10 requests/mahina likha ho)",
+      _r8.get("ok") is False and "MONTHLY limit" in _r8.get("error", "")
+      and "10 requests" in _r8.get("error", ""), str(_r8.get("error"))[:120])
+check("limit par pura 1 hi request gaya (quota barbaad nahi hui)", _h1 == 1, f"hits={_h1}")
+_r8b = VT.vehicle_lookup("BR30AR0802")
+check("usi process me agli baar mock ko chhua hi nahi (cache/skip)",
+      _MockQuotaH.hits - _h0 == 1, f"hits={_MockQuotaH.hits - _h0}")
+check("thodi der baad bhi wahi saaf baat milti hai",
+      (_r8b.get("ok") is False and "MONTHLY limit" in (_r8b.get("error") or ""))
+      or _r8b.get("cached") is True, str(_r8b)[:100])
+
+# --- (D) explicit body ho to v2 jaisa ek hi request me kaam ---
+_srvOne, _portOne = _start_h(_MockV2OK)
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_portOne}"
+os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
+os.environ["VEHICLE_PROVIDER_BODY"] = '{"vehicle_number":"{number}"}'   # v2 Advance jaisa
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""; VT._EXHAUSTED.clear()
+_h0d = _MockV2OK.hits
+_re9 = VT.is_rapidapi
+VT.is_rapidapi = lambda *a, **k: True
+_r9 = VT.vehicle_lookup("PB65AM0008")
+VT.is_rapidapi = _re9
+check("apni body (v2 Advance jaisi) se bhi poora record aata hai",
+      _r9.get("ok") is True and _r9["rc"].get("model") == "SHINE", str(_r9)[:130])
+check("explicit body ho to SIRF 1 request (quota-safe)", _MockV2OK.hits - _h0d == 1,
+      f"hits={_MockV2OK.hits - _h0d}")
+_srvQ.shutdown(); _srvQ2.shutdown(); _srvV2.shutdown(); _srvOne.shutdown()
+for _k5 in ("VEHICLE_PROVIDER_URL", "VEHICLE_PROVIDER_KEY", "VEHICLE_PROVIDER_BODY"):
+    os.environ.pop(_k5, None)
+VT._EXHAUSTED.clear()
 
 
 print(f"\n{'=' * 62}")
