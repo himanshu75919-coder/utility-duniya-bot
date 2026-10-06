@@ -81,7 +81,9 @@ check("salary ke aliases: salary/payslip/slip",
       all(bot._biz_kind(x) == "biz_salary" for x in ("salary", "payslip", "slip")))
 check("menu ke aliases: menu/menucard/ratecard/ratelist",
       all(bot._biz_kind(x) == "biz_menucard" for x in ("menu", "menucard", "ratecard", "ratelist")))
-check("version v62 hai", "v62" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v62 ya usse aage hai (ye tools zinda hain)",
+      any(f"v{n}." in bot.BOT_VERSION for n in range(62, 70)) or "FREE4ALL" in bot.BOT_VERSION,
+      bot.BOT_VERSION)
 
 # =====================================================================
 section("[B] 🧮 SALARY KA GANIT — ek-ek number check")

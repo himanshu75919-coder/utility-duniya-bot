@@ -552,10 +552,32 @@ def _paste_photo(img, photo_bytes, box, radius: int = 0, border=None, bw: int = 
             ph = base
         img.paste(ph, (box[0], box[1]))
         if border:
+            # v63 FIX: pehle yahan box[3] likha tha — wo hota hi nahi (box = x,y,size).
+            # Is liye border kabhi lagta hi nahi tha (chup-chaap fail ho jata tha).
             ImageDraw.Draw(img).rectangle(
                 [box[0] - bw // 2, box[1] - bw // 2,
-                 box[0] + box[2] + bw // 2, box[1] + box[3] + bw // 2],
+                 box[0] + box[2] + bw // 2, box[1] + box[2] + bw // 2],
                 outline=border, width=bw)
+        return True
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
+def _paste_logo(img, logo_bytes, box, pad: int = 8, bg=(255, 255, 255)):
+    """v63: Logo ko box (x, y, size) ke ANDAR fit karo — kata nahi, poora dikhe.
+
+    Photo ke liye `_paste_photo` (square crop) hota hai, par logo chaura-patra
+    hota hai — usko kaatna galat lagta hai. Is liye ye alag helper hai.
+    """
+    try:
+        from PIL import Image
+        lg = Image.open(io.BytesIO(bytes(logo_bytes))).convert("RGB")
+        inner = max(8, int(box[2]) - 2 * pad)
+        r = min(inner / max(1, lg.width), inner / max(1, lg.height))
+        lg = lg.resize((max(1, int(lg.width * r)), max(1, int(lg.height * r))))
+        canvas = Image.new("RGB", (int(box[2]), int(box[2])), bg)
+        canvas.paste(lg, ((int(box[2]) - lg.width) // 2, (int(box[2]) - lg.height) // 2))
+        img.paste(canvas, (int(box[0]), int(box[1])))
         return True
     except Exception:                                            # noqa: BLE001
         return False
@@ -1100,6 +1122,10 @@ def certificate_image(d: dict) -> dict:
         for cx, cy in ((26, 26), (W - 27, 26), (26, H - 27), (W - 27, H - 27)):
             dr.ellipse([cx - 14, cy - 14, cx + 14, cy + 14], fill=acc)
 
+        # v63: sanstha ka logo (top-right) — photo ho to wo neeche lagega
+        if d.get("logo"):
+            _paste_logo(img, d.get("logo"), (W - 218, 74, 148), pad=10)
+
         y = 120
         f_org = F(34, True)
         for ln in f_org.wrap(str(d.get("org") or "ORGANISATION NAME"), W - 400, 2):
@@ -1130,11 +1156,11 @@ def certificate_image(d: dict) -> dict:
             nm = str(d.get("name") or "Student Name")
             body = (f"This is to certify that {nm} has successfully completed "
                     f"{d.get('course') or 'the course'} at our institute.")
-        f_body = ScriptFont(32)
-        for ln in f_body.wrap(body, W - 320, 8):
+        f_body = ScriptFont(36)
+        for ln in f_body.wrap(body, W - 360, 8):
             f_body.draw_center(dr, (M, W - M), ln, ink, y)
-            y += 48
-        y += 24
+            y += 54
+        y += 20
         nl = str(d.get("name_line") or "").strip()
         if nl:
             for ln in ScriptFont(36, True).wrap(nl, W - 340, 2):
@@ -1155,6 +1181,53 @@ def certificate_image(d: dict) -> dict:
                 ScriptFont(30, True).draw(dr, (cx, y + 34), str(val)[:26], ink)
             y += 96
 
+        # ---------- v63: beech ka khaali hissa saaf-suthra bharo ----------
+        # Poore bache hue hisse ko naapo, phir uske EXACT beech me rakho —
+        # is se kuch bhi overlap nahi hota (pehle fixed y ki wajah se ho raha tha).
+        _band_top = y + 10
+        _band_bot = H - 250
+        _band_mid = (_band_top + _band_bot) // 2
+
+        # (a) student ka photo — baayein taraf, band ke beech
+        _ph = d.get("photo")
+        if _ph:
+            _pbox = 230
+            _px = M + 70
+            _py = _band_mid - _pbox // 2 - 46
+            _paste_photo(img, _ph, (_px, _py, _pbox), radius=10,
+                         border=acc, bw=6)
+            ScriptFont(24).draw_center(dr, (_px - 20, _px + _pbox + 20),
+                                       "STUDENT PHOTO", (140, 132, 118),
+                                       _py + _pbox + 16)
+
+        # (b) gold medal — center me (asli 5-kone wala sitara, glyph par bharosa nahi)
+        _mx2 = W // 2
+        _r = 92
+        _my2 = _band_mid - _r - 74
+        dr.polygon([(_mx2 - 30, _my2 + _r - 10), (_mx2 + 30, _my2 + _r - 10),
+                    (_mx2 + 16, _my2 + _r + 96), (_mx2 - 16, _my2 + _r + 96)],
+                   fill=acc)
+        dr.ellipse([_mx2 - _r, _my2 - _r, _mx2 + _r, _my2 + _r], fill=(247, 240, 218),
+                   outline=acc, width=6)
+        dr.ellipse([_mx2 - _r + 16, _my2 - _r + 16, _mx2 + _r - 16, _my2 + _r - 16],
+                   outline=acc, width=2)
+        _sr = 46
+        _pts = []
+        import math as _math
+        for _i in range(10):
+            _ang = -_math.pi / 2 + _i * _math.pi / 5
+            _rr = _sr if _i % 2 == 0 else _sr * 0.44
+            _pts.append((_mx2 + _rr * _math.cos(_ang), _my2 + _rr * _math.sin(_ang)))
+        dr.polygon(_pts, fill=acc)
+        _txt = str(d.get("medal_text") or "EXCELLENCE").upper()[:16]
+        ScriptFont(28, True).draw_center(dr, (_mx2 - 240, _mx2 + 240), _txt,
+                                         acc, _my2 + _r + 112)
+
+        # (c) issue date — band ke neeche, center me (kisi cheez se takrata nahi)
+        ScriptFont(26).draw_center(dr, (W // 2 - 260, W // 2 + 260),
+                                   f"Issued on {d.get('date') or _today()}",
+                                   (130, 122, 108), _band_mid + 268)
+
         # signatures
         by = H - 200
         dr.line([M + 90, by, M + 430, by], fill=ink, width=2)
@@ -1168,7 +1241,8 @@ def certificate_image(d: dict) -> dict:
             dr.ellipse([W // 2 - 90, by - 90, W // 2 + 90, by + 90], outline=acc, width=3)
             ScriptFont(22).draw_center(dr, (W // 2 - 90, W // 2 + 90),
                                        str(d["seal_text"])[:16], acc, by - 12)
-        ScriptFont(20).draw(dr, (M + 30, H - 66), f"Made with {_brand()}", (170, 164, 150))
+        ScriptFont(19).draw_center(dr, (M + 40, W - M - 40),
+                                   f"Made with {_brand()}", (176, 170, 156), H - 78)
         return {"ok": True, "png": _save_png(img), "size": img.size}
     except Exception as e:                                       # noqa: BLE001
         return _err("certificate", e)
@@ -1199,79 +1273,154 @@ def idcard_image(d: dict) -> dict:
                       "dob": d.get("dob"), "blood": d.get("blood"),
                       "phone": d.get("phone"), "address": d.get("address"),
                       "photo": d.get("photo")}]
+
+        # ---------- v63: ASLI layout — 2 column x 5 row = 10 cards ----------
+        # Pehle 1 column x 10 row try kiya gaya tha, par 10 card page me fit hi
+        # nahi hote the (2814px > 2338px) — 2 aakhri card page se bahar chale
+        # jaate the. Ab asli ID card ka size (85x54 mm) use hota hai.
         per_page = 10
         pages = []
-        cw, ch = int(W * 0.86), 250          # card size
-        gap = 26
-        x0 = (W - cw) // 2
-        top = 60
+        gapx, gapy = 34, 26
+        cw = (W - 44 - 2 * gapx) // 2          # = 776 px  (~85mm)
+        ch = (H - 96 - 4 * gapy) // 5          # = 427 px  (~54mm)
+        x_cols = [22 + i2 * (cw + gapx) for i2 in range(2)]
+        y_rows = [66 + i3 * (ch + gapy) for i3 in range(5)]
+        org = str(d.get("org") or "INSTITUTE NAME")[:42]
+        tagline = str(d.get("tagline") or d.get("address") or "")[:58]
+        session = str(d.get("session") or "")[:18]
 
         for pg in range((len(cards) + per_page - 1) // per_page):
             page = _blank(W, H, WHITE)
             pd = ImageDraw.Draw(page)
-            pd.rectangle([0, 0, W, 46], fill=(238, 241, 246))
-            ScriptFont(22).draw(pd, (20, 12), "Cut along the dotted lines · 200 DPI print", (100, 106, 118))
-            ScriptFont(22).draw_right(pd, W - 20, f"Page {pg + 1}", (100, 106, 118))
-            y = top + 20
+            pd.rectangle([0, 0, W, 44], fill=(238, 241, 246))
+            ScriptFont(21).draw(pd, (20, 11),
+                                "Cut along the dotted lines  ·  Print at 100% (A4, 200 DPI)",
+                                (100, 106, 118))
+            ScriptFont(21).draw_right(pd, W - 20, f"Page {pg + 1}", (100, 106, 118))
+
             for k in range(per_page):
                 idx = pg * per_page + k
                 if idx >= len(cards):
                     break
                 st = cards[idx]
-                # cut border (dotted)
-                for xx in range(x0, x0 + cw, 14):
-                    pd.line([xx, y - 12, xx + 7, y - 12], fill=(190, 196, 206), width=2)
-                    pd.line([xx, y + ch + 12, xx + 7, y + ch + 12], fill=(190, 196, 206), width=2)
-                pd.rectangle([x0, y, x0 + cw, y + ch], fill=WHITE, outline=(196, 202, 212), width=2)
-                pd.rectangle([x0, y, x0 + cw, y + 74], fill=acc)
-                org = str(d.get("org") or "INSTITUTE NAME")[:40]
-                f_org = ScriptFont(30, True)
-                for i2, ln in enumerate(f_org.wrap(org, cw - 200, 1)):
-                    f_org.draw(pd, (x0 + 16, y + 8 + i2 * 32), ln, WHITE)
-                ScriptFont(20).draw(pd, (x0 + 16, y + 44),
-                                    str(d.get("tagline") or d.get("address") or "")[:60],
-                                    (215, 228, 250))
-                ScriptFont(19).draw_right(pd, x0 + cw - 14,
-                                          str(d.get("session") or "")[:18], WHITE, y + 44)
-                # photo
-                pbox = (x0 + cw - 150, y + 88, 130)
+                x0 = x_cols[k % 2]
+                y = y_rows[k // 2]
+
+                # ---- cut guide (chaaron taraf dots) ----
+                for xx in range(x0, x0 + cw, 16):
+                    pd.line([xx, y - 11, xx + 8, y - 11], fill=(196, 202, 212), width=2)
+                    pd.line([xx, y + ch + 11, xx + 8, y + ch + 11],
+                            fill=(196, 202, 212), width=2)
+                for yy in range(y, y + ch, 16):
+                    pd.line([x0 - 11, yy, x0 - 11, yy + 8], fill=(196, 202, 212), width=2)
+                    pd.line([x0 + cw + 11, yy, x0 + cw + 11, yy + 8],
+                            fill=(196, 202, 212), width=2)
+
+                # ---- card body ----
+                pd.rectangle([x0, y, x0 + cw, y + ch], fill=WHITE,
+                             outline=(186, 194, 206), width=2)
+                HB = 74                                  # header band
+                pd.rectangle([x0, y, x0 + cw, y + HB], fill=acc)
+
+                # org + logo (logo ho to header me baayein)
+                _lx = x0 + 14
+                if d.get("logo"):
+                    _paste_logo(page, d.get("logo"), (x0 + 10, y + 8, 58), pad=3, bg=acc)
+                    _lx = x0 + 78
+                f_org = ScriptFont(27, True)
+                for i2, ln in enumerate(f_org.wrap(org, cw - (_lx - x0) - 130, 1)):
+                    f_org.draw(pd, (_lx, y + 11 + i2 * 30), ln, WHITE)
+                ScriptFont(19).draw(pd, (_lx, y + 45), tagline, (214, 228, 250))
+                if session:
+                    ScriptFont(19, True).draw_right(pd, x0 + cw - 14, session,
+                                                    (214, 228, 250), y + 45)
+
+                # ---- photo (daayein taraf, band ke andar) ----
+                pbox = (x0 + cw - 168, y + HB + 14, 150)
                 if st.get("photo"):
-                    _paste_photo(page, st.get("photo"), pbox, border=(190, 196, 206), bw=3)
+                    _paste_photo(page, st.get("photo"), pbox,
+                                 border=(178, 188, 202), bw=4)
                 else:
-                    pd.rectangle([pbox[0], pbox[1], pbox[0] + pbox[2], pbox[1] + pbox[2]],
-                                 outline=(190, 196, 206), width=3)
-                    ScriptFont(20).draw_center(pd, (pbox[0], pbox[0] + pbox[2]), "PHOTO",
-                                               (170, 176, 188), pbox[1] + 52)
-                # fields
-                fy = y + 90
+                    pd.rectangle([pbox[0], pbox[1], pbox[0] + pbox[2],
+                                  pbox[1] + pbox[2]], fill=(246, 249, 252),
+                                 outline=(196, 202, 212), width=3)
+                    ScriptFont(20).draw_center(pd, (pbox[0], pbox[0] + pbox[2]),
+                                               "PHOTO", (168, 176, 190),
+                                               pbox[1] + pbox[2] // 2 - 12)
+                ScriptFont(17).draw_center(pd, (pbox[0] - 6, pbox[0] + pbox[2] + 6),
+                                           str(st.get("sign1") or ""), (150, 158, 172),
+                                           pbox[1] + pbox[2] + 6)
+
+                # ---- fields (photo ke baayein) ----
+                fy = y + HB + 14
                 f_lbl = ScriptFont(21)
-                f_val = ScriptFont(24, True)
-                lw = 118
-                for lbl, key in (("Name", "name"), ("Father", "father"), ("Class", "class"),
-                                 ("Roll No", "roll"), ("DOB", "dob"), ("Blood", "blood"),
-                                 ("Mobile", "phone")):
+                f_val = ScriptFont(25, True)
+                lw = 124
+                maxw = cw - (pbox[2] + 40) - lw - 24
+                for lbl, key in (("Name", "name"), ("Father", "father"),
+                                 ("Class", "class"), ("Roll No", "roll"),
+                                 ("DOB", "dob"), ("Mobile", "phone"),
+                                 ("Blood", "blood")):
                     val = str(st.get(key) or "").strip()
                     if not val:
                         continue
-                    f_lbl.draw(pd, (x0 + 16, fy), lbl + ":", (110, 118, 132))
-                    for i2, ln in enumerate(f_val.wrap(val, cw - lw - 60, 1)):
+                    f_lbl.draw(pd, (x0 + 16, fy), lbl + ":", (108, 116, 130))
+                    for ln in f_val.wrap(val, maxw, 1):
                         f_val.draw(pd, (x0 + 16 + lw, fy - 2), ln, INK)
-                    fy += 32
-                    if fy > y + ch - 60:
+                    fy += 30
+                    if fy > y + ch - 74:
                         break
-                # footer
-                pd.line([x0 + 14, y + ch - 48, x0 + cw - 14, y + ch - 48],
-                        fill=(206, 212, 222), width=2)
-                ScriptFont(19).draw(pd, (x0 + 16, y + ch - 40),
-                                    str(d.get("footer") or d.get("phone") or "")[:64],
-                                    (110, 118, 132))
+
+                # ---- halka watermark (khaali jagah bhare, asli card jaisa lage) ----
+                _wm = str(d.get("watermark") or org or "").strip()[:30]
+                if _wm:
+                    _wf = ScriptFont(46, True)
+                    _wy = y + HB + 116
+                    try:
+                        _ww = _wf.width(_wm)
+                        if _ww > cw - 40:
+                            _wf = ScriptFont(34, True)
+                    except Exception:                            # noqa: BLE001
+                        pass
+                    _wf.draw_center(pd, (x0 + 10, x0 + cw - 10), _wm,
+                                    (240, 244, 250), _wy)
+
+                # ---- agar jagah bachi ho to kaam ki lines (real ID card jaisa) ----
+                if fy < y + ch - 100:
+                    # session "2026-27" se "31-03-2027" nikaalo (na mile to chhodo)
+                    _valid = ""
+                    _sess = str(d.get("session") or "").strip()
+                    _mm = re.findall(r"(\d{4})\D+(\d{2,4})", _sess)
+                    if _mm:
+                        _y2 = int(_mm[0][1])
+                        _y2 = _y2 + 2000 if _y2 < 100 else _y2
+                        _valid = f"31-03-{_y2}"
+                    if _valid:
+                        ScriptFont(19).draw(pd, (x0 + 16, fy + 6),
+                                            f"Valid Upto: {_valid}", (120, 128, 142))
+                    # student ke signature ki line
+                    _sy = y + ch - 92
+                    pd.line([x0 + 16, _sy, x0 + 196, _sy], fill=(150, 158, 172), width=2)
+                    ScriptFont(17).draw(pd, (x0 + 16, _sy + 4), "Student Signature",
+                                        (150, 158, 172))
+
+                # ---- footer: address + principal signature ----
+                pad_line = y + ch - 66
+                pd.line([x0 + 14, pad_line, x0 + cw - 14, pad_line],
+                        fill=(214, 220, 230), width=2)
+                _foot = str(d.get("address") or d.get("phone") or "")[:58]
+                if _foot:
+                    ScriptFont(19).draw(pd, (x0 + 16, pad_line + 12), _foot,
+                                        (110, 118, 132))
                 sig = str(d.get("sign1") or "Principal")
                 f_sg = ScriptFont(19)
                 sw = f_sg.width(sig)
-                pd.line([x0 + cw - 30 - sw, y + ch - 30, x0 + cw - 30, y + ch - 30],
-                        fill=INK, width=2)
-                f_sg.draw(pd, (x0 + cw - 30 - sw, y + ch - 26), sig, (110, 118, 132))
-                y += ch + gap
+                pd.line([x0 + cw - 34 - sw, y + ch - 44, x0 + cw - 34, y + ch - 44],
+                        fill=(120, 128, 142), width=2)
+                f_sg.draw(pd, (x0 + cw - 34 - sw, y + ch - 39), sig, (110, 118, 132))
+                # card ke andar halka brand (chhota, cut ke baad bhi dikhe)
+                ScriptFont(15).draw(pd, (x0 + 16, y + ch - 26), _brand(),
+                                    (196, 202, 212))
             pages.append(_save_png(page))
         notice = str(d.get("notice") or "").strip()
         return {"ok": True, "png": pages[0], "pages": pages, "count": len(cards),
@@ -1298,11 +1447,14 @@ def visiting_card_image(d: dict) -> dict:
         style = str(d.get("style") or "band").lower()
         F = ScriptFont
 
-        cw, ch = 900, 540                     # card px (approx 3.5x2.1 inch)
-        gapx, gapy = (W - 2 * cw) // 3, 40
-        x1 = gapx
-        x2 = gapx * 2 + cw
-        top = 70
+        # v63: asli visiting card = 90x54 mm -> 200 DPI par 709x425 px.
+        # Pehle 900x540 tha, jisse 2 column page (1654px) me fit hi nahi hote the
+        # aur pehla column page ke BAHAR chala jata tha.
+        cw, ch = 776, 427
+        gapx, gapy = 34, 26
+        x1 = 22
+        x2 = 22 + cw + gapx
+        top = 66
         f_name = F(46, True)
         f_shop = F(30)
         f_sm = F(22)
@@ -1529,8 +1681,13 @@ def upi_qr_image(d: dict) -> dict:
 
         # header
         dr.rectangle([0, 0, W, 300], fill=acc)
-        ScriptFont(58, True).draw_center(dr, (60, W - 60), shop, WHITE, 60)
-        ScriptFont(32).draw_center(dr, (60, W - 60), "SCAN & PAY · UPI Accepted",
+        # v63: merchant ka logo (baayein), naam uske baad center me
+        _cbox = (60, W - 60)
+        if d.get("logo"):
+            _paste_logo(img, d.get("logo"), (58, 78, 148), pad=6, bg=acc)
+            _cbox = (232, W - 60)
+        ScriptFont(58, True).draw_center(dr, _cbox, shop, WHITE, 60)
+        ScriptFont(32).draw_center(dr, _cbox, "SCAN & PAY · UPI Accepted",
                                    (216, 229, 252), 150)
         dr.rectangle([W // 2 - 300, 220, W // 2 + 300, 232], fill=(255, 255, 255))
 
@@ -1613,9 +1770,18 @@ def label_sheet_image(d: dict) -> dict:
             page = _blank(W, H, WHITE)
             pd = ImageDraw.Draw(page)
             pd.rectangle([0, 0, W, 70], fill=acc)
-            ScriptFont(34, True).draw(pd, (M, 16),
-                                      str(d.get("shop") or "PRICE LIST")[:48], WHITE)
-            ScriptFont(24).draw_right(pd, W - M, f"Page {pg + 1} · {_today()}", WHITE, 24)
+            _shop_txt = str(d.get("shop") or "PRICE LIST")[:48]
+            _pgt = f"Page {pg + 1} · {_today()}"
+            if d.get("logo"):
+                # v63: logo daayein, page-text neeche (band ke bahar)
+                _paste_logo(pd, d.get("logo"), (W - M - 58, 6, 58), pad=2)
+                ScriptFont(34, True).draw(pd, (M, 16),
+                                          ScriptFont(34, True).wrap(_shop_txt, W - 2 * M - 80, 1)[0],
+                                          WHITE)
+                ScriptFont(20).draw(pd, (M, 76), _pgt, MUTED)
+            else:
+                ScriptFont(34, True).draw(pd, (M, 16), _shop_txt, WHITE)
+                ScriptFont(24).draw_right(pd, W - M, _pgt, WHITE, 24)
             for k in range(per_page):
                 i = pg * per_page + k
                 if i >= len(labels):
@@ -1988,10 +2154,15 @@ def menu_card_image(d: dict) -> dict:
         f_n = ScriptFont(64, True)
         while f_n.width(name) > W - 260 and f_n.size > 26:
             f_n = ScriptFont(f_n.size - 4, True)
-        f_n.draw_center(dr, (100, W - 100), name, WHITE, hy + 34)
+        # v63: dukaan/hotel ka logo (header ke andar, baayein taraf)
+        _nbox = (100, W - 100)
+        if d.get("logo"):
+            _paste_logo(img, d.get("logo"), (96, hy + 44, 122), pad=4, bg=acc)
+            _nbox = (240, W - 100)
+        f_n.draw_center(dr, _nbox, name, WHITE, hy + 34)
         if tagline:
-            ScriptFont(30).draw_center(dr, (100, W - 100), tagline, WHITE, hy + 130)
-        ScriptFont(26, True).draw_center(dr, (100, W - 100), "— RATE LIST / MENU —",
+            ScriptFont(30).draw_center(dr, _nbox, tagline, WHITE, hy + 130)
+        ScriptFont(26, True).draw_center(dr, _nbox, "— RATE LIST / MENU —",
                                          WHITE, hy + 172)
 
         # ---------- items (2 columns) ----------

@@ -110,7 +110,9 @@ _allowed = ("UPI_ID", "UPI_NAME", "BOT_VERSION", "VIP", "cash or UPI", "UPI tool
             # --- v60.4: naya (legal) UPI payment-poster tool ---
             "UPI poster", "UPI PAYMENT POSTER", "UPI QR", "UPI Scan",
             "biz_upi", "biz_upi_qr", "UPI payment board", "UPI QR Poster",
-            "UPI ID |")
+            "UPI ID |",
+            # --- v63: wizard ke step-sawal (wahi legal payment poster tool) ---
+            "UPI ID?</b>", "Aapki UPI ID", "UPI accepted")
 _stray = [_l.strip()[:70] for _l in BOT_SRC.split("\n")
           if "UPI" in _l and not any(_a in _l for _a in _allowed)]
 check("UPI ka koi stray reference nahi (sirf payment/IFSC/safety/version)",
@@ -745,7 +747,8 @@ check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
       (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
       .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
 check("BOT_VERSION v59.9+ hai (auto-webhook wala)",
-      any(x in bot.BOT_VERSION for x in ("v59.9", "v59.10", "v59.11", "v60.", "v61.", "v62.")), bot.BOT_VERSION)
+      any(x in bot.BOT_VERSION for x in ("v59.9", "v59.10", "v59.11", "v60.", "v61.",
+                                          "v62.", "v63.", "v64.", "v65.")), bot.BOT_VERSION)
 check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
       webhook_url_from_env({"WEBHOOK_MODE": "polling",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
@@ -775,7 +778,8 @@ check("v59.9.2+: /health par 'bot:' line (aakhri message) dikhti hai",
       "bot: {_last_update_line()}" in BOT_SRC)
 check("v59.10: /version par 'Live check' line dikhti hai", "Live check:</b>" in BOT_SRC)
 check("BOT_VERSION v59.10+ hai (live proof wala)",
-      any(x in bot.BOT_VERSION for x in ("v59.10", "v59.11", "v60.", "v61.", "v62.")), bot.BOT_VERSION)
+      any(x in bot.BOT_VERSION for x in ("v59.10", "v59.11", "v60.", "v61.", "v62.",
+                                          "v63.", "v64.", "v65.")), bot.BOT_VERSION)
 
 # --- v59.11: Conflict aane par auto webhook switch (Render logs ka error khatam) ---
 check("v59.11: _force_webhook_after_conflict() maujood hai",

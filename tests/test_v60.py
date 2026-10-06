@@ -410,7 +410,8 @@ print("\n[K] BOOT SELF-CHECK + IMPORTS")
 # =====================================================================
 import bot                                                                  # noqa: E402
 check("bot.py import ho gaya", bool(bot.BOT_VERSION), bot.BOT_VERSION)
-check("BOT_VERSION v60 hai", "v60" in bot.BOT_VERSION or "FORTRESS" in bot.BOT_VERSION,
+check("BOT_VERSION v60 ya usse aage hai (FORTRESS base zinda)",
+      "FORTRESS" in bot.BOT_VERSION or any(f"v{n}." in bot.BOT_VERSION for n in range(60, 70)),
       bot.BOT_VERSION)
 check("vault singleton ready", bot.vault is not None)
 check("naye commands maujood hain",

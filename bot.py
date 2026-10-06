@@ -405,7 +405,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v62.0 FREE4ALL — Salary Slip + Menu Card (2 naye tools) · saare tools 100% FREE · v60.4 FORTRESS base"
+BOT_VERSION = "v63.0 FREE4ALL — Step-by-Step Wizard + Photo/Logo + saare tools FREE"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -2754,6 +2754,292 @@ BIZ_MENU = {
     "biz_emi":         ("🧮", "EMI / Loan Card",         "poora hisaab + schedule"),
 }
 
+# ======================================================================
+#  v63: 🪜 BIZ_STEPS — BUSINESS STUDIO ka STEP-BY-STEP WIZARD
+# ======================================================================
+#  Boss ka order: "ek line ka format mushkil lagta hai — ek-ek step me poocho."
+#
+#  Kaise chalta hai:
+#    1. User tool chunta hai  ->  Step 1 ka sawal aata hai
+#    2. User jawab bhejta hai ->  Step 2 ... aise aage
+#    3. photo wale step par user PHOTO bheje -> bot use tool me laga deta hai
+#    4. Aakhri step ke baad output (PNG + PDF) ban kar chala jata hai
+#
+#  Har step = (key, sawal, hint/example, photo_hai?)
+#  photo_hai=True ka matlab: yahan user photo/logo bhej sakta hai (na bheje to skip).
+#  "SKIP" likhne par wo step khali chhod diya jata hai.
+BIZ_STEPS = {
+    "biz_invoice": [
+        ("shop", "🏪 <b>Step 1/5 — Dukaan / company ka naam?</b>\n<i>Jaise: Sharma Electronics</i>", "Sharma Electronics", False),
+        ("tagline", "✍️ <b>Step 2/5 — Ek line ka tagline?</b>\n<i>Neeche likha hua aata hai. Kuch na likhna ho to <code>SKIP</code> likhein.</i>", "Best in City", False),
+        ("logo", "🖼️ <b>Step 3/5 — Dukaan ka LOGO?</b>\nLogo ki <b>photo</b> bhej dein (bill ke upar lagega).\n<i>Logo nahi hai? <code>SKIP</code> likh dein.</i>", "LOGO PHOTO BHEJEIN", True),
+        ("buyer", "👤 <b>Step 4/5 — Grahak (customer) ka naam?</b>\n<i>Jaise: Ramesh Kumar</i>", "Ramesh Kumar", False),
+        ("items", "🛒 <b>Step 5/5 — Kya-kya becha? (item aur rate)</b>\n<i>Jaise: LED 4x120, Wire 1x450</i>\n<b>Qty x Rate</b> likhein", "LED 4x120, Wire 1x450", False),
+    ],
+    "biz_resume": [
+        ("name", "👤 <b>Step 1/4 — Aapka poora naam?</b>\n<i>Jaise: Himanshu Kumar</i>", "Himanshu Kumar", False),
+        ("role", "💼 <b>Step 2/4 — Kaunsi job / post chahiye?</b>\n<i>Jaise: Software Engineer</i>", "Software Engineer", False),
+        ("phone", "📞 <b>Step 3/4 — Phone number aur email?</b>\n<i>Jaise: 9876543210 | himanshu@gmail.com</i>", "9876543210 | himanshu@gmail.com", False),
+        ("education", "🎓 <b>Step 4/4 — Padhai aur skills?</b>\n<i>Jaise: B.Tech CSE 2024 | Python, SQL, Excel</i>", "B.Tech CSE 2024 | Python, SQL", False),
+        ("photo", "📸 <b>Bonus step — Aapki PHOTO?</b> (CV ke corner me lagegi)\n<i>Photo bhejein ya <code>SKIP</code> likhein.</i>", "PHOTO BHEJEIN", True),
+    ],
+    "biz_biodata": [
+        ("name", "👤 <b>Step 1/5 — Ladka/Ladki ka poora naam?</b>", "Anjali Kumari", False),
+        ("dob", "🎂 <b>Step 2/5 — Janm tithi (DOB)?</b>\n<i>Jaise: 12-08-1999</i>", "12-08-1999", False),
+        ("photo", "📸 <b>Step 3/5 — PHOTO?</b> (biodata me lagegi)\n<i>Photo bhejein ya <code>SKIP</code> likhein.</i>", "PHOTO BHEJEIN", True),
+        ("education", "🎓 <b>Step 4/5 — Padhai?</b>\n<i>Jaise: B.A. (Hindi), Patna University</i>", "B.A. Hindi", False),
+        ("job", "💼 <b>Step 5/5 — Kaam aur parivar?</b>\n<i>Jaise: Teacher | Father: Ram Kumar | 9876543210</i>", "Teacher | Ram Kumar | 9876543210", False),
+    ],
+    "biz_certificate": [
+        ("org", "🏫 <b>Step 1/5 — Sanstha / school ka naam?</b>", "Bindal Public School", False),
+        ("logo", "🖼️ <b>Step 2/5 — School ka LOGO?</b>\nLogo ki <b>photo</b> bhejein.\n<i>Nahi hai? <code>SKIP</code> likhein.</i>", "LOGO PHOTO BHEJEIN", True),
+        ("name", "👤 <b>Step 3/5 — Jisko certificate dena hai, uska naam?</b>", "Himanshu Kumar", False),
+        ("course", "🏆 <b>Step 4/5 — Kis cheez ka certificate?</b>\n<i>Jaise: Class X-E / English Speaking / Best Student</i>", "Class X-E", False),
+        ("extra", "📅 <b>Step 5/5 — Date aur photo?</b>\nDate likhein aur/ya <b>photo</b> bhej dein.\n<i>Jaise: 06-10-2026</i>", "06-10-2026", True),
+    ],
+    "biz_idcard": [
+        ("org", "🏫 <b>Step 1/6 — School / coaching ka naam?</b>", "Bindal Public School", False),
+        ("logo", "🖼️ <b>Step 2/6 — School ka LOGO?</b>\nLogo ki <b>photo</b> bhejein, ya <code>SKIP</code>.", "LOGO PHOTO BHEJEIN", True),
+        ("name", "👤 <b>Step 3/6 — Student ka naam?</b>", "Himanshu Kumar", False),
+        ("father", "👨 <b>Step 4/6 — Pita ka naam?</b>", "Ramesh Kumar", False),
+        ("class", "🎓 <b>Step 5/6 — Class aur Roll number?</b>\n<i>Jaise: X-E | 1042</i>", "X-E | 1042", False),
+        ("photo", "📸 <b>Step 6/6 — Student ki PHOTO?</b>\nID card me sabse zaroori cheez yahi hai!\n<i>Passport size photo bhejein, ya <code>SKIP</code>.</i>", "PHOTO BHEJEIN", True),
+    ],
+    "biz_vcard": [
+        ("owner", "👤 <b>Step 1/5 — Aapka naam?</b>", "Ramesh Kumar", False),
+        ("shop", "🏪 <b>Step 2/5 — Dukaan / company ka naam?</b>", "Sharma Kirana", False),
+        ("logo", "🖼️ <b>Step 3/5 — LOGO?</b> (card par lagega)\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
+        ("phone", "📞 <b>Step 4/5 — Phone aur address?</b>\n<i>Jaise: 9876543210 | Bihta, Patna</i>", "9876543210 | Bihta, Patna", False),
+        ("extra", "✉️ <b>Step 5/5 — Email / website? (optional)</b>\n<i>Nahi hai to <code>SKIP</code> likhein.</i>", "info@shop.com", False),
+    ],
+    "biz_letter": [
+        ("type", "📄 <b>Step 1/4 — Kaunsi application chahiye?</b>\n1 = Leave · 2 = NOC · 3 = Character · 4 = Bonafide\n<i>Number ya naam likhein</i>", "1", False),
+        ("name", "👤 <b>Step 2/4 — Aapka naam aur post?</b>\n<i>Jaise: Himanshu Kumar | Student</i>", "Himanshu Kumar | Student", False),
+        ("org", "🏫 <b>Step 3/4 — Kisko likhni hai? (sanstha ka naam)</b>", "Bindal Public School", False),
+        ("reason", "✍️ <b>Step 4/4 — Kyun chahiye? (karan)</b>\n<i>Jaise: 5 din ki chhutti chahiye, tabiyat kharab hai</i>", "5 din ki chhutti", False),
+    ],
+    "biz_upi": [
+        ("upi", "💳 <b>Step 1/4 — Aapki UPI ID?</b>\n<i>Jaise: 9876543210@ybl ya shop@paytm</i>", "9876543210@ybl", False),
+        ("shop", "🏪 <b>Step 2/4 — Dukaan / aapka naam?</b>", "Sharma Kirana", False),
+        ("logo", "🖼️ <b>Step 3/4 — LOGO?</b> (poster ke upar lagega)\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
+        ("phone", "📞 <b>Step 4/4 — Phone number?</b>", "9876543210", False),
+    ],
+    "biz_labels": [
+        ("shop", "🏪 <b>Step 1/4 — Dukaan ka naam?</b>", "Sharma Kirana", False),
+        ("logo", "🖼️ <b>Step 2/4 — LOGO?</b>\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
+        ("labels", "🏷️ <b>Step 3/4 — Saare item aur rate?</b>\n<i>Jaise: Sugar:48:55, Rice:95:110</i>\n<b>Naam : Rate : MRP</b> likhein", "Sugar:48:55, Rice:95:110", False),
+        ("extra", "📝 <b>Step 4/4 — Neeche kya likha aaye? (optional)</b>\n<i>Nahi chahiye to <code>SKIP</code></i>", "Rate 06-10-2026 se laagu", False),
+    ],
+    "biz_salary": [
+        ("company", "🏢 <b>Step 1/6 — Company / dukaan ka naam?</b>", "Sharma Kirana", False),
+        ("name", "👤 <b>Step 2/6 — Staff ka naam?</b>", "Ramesh Kumar", False),
+        ("post", "💼 <b>Step 3/6 — Post / kaam kya hai?</b>\n<i>Jaise: Salesman, Accountant, Driver</i>", "Salesman", False),
+        ("month", "📅 <b>Step 4/6 — Kis mahine ki salary?</b>\n<i>Jaise: September 2026</i>", "September 2026", False),
+        ("gross", "💰 <b>Step 5/6 — Poori salary (gross) kitni hai?</b>\n<i>Sirf number likhein, jaise: 18000</i>", "18000", False),
+        ("advance", "➖ <b>Step 6/6 — Advance / loan katta hai? (optional)</b>\n<i>Nahi to <code>0</code> ya <code>SKIP</code> likhein</i>", "500", False),
+    ],
+    "biz_menucard": [
+        ("name", "🍽️ <b>Step 1/4 — Hotel / dukaan ka naam?</b>", "Hotel Shivam", False),
+        ("tagline", "✍️ <b>Step 2/4 — Ek line ka tagline?</b>\n<i>Jaise: Shudh Desi Khana. Nahi chahiye to <code>SKIP</code></i>", "Shudh Desi Khana", False),
+        ("logo", "🖼️ <b>Step 3/4 — LOGO?</b> (menu ke upar lagega)\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
+        ("items", "📋 <b>Step 4/4 — Saare item aur rate?</b>\n<i>Jaise: Chai:10, Samosa:15, Thali:80</i>\n<b>Naam : Rate</b> likhein", "Chai:10, Samosa:15", False),
+    ],
+    "biz_emi": [
+        ("loan_amount", "💰 <b>Step 1/3 — Loan kitne ka hai?</b>\n<i>Sirf number, jaise: 250000</i>", "250000", False),
+        ("rate", "📈 <b>Step 2/3 — Byaaj (interest) % saalana?</b>\n<i>Jaise: 11.5</i>", "11.5", False),
+        ("months", "🗓️ <b>Step 3/3 — Kitne mahine me chukana hai?</b>\n<i>Jaise: 36</i>", "36", False),
+    ],
+}
+# photo wale step ke field-naam — inme bytes jaate hain, text nahi
+BIZ_PHOTO_FIELDS = ("photo", "logo")
+
+# purane BIZ_STEPS ka dhaancha badla to bhi bot na gire — safe fallback
+def biz_steps(key: str) -> list:
+    try:
+        return list(BIZ_STEPS.get(key) or [])
+    except Exception:                                            # noqa: BLE001
+        return []
+
+
+def biz_total_steps(key: str) -> int:
+    return len(biz_steps(key))
+
+
+def biz_step_prompt(key: str, idx: int) -> str:
+    """Us step ka sawal + progress (Step 3/6) + format yaad dilana."""
+    steps = biz_steps(key)
+    if not steps or idx < 0 or idx >= len(steps):
+        return ""
+    _f, q, hint, is_photo = steps[idx][:4]
+    _icon, name, _sub = BIZ_MENU.get(key, ("📄", "Tool", ""))
+    bar_total = len(steps)
+    bar = "●" * (idx + 1) + "○" * max(0, bar_total - idx - 1)
+    return (f"{_icon} <b>{hesc(name)}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<code>{bar}</code>  <b>{idx + 1}/{bar_total}</b>\n\n"
+            f"{q}\n\n"
+            f"💡 <b>Example:</b> <code>{hesc(str(hint))[:70]}</code>")
+
+
+def _biz_today() -> str:
+    return datetime.now().strftime("%d-%m-%Y")
+
+
+def biz_steps_kb(key: str, idx: int):
+    """Wizard ke buttons: ⬅️ Peeche · ❌ Cancel (+ agla step ka hint)."""
+    rows = []
+    if idx > 0:
+        rows.append([
+            InlineKeyboardButton("⬅️ Peeche", callback_data=f"bizstep:{key}:{idx - 1}"),
+            InlineKeyboardButton("❌ Cancel", callback_data="bizstudio"),
+        ])
+    else:
+        rows.append([InlineKeyboardButton("❌ Cancel", callback_data="bizstudio")])
+    rows.append([InlineKeyboardButton("💼 Business Studio", callback_data="bizstudio"),
+                 InlineKeyboardButton("🏠 Home", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def biz_answers_to_dict(key: str, ans: dict) -> dict:
+    """Wizard ke jawabon ko us tool ke dict me badlo — bilkul biz_parse jaisa.
+
+    Line-format wale parser se hi guzarta hai, is liye output BILKUL same aata hai
+    (purana one-line tarika bhi waise hi chalta rahega).
+    """
+    try:
+        a = dict(ans or {})
+        if key == "biz_invoice":
+            one = " | ".join([str(a.get("shop") or ""), str(a.get("buyer") or ""),
+                              str(a.get("items") or "")])
+            d = biz_parse(key, one)
+            d["tagline"] = str(a.get("tagline") or "").strip()
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            return d
+        if key == "biz_resume":
+            one = " | ".join([str(a.get("name") or ""), str(a.get("role") or ""),
+                              str(a.get("phone") or ""), "", ""])
+            d = biz_parse(key, one)
+            return d
+        if key == "biz_biodata":
+            one = " | ".join([str(a.get("name") or ""), str(a.get("dob") or ""),
+                              str(a.get("education") or ""), str(a.get("job") or ""),
+                              "", ""])
+            d = biz_parse(key, one)
+            if a.get("photo"):
+                d["photo"] = a["photo"]
+            return d
+        if key == "biz_certificate":
+            extra = str(a.get("extra") or "").strip()
+            _date, _photo = "", None
+            if extra and not extra.isdigit() is None:
+                pass
+            bits = [x.strip() for x in re.split(r"[|,]+", extra) if x.strip()] if extra else []
+            for b2 in bits:
+                if re.search(r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}", b2) or re.search(r"\d{4}", b2):
+                    _date = b2
+                else:
+                    _photo = None
+            d = biz_parse("biz_certificate",
+                          " | ".join([str(a.get("org") or ""), str(a.get("name") or ""),
+                                      str(a.get("course") or ""), _date or _today()]))
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            if a.get("photo"):
+                d["photo"] = a["photo"]
+            return d
+        if key == "biz_idcard":
+            one = " | ".join([str(a.get("org") or ""), str(a.get("name") or ""),
+                              str(a.get("father") or "")])
+            d = biz_parse(key, one)
+            _cr = " | ".join([str(a.get("class") or ""), ""])
+            _cls, _roll = "", ""
+            parts = [x.strip() for x in re.split(r"[|,]+", str(a.get("class") or "")) if x.strip()]
+            if parts:
+                _cls = parts[0]
+            if len(parts) > 1:
+                _roll = parts[1]
+            _sc = (d.get("students") or [{}])
+            if _sc:
+                _sc[0]["class"] = _cls
+                _sc[0]["roll"] = _roll
+            d["students"] = _sc
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            if a.get("photo"):
+                try:
+                    d["students"][0]["photo"] = a["photo"]
+                except Exception:                                # noqa: BLE001
+                    pass
+            return d
+        if key == "biz_vcard":
+            phone, addr = str(a.get("phone") or ""), ""
+            parts = [x.strip() for x in re.split(r"[|,]+", phone) if x.strip()]
+            if parts:
+                phone = parts[0]
+            if len(parts) > 1:
+                addr = " ".join(parts[1:])
+            d = biz_parse(key, " | ".join([str(a.get("owner") or ""),
+                                           str(a.get("shop") or ""), phone, addr]))
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            _ex = str(a.get("extra") or "").strip()
+            if _ex and _ex.upper() != "SKIP":
+                d["email"] = _ex
+            return d
+        if key == "biz_letter":
+            t = str(a.get("type") or "").strip().lower()
+            t = {"1": "leave", "2": "noc", "3": "character", "4": "bonafide"}.get(t, t or "leave")
+            nm, post = str(a.get("name") or ""), ""
+            parts = [x.strip() for x in re.split(r"[|,]+", nm) if x.strip()]
+            if parts:
+                nm = parts[0]
+            if len(parts) > 1:
+                post = parts[1]
+            d = biz_parse(key, " | ".join([t, nm, str(a.get("org") or ""),
+                                           str(a.get("reason") or ""), post]))
+            return d
+        if key == "biz_upi":
+            d = biz_parse(key, " | ".join([str(a.get("upi") or ""),
+                                           str(a.get("shop") or ""),
+                                           str(a.get("phone") or "")]))
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            return d
+        if key == "biz_labels":
+            d = biz_parse(key, " | ".join([str(a.get("shop") or ""),
+                                           str(a.get("labels") or "")]))
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            _ex = str(a.get("extra") or "").strip()
+            if _ex and _ex.upper() != "SKIP":
+                d["footer"] = _ex
+            return d
+        if key == "biz_salary":
+            d = biz_parse(key, " | ".join([str(a.get("company") or ""),
+                                           str(a.get("name") or ""),
+                                           str(a.get("post") or ""),
+                                           str(a.get("month") or ""),
+                                           str(a.get("gross") or "0"),
+                                           str(a.get("advance") or "0")]))
+            return d
+        if key == "biz_menucard":
+            d = biz_parse(key, " | ".join([str(a.get("name") or ""),
+                                           str(a.get("tagline") or ""),
+                                           str(a.get("items") or "")]))
+            if a.get("logo"):
+                d["logo"] = a["logo"]
+            return d
+        if key == "biz_emi":
+            d = biz_parse(key, " | ".join([str(a.get("loan_amount") or "0"),
+                                           str(a.get("rate") or "10"),
+                                           str(a.get("months") or "12")]))
+            return d
+    except Exception:                                            # noqa: BLE001
+        pass
+    return {}
+
+
 BIZ_MENU_TEXT = (
     "💼 <b>𝐁𝐔𝐒𝐈𝐍𝐄𝐒𝐒 𝐒𝐓𝐔𝐃𝐈𝐎</b>\n"
     "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -2859,8 +3145,11 @@ def biz_parse(key: str, line: str, owner_name: str = "") -> dict:
                  "date": p[3] if len(p) > 3 else datetime.now().strftime("%d-%m-%Y"),
                  "title": "CERTIFICATE OF EXCELLENCE"}
         elif key == "biz_idcard":
+            # v63: session sahi academic year (April se March) — pehle galat tha
+            _yr = datetime.now().year if datetime.now().month >= 4 else datetime.now().year - 1
             d = {"org": p[0] if p else "",
-                 "tagline": "STUDENT IDENTITY CARD", "session": datetime.now().strftime("%Y-%y"),
+                 "tagline": "STUDENT IDENTITY CARD",
+                 "session": f"{_yr}-{str(_yr + 1)[-2:]}",
                  "students": [{"name": p[1] if len(p) > 1 else owner_name,
                                "father": p[2] if len(p) > 2 else "",
                                "class": p[3] if len(p) > 3 else "",
@@ -4250,14 +4539,47 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await safe_reply(q.message, get_credits_over_text(_key),
                              reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return
-        await safe_answer_cb(q, "Bhejein 👇")
         context.user_data["mode"] = _key
         context.user_data.pop("biz_wait", None)
+        context.user_data.pop("biz_ans", None)
+        _steps_v = biz_steps(_key)
+        if _steps_v:
+            # v63: EK-EK STEP me poocho — step 1 se shuru
+            await safe_answer_cb(q, "Chaliye, step by step 👇")
+            context.user_data["biz_step"] = 0
+            await safe_reply(q.message, biz_step_prompt(_key, 0),
+                             reply_markup=biz_steps_kb(_key, 0), parse_mode=HTML)
+            return
+        await safe_answer_cb(q, "Bhejein 👇")
         _bk = _biz_kind(_key.replace("biz_", ""))
         await safe_reply(q.message, tool_prompt(_bk or _key), parse_mode=HTML,
                          reply_markup=InlineKeyboardMarkup([[
                              InlineKeyboardButton("⬅️ Business Studio", callback_data="bizstudio"),
                              InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
+        return
+
+    # v63: wizard ka ⬅️ Peeche / step-jump button
+    if data.startswith("bizstep:"):
+        try:
+            _sp = data.split(":", 2)
+            _k2, _i2 = _sp[1], int(_sp[2])
+        except Exception:                                        # noqa: BLE001
+            await safe_answer_cb(q, "Kuch gadbad hai", show_alert=True)
+            return
+        if _k2 not in BIZ_MENU:
+            await safe_answer_cb(q, "Tool nahi mila", show_alert=True)
+            return
+        _n2 = biz_total_steps(_k2)
+        _i2 = max(0, min(_i2, max(0, _n2 - 1)))
+        context.user_data["mode"] = _k2
+        context.user_data["biz_step"] = _i2
+        await safe_answer_cb(q, "Theek hai 👇")
+        try:
+            await safe_edit(q.message, biz_step_prompt(_k2, _i2),
+                            reply_markup=biz_steps_kb(_k2, _i2), parse_mode=HTML)
+        except Exception:                                        # noqa: BLE001
+            await safe_reply(q.message, biz_step_prompt(_k2, _i2),
+                             reply_markup=biz_steps_kb(_k2, _i2), parse_mode=HTML)
         return
 
     if data == "cloner_guide":
@@ -5741,13 +6063,64 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                              reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return
         _owner = (user.first_name or "") + (f" {user.last_name}" if user.last_name else "")
-        _d = biz_parse(mode, raw_text, _owner.strip())
+        _key_b = str(mode)
+        _steps_b = biz_steps(_key_b)
+
+        # ---------- v63: STEP-BY-STEP WIZARD ----------
+        if _steps_b:
+            _idx_b = int(context.user_data.get("biz_step") or 0)
+            _ans_b = dict(context.user_data.get("biz_ans") or {})
+            _txt_b = str(raw_text or "").strip()
+
+            # SMART: step 1 me hi poori line (jaise "A | B | C") aa gayi?
+            # to poora jawab maan lo aur seedha file bana do (purana tarika chalta rahe).
+            if _idx_b == 0 and _txt_b.count("|") >= 1 and len(_txt_b) > 12:
+                _d0 = biz_parse(_key_b, _txt_b, _owner.strip())
+                _r0 = await asyncio.get_running_loop().run_in_executor(
+                    None, functools_partial(biz_build, _key_b, _d0))
+                context.user_data.pop("biz_step", None)
+                context.user_data.pop("biz_ans", None)
+                _ok0 = bool(_r0 and _r0.get("ok"))
+                if _ok0 and not ALL_FREE:
+                    spend_credits(uid, 1)
+                await biz_send_result(update.message, _key_b, _r0 or {}, uid, used=_ok0)
+                return
+
+            # SKIP / nahi / -  -> step khali
+            if _txt_b.upper() in ("SKIP", "-", "NAHI", "NO", "NONE", "❌"):
+                _txt_b = ""
+            _fld_b, _q_b, _hint_b, _isphoto_b = _steps_b[min(_idx_b, len(_steps_b) - 1)][:4]
+            if not _isphoto_b:
+                _ans_b[_fld_b] = _txt_b
+            context.user_data["biz_ans"] = _ans_b
+            _idx_b += 1
+
+            if _idx_b < len(_steps_b):
+                context.user_data["biz_step"] = _idx_b
+                await safe_reply(update.message, biz_step_prompt(_key_b, _idx_b),
+                                 reply_markup=biz_steps_kb(_key_b, _idx_b), parse_mode=HTML)
+                return
+
+            # saare step ho gaye -> file banao
+            context.user_data.pop("biz_step", None)
+            context.user_data.pop("biz_ans", None)
+            _d = biz_answers_to_dict(_key_b, _ans_b)
+            _res = await asyncio.get_running_loop().run_in_executor(
+                None, functools_partial(biz_build, _key_b, _d))
+            _used = bool(_res and _res.get("ok"))
+            if _used and not ALL_FREE:      # v61: free mode me credit nahi katta
+                spend_credits(uid, 1)
+            await biz_send_result(update.message, _key_b, _res or {}, uid, used=_used)
+            return
+
+        # ---------- purana ONE-LINE tarika (agar upar wale steps na hon) ----------
+        _d = biz_parse(_key_b, raw_text, _owner.strip())
         _res = await asyncio.get_running_loop().run_in_executor(
-            None, functools_partial(biz_build, mode, _d))
+            None, functools_partial(biz_build, _key_b, _d))
         _used = bool(_res and _res.get("ok"))
         if _used and not ALL_FREE:      # v61: free mode me credit nahi katta
             spend_credits(uid, 1)
-        await biz_send_result(update.message, mode, _res or {}, uid, used=_used)
+        await biz_send_result(update.message, _key_b, _res or {}, uid, used=_used)
         return
 
     if mode == "terabox":
@@ -7559,6 +7932,58 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_vip_wall(update, context)
         return
     mode = context.user_data.get("mode")
+
+    # ==================================================================
+    #  v63: 💼 BUSINESS STUDIO WIZARD — photo/logo wala step
+    # ==================================================================
+    #  User jab tool ke step par ho aur us step me photo maangi gayi ho,
+    #  to yahan photo download kar ke usi tool ke dict me daal dete hain.
+    if mode and str(mode).startswith("biz_") and mode != "biz_menu":
+        _steps_p = biz_steps(str(mode))
+        _idx_p = context.user_data.get("biz_step")
+        if _steps_p and _idx_p is not None:
+            _idx_p = int(_idx_p)
+            _fld_p, _q_p, _hint_p, _isphoto_p = _steps_p[min(_idx_p, len(_steps_p) - 1)][:4]
+            if _isphoto_p:
+                try:
+                    _tf = await update.message.photo[-1].get_file()
+                    _buf = io.BytesIO()
+                    await _tf.download_to_memory(_buf)
+                    _pbytes = _buf.getvalue()
+                except Exception:                                # noqa: BLE001
+                    _pbytes = b""
+                if _pbytes:
+                    _ans_p = dict(context.user_data.get("biz_ans") or {})
+                    _ans_p[_fld_p] = _pbytes
+                    context.user_data["biz_ans"] = _ans_p
+                    _idx_p += 1
+                    if _idx_p < len(_steps_p):
+                        context.user_data["biz_step"] = _idx_p
+                        await safe_reply(update.message,
+                                         "✅ <b>Photo lag gayi!</b> 👌\n\n"
+                                         + biz_step_prompt(str(mode), _idx_p),
+                                         reply_markup=biz_steps_kb(str(mode), _idx_p),
+                                         parse_mode=HTML)
+                        return
+                    # aakhri step tha -> file banao
+                    context.user_data.pop("biz_step", None)
+                    context.user_data.pop("biz_ans", None)
+                    _d_p = biz_answers_to_dict(str(mode), _ans_p)
+                    _r_p = await asyncio.get_running_loop().run_in_executor(
+                        None, functools_partial(biz_build, str(mode), _d_p))
+                    _ok_p = bool(_r_p and _r_p.get("ok"))
+                    if _ok_p and not ALL_FREE:
+                        spend_credits(uid, 1)
+                    await biz_send_result(update.message, str(mode), _r_p or {}, uid,
+                                          used=_ok_p)
+                    return
+                await safe_reply(update.message,
+                                 "⚠️ Photo padhi nahi ja saki. Dobara bhejein, "
+                                 "ya <code>SKIP</code> likh dein.", parse_mode=HTML)
+                return
+        else:
+            # photo-step nahi chal raha — to ye photo kisi aur kaam ka hai
+            pass
 
     # Cloner Mode Active
     if mode == "cloning_active":
