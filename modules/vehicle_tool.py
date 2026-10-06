@@ -215,61 +215,155 @@ def map_provider_payload(raw, plate: str) -> dict:
             "count": count, "pending": pend, "amount": amt}
 
 
+# v71.4: jo URL/body ek baar chal gaya, wo yaad rakho (agli baar turant)
+_WORKING_URL: list = [""]
+# RapidAPI par sirf host diya ho to ye aam paths try hote hain (vehicle RC wali API)
+_PATH_CANDIDATES = ("VehicleInformation", "vehicle-information", "vehicle_information",
+                    "vehicle", "rc", "v1/vehicle", "api/vehicle")
+
+
+def _http_err(r) -> str:
+    """HTTP code → saaf Hinglish baat (kya karna hai)."""
+    if r.status_code in (401, 403):
+        return ("Provider ne key nahi maani (401/403). RapidAPI → Manage Apps → apna app → "
+                "Security → Application Key dobara copy karo (poori line).")
+    if r.status_code == 429:
+        return "Provider ka limit khatam (429) — thodi der baad try karo."
+    if r.status_code == 404:
+        return ("Provider ne 404 diya — endpoint ka pata galat hai. RapidAPI par API kholo → "
+                "Endpoints tab → playground me 'Request' box se poora URL copy karo.")
+    if r.status_code in (400, 422):
+        return ("Provider ne body/param nahi maana (HTTP %d). Endpoint ka shape alag hai — "
+                "ek baar /rcsetup dekho ya screenshot bhejo." % r.status_code)
+    return f"Provider ne HTTP {r.status_code} diya."
+
+
+def _key_error(raw) -> str:
+    """RapidAPI kabhi 200 me hi 'not subscribed / invalid key' bhejta hai."""
+    try:
+        t = json.dumps(raw, ensure_ascii=False).lower()[:600]
+    except Exception:                                         # noqa: BLE001
+        return ""
+    for _frag in ("not subscribed", "invalid api key", "missing api key",
+                  "api key is not", "not authorized", "subscribe to a plan",
+                  "you are not subscribed"):
+        if _frag in t:
+            return ("RapidAPI kehti hai: plan subscribe nahi hua / key galat. "
+                    "API page par 'Subscribe to Test' (BASIC free) dobara karo, phir "
+                    "Manage Apps → app → Security se Application Key copy karo.")
+    return ""
+
+
 def _provider_lookup(plate: str) -> dict:
-    """Provider (authorized/licensed) se poora record — result bot ke andar."""
+    """Provider (authorized/licensed) se poora record — result bot ke ANDAR.
+
+    v71.4 — RapidAPI ke liye "dimaag" laga diya:
+      • Body ka key naam har API me alag hota hai (`VehicleNumber` / `vehicle_number`
+        / `vehicleNumber`) — bot khud teeno try karta hai.
+      • Playground wala poora URL paste karo, ya sirf host bhi — bot khud URL sahi
+        karta hai aur (host-only ho to) aam path candidates bhi try karta hai.
+      • Jo path ek baar chal gaya, wo yaad rakhta hai (agli baar seedha wahi).
+      • Key/subscription ki galti ho to saaf Hinglish message deta hai.
+    """
     c = _cfg()
-    url = (c["url"] or "").rstrip("/")
-    if c.get("path"):
-        path = c["path"].replace("{number}", plate).replace("{key}", c.get("key") or "")
-        url = url + "/" + path.lstrip("/")
-        if "{number}" in c["path"]:
-            url = (c["url"] if c["url"].startswith("http") else "https://" + c["url"]).rstrip("/") \
-                  + "/" + c["path"].replace("{number}", plate).lstrip("/")
+    base = (c["url"] or "").rstrip("/")
     params = {c["param"]: plate}
     if c.get("key") and c.get("auth") == "query":
         params[c.get("keyparam") or "key"] = c["key"]
     hdrs = {**_UA, **_flags()}
 
-    def _try(method: str):
-        if method == "POST":
-            body = (c.get("body") or '{"vehicle_number": "{number}"}').replace(
-                "{number}", plate).replace("{key}", c.get("key") or "")
-            try:
-                payload = json.loads(body)
-            except Exception:                                # noqa: BLE001
-                payload = {"vehicle_number": plate}
-            return requests.post(url, json=payload, headers=hdrs, timeout=TIMEOUT)
+    def _bodies():
+        """POST body ke saare mumkin shape (jo user ne diya ho to wahi pehle)."""
+        out = []
+        if c.get("body"):
+            out.append(c["body"].replace("{number}", plate).replace("{key}", c.get("key") or ""))
+        for k in ("VehicleNumber", "vehicle_number", "vehicleNumber", "regNumber", "number"):
+            out.append(json.dumps({k: plate}))
+        return out
+
+    def _post(url, body_txt):
+        try:
+            payload = json.loads(body_txt)
+        except Exception:                                    # noqa: BLE001
+            payload = {"VehicleNumber": plate}
+        return requests.post(url, json=payload, headers=hdrs, timeout=TIMEOUT)
+
+    def _get(url):
         return requests.get(url, params=params, headers=hdrs, timeout=TIMEOUT)
 
-    # v71.2: RapidAPI par GET/POST jo chale wahi — bot khud dono try karta hai
-    _plan = ["POST"] if (c["method"] == "POST") else ["GET"]
-    if is_rapidapi() and c["method"] != "POST" and not c.get("body"):
-        _plan = ["GET", "POST"]
-    r = None
-    try:
-        for _m in _plan:
-            r = _try(_m)
+    def _urls():
+        """Kaun-kaun se URL try karne hain — samajhdari se, ek-ek karke."""
+        out = []
+        if c.get("path"):
+            out.append(base + "/" + c["path"].lstrip("/")
+                       .replace("{number}", plate).replace("{key}", c.get("key") or ""))
+        try:
+            from urllib.parse import urlparse
+            _has_path = bool(urlparse(base).path.strip("/"))
+        except Exception:                                     # noqa: BLE001
+            _has_path = base.count("/") > 2
+        if is_rapidapi() and not _has_path:
+            # sirf host diya (jaise .../vehicle-rc-information.p.rapidapi.com) —
+            # aam path candidates try karo, jo chale wahi yaad rakh lo
+            out += [base + "/" + _pc.lstrip("/") for _pc in _PATH_CANDIDATES]
+        out.append(base)
+        if _WORKING_URL[0] and _WORKING_URL[0].startswith(base) and _WORKING_URL[0] not in out:
+            out.insert(0, _WORKING_URL[0])
+        return out
+
+    def _try_all(url):
+        """Ek URL par: POST (saare body shapes) phir GET — jo kaam kare."""
+        _err = None
+        for _m in ("POST", "GET"):
+            if _m == "POST" and c["method"] == "GET" and not is_rapidapi():
+                continue
+            if _m == "GET" and c["method"] == "POST":
+                continue
+            if _m == "GET":
+                try:
+                    r = _get(url)
+                except Exception as e:                        # noqa: BLE001
+                    _err = f"Provider tak baat nahi pahunchi ({str(e)[:60]})."
+                    continue
+                if r.status_code < 400:
+                    return r, None
+                _err = _http_err(r)
+                if r.status_code in (401, 403, 429):
+                    return None, _err
+        for _b in _bodies():
+            try:
+                r = _post(url, _b)
+            except Exception as e:                            # noqa: BLE001
+                _err = f"Provider tak baat nahi pahunchi ({str(e)[:60]})."
+                continue
             if r.status_code < 400:
-                break
+                return r, None
+            _err = _http_err(r)
             if r.status_code in (401, 403, 429):
-                break
-    except Exception as e:                                    # noqa: BLE001
-        return {"ok": False, "error": f"Provider tak baat nahi pahunchi ({str(e)[:60]})."}
-    if r.status_code in (401, 403):
-        return {"ok": False, "error": "Provider ne key nahi maani (401/403) — key check karo."}
-    if r.status_code == 429:
-        return {"ok": False, "error": "Provider ka limit khatam (429) — thodi der baad try karo."}
-    if r.status_code == 404:
-        return {"ok": False,
-                "error": ("Provider ne 404 diya (endpoint ka pata galat hai). RapidAPI par "
-                          "API kholo → Endpoints tab → poora URL copy karke "
-                          "VEHICLE_PROVIDER_URL me daalo.")}
+                return None, _err
+            if r.status_code != 404:
+                break        # 400/422 jaise case: URL sahi, body galat — agli body try
+        return None, _err
+
+    r, err = None, None
+    for _u in _urls():
+        r, err = _try_all(_u)
+        if r is not None:
+            _WORKING_URL[0] = _u                            # agli baar seedha yehi
+            break
+    if r is None:
+        return {"ok": False, "error": err or "Provider se data nahi mila."}
     if r.status_code != 200:
-        return {"ok": False, "error": f"Provider ne HTTP {r.status_code} diya."}
+        return {"ok": False, "error": _http_err(r)}
+
     try:
         raw = r.json()
     except Exception:                                         # noqa: BLE001
         return {"ok": False, "error": "Provider ka jawab samajh nahi aaya."}
+
+    _ke = _key_error(raw)
+    if _ke:
+        return {"ok": False, "error": _ke}
     out = map_provider_payload(raw, plate)
     out.update({"ok": True, "source": "provider"})
     return out
@@ -311,13 +405,16 @@ def vehicle_lookup(plate: str) -> dict:
         return {**hit[0], "cached": True}
 
     out = {"ok": False}
-    if provider_ready():
+    _tried_provider = provider_ready()
+    if _tried_provider:
         out = _provider_lookup(p)
     if not out.get("ok"):
         h = _hub_lookup(p)
         if h.get("ok"):
             out = h
-        elif h.get("hub_error"):
+        elif h.get("hub_error") and not _tried_provider:
+            # provider laga hi nahi tha — tab hub ki baat dikhao; warna provider ka
+            # asli error (key/limit/URL) hi sabse kaam ki baat hai
             out = {"ok": False, "hub_error": h.get("hub_error")}
 
     if out.get("ok"):

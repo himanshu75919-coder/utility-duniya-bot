@@ -225,6 +225,81 @@ check("version v71 hai", bot.BOT_VERSION.startswith("v71"), bot.BOT_VERSION)
 check("prompt texts ka structure zinda (head/ask/ex)",
       all(("head" in d and "ask" in d and "ex" in d) for d in bot.PROMPT_DATA.values()))
 
+# =====================================================================
+section("[E] 🌐 ASLI CONNECTION TEST — local mock API (offline, koi internet nahi)")
+# =====================================================================
+import json as _json  # noqa: E402
+import threading as _thr  # noqa: E402
+from http.server import BaseHTTPRequestHandler as _BHR, HTTPServer as _HS  # noqa: E402
+
+
+class _MockRapidAPI(_BHR):
+    """RapidAPI wali Vehicle RC API ka nakal — Basic endpoint, VehicleNumber body."""
+
+    def log_message(self, *a):                                # noqa: ANN002
+        pass
+
+    def do_POST(self):
+        _ln = int(self.headers.get("content-length") or 0)
+        _b = _json.loads(self.rfile.read(_ln) or b"{}")
+        if self.path.rstrip("/") not in ("/VehicleInformation", ""):
+            self.send_response(404); self.end_headers(); self.wfile.write(b"{}"); return
+        if "VehicleNumber" not in _b:
+            self.send_response(400); self.end_headers(); self.wfile.write(b"{}"); return
+        if (self.headers.get("X-RapidAPI-Key") or "") != "TESTKEY":
+            self.send_response(403); self.end_headers()
+            self.wfile.write(b'{"message":"Invalid API key"}'); return
+        _out = {"API_Developer": "@ProPortalx", "Today_Used": 7,
+                "result": {"vehicle_number": _b["VehicleNumber"], "data": {
+                    "Registration Number": _b["VehicleNumber"], "Maker Name": "HONDA",
+                    "Model Name": "SHINE", "Fuel Type": "PETROL", "Cubic Capacity": "99.0"}}}
+        _raw = _json.dumps(_out).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(_raw)
+
+    def do_GET(self):
+        self.send_response(404); self.end_headers(); self.wfile.write(b"{}")
+
+
+_srv = _HS(("127.0.0.1", 0), _MockRapidAPI)
+_port = _srv.server_address[1]
+_thr.Thread(target=_srv.serve_forever, daemon=True).start()
+
+os.environ["VEHICLE_PROVIDER_URL"] = f"http://127.0.0.1:{_port}"
+os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
+os.environ["VEHICLE_PROVIDER_HEADERS"] = "X-RapidAPI-Key:{key}"
+
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""
+_r = VT.vehicle_lookup("BR30AR0802")
+check("asli HTTP par poora record aata hai (end-to-end)",
+      _r.get("ok") is True and _r["rc"].get("model") == "SHINE", str(_r)[:130])
+check("body key 'VehicleNumber' apne aap try hoti hai (Basic endpoint)",
+      _r.get("ok") is True)
+
+os.environ["VEHICLE_PROVIDER_KEY"] = "WRONGKEY"
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""
+_r2 = VT.vehicle_lookup("BR30AR0802")
+check("galat key par SAFA Hinglish error (hub ka generic message nahi)",
+      _r2.get("ok") is False and "key nahi maani" in str(_r2.get("error")), str(_r2)[:130])
+
+os.environ["VEHICLE_PROVIDER_KEY"] = "TESTKEY"
+VT._CACHE.clear(); VT._WORKING_URL[0] = ""
+_re = VT.is_rapidapi
+VT.is_rapidapi = lambda: True         # host-only URL wala case
+_r3 = VT.vehicle_lookup("BR30AR0802")
+VT.is_rapidapi = _re
+check("sirf HOST diya ho to path KHUD dhoondh leta hai",
+      _r3.get("ok") is True and "/VehicleInformation" in VT._WORKING_URL[0],
+      VT._WORKING_URL[0])
+check("jo URL chala wo YAAD rehta hai (agli baar seedha wahi)",
+      VT._WORKING_URL[0].endswith("/VehicleInformation"))
+_srv.shutdown()
+for _k2 in ("VEHICLE_PROVIDER_URL", "VEHICLE_PROVIDER_KEY", "VEHICLE_PROVIDER_HEADERS"):
+    os.environ.pop(_k2, None)
+
+
 print(f"\n{'=' * 62}")
 print(f"  v71 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 print(f"{'=' * 62}")

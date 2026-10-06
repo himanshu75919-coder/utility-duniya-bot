@@ -41,7 +41,33 @@ Us page par:
 
 ---
 
-# 📋 Step 4 — Apna Endpoint URL copy karo ⭐ (ye sabse zaroori hai)
+# 📋 Step 4 — Endpoint ka URL (aapke screenshot ke hisaab se)
+
+Aap playground me **`POST Vehicle Information [Basic]`** par ho — us page par:
+
+1. **`Endpoints`** (left side) me do option hain:
+   - `POST Vehicle Information [Basic]` ← **yehi free wala hai** ✅
+   - `POST Vehicle Information v2 [Advance]` ← screenshot 2 wala (isme bhi `vehicle_number` body hai)
+2. Playground me **neeche `Request` tab** dabao (Code snippet / Request / Response ke beech)
+3. Wahan **poora URL** dikhega — aisa:
+   ```
+   https://vehicle-rc-information.p.rapidapi.com/VehicleInformation
+   ```
+   → **copy** kar lo
+
+**✅ Achhi khabar (v71.4):** ab aap chaaho to **sirf host** bhi daal sakte ho —
+```
+VEHICLE_PROVIDER_URL = https://vehicle-rc-information.p.rapidapi.com
+```
+Bot **khud** sahi path (`/VehicleInformation`) dhoondh leta hai aur yaad rakh leta hai.
+Aur **body ka key naam** bhi bot khud handle karta hai:
+- Basic endpoint maangta hai: `{"VehicleNumber": "..."}` (capital V, capital N)
+- v2 endpoint maangta hai: `{"vehicle_number": "..."}`
+→ **dono** bot apne aap try karta hai. Aapko iski chinta nahi.
+
+---
+
+# 📋 Step 4-B (purana tarika) — Apna Endpoint URL copy karo ⭐
 
 Usi page par upar **`Endpoints`** tab dabao:
 
@@ -61,7 +87,25 @@ test free hai aur key lagne se pehle hi pata chal jayega.*
 
 ---
 
-# 📋 Step 5 — Apni KEY copy karo
+# 📋 Step 5 — Apni KEY copy karo (aapke screenshot 3 se)
+
+Aap `rapidapi.com/developer/apps` par ho — bilkul sahi jagah! Wahan:
+
+1. Table me **`default-application_12176190`** par click karo (blue link — App Name wala)
+   *(ya left sidebar me neeche `default-application_12176190` par click karo)*
+2. App page khulega → **`Security`** tab dabao
+   *(aapke screenshot me table ki aakhri column me 🛡️ **Authorization** icon bhi hai —
+   wahi bhi yahi kholta hai)*
+3. Wahan **`Application Key`** dikhegi — lambi line, aisi:
+   `a1b2c3d4e5f6...` → **`copy`** dabao
+4. Iske saath **`Application Id`** bhi likha hoga — uski zaroorat NAHI hai, sirf **Key** chahiye
+
+**Sabse aasan tarika (aapke screenshot 1 se):** playground me hi, **`X-RapidAPI-Key`**
+likha hota hai (upar ya `Authorization` tab me) — wahi copy kar lo. Wo bhi same key hai.
+
+---
+
+# 📋 Step 5-B (purana) — KEY kahan milti hai
 
 **Tarika A (sabse aasan):** Endpoints tab me hi, **`X-RapidAPI-Key`** likha hota hai
 (pata nahi chale to `Show` / 👁️ dabao) → **copy** kar lo. Ye lambi line hai, aisi:

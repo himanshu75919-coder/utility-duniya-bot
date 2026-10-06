@@ -417,7 +417,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.2 FREE4ALL — RC SETUP 2-LINE (RapidAPI auto) + "
+BOT_VERSION = ("v71.4 FREE4ALL — RC AUTO-PATH (sirf host daalo) + "
                "SADE PROMPTS + VEHICLE INFO REPORT")
 START_TIME = datetime.now()
 
