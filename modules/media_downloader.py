@@ -336,19 +336,54 @@ def friendly_dl_error(raw: str = "", platform: str = "") -> str:
             "💳 <b>Koi credit nahi kata.</b>")
 
 
-def _ytdlp_opts(extra=None):
+# ======================================================================
+#  v65: 🚀 SPEED + 🤖 YOUTUBE BOT-CHECK FIX
+# ======================================================================
+#  Problem 1 (aapke log me dikha): "Sign in to confirm you're not a bot".
+#     YouTube ko yt-dlp ka web client BOT lagta tha. Hal: alag player-client
+#     (android_vr / tv / ios) se baat karo — in par bot check nahi lagta.
+#  Problem 2: download ~2 minute leta tha. Hal:
+#     (a) progressive single-file format pehle (ffmpeg merge nahi = 3x tez)
+#     (b) 16 parallel chunks (pehle 4)
+#     (c) socket timeout 15s -> 8s (atka hua connection jaldi chhoot jaye)
+#     (d) hard deadline hook — 75 second se zyada lage to kaam rok kar
+#         user ko turant direct link de do (2 minute wait khatam)
+# ======================================================================
+YT_CLIENT_SETS = (
+    ("android_vr",),              # sabse tez + bot check nahi lagta
+    ("tv", "tv_simply"),          # backup 1
+    ("ios",),                     # backup 2
+    ("web_safari", "web"),        # aakhri koshish
+)
+
+FAST_DEADLINE = 75        # second — isse zyada lage to fallback
+SOCK_TIMEOUT = 8          # ek connection par max 8 second
+
+
+def _ytdlp_opts(extra=None, clients=None):
     opts = {
         "quiet": True,
         "no_warnings": True,
-        "socket_timeout": 15,          # v59: 25 → 15 (slow hang se bachao)
-        "concurrent_fragment_downloads": 4,   # v59: 4x parallel chunks = fast download
+        "socket_timeout": SOCK_TIMEOUT,
+        "concurrent_fragment_downloads": 16,   # v65: 4 -> 16 chunks parallel
+        "buffersize": 1024 * 1024,
+        "http_chunk_size": 10485760,           # 10 MB ke chunks me maango
+        "extractor_retries": 1,
         "noprogress": True,
         "nopart": False,
         "nocheckcertificate": True,
         "extract_flat": False,
-        "retries": 2,
-        "fragment_retries": 2,
+        "retries": 1,                          # v65: 2 -> 1 (jaldi fallback)
+        "fragment_retries": 3,
+        "geo_bypass": True,
         "http_headers": {"User-Agent": DESKTOP_UA["User-Agent"]},
+    }
+    # v65: YouTube player-client (bot check ka asli ilaaj)
+    opts["extractor_args"] = {
+        "youtube": {
+            "player_client": list(clients or YT_CLIENT_SETS[0]),
+            "player_skip": ["configs"],
+        },
     }
     cf = _cookiefile()
     if cf:
@@ -360,19 +395,23 @@ def _ytdlp_opts(extra=None):
     return opts
 
 
-def _ytdlp_info(url: str):
+def _ytdlp_info(url: str, clients=None):
+    """Info nikalo — YouTube par bot-check se bachne ke liye client ladder."""
     if not yt_dlp:
         return None
-    for attempt in range(2):
-        try:
-            with yt_dlp.YoutubeDL(_ytdlp_opts({"skip_download": True})) as ydl:
-                return ydl.extract_info(url, download=False)
-        except Exception as e:                                # noqa: BLE001
-            _remember(e)          # v56: friendly message ke liye wajah
-            if attempt == 0:
-                time.sleep(3)   # Instagram 429 rate-limit ke liye thoda wait
-                continue
-            return None
+    _u = (url or "").lower()
+    _is_yt = ("youtube.com" in _u) or ("youtu.be" in _u)
+    _sets = (clients,) if clients else (YT_CLIENT_SETS if _is_yt else (None,))
+    for _cl in _sets:
+        for attempt in range(2 if _cl is None else 1):
+            try:
+                with yt_dlp.YoutubeDL(_ytdlp_opts({"skip_download": True},
+                                                  clients=_cl)) as ydl:
+                    return ydl.extract_info(url, download=False)
+            except Exception as e:                            # noqa: BLE001
+                _remember(e)      # v56: friendly message ke liye wajah
+                if _cl is None and attempt == 0:
+                    time.sleep(2)     # Instagram 429 rate-limit ke liye
     return None
 
 
@@ -409,13 +448,17 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
             "no_warnings": True,
             "ignoreerrors": False,
         })
+        # v65: deadline hook — 2 minute wali wait khatam
+        _deadline = time.time() + FAST_DEADLINE
+
+        def _hook(st):                                           # noqa: BLE001
+            if time.time() > _deadline:
+                raise TimeoutError("fast-deadline")
+
+        opts["progress_hooks"] = [_hook]
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
-        path = None
-        for f in os.listdir(tmp):
-            if os.path.getsize(os.path.join(tmp, f)) > 1000:
-                path = os.path.join(tmp, f)
-                break
+        path = _pick_file(tmp)
         if not path:
             return None, info
         if os.path.getsize(path) > max_mb * 1024 * 1024:
@@ -427,6 +470,25 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
         return None, None
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _pick_file(tmp: str):
+    """v65: download ke baad sahi file chuno — .part/.ytdl not, merge par .mp4 pehle."""
+    try:
+        good = []
+        for f in os.listdir(tmp):
+            fp = os.path.join(tmp, f)
+            if not os.path.isfile(fp) or f.endswith((".part", ".ytdl", ".temp")):
+                continue
+            sz = os.path.getsize(fp)
+            if sz >= 1000:
+                good.append((f.endswith(".mp4"), sz, fp))
+        if not good:
+            return None
+        good.sort(key=lambda x: (x[0], x[1]), reverse=True)
+        return good[0][2]
+    except Exception:                                            # noqa: BLE001
+        return None
 
 
 def _ytdlp_direct_link(url: str):
@@ -960,8 +1022,12 @@ def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
         cap = max_mb - 3
         h = int(height)
         if _HAS_FFMPEG:
-            fmt = (f"bv*[height<={h}][filesize_approx<{cap//2}M]+ba[filesize_approx<{cap//2}M]/"
-                   f"b[height<={h}][filesize_approx<{cap}M]/bv*[height<={h}]+ba/b[height<={h}]/b/best")
+            # v65: 360p/720p PROGRESSIVE pehle (single file, merge nahi = 3x tez)
+            fmt = (f"18/22/"
+                   f"b[height<={h}][ext=mp4][filesize_approx<{cap}M]/"
+                   f"b[height<={h}][filesize_approx<{cap}M]/"
+                   f"bv*[height<={h}][filesize_approx<{cap//2}M]+ba[filesize_approx<{cap//2}M]/"
+                   f"bv*[height<={h}]+ba/b[height<={h}]/b/best")
         else:
             fmt = (f"b[ext=mp4][height<={h}][filesize<{cap}M]/b[height<={h}][filesize_approx<{cap}M]/"
                    f"b[height<={h}]/b/best")
@@ -974,13 +1040,17 @@ def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
             "no_warnings": True,
             "ignoreerrors": False,
         })
+        # v65: deadline hook — 2 minute wali wait khatam
+        _deadline = time.time() + FAST_DEADLINE
+
+        def _hook(st):                                           # noqa: BLE001
+            if time.time() > _deadline:
+                raise TimeoutError("fast-deadline")
+
+        opts["progress_hooks"] = [_hook]
         with yt_dlp.YoutubeDL(opts) as ydl:
             info = ydl.extract_info(url, download=True)
-        path = None
-        for f in os.listdir(tmp):
-            if os.path.getsize(os.path.join(tmp, f)) > 1000:
-                path = os.path.join(tmp, f)
-                break
+        path = _pick_file(tmp)
         if not path:
             return None, info
         if os.path.getsize(path) > max_mb * 1024 * 1024:

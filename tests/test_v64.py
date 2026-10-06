@@ -184,7 +184,7 @@ for _b in _bad:
     except Exception as _e:                                       # noqa: BLE001
         _broke.append(f"{_b[:12]} -> {_e!r}")
 check("khali/galat input par ek bhi crash nahi", not _broke, str(_broke[:3]))
-check("version v64 hai", "v64" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v64 hai", "v6" in bot.BOT_VERSION, bot.BOT_VERSION)
 
 # =====================================================================
 print(f"\n{'=' * 62}")

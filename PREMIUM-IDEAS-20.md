@@ -166,3 +166,18 @@ Main **pehle poochh raha hoon** (jaisa aapne kaha) — bas jawab de dijiye:
 5. Is list me se koi aur pasand aaya? **Number bata dijiye.**
 
 Bas number likh dijiye — *"2, 3, 6"* — main wahi bana dunga. 🙏
+
+---
+
+## ⚠️ Aakhri Sawal (ZAROORI)
+
+Agar aapko **in 20 ideas me se koi bhi pasand nahi aaya** —
+ya aapko kuch **bilkul alag** chahiye —
+to bas likh dijiye:
+
+> **"aur ideas"** ya **"dusre ideas"**
+
+Main aapke liye **naye 20 ideas** (bilkul fresh) generate kar dunga. 🙏
+
+*(Matlab: ye list final nahi hai — aapke pasand ke hisaab se main ideas banata rahunga,
+jab tak aapko 4-5 ideas pasand na aa jayein.)*

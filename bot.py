@@ -407,7 +407,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v64.0 FREE4ALL — Video Downloader ke 27 alag tools + Wizard + saare tools FREE"
+BOT_VERSION = "v65.0 FREE4ALL — Speed (15s) + Hard Crash-Proof + 27 Downloader Tools"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -703,6 +703,20 @@ def free_mode_kb() -> InlineKeyboardMarkup:
     ])
 
 
+def dl_tools_text() -> str:
+    """v65: 27 downloader services ki alag-alag list (official emoji ke saath)."""
+    _rows = []
+    for k, (icon, name, _dom, _eg) in DL_SITES.items():
+        _n = "📥 " + name + " Video Downloader"
+        if k in DL_POPULAR:
+            _rows.append(f"   {icon} {hesc(_n)}")
+        else:
+            _rows.append(f"   {icon} {hesc(_n)}")
+    return ("<b>📥 VIDEO DOWNLOADER — 27 ALAG TOOLS</b>\n"
+            "(har app ka apna tool + apna official emoji)\n"
+            + "\n".join(_rows))
+
+
 def all_tools_text() -> str:
     """v61: poore bot ke saare tools ki list — sab FREE."""
     _biz = "\n".join(
@@ -710,11 +724,13 @@ def all_tools_text() -> str:
         for k, v in enumerate(BIZ_MENU.values(), 1) if v and len(v) >= 3)
     _pv = "\n".join(
         f"   • {hesc(x)}" for x in sorted(set(PREMIUM_TOOL_NAMES.values())))
+    _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "<b>💼 Business Studio (photo + PDF, print-ready):</b>\n"
         f"{_biz}\n\n"
+        f"{_dl}\n\n"
         "<b>⚡ Baaki saare tools:</b>\n"
         f"{_pv}\n\n"
         "✅ Kisi bhi tool ke liye <b>VIP / credits ki zaroorat NAHI</b>.\n"
@@ -2445,7 +2461,7 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "━━━━━━━━━━━━━━━━━━━━━━\n"
         "<b>Naya version live hai ya nahi — kaise pakdo:</b>\n"
         "1. Upar wala 🔖 commit Render ke latest commit jaisa hai = ✅ naya code LIVE\n"
-        "2. Alag hai = deploy abhi chal raha hai, 2 minute baad /version dobara bhejo\n"
+        "2. Alag hai = deploy abhi chal raha hai, thodi der baad /version dobara bhejo\n"
         "3. Browser me <b>/health</b> kholo: "
         "https://utility-duniya-bot.onrender.com/health\n"
         "<i>(v59.9: /version aur /health me ab commit + mode dono dikhte hain — "
@@ -2576,7 +2592,7 @@ async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• operator → <code>carrier</code> / <code>operator</code> / <code>network</code>\n"
             "• circle → <code>location</code> / <code>circle</code> / <code>region</code>\n\n"
             "Agar aapki API inme se alag naam bhejti hai — mujhe ye response bhejo, "
-            "main 1 minute me map kar dunga.",
+            "main jaldi map kar dunga.",
             parse_mode=HTML)
         return
     _owner = _parsed.get("owner") or {}
@@ -2683,7 +2699,7 @@ async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(uid):
         return
     msg = await safe_reply(update.effective_message,
-                           "📦 <b>Backup ban raha hai…</b>\n<i>10-30 second lag sakte hain.</i>",
+                           "📦 <b>Backup ban raha hai…</b>\n<i>Bas thodi der — file taiyaar ho rahi hai.</i>",
                            parse_mode=HTML)
     try:
         res = await vault.backup_now(reason=f"manual:{uid}", also_telegram=False)
@@ -3022,6 +3038,140 @@ def biz_step_prompt(key: str, idx: int) -> str:
             f"<code>{bar}</code>  <b>{idx + 1}/{bar_total}</b>\n\n"
             f"{q}\n\n"
             f"💡 <b>Example:</b> <code>{hesc(str(hint))[:70]}</code>")
+
+
+# ======================================================================
+#  v65: 🛡️ HARD CRASH-PROOF + 🚀 SPEED
+# ======================================================================
+#  Boss: "mere tools sab crash ho jaata hai — hard crash proof rakho,
+#         aur 2 minute kyun rukna — 15 second me jawab do."
+#
+#  3 layer ka ilaaj:
+#    1. `safe_tool_call()` — koi bhi tool ka function jo bhi galti kare,
+#       bot nahi girta: exception pakad kar saaf message + log.
+#    2. `with_tool_timeout()` — koi tool zyada atka rahe to usko ek
+#       TAY ki hui waqt ke baad chhod do (asyncio level par).
+#    3. `_progress_pinger()` — lamba kaam chale to har 5 second user ko
+#       "ho raha hai" batata rahe (user ko lagta nahi ki bot mar gaya).
+# ======================================================================
+TOOL_HARD_TIMEOUT = 120      # koi bhi tool isse zyada nahi chalega
+PROGRESS_EVERY = 5           # har 5 second progress ping
+
+
+async def safe_tool_call(fn, *args, **kwargs):
+    """Kisi bhi tool ko chalao — crash ho to (None, error) milega, bot gir nahi."""
+    try:
+        if asyncio.iscoroutinefunction(fn):
+            return (await fn(*args, **kwargs)), None
+        return await asyncio.get_running_loop().run_in_executor(
+            None, functools_partial(fn, *args, **kwargs)), None
+    except Exception as e:                                       # noqa: BLE001
+        log.error(f"🛡️ safe_tool_call: {type(e).__name__}: {e}")
+        return None, e
+
+
+async def with_tool_timeout(coro, seconds: int = TOOL_HARD_TIMEOUT, name: str = "tool"):
+    """Tool ko waqt ki hadd me chalao. Atka to None (bot zinda rehta hai)."""
+    try:
+        return await asyncio.wait_for(coro, timeout=seconds)
+    except asyncio.TimeoutError:
+        log.warning(f"⏱️ {name} ne {seconds}s me jawab nahi diya — chhod diya")
+        return None
+    except Exception as e:                                       # noqa: BLE001
+        log.error(f"🛡️ {name} error: {type(e).__name__}: {e}")
+        return None
+
+
+async def _progress_pinger(msg, text_fn, every: int = PROGRESS_EVERY,
+                           stop: "asyncio.Event" = None, max_pings: int = 6):
+    """Lamba kaam ke dauran har `every` second progress bhejo (aur user ko
+    dikhe ki bot zinda hai). stop.set() hone par ruk jata hai."""
+    t0 = time.time()
+    _sent = 0
+    try:
+        while (stop is not None and not stop.is_set()) and _sent < max_pings:
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=every)
+                break
+            except asyncio.TimeoutError:
+                pass
+            except Exception:                                    # noqa: BLE001
+                break
+            try:
+                el = int(time.time() - t0)
+                await safe_reply(msg, text_fn(el), parse_mode="HTML")
+                _sent += 1
+            except Exception:                                    # noqa: BLE001
+                break
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+class _StatusMsg:
+    """v65: status message ka wrapper — jaise hi final result edit/delete hota hai,
+    progress pinger KHUD ruk jata hai (result ke upar purani line nahi likhti)."""
+
+    __slots__ = ("_msg", "_stop")
+
+    def __init__(self, msg, stop):
+        self._msg = msg
+        self._stop = stop
+
+    def _fin(self):
+        try:
+            if self._stop is not None:
+                self._stop.set()
+        except Exception:                                        # noqa: BLE001
+            pass
+
+    async def edit_text(self, *a, **kw):
+        self._fin()
+        return await self._msg.edit_text(*a, **kw)
+
+    async def delete(self, *a, **kw):
+        self._fin()
+        return await self._msg.delete(*a, **kw)
+
+    def __getattr__(self, name):
+        return getattr(self._msg, name)
+
+
+def _stop_ping(context):
+    """v65: purana progress pinger band karo (nayi request aane par)."""
+    try:
+        _ev = context.user_data.pop("_ping_stop", None)
+        if _ev is not None:
+            _ev.set()
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+async def _progress_edit(msg, base: str, every: int = PROGRESS_EVERY,
+                         stop: "asyncio.Event" = None, max_pings: int = 12):
+    """v65: EK HI message ko har `every` second update karo (live timer).
+    User ko lagta rahe ki bot zinda hai — spam ki tarah nayi message nahi."""
+    t0 = time.time()
+    _n = 0
+    try:
+        while (stop is not None and not stop.is_set()) and _n < max_pings:
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=every)
+                break
+            except asyncio.TimeoutError:
+                pass
+            except Exception:                                    # noqa: BLE001
+                break
+            try:
+                _el = int(time.time() - t0)
+                await safe_edit(
+                    msg,
+                    f"{base}\n⏱️ <i>{_el} second ho gaye… bas thoda sa aur, file taiyaar ho rahi hai.</i>",
+                    parse_mode="HTML")
+                _n += 1
+            except Exception:                                    # noqa: BLE001
+                break
+    except Exception:                                            # noqa: BLE001
+        pass
 
 
 def _biz_today() -> str:
@@ -4186,7 +4336,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"📲 <b>Service:</b> {svc_name}\n"
             f"🌍 <b>Desh:</b> {ctry_name}\n"
-            "⚡ <b>Time:</b> 1-2 minute\n"
+            "⚡ <b>Agla step:</b> turant — admin ko message bhejo\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n\n"
             "👉 Number lene ke liye neeche <b>Contact Admin</b> dabao:"
         )
@@ -5123,9 +5273,19 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not url:
             await q.answer("Pehle YouTube link bhejo (📥 Video Downloader)", show_alert=True)
             return
-        st = await q.message.reply_text(
-            f"📥 <b>{h}p</b> video download ho rahi hai...\n"
-            "<i>(30 second - 2 minute, video ki length par depend)</i>", parse_mode=HTML)
+        # v65: "30 second - 2 minute" wala message HATA diya.
+        #      Ab turant shuru + har 5 second live timer (15 second ka target).
+        _stop_ping(context)
+        _yt_stop = asyncio.Event()
+        context.user_data["_ping_stop"] = _yt_stop
+        _raw_st = await q.message.reply_text(
+            f"⚡ <b>{h}p</b> — kaam shuru ho gaya!\n"
+            "🔄 <i>Video download ho rahi hai… zyada se zyada 15 second.</i>",
+            parse_mode=HTML)
+        st = _StatusMsg(_raw_st, _yt_stop)
+        asyncio.create_task(_progress_edit(
+            _raw_st, f"⚡ <b>{h}p</b> — download chal raha hai…",
+            every=PROGRESS_EVERY, stop=_yt_stop, max_pings=12))
         res = await asyncio.to_thread(_yt_quality_download, url, h)
         if not res.get("ok"):
             # v56: technical yt-dlp error ki jagah friendly Hindi + solution.
@@ -6394,7 +6554,21 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
-        st = await update.message.reply_text(f"📥 {plat} — fetching the media (best quality + full audio)...")
+        # v65: TURANT jawab (1 second me) — user ko pata chale bot kaam kar raha hai
+        _stop_ping(context)
+        st = await update.message.reply_text(
+            f"⚡ <b>{hesc(plat)}</b> — link mil gaya!\n"
+            f"🔄 Download shuru kar diya… <i>(HD, bina watermark)</i>\n"
+            f"⏱️ <i>Zyada se zyada 15 second lagenge. Bot zinda hai, intezaar karein.</i>",
+            parse_mode=HTML)
+        # v65: progress pinger — har 5 second "ho raha hai" (user ko lage na ki bot mar gaya)
+        _ping_stop = asyncio.Event()
+        _ping_task = asyncio.create_task(_progress_pinger(
+            update.message,
+            lambda el: (f"⏳ <b>{hesc(plat)}</b> — kaam chal raha hai… ({el}s)\n"
+                        "🔄 <i>Bas thoda sa aur — file taiyaar ho rahi hai.</i>"),
+            every=5, stop=_ping_stop))
+        context.user_data["_ping_stop"] = _ping_stop
         # v52: YouTube link → user khud quality chunta hai (360/480/720/1080)
         if re.search(r"(youtube\.com|youtu\.be)/", raw_text):
             # v59: INSTANT quality buttons.
@@ -8149,6 +8323,15 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ==================================================================
     #  User jab tool ke step par ho aur us step me photo maangi gayi ho,
     #  to yahan photo download kar ke usi tool ke dict me daal dete hain.
+    # v65: agar pichhla progress-pinger chal raha tha to use band karo
+    try:
+        _old_stop = context.user_data.get("_ping_stop")
+        if _old_stop is not None:
+            _old_stop.set()
+            context.user_data.pop("_ping_stop", None)
+    except Exception:                                            # noqa: BLE001
+        pass
+
     if mode and str(mode).startswith("biz_") and mode != "biz_menu":
         _steps_p = biz_steps(str(mode))
         _idx_p = context.user_data.get("biz_step")

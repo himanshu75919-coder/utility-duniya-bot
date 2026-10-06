@@ -415,9 +415,9 @@ check("bot.py me yt_cached_qualities / yt_warm_qualities import hai",
       "yt_cached_qualities" in _md_imp and "yt_warm_qualities" in _md_imp)
 
 # downloader speed opts
-check("socket_timeout 15 set hai", '"socket_timeout": 15' in MD_SRC)
-check("concurrent_fragment_downloads 4 set hai",
-      '"concurrent_fragment_downloads": 4' in MD_SRC)
+check("socket_timeout fast (<=15) set hai", '"socket_timeout": SOCK_TIMEOUT' in MD_SRC)
+check("concurrent_fragment_downloads fast (>=4) set hai",
+      '"concurrent_fragment_downloads": 16' in MD_SRC)
 check("progressive format 18 pehle try hota hai", 'fmt = ("18/' in MD_SRC)
 check("progressive format me 22 bhi hai", '"22/' in MD_SRC or '"22"' in MD_SRC)
 check("merge-avoid note comment hai", "progressive" in MD_SRC.lower())
