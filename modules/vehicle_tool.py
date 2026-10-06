@@ -259,6 +259,11 @@ def _provider_lookup(plate: str) -> dict:
         return {"ok": False, "error": "Provider ne key nahi maani (401/403) — key check karo."}
     if r.status_code == 429:
         return {"ok": False, "error": "Provider ka limit khatam (429) — thodi der baad try karo."}
+    if r.status_code == 404:
+        return {"ok": False,
+                "error": ("Provider ne 404 diya (endpoint ka pata galat hai). RapidAPI par "
+                          "API kholo → Endpoints tab → poora URL copy karke "
+                          "VEHICLE_PROVIDER_URL me daalo.")}
     if r.status_code != 200:
         return {"ok": False, "error": f"Provider ne HTTP {r.status_code} diya."}
     try:

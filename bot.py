@@ -3307,6 +3307,7 @@ async def cmd_rcsetup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "<code>VEHICLE_PROVIDER_KEY = &lt;aapki X-RapidAPI-Key&gt;</code>\n\n"
         "6️⃣ Manual Deploy (Clear build cache) → phir <code>BR30AR0802</code> bhejo\n\n"
         "✅ Baaki sab bot khud sambhalta hai — headers, GET/POST, sab.\n"
+        "🧯 Kuch atke to bot me <b>/rcsetup</b> dobara bhejo, ya screenshot bhejo.\n"
         "💡 Provider na ho to bhi bot: State + RTO + challan ka <b>sarkari SMS tarika</b> deta hai.",
         parse_mode=HTML)
     return
