@@ -113,7 +113,7 @@ check("IMEI ask line naye format me hai",
       "🔗 <b>15-digit IMEI Number ya direct Device Model Name / Code bhejein:</b>" in _imei_p)
 check("IMEI me 1 valid example hai (v71: ek hi saaf example)",
       "862407054987700" in _imei_p)
-check("IMEI example ke saath label hai", "15 digit ka IMEI number" in _imei_p)
+check("IMEI prompt me sirf ask + example hai", _imei_p.count("<code>") == 1)
 check("example code-font me aata hai (v71 format)", "<code>" in _imei_p)
 
 # ---- NUMINFO + UPI (user ne jo maanga) ----
@@ -122,8 +122,8 @@ check("NUMBER INFO ask line sahi hai",
       "🔗 <b>10 Digit Number bhejein" in _np, _np[:140])
 check("NUMBER INFO me 1 valid example hai (10-digit)",
       "7857843092" in _np and _np.count("<code>") == 1, _np[:200])
-check("NUMBER INFO ask me bataya hai ki API se naam/pata aata hai",
-      "naam/pata" in _np)
+check("NUMBER INFO ask line saadi hai (koi gyaan nahi)",
+      "10 Digit Number bhejein:" in _np and "API" not in _np)
 # v59: UPI tool poora delete — uska prompt bhi nahi bachna chahiye
 check("v59: UPI prompt ab gayab (tool delete ho gaya)", bot.tool_prompt("upi") == "")
 
@@ -138,11 +138,11 @@ check("v67: purane 5th app ka example nahi aata",
       str(_vd.count("https://")))
 
 # ---- saare prompts ka structure ----
-check("saare prompts v71 format me (box + example + tip)",
-      all(("┏" in v and "<code>" in v) for v in bot.PROMPTS.values() if v))
+check("saare prompts v71.1 saade format me (box + ask + example)",
+      all(("┏" in v and "🔗 <b>" in v and "<code>" in v) for v in bot.PROMPTS.values() if v))
 check("saare prompts me ask line hai", all("🔗 <b>" in v for v in bot.PROMPTS.values() if v))
-check("har prompt me example + tip hai",
-      all("<code>" in v and "💡" in v for v in bot.PROMPTS.values() if v))
+check("kisi prompt me tip/gyaan nahi (user ka order)",
+      all("💡" not in v and "Tip:" not in v for v in bot.PROMPTS.values() if v))
 check("prompt me <code> me example value hai (copy karne layak)",
       all("<code>" in v for v in bot.PROMPTS.values()))
 check("tool_prompt() unknown key par crash nahi",

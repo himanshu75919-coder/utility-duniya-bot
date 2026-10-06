@@ -417,8 +417,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.0 FREE4ALL — RC + CHALLAN (Gaadi X-Ray) + "
-               "PREMIUM EXAMPLES/CARDS + 30-SECOND SPEED")
+BOT_VERSION = ("v71.1 FREE4ALL — SADE PROMPTS (koi tip nahi) + "
+               "VEHICLE INFO REPORT (user format) + 30-SECOND SPEED")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1414,7 +1414,7 @@ PROMPT_DATA = {
     },
     "numinfo": {
         "head": "📱 NUMBER INFO V2 ENGINE",
-        "ask": "10 Digit Number bhejein (API lagane par naam/pata/region bhi aata hai):",
+        "ask": "10 Digit Number bhejein:",
         "ex": [('7857843092', '10 digit ka mobile number')],
         "tip": '+91 ya 0 pehle lagane ki zaroorat nahi — seedha 10 digit bhejo',
         "foot": 'Circle · operator · owner card',
@@ -1605,21 +1605,20 @@ PROMPT_DATA = {
 
 
 def _render_tool_prompt(key: str) -> str:
-    """PROMPT_DATA → ready-to-send prompt (v71 — premium aesthetic format).
+    """PROMPT_DATA → ready-to-send prompt (v71.1 — BILKUL SAADA format).
 
-    Kaise dikhta hai (example):
+    User ka order: "sirf bolo kya bhejna hai — koi tip nahi, koi gyaan nahi,
+    kya result aayega wo bhi nahi."
+
+    Isliye har tool ka prompt itna hi:
 
         ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-        ┃ 📥 𝐈𝐍𝐒𝐓𝐀𝐆𝐑𝐀𝐌 𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑
+        ┃ 🚗 𝐑𝐂 + 𝐂𝐇𝐀𝐋𝐋𝐀𝐍 (𝐆𝐀𝐀𝐃𝐈 𝐗-𝐑𝐀𝐘)
         ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 
-        🔗 <b>Link bhejein:</b>
+        🔗 Gaadi ka number plate bhejein:
 
-           https://www.instagram.com/reel/C8xYzAbCdEf/
-           Reel ka link
-
-        💡 <b>Tip:</b> Share button se copy kiya pura link bhi chalega
-        ⚡ HD · bina watermark · 30 second me
+             BR01AB1234
     """
     d = PROMPT_DATA.get(key)
     if not d:
@@ -1635,15 +1634,7 @@ def _render_tool_prompt(key: str) -> str:
     ex = d.get("ex") or []
     if ex:
         L.append("")
-        for val, label in ex[:1]:
-            L.append(f"     <code>{hesc(str(val))}</code>")
-            if label:
-                L.append(f"     <i>{hesc(str(label))}</i>")
-    if d.get("tip"):
-        L.append("")
-        L.append(f"💡 <b>Tip:</b> {hesc(str(d['tip']))}")
-    if d.get("foot"):
-        L.append(f"⚡ {hesc(str(d['foot']))}")
+        L.append(f"     <code>{hesc(str(ex[0][0]))}</code>")
     return "\n".join(L)
 
 
@@ -4498,83 +4489,108 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
 
 
 def vahan_card(res: dict, offline: dict | None = None) -> str:
-    """🚗 RC + CHALLAN ka card (v71) — sab kuch bot ke andar.
+    """🚘 VEHICLE INFO REPORT — bilkul user ke diye format me (v71.1).
 
-    `res`   = provider/hub ka poora record (agar chala)
-    `offline` = plate ka sarkari matlab (state / RTO) — hamesha dikhta hai
+    User ka order: "sirf ye format, SMS/lecture lines nahi". Isliye card me
+    sirf wahi rows jo user ne dikhaye — jo data na ho wahan "-" / "N/A".
     """
     res = res or {}
     offline = offline or {}
     rc = res.get("rc") or {}
     ch = res.get("challans") or []
-    L = [pcard_title("🚗", "GAADI X-RAY (RC + CHALLAN)")]
-    _plate = str(rc.get("plate") or offline.get("plate") or "").upper()
-    L.append(f"🔢 <b>Number:</b> <code>{hesc(_plate)}</code>")
-    if offline.get("state_name"):
-        L.append(f"🗺️ <b>State:</b> {hesc(str(offline['state_name']))}")
-    if offline.get("district"):
-        L.append(f"🏢 <b>RTO Office:</b> {hesc(str(offline['district']))}")
-    if offline.get("vehicle_class"):
-        L.append(f"🧾 <b>Class (series se):</b> {hesc(str(offline['vehicle_class']))}")
 
-    if rc or ch:
-        L.append(pcard_sep())
-        if rc.get("maker") or rc.get("model"):
-            L.append(f"🚙 <b>Gaadi:</b> {hesc((str(rc.get('maker','')) + ' ' + str(rc.get('model',''))).strip())}")
-        if rc.get("owner"):
-            L.append(f"👤 <b>Owner:</b> {hesc(str(rc['owner']))}")
-        if rc.get("fuel"):
-            L.append(f"⛽ <b>Fuel:</b> {hesc(str(rc['fuel']))}")
-        if rc.get("colour"):
-            L.append(f"🎨 <b>Colour:</b> {hesc(str(rc['colour']))}")
-        if rc.get("reg_date"):
-            L.append(f"📅 <b>Registered:</b> {hesc(str(rc['reg_date']))}")
-        if rc.get("ins_company") or rc.get("ins_upto"):
-            L.append("🛡️ <b>Insurance:</b> "
-                     + hesc(" · ".join([x for x in (str(rc.get("ins_company") or ""),
-                                                    str(rc.get("ins_upto") or "")) if x])))
-        if rc.get("puc_upto"):
-            L.append(f"🌫️ <b>PUC valid till:</b> {hesc(str(rc['puc_upto']))}")
-        if rc.get("fitness_upto"):
-            L.append(f"🧪 <b>Fitness till:</b> {hesc(str(rc['fitness_upto']))}")
-        if rc.get("financer"):
-            _fin = str(rc["financer"]).strip().lower()
-            if _fin not in ("none", "no", "na", "n/a", "-", "null"):
-                L.append(f"🏦 <b>Loan/Lien:</b> {hesc(str(rc['financer']))}")
-            else:
-                L.append("🏦 <b>Loan/Lien:</b> ✅ koi loan nahi (clear)")
-        if rc.get("blacklist"):
-            _bl = str(rc["blacklist"]).strip().lower()
-            L.append("🚫 <b>Blacklist:</b> " + ("⚠️ HAAN — savdhan!" if _bl in ("yes", "y", "true", "1")
-                                                else "✅ nahi (saaf)"))
-        if res.get("count") is not None:
-            _cnt, _pend, _amt = int(res.get("count") or 0), int(res.get("pending") or 0), int(res.get("amount") or 0)
-            L.append(pcard_sep())
-            if _cnt == 0:
-                L.append("✅ <b>Challan:</b> koi challan nahi — bilkul saaf record")
-            else:
-                L.append(f"📋 <b>Challan:</b> total {_cnt} · pending {_pend}")
-                if _amt:
-                    L.append(f"💰 <b>Pending amount:</b> ₹{_amt:,}")
-                for _c in ch[:4]:
-                    _l1 = " • ".join([x for x in (str(_c.get("date") or ""), str(_c.get("offence") or ""),
-                                                  (f"₹{_c.get('amount')}" if _c.get("amount") else "")) if x])
-                    if _l1:
-                        L.append(f"   └ {hesc(_l1[:120])}")
-        if res.get("cached"):
-            L.append("⚡ <i>(yahi number pehle bhi dekha gaya tha — turant mila)</i>")
+    def _v(*keys, dash="-"):
+        for k in keys:
+            v = str(rc.get(k) or "").strip()
+            if v and v.lower() not in ("none", "null", "na", "n/a", "-"):
+                return v
+        return dash
+
+    _plate = (str(rc.get("plate") or offline.get("plate") or "")).upper()
+    _model = " ".join([x for x in (_v("maker", dash=""), _v("model", dash="")) if x]).strip() or "-"
+    _cc = _v("cc")
+    _engine = (f"{_cc} CC" if _cc != "-" else "N/A CC")
+    _ins = " · ".join([x for x in (_v("ins_company", dash=""), _v("ins_upto", dash="")) if x]) or "N/A"
+    _fin_raw = str(rc.get("financer") or "").strip()
+    if not _fin_raw or _fin_raw.lower() in ("null", "na", "n/a", "nan"):
+        _fin = "N/A"
+    elif _fin_raw.lower() in ("no", "none", "no loan", "not financed", "0"):
+        _fin = "✅ No Loan"
     else:
-        # provider abhi off — jhooth nahi, saaf baat + official SMS tarika
-        L.append(pcard_sep())
-        L.append("💡 <b>Poora RC + challan record ke liye:</b>")
-        L.append("   • Abhi sarkari SMS tarika ye hai: <code>VAHAN %s</code> aur "
-                 "<code>CHALLAN %s</code> likhkar <code>7738299899</code> par bhejo "
-                 "(official MoRTH/NIC gateway — free)" % (hesc(_plate), hesc(_plate)))
-        L.append("   • Live record (owner/insurance/challan) bot me lane ke liye owner ko "
-                 "provider API lagani hogi — bot me sab wiring ready hai.")
-    L.append(pcard_foot(ms=0, source="VAHAN/RTO provider"
-                        if (rc or ch) else "public plate records + official SMS gateway"))
-    return "\n".join([_l for _l in L if _l])
+        _fin = _fin_raw
+    _rto = _v("authority", "office_code") if _v("authority", dash="") else \
+        (str(offline.get("district") or "N/A"))
+    _city = _v("city")
+    if _city == "-":
+        _auth = str(rc.get("authority") or "")
+        _tok = [t for t in re.split(r"\s+", _auth) if t and not t.upper().startswith("BR")]
+        _city = _tok[1] if len(_tok) > 1 else (str(offline.get("district") or "-"))
+    _status = _v("status", "rc_status")
+    _status = "⚠️ N/A" if _status == "-" else _status
+    _puc = _v("puc_upto")
+    _puc = "⚠️ N/A" if _puc == "-" else _puc
+
+    VS = "━━━━━━━━━━━━━━━━━━━━"
+    L = ["╔════════════════════════════╗",
+         f"🚘 <b>{to_bold('VEHICLE INFO REPORT')}</b>",
+         "╚════════════════════════════╝",
+         "",
+         f"🚗 <b>{to_bold('VEHICLE INFORMATION')}</b>",
+         f"🔢 <b>Number:</b> <code>{hesc(_plate)}</code>",
+         VS,
+         f"├ 👤 <b>Owner:</b> {hesc(_v('owner'))}",
+         f"├ 🚘 <b>Model:</b> {hesc(_model)}",
+         f"├ ⛽ <b>Fuel:</b> {hesc(_v('fuel'))}",
+         f"├ 🏙️ <b>City:</b> {hesc(_city or '-')}",
+         f"📞 <b>Phone:</b> {hesc(_v('mobile', dash='NA'))}",
+         f"📍 <b>RTO:</b> {hesc(_rto or 'N/A')}",
+         "🏠 <b>Address:</b>",
+         hesc(_v("address", dash="-")),
+         VS,
+         f"🏍️ <b>{to_bold('Technical')} &amp; {to_bold('RC Specifications')}</b>",
+         f"├ 🆔 <b>RC Status :</b> {hesc(_status)}",
+         f"├ 🎨 <b>Color :</b> {hesc(_v('colour', 'color', dash='N/A'))}",
+         f"├ ⚙️ <b>Engine :</b> {hesc(_engine)}",
+         f"├ 📅 <b>Reg Date :</b> {hesc(_v('reg_date', 'mfg_year', dash='N/A'))}",
+         f"├ 🛡️ <b>Insurance :</b> {hesc(_ins)}",
+         f"├ 🌫️ <b>PUC :</b> {hesc(_puc)}",
+         f"└ 🏦 <b>Finance :</b> {hesc(_fin)}",
+         VS,
+         ""]
+
+    # ---------- CHALLAN ----------
+    _cnt = int(res.get("count") or 0)
+    _pend = int(res.get("pending") or 0)
+    _amt = int(res.get("amount") or 0)
+    L.append(f"🚨 <b>{to_bold('CHALLAN SUMMARY')}</b>")
+    if ch:
+        L.append(f"📋 <b>Total:</b> {_cnt or len(ch)}  •  ❌ <b>Pending:</b> {_pend or len(ch)}"
+                 + (f"  •  💰 ₹{_amt:,}" if _amt else ""))
+        L.append(VS)
+        L.append(f"🚨 <b>{to_bold('CHALLAN INFO')}</b>")
+        for _c in ch[:6]:
+            L.append("")
+            L.append(f"🔹 <b>Challan #:</b> <code>{hesc(str(_c.get('number') or '-'))}</code>")
+            if _c.get("accused"):
+                L.append(f"   👤 <b>Accused:</b> {hesc(str(_c['accused']))}")
+            if _c.get("amount"):
+                L.append(f"   💰 <b>Amount:</b> ₹{hesc(str(_c['amount']))}")
+            if _c.get("date"):
+                L.append(f"   📅 <b>Date:</b> {hesc(str(_c['date']))}")
+            _st = str(_c.get("status") or "").upper()
+            if _st:
+                _st = ("❌ " + _st) if "PEND" in _st else ("✅ " + _st)
+                L.append(f"   {_st}")
+            if _c.get("offence"):
+                L.append(f"   🛑 <b>Offence:</b> {hesc(str(_c['offence']))}")
+    elif rc:
+        L.append("✅ Koi challan nahi — saaf record")
+    else:
+        L.append("⚠️ Challan details temporarily live track status failed.")
+
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join([_l for _l in L if _l is not None])
 
 
 def whois_card(res: dict) -> str:

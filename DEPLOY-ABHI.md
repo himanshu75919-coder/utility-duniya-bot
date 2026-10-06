@@ -31,7 +31,7 @@ Telegram me bot ko likho:
 /version
 ```
 
-**Aana chahiye:** `v71.0`
+**Aana chahiye:** `v71.1`
 
 Agar **v59 / v64 / v67 / kuch purana** dikhe → deploy nahi hua, **Step 2 dobara** karo.
 
@@ -105,7 +105,78 @@ Aapne jo sample diya tha, ab bilkul wahi aayega:
 └ S/O Ram Akwal Sah, ward 02, Sitamarhi, Bihar, 843324
 ```
 
-# 💎 v71: PREMIUM EXAMPLES + SAAFE CARDS (aapka order)
+# 💎 v71.1: PROMPTS AB BILKUL SAADE (aapka order)
+
+**Koi tip nahi, koi gyaan nahi, "kya result aayega" wali line nahi** — sirf ye:
+
+```
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ 🚗 𝐑𝐂 + 𝐂𝐇𝐀𝐋𝐋𝐀𝐍 (𝐆𝐀𝐀𝐃𝐈 𝐗-𝐑𝐀𝐘)
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+
+🔗 Gaadi ka number plate bhejein:
+
+     BR01AB1234
+```
+
+Yehi saade format **saare 36 tools** me lag gaya.
+
+---
+
+# 🚘 RC + CHALLAN KA RESULT — ab aapke diye format me
+
+```
+╔════════════════════════════╗
+🚘 𝐕𝐄𝐇𝐈𝐂𝐋𝐄 𝐈𝐍𝐅𝐎 𝐑𝐄𝐏𝐎𝐑𝐓
+╚════════════════════════════╝
+
+🚗 𝐕𝐄𝐇𝐈𝐂𝐋𝐄 𝐈𝐍𝐅𝐎𝐑𝐌𝐀𝐓𝐈𝐎𝐍
+🔢 Number: BR30AR0802
+━━━━━━━━━━━━━━━━━━━━
+├ 👤 Owner: -
+├ 🚘 Model: HONDA SHINE
+├ ⛽ Fuel: PETROL
+├ 🏙️ City: Sitamarhi
+📞 Phone: 9199038422
+📍 RTO: BIHAR Sitamrahi BR-30
+🏠 Address:
+-
+━━━━━━━━━━━━━━━━━━━━
+🏍️ Technical & RC Specifications
+├ 🆔 RC Status : ⚠️ N/A
+├ 🎨 Color : BLACK+GREY STRIPES
+├ ⚙️ Engine : 99.0 CC
+├ 📅 Reg Date : 29-08-2025
+├ 🛡️ Insurance : GO DIGIT GENERAL INSURANCE LTD · 27-07-2030
+├ 🌫️ PUC : 28-08-2026
+└ 🏦 Finance : CREDIT WISE CAPITAL PVT LTD
+━━━━━━━━━━━━━━━━━━━━
+
+🚨 𝐂𝐇𝐀𝐋𝐋𝐀𝐍 𝐒𝐔𝐌𝐌𝐀𝐑𝐘
+📋 Total: 1 • ❌ Pending: 1 • 💰 ₹1,000
+━━━━━━━━━━━━━━━━━━━━
+🚨 𝐂𝐇𝐀𝐋𝐋𝐀𝐍 𝐈𝐍𝐅𝐎
+
+🔹 Challan #: BR250023260716183506
+   👤 Accused: R****T K***R
+   💰 Amount: ₹1,000
+   📅 Date: 16 Jul 2026
+   ❌ PENDING
+   🛑 Offence: DRIVING WITHOUT HELMET
+```
+
+- Aapke API (**BUZZ API 6.0 / ProPortalx**) ke saare keys map ho gaye:
+  Registration Authority, Manufacture Year, Chassis, Engine, Body Type, Category,
+  Cubic Capacity, Unladen/Sleeper Weight, Hypothecation Bank, Insurance Validity,
+  PUCC Upto, Owner Mobile — sab.
+- SMS wali lecture lines **poori hata di**.
+- Bihar ke **saare RTO codes** add (BR30 = Sitamarhi — ab "RTO office (district code 30)"
+  ki jagah seedha **Sitamarhi** aata hai).
+- **Provider key lagate hi ye card bharna shuru ho jayega** — `HUB-SETUP.md` dekho.
+
+---
+
+# 💎 v71: PREMIUM EXAMPLES (box + spacing)
 
 **Har tool ka prompt ab aisa dikhta hai** (ek hi **asli** example, box + tip ke saath):
 

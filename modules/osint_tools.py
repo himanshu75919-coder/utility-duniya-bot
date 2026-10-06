@@ -73,6 +73,18 @@ RTO_STATES = {
 # Popular RTO office codes (district level) — bade shehar
 RTO_DISTRICTS = {
     "BR01": "Patna", "BR02": "Gaya", "BR06": "Muzaffarpur", "BR07": "Darbhanga", "BR10": "Bhagalpur",
+    # v71.1: Bihar ke saare RTO (user ka BR30AR0802 -> BR30 = Sitamarhi)
+    "BR03": "Ara (Bhojpur)", "BR04": "Chhapra (Saran)", "BR05": "Motihari (Champaran)",
+    "BR08": "Munger", "BR09": "Begusarai", "BR11": "Purnia", "BR12": "Saharsa",
+    "BR13": "Sasaram (Rohtas)", "BR14": "Hajipur (Vaishali)", "BR15": "Siwan",
+    "BR16": "Khagaria", "BR17": "Samastipur", "BR18": "Bettiah", "BR19": "Chapra",
+    "BR20": "Jamui", "BR21": "Araria", "BR22": "Madhubani", "BR23": "Sitamarhi",
+    "BR24": "Buxar", "BR25": "Jehanabad", "BR26": "Nawada", "BR27": "Jamalpur",
+    "BR28": "Gopalganj", "BR29": "Sheikhpura", "BR30": "Sitamarhi",
+    "BR31": "Sheohar", "BR32": "Arwal", "BR33": "Kishanganj", "BR34": "Kaimur (Bhabua)",
+    "BR35": "Katihar", "BR36": "Supaul", "BR37": "Madhepura", "BR38": "Saharsa",
+    "BR39": "Bhagalpur", "BR43": "Nalanda (Biharsharif)", "BR44": "Lakhisarai",
+    "BR45": "Aurangabad", "BR46": "Bankura", "BR50": "Muzaffarpur",
     "UP32": "Lucknow", "UP65": "Varanasi", "UP70": "Prayagraj", "UP78": "Kanpur", "UP16": "Noida (Gautam Buddha Nagar)",
     "DL01": "Delhi (Mall Road)", "DL02": "Delhi (IP Depot)", "DL08": "Delhi (Wazirpur)", "DL09": "Delhi (Dwarka)",
     "MH01": "Mumbai (Tardeo)", "MH02": "Mumbai (Andheri)", "MH12": "Pune", "MH43": "Navi Mumbai",

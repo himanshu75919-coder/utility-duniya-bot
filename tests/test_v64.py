@@ -82,8 +82,9 @@ check("har tool premium ginti me hai",
 check("rate-limit prefix 'dl' laga hai (saare ek limit me)",
       "dl" in bot.TOOL_RATE_LIMITS)
 check("purana insta_dl bhi premium hai", bot.is_premium_tool("insta_dl"))
-check("insta_dl prompt me box + valid example + tip",
-      all(x in bot.tool_prompt("insta_dl") for x in ("┏", "instagram.com", "💡")))
+check("insta_dl prompt me box + valid example (tip nahi)",
+      all(x in bot.tool_prompt("insta_dl") for x in ("┏", "instagram.com"))
+      and "💡" not in bot.tool_prompt("insta_dl"))
 check("credits ke message me asli app ka naam aata hai",
       "Instagram" in bot.get_credits_over_text("dl_instagram"))
 check("credits ke message me YouTube ka naam",

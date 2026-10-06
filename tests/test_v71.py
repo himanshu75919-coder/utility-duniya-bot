@@ -58,7 +58,7 @@ def _clean(t):
 
 
 # =====================================================================
-section("[A] 🎨 PROMPTS — premium box + EK valid example + tip")
+section("[A] 🎨 PROMPTS — sirf box + ask + EK example (koi tip nahi)")
 # =====================================================================
 _bad_words = ("xxxxx", "example.com/very", "kisi-site", "myexample")
 for _k, _p in bot.PROMPTS.items():
@@ -77,8 +77,12 @@ for _k, _url in (("instagram", "instagram.com/reel/"),
                  ("tiktok", "tiktok.com/")):
     check(f"dl_{_k} ka example asli link jaisa hai ({_url})", _url in bot.DL_SITES[_k][3])
 
-check("jis tool ka sub ho, usme tip aata hai", "💡 <b>Tip:</b>" in bot.PROMPTS["numinfo"])
-check("downloader me '30 second' wada dikhta hai", "30 second" in bot.PROMPTS["dl_youtube"])
+check("prompt me koi Tip/gyaan nahi", "💡" not in bot.PROMPTS["numinfo"]
+      and "Tip" not in bot.PROMPTS["numinfo"])
+check("prompt me 'kya result aayega' wali line nahi (⚡ nahi)",
+      "⚡" not in bot.PROMPTS["dl_youtube"])
+check("prompt ki aakhri line example hi hai",
+      bot.PROMPTS["vahan"].rstrip().endswith("</code>"))
 
 # =====================================================================
 section("[B] 🖼️ CARDS — space, emoji, aasan shabd")
@@ -130,27 +134,40 @@ check("galat plate par saaf error",
 check("offline parse (provider ke bina) state nikaalta hai",
       VT.offline_parse("BR01AB1234").get("state_name") == "Bihar")
 
-_o = VT.offline_parse("BR01AB1234")
+_o = VT.offline_parse("BR30AR0802")
 _c1 = _clean(bot.vahan_card({}, _o))
-check("card me number + state + RTO aata hai",
-      "BR01AB1234" in _c1 and "Bihar" in _c1 and "RTO Office:" in _c1)
-check("provider off ho to jhooth nahi — SMS tarika batata hai",
-      "7738299899" in _c1 and "VAHAN" in _c1)
-check("card me koi link nahi (sirf SMS number)", "http" not in _c1.split("Powered by")[0])
+check("card user ke format me hai (VEHICLE INFO REPORT)",
+      bot.to_bold("VEHICLE INFO REPORT") in bot.vahan_card({}, _o))
+check("card me Number + RTO row aata hai", "BR30AR0802" in _c1 and "📍 RTO:" in _c1)
+check("card me saare section headings hain",
+      all(x in _c1 for x in (bot.to_bold("VEHICLE INFORMATION"),
+                             bot.to_bold("RC Specifications"),
+                             bot.to_bold("CHALLAN SUMMARY"))))
+check("data na ho to bhi rows 'N/A' / '-' se dikhte hain (khaali nahi)",
+      "├ 👤 Owner:" in _c1 and "⚠️ N/A" in _c1)
+check("koi SMS/lecture line nahi (user ka order)", "7738299899" not in _c1
+      and "VAHAN" not in _c1 and "provider API" not in _c1)
+check("card me koi link nahi", "http" not in _c1.split("Powered by")[0])
 
 # provider aane par card (dummy data se test)
 _c2 = _clean(bot.vahan_card({
     "rc": {"plate": "BR01AB1234", "owner": "SANJAY SAH", "maker": "MARUTI", "model": "SWIFT",
            "fuel": "PETROL", "reg_date": "12-03-2019", "ins_company": "ICICI Lombard",
-           "ins_upto": "11-03-2027", "financer": "none", "blacklist": "no", "colour": "WHITE"},
-    "challans": [{"date": "01-02-2026", "offence": "No helmet", "amount": "500"}],
-    "count": 1, "pending": 1, "amount": 500, "cached": True}, _o))
+           "ins_upto": "11-03-2027", "financer": "none", "colour": "WHITE",
+           "mobile": "9876543210", "authority": "BIHAR Sitamarhi BR-30", "cc": "1197"},
+    "challans": [{"number": "BR250023260716183506", "accused": "R****T K***R",
+                  "date": "16 Jul 2026", "offence": "DRIVING WITHOUT HELMET",
+                  "amount": "1,000", "status": "PENDING"}],
+    "count": 1, "pending": 1, "amount": 1000}, _o))
 check("provider data par poori detail aati hai",
-      all(x in _c2 for x in ("SANJAY SAH", "MARUTI SWIFT", "ICICI Lombard", "Loan/Lien",
-                             "Blacklist", "Challan")))
-check("loan nahi ho to 'clear' likhta hai", "clear" in _c2)
-check("challan card me amount ₹ me aata hai", "₹" in _c2)
-check("cached hone par 'turant mila' likhta hai", "turant mila" in _c2)
+      all(x in _c2 for x in ("SANJAY SAH", "MARUTI SWIFT", "ICICI Lombard",
+                             "Finance :", "9876543210", "1197 CC")))
+check("loan nahi ho to 'No Loan' likhta hai", "No Loan" in _c2)
+check("challan summary + challan info rows aate hain",
+      bot.to_bold("CHALLAN SUMMARY") in _c2 and bot.to_bold("CHALLAN INFO") in _c2
+      and "Accused:" in _c2 and "DRIVING WITHOUT HELMET" in _c2)
+check("challan me amount ₹ me + PENDING status",
+      "₹1,000" in _c2 and "PENDING" in _c2)
 
 # provider env se mapping (RapidAPI jaise headers)
 os.environ["VEHICLE_PROVIDER_URL"] = "https://x.example/api"
