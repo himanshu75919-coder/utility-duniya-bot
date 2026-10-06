@@ -382,9 +382,9 @@ def track(tool: str, result: Any, ms: float = 0.0, credit: bool = False) -> bool
 
     Bot handlers me aise use hota hai:
         res = await asyncio.to_thread(engine, arg)
-        ok = track(, res)
+        ok = track("<tool_key>", res)
         if ok:
-            await ...spend_credit_msg(uid, )
+            await ...spend_credit_msg(uid, "<tool_key>")
     Soft-fail (service ki galti) par `ok=False` aata hai, aur `is_soft_fail(res)`
     se pata chalta hai ki credit nahi katna chahiye.
     """

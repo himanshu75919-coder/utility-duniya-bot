@@ -180,13 +180,6 @@ build_upi_link(pa, pn, amt=None, note="", txn_ref="", mam="")   # ValueError on 
 ff_player_info(text, region="")   # region aliases + auto-detect internally
 ff_regions() · ff_service_status(force=False) · bgmi_availability(force=False)
 
-# modules/.py
-pinterest_search(q) · pinterest_pin_detail(id) · pinterest_from_pin_link(link)
-
-# modules/web_tools.py
-scrape_public_text(url, markdown=True, use_cache=True)
-  # -> {ok,title,desc,text,markdown,words,reading_min,paragraphs,author,date,site}
-
 # modules/temp_mail.py
 tm_create() · tm_poll(addr, token, seen_ids) · tm_messages(...) · extract_codes(...)
   # tm_poll -> {ok,count,new_count,messages,codes,new_codes,all_ids,expired}
@@ -214,15 +207,6 @@ Dost ka game UID bhejo → **player ka naam, level, rank, K/D, last login** — 
 - 🔥 **FF UID**: Garena ke public profile data se (free API) — 13 regions (IND/BR/SG/US...) support
 - 🎮 **BGMI UID**: best-effort public stats + official in-game guide (BGMI India ke liye free public API officially nahi hai — kabhi fake data nahi)
 - ⚠️ "Private leaderboard" / real identity wala data **kabhi nahi** — sirf public in-game data
-
-### 📌 NAYA: PINTEREST (image HD download)
-- **PIN LINK** bhejo (app se copy link) → **original quality** image download
-- **KEYWORD** bhejo → 6 public images dikhte hain → tap karke download
-- Pinterest ka official CDN (i..com) se direct — koi API key nahi
-
-### 📄 NAYA: WEB SCRAPER (public page → clean text)
-Koi bhi public article/blog/news page ka link bhejo → poora text saaf format me (bada page = .txt file).
-SSRF-protected — private/internal IPs kabhi nahi khulte.
 
 ### 📧 NAYA: TEMP MAIL (disposable email + inbox)
 `NEW` bhejo → ek-baar ka email ID (mail.tm free API) → kisi bhi jagah signup/OTP ke liye.
