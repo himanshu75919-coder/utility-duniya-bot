@@ -424,7 +424,7 @@ check("saare command handlers ke function zinda hain (patch casualty lock)",
 # =====================================================================
 section("6) 🧾 SANITY — version + kuch toota nahi")
 # =====================================================================
-check("BOT_VERSION v59 hai", 'BOT_VERSION = "v59.' in BOT_SRC,
+check("BOT_VERSION v59+ hai", any(f'BOT_VERSION = "v{n}.' in BOT_SRC for n in range(59, 70)),
       re.search(r'BOT_VERSION = "([^"]+)"', BOT_SRC).group(1) if
       re.search(r'BOT_VERSION = "([^"]+)"', BOT_SRC) else "?")
 check("prompt system zinda hai (tool_prompt sanitize karta hai)",
@@ -722,7 +722,7 @@ check("v59.9: render.yaml me WEBHOOK_MODE = auto (polling lock hataya)",
       (Path(__file__).resolve().parents[1] / "render.yaml").read_text(encoding="utf-8")
       .count("- key: WEBHOOK_MODE\n        value: auto") == 1)
 check("BOT_VERSION v59.9+ hai (auto-webhook wala)",
-      any(x in bot.BOT_VERSION for x in ("v59.9", "v59.10", "v59.11")), bot.BOT_VERSION)
+      any(x in bot.BOT_VERSION for x in ("v59.9", "v59.10", "v59.11", "v60.", "v61.", "v62.")), bot.BOT_VERSION)
 check("v59.9.1: purana WEBHOOK_MODE=polling bhi ab auto (dashboard value webhook band nahi karti)",
       webhook_url_from_env({"WEBHOOK_MODE": "polling",
                             "RENDER_EXTERNAL_URL": "https://x.onrender.com"}) == "https://x.onrender.com")
@@ -752,7 +752,7 @@ check("v59.9.2+: /health par 'bot:' line (aakhri message) dikhti hai",
       "bot: {_last_update_line()}" in BOT_SRC)
 check("v59.10: /version par 'Live check' line dikhti hai", "Live check:</b>" in BOT_SRC)
 check("BOT_VERSION v59.10+ hai (live proof wala)",
-      any(x in bot.BOT_VERSION for x in ("v59.10", "v59.11")), bot.BOT_VERSION)
+      any(x in bot.BOT_VERSION for x in ("v59.10", "v59.11", "v60.", "v61.", "v62.")), bot.BOT_VERSION)
 
 # --- v59.11: Conflict aane par auto webhook switch (Render logs ka error khatam) ---
 check("v59.11: _force_webhook_after_conflict() maujood hai",

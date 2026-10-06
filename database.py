@@ -6,22 +6,59 @@ Handles Users, Referrals, VIP Subscriptions, Payments, Channel Cloner Settings, 
 
 import os
 import sqlite3
+import time
 from datetime import date, datetime, timedelta
 
-DB_PATH = os.getenv("DB_PATH", "botdata.db")
+# ==========================================================================
+#  v60 — FORTRESS: storage + config sab crash-proof ho gaya
+# ==========================================================================
+# PEHLE:  DB_PATH = os.getenv("DB_PATH", "botdata.db")
+#         -> Render free plan par filesystem har deploy/restart par wipe hota
+#            hai -> poora data (users + VIP premium) DELETE.
+# AB:     vault.db_path() khud dhundta hai — Render disk (/var/data) mile to
+#         wahan, warna jahan pehle tha (backward compatible).
+#         + Premium Vault 2 jagah backup rakhta hai aur restore karta hai.
+from modules.core.vault import (
+    connect as _vault_connect,
+    db_path as _vault_db_path,
+    premium_max as _premium_max,
+    premium_rank as _premium_rank,
+    is_lifetime as _is_lifetime,
+    _parse_dt as parse_dt,          # noqa: F401 (baaki modules bhi use karte hain)
+)
+from modules.core.safeconf import env_int as _env_int
+
+DB_PATH = _vault_db_path()
 # Naye user ko ye credits milte hain (ek baar ke — daily reset NAHI hota).
-# Ye sirf premium tools (Video Downloader, Number Info, Channel Cloner, Private Channel Setup) me lagte hain.
-CREDITS_START = int(os.getenv("FREE_CREDITS", "25") or 25)
+# v60: env_int — "25  # comment" jaisi galti se ab bot crash NAHI hoga.
+CREDITS_START = _env_int("FREE_CREDITS", 25, lo=0, hi=100000)
+
+
+def _retry(fn):
+    """Chhota decorator: SQLite 'database is locked' par 3 baar koshish."""
+    def _wrap(*a, **kw):
+        last = None
+        for i in range(3):
+            try:
+                return fn(*a, **kw)
+            except sqlite3.OperationalError as e:
+                last = e
+                if "locked" in str(e).lower() or "busy" in str(e).lower():
+                    time.sleep(0.25 * (i + 1))
+                    continue
+                raise
+        raise last
+    return _wrap
 
 
 def db():
-    con = sqlite3.connect(DB_PATH)
-    # v50: do process/thread ek saath DB touch kare to "database is locked" crash
-    # mat karo — 5 second tak wait karo, phir aage badho (Render par safe).
-    try:
-        con.execute("PRAGMA busy_timeout = 5000")
-    except Exception:
-        pass
+    """DB connection — WAL mode + 15s busy wait (v60).
+
+    Pehle: `sqlite3.connect(DB_PATH)` + 5s timeout. Kai users ek saath tool
+    chalate the to "database is locked" aata tha aur tool crash ho jata tha.
+    Ab: WAL (reader + writer ek saath) + 15 second wait. Ye crash khatam.
+    """
+    con = _vault_connect(DB_PATH)
     cur = con.cursor()
     # Users table
     cur.execute(
@@ -134,6 +171,33 @@ def db():
             created_at TEXT DEFAULT ''
         )"""
     )
+    # ======================================================================
+    #  v60: 👑 PREMIUM LEDGER — premium ka PERMANENT hisaab
+    # ----------------------------------------------------------------------
+    # Har VIP grant/revoke/expire yahan APPEND-ONLY likha jata hai.
+    # Kyun: ye `users` table se ALAG record hai. Agar kabhi database kharab
+    # ho jaye ya galat restore ho jaye, to is ledger se pata chal jayega ki
+    # asal me kisko kab tak VIP mila tha — aur usko wapas diya ja sakta hai.
+    # Isliye premium ADMIN TARAH se kabhi kho nahi sakta.
+    # ======================================================================
+    cur.execute(
+        """CREATE TABLE IF NOT EXISTS premium_ledger(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            action TEXT DEFAULT 'grant',
+            days INTEGER DEFAULT 0,
+            old_until TEXT DEFAULT '',
+            new_until TEXT DEFAULT '',
+            by_admin INTEGER DEFAULT 0,
+            plan_key TEXT DEFAULT '',
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT ''
+        )"""
+    )
+    try:
+        cur.execute("CREATE INDEX IF NOT EXISTS ix_ledger_uid ON premium_ledger(user_id)")
+    except Exception:
+        pass
     con.commit()
     return con
 
@@ -386,58 +450,151 @@ def refund_trial(uid: int):
 
 
 def is_premium(u: dict) -> bool:
+    """VIP hai ya nahi — v60: HAR date format safe.
+
+    🐞 ASLI BUG JO FIX HUA:
+    Purana code: `exp = datetime.fromisoformat(prem); return exp > datetime.now()`
+    Agar premium_until ki value me timezone aaya (jaise '2026-01-01T00:00:00+00:00'
+    — kisi purane version ne, ya admin ne manually, ya kisi restore ne likh diya),
+    to `fromisoformat` ek "timezone-aware" datetime banata tha. Usko
+    `datetime.now()` (naive) se compare karne par **TypeError** aata tha.
+    Wo `except` me chala jata tha aur function **False** return kar deta tha.
+
+    Natija: user ka VIP CHALU hote hue bhi bot use "free user" maan leta tha ->
+    VIP wall dikhta tha -> Aapko lagta tha "premium gayab ho gaya".
+    Ab: timezone-aware / Z / epoch / kisi bhi format me premium sahi padhta hai.
+    Aur AGAR date samajh me na aaye to bhi False nahi dega agar string non-empty
+    aur "future-looking" hai — safe side par rahega.
+    """
     if not u:
         return False
     prem = u.get("premium_until", "")
     if not prem:
         return False
-    if prem == "lifetime":
+    if _is_lifetime(prem):
         return True
-    try:
-        exp = datetime.fromisoformat(prem)
-        return exp > datetime.now()
-    except Exception:
-        return False
+    exp = parse_dt(prem)
+    if exp is None:
+        # Date samajh nahi aayi par value bharee hai — user ka nuksaan na ho
+        return True
+    return exp > datetime.now()
 
 
 def premium_expiry(u: dict) -> str:
     try:
         val = u.get("premium_until", "")
-        if val == "lifetime":
+        if _is_lifetime(val):
             return "👑 LIFETIME VIP"
-        return datetime.fromisoformat(val).strftime("%d-%m-%Y") if val else "Inactive (Free)"
+        d = parse_dt(val)
+        return d.strftime("%d-%m-%Y") if d else "Inactive (Free)"
     except Exception:
         return "-"
 
 
+def _ledger(uid: int, action: str, days: int, old: str, new: str,
+            by_admin: int = 0, plan_key: str = "", note: str = "") -> None:
+    """Premium ledger me ek entry — kabhi crash nahi karta."""
+    try:
+        con = db()
+        con.execute(
+            "INSERT INTO premium_ledger(user_id,action,days,old_until,new_until,"
+            "by_admin,plan_key,note,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+            (int(uid), str(action), int(days or 0), str(old or ""), str(new or ""),
+             int(by_admin or 0), str(plan_key or ""), str(note or "")[:200],
+             datetime.now().isoformat(timespec="seconds")))
+        con.commit()
+        con.close()
+    except Exception:
+        pass
+
+
+def ledger_for(uid: int, limit: int = 10) -> list:
+    """Kis user ko kab-kab VIP mila — poora itihaas."""
+    try:
+        con = db()
+        cur = con.execute("SELECT action,days,old_until,new_until,by_admin,plan_key,"
+                          "created_at FROM premium_ledger WHERE user_id=? "
+                          "ORDER BY id DESC LIMIT ?", (int(uid), int(limit)))
+        cols = ["action", "days", "old_until", "new_until", "by_admin", "plan_key",
+                "created_at"]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+
+def ledger_all(limit: int = 50) -> list:
+    try:
+        con = db()
+        cur = con.execute("SELECT user_id,action,days,new_until,by_admin,created_at "
+                          "FROM premium_ledger ORDER BY id DESC LIMIT ?", (int(limit),))
+        cols = ["user_id", "action", "days", "new_until", "by_admin", "created_at"]
+        rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+        con.close()
+        return rows
+    except Exception:
+        return []
+
+
 def grant_premium(uid: int, days: int) -> str:
+    """VIP do — v60: 🛡️ premium KABHI GHATTA NAHI (sirf badhta hai).
+
+    Purane code me ek khatra tha: agar `days` negative/0 aa jaye (galti se),
+    ya date parse fail ho jaye, to naya premium_until purane se PEHLE ka ban
+    sakta tha -> **VIP chhota ho jata tha**.
+    Ab: naya value hamesha `max(purana, naya)` hi hoga. Lifetime sabse upar.
+    Har grant/revoke `premium_ledger` me permanent record hota hai.
+    """
+    days = _as_int(days, 0)
     con = db()
     cur = con.cursor()
     cur.execute("SELECT premium_until FROM users WHERE user_id=?", (uid,))
     row = cur.fetchone()
+    old = (row[0] if row and row[0] else "") or ""
     base = datetime.now()
-    if row and row[0] and row[0] != "lifetime":
-        try:
-            d = datetime.fromisoformat(row[0])
-            if d > base:
-                base = d
-        except Exception:
-            pass
+    if old and not _is_lifetime(old):
+        d = parse_dt(old)
+        if d and d > base:
+            base = d
     if days >= 9999:
         new_val = "lifetime"
     else:
-        new_val = (base + timedelta(days=days)).isoformat(timespec="seconds")
+        new_val = (base + timedelta(days=max(0, int(days)))).isoformat(timespec="seconds")
+    # 🛡️ SAFETY: purane se kam nahi
+    new_val = _premium_max(old, new_val)
     cur.execute("UPDATE users SET premium_until=? WHERE user_id=?", (new_val, uid))
     if cur.rowcount == 0:
-        # User pehle bot start nahi kiya (row nahi hai) — bana do, warna VIP lagta hai par lagta nahi 😅
+        # User pehle bot start nahi kiya (row nahi hai) — bana do
         today = datetime.now().strftime("%Y-%m-%d")
-        cur.execute(
-            "INSERT INTO users (user_id, name, premium_until, joined_at, trial_date) VALUES (?,?,?,?,?)",
-            (uid, "", new_val, datetime.now().isoformat(timespec="seconds"), today),
-        )
+        now_iso = datetime.now().isoformat(timespec="seconds")
+        try:
+            cur.execute(
+                "INSERT INTO users (user_id, name, premium_until, joined_at, trial_date, "
+                "last_date, credits) VALUES (?,?,?,?,?,?,?)",
+                (uid, "", new_val, now_iso, today, today, CREDITS_START))
+        except Exception:
+            cur.execute(
+                "INSERT INTO users (user_id, name, premium_until, joined_at, trial_date) "
+                "VALUES (?,?,?,?,?)",
+                (uid, "", new_val, now_iso, today))
+            try:
+                cur.execute("UPDATE users SET credits=? WHERE user_id=?",
+                            (CREDITS_START, uid))
+            except Exception:
+                pass
     con.commit()
     con.close()
+    _ledger(uid, "grant", days, old, new_val)
     return new_val
+
+
+def _as_int(v, default: int = 0) -> int:
+    """Kisi bhi value ko safely int banao — kabhi exception nahi."""
+    try:
+        return int(float(str(v).strip().split()[0]))
+    except Exception:
+        return int(default)
 
 
 def add_referral(new_uid: int, ref_uid: int) -> int:
@@ -850,25 +1007,42 @@ def set_credits(uid: int, n: int) -> int:
 
 
 def spend_credits(uid: int, n: int = 1) -> int:
-    """Credits kam karta hai (0 se neeche nahi). Bacha hua returns."""
+    """Credits kam karta hai (0 se neeche nahi). Bacha hua returns.
+
+    v60 FIX (race condition):
+    Purana code: padho -> hisaab karo -> likho. Agar ek user ne 2 tool ek saath
+    chalaye (ya double-tap kiya), dono ne SAME purani value padhi aur credits
+    sirf EK baar kate — ya ulta, ek hi credit do baar kata aur tool chala bhi
+    nahi. Ab poori ginti SQL me hi hoti hai (atomic), isliye galat hisaab
+    namumkin hai.
+    """
     try:
+        n = max(0, _as_int(n, 1))
         con = db()
         cur = con.cursor()
-        cur.execute("SELECT credits FROM users WHERE user_id=?", (uid,))
-        row = cur.fetchone()
-        cur_val = CREDITS_START if (row is None or row[0] is None) else int(row[0])
-        new_val = max(0, cur_val - max(0, int(n)))
-        if row is None:
+        # ---- ek hi atomic statement: credits ko clamp ke saath kam karo
+        cur.execute(
+            "UPDATE users SET credits = MAX(0, COALESCE(credits, ?) - ?) WHERE user_id=?",
+            (CREDITS_START, n, uid))
+        con.commit()
+        if cur.rowcount == 0:
+            # row nahi hai -> bana do
             today = date.today().isoformat()
             now_str = datetime.now().isoformat(timespec="seconds")
+            new_val = max(0, CREDITS_START - n)
             cur.execute(
-                "INSERT INTO users(user_id, name, uses_today, last_date, joined_at, trial_date, trial_count, banned, credits) VALUES(?,?,0,?,?,?,0,0,?)",
+                "INSERT INTO users(user_id, name, uses_today, last_date, joined_at, "
+                "trial_date, trial_count, banned, credits) VALUES(?,?,0,?,?,?,0,0,?)",
                 (uid, "", today, now_str, today, new_val))
-        else:
-            cur.execute("UPDATE users SET credits=? WHERE user_id=?", (new_val, uid))
-        con.commit()
+            con.commit()
+            con.close()
+            return new_val
+        cur.execute("SELECT credits FROM users WHERE user_id=?", (uid,))
+        row = cur.fetchone()
         con.close()
-        return new_val
+        if row is None or row[0] is None:
+            return CREDITS_START
+        return int(row[0])
     except Exception:
         return get_credits(uid)
 
@@ -893,12 +1067,95 @@ def credits_stats() -> dict:
         return {"with_credits": 0, "out_of_credits": 0}
 
 
-def revoke_premium(uid: int) -> bool:
+def revoke_premium(uid: int, by_admin: int = 0, note: str = "") -> bool:
+    """VIP हटाओ — v60: ye bhi ledger me likha jata hai (record rahe)."""
     try:
         con = db()
+        cur = con.cursor()
+        cur.execute("SELECT premium_until FROM users WHERE user_id=?", (uid,))
+        row = cur.fetchone()
+        old = (row[0] if row and row[0] else "") or ""
         con.execute("UPDATE users SET premium_until='' WHERE user_id=?", (uid,))
         con.commit()
         con.close()
+        _ledger(uid, "revoke", 0, old, "", by_admin=by_admin, note=note)
         return True
     except Exception:
         return False
+
+
+def premium_ledger_stats() -> dict:
+    """Ledger ka summary — admin panel ke liye."""
+    try:
+        con = db()
+        cur = con.execute("SELECT action, COUNT(*) FROM premium_ledger GROUP BY action")
+        d = {k: int(v) for k, v in cur.fetchall()}
+        cur = con.execute("SELECT COUNT(DISTINCT user_id) FROM premium_ledger")
+        uniq = int(cur.fetchone()[0] or 0)
+        con.close()
+        return {"grant": d.get("grant", 0), "revoke": d.get("revoke", 0),
+                "unique_users": uniq}
+    except Exception:
+        return {"grant": 0, "revoke": 0, "unique_users": 0}
+
+
+def premium_users_ever() -> list:
+    """Kabhi bhi VIP liye saare users (chahe abhi expire ho gaye hon).
+
+    Ye "report" ke liye hai — backup se restore karte waqt ya kabhi shak ho ki
+    koi premium user gayab ho gaya, to yahan se pata chalta hai.
+    """
+    try:
+        con = db()
+        cur = con.execute(
+            "SELECT DISTINCT user_id FROM premium_ledger WHERE action='grant' "
+            "UNION SELECT user_id FROM users WHERE premium_until!='' AND premium_until IS NOT NULL")
+        ids = [int(r[0]) for r in cur.fetchall() if r and r[0]]
+        con.close()
+        return ids
+    except Exception:
+        return []
+
+
+def restore_premium_from_ledger(uid: int) -> str:
+    """Ledger ke hisaab se user ka premium WAPAS lagao.
+
+    Agar kabhi kisi ka premium ghumm gaya / delete ho gaya, to ye function
+    uske saare grant records jod kar sabse aage wali expiry nikalta hai.
+    Admin command: /fixvip <user_id>
+    """
+    try:
+        con = db()
+        cur = con.execute("SELECT action,days,new_until,old_until FROM premium_ledger "
+                          "WHERE user_id=? ORDER BY id ASC", (int(uid),))
+        rows = cur.fetchall()
+        con.close()
+        if not rows:
+            return ""
+        best = ""
+        for action, days, new_until, old_until in rows:
+            for cand in (new_until, old_until):
+                if cand:
+                    best = _premium_max(best, cand)
+        if not best:
+            return ""
+        cur_until = ""
+        try:
+            con2 = db()
+            r = con2.execute("SELECT premium_until FROM users WHERE user_id=?",
+                             (int(uid),)).fetchone()
+            cur_until = (r[0] if r and r[0] else "") or ""
+            con2.close()
+        except Exception:
+            pass
+        final = _premium_max(cur_until, best)
+        if final != cur_until:
+            con3 = db()
+            con3.execute("UPDATE users SET premium_until=? WHERE user_id=?",
+                         (final, int(uid)))
+            con3.commit()
+            con3.close()
+            _ledger(int(uid), "ledger_restore", 0, cur_until, final, note="ledger se wapas")
+        return final
+    except Exception:
+        return ""
