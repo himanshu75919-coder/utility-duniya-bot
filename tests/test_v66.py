@@ -15,6 +15,7 @@ Boss ki shikayatein:
 """
 import asyncio
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -219,7 +220,7 @@ check("purana insta_dl (any link) zinda", "insta_dl" in bot.PREMIUM_TOOLS)
 # =====================================================================
 section("[F] 🔁 KUCH PURANA TOOTA NAHI + VERSION")
 # =====================================================================
-check("version v66+ hai", "v6" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v66+ hai", re.search(r"v(?:6[6-9]|[7-9][0-9])\.", bot.BOT_VERSION) is not None, bot.BOT_VERSION)
 check("12 business tools zinda", len(bot.BIZ_MENU) >= 12)
 check("wizard zinda", len(bot.BIZ_STEPS) == 12)
 check("saare tools FREE mode ON", bot.ALL_FREE is True)

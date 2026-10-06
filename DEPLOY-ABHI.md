@@ -31,7 +31,7 @@ Telegram me bot ko likho:
 /version
 ```
 
-**Aana chahiye:** `v69.0`
+**Aana chahiye:** `v70.0`
 
 Agar **v59 / v64 / v67 / kuch purana** dikhe → deploy nahi hua, **Step 2 dobara** karo.
 
@@ -104,6 +104,26 @@ Aapne jo sample diya tha, ab bilkul wahi aayega:
 🏠 Address:
 └ S/O Ram Akwal Sah, ward 02, Sitamarhi, Bihar, 843324
 ```
+
+# 🌐 NAYA TOOL (v70): WEBSITE OWNER X-RAY
+
+Keyboard me **`🌐 WEBSITE OWNER X-RAY`** button aa gaya hai (NUMBER INFO ke
+theek neeche). Kisi bhi website ka naam ya link bhejo — **result bot ke andar
+hi aayega, koi link nahi kholna**:
+
+```
+🔖 Domain: bihar.gov.in
+📅 Banaya: 18-03-2008  •  ⏳ 18 saal 6 mahine purana
+⌛ Khatam: 18-03-2027  •  ✅ 163 din bache
+🏢 Registrar: National Informatics Centre
+👤 Malik (public record): Information Technology Department Government of Bihar
+📋 Status: ✅ active
+💡 Matlab: ✅ Ye website purani hai — bharosa karne layak lagti hai.
+```
+
+Online dukaan se paisa dene se pehle — **site purani hai ya kal bani** — turant pata.
+
+---
 
 Iske neeche purani technical lines bhi rahengi (Number / Country / Type / Source /
 Response) — **kuch bhi nahi hataya**. Naam-pita-pata wala data aapki apni API se aata hai

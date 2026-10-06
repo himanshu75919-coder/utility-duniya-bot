@@ -221,7 +221,7 @@ check("purane emi prompt ka head waisa hi hai",
 check("purane 10 business tools abhi bhi render karte hain",
       all(bot.biz_build(k, bot.biz_parse(k, "A | B | C", "X")).get("ok") is not None
           for k in _OLD10))
-check("PREMIUM_TOOLS 34 (32 + 2 naye)", len(bot.PREMIUM_TOOLS) == 34,
+check("PREMIUM_TOOLS 35 (32 + 2 naye + v70 whois)", len(bot.PREMIUM_TOOLS) == 35,
       str(len(bot.PREMIUM_TOOLS)))
 check("keyboard me BUSINESS STUDIO button zinda",
       any("BUSINESS STUDIO" in bot.unbold(b).upper() for r in bot.KB_BTNS for b in r))

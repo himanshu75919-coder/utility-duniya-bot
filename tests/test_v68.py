@@ -12,6 +12,7 @@ Boss ki shikayatein (screenshot + message se):
 """
 import asyncio
 import os
+import re
 import sys
 import tempfile
 import threading
@@ -179,7 +180,7 @@ check("purane tools bhi zinda (kuch nahi hata)",
 check("/speed command hai", hasattr(bot, "cmd_speed"))
 check("cache stats function hai", callable(MD.dl_cache_stats))
 check("version naya hai (v68 ya usse upar)",
-      "v68" in bot.BOT_VERSION or bot.BOT_VERSION.startswith("v69"),
+      re.search(r"v(?:6[8-9]|[7-9][0-9])\.", bot.BOT_VERSION) is not None,
       bot.BOT_VERSION)
 
 # =====================================================================

@@ -254,6 +254,7 @@ from modules.osint_tools import (
     lookup_ifsc,
     lookup_phone_info,
     lookup_pincode,
+    lookup_whois,        # v70: 🌐 WEBSITE OWNER X-RAY (RDAP public record)
 )
 from modules.gaming_tools import (
     ff_player_info,
@@ -344,6 +345,7 @@ TOOL_RATE_LIMITS = {
     "ffuid":       (8,  60,  "FF UID"),
     "tempmail":    (10, 120, "Temp Mail"),
     "ifsc":        (15, 60,  "IFSC Info"),
+    "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
     "pin":         (15, 60,  "Pincode Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
     "numinfo":     (10, 60,  "Number Info"),
@@ -409,8 +411,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v69.0 FREE4ALL — 30-SECOND SPEED (6-second hub fix) + "
-               "SAMPLE NUMBER CARD + tool-fail isolation")
+BOT_VERSION = ("v70.0 FREE4ALL — WEBSITE OWNER X-RAY (result in bot) + "
+               "30-SECOND SPEED + SAMPLE NUMBER CARD")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -502,6 +504,7 @@ PREMIUM_TOOLS = {
     "doc_compress",        # 📄 DOCUMENT PDF COMPRESS
     "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
+    "osint_whois",         # 🌐 WEBSITE OWNER X-RAY (v70)
     "pin",                 # 📮 PINCODE INFO
     "bgmi",                # 🎮 BGMI UID
     "ffuid",               # 🔥 FF UID
@@ -541,6 +544,7 @@ PREMIUM_TOOL_NAMES = {
     "doc_compress": "📄 Document PDF Compress",
     "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
+    "osint_whois": "🌐 Website Owner X-Ray",
     "pin": "📮 Pincode Info",
     "bgmi": "🎮 BGMI UID",
     "ffuid": "🔥 FF UID",
@@ -1035,6 +1039,7 @@ KB_BTNS = [
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
+    [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}"],   # v70: domain ka public record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
@@ -1111,6 +1116,10 @@ BTN_MODE_MAP = {
     "PHONE INFO (IMEI)": "imei",
     "NUMBER INFO": "numinfo",
     "IFSC INFO": "ifsc",
+    "WEBSITE OWNER X-RAY": "osint_whois",
+    "WEBSITE OWNER": "osint_whois",
+    "WHOIS": "osint_whois",
+    "DOMAIN OWNER": "osint_whois",
     "PINCODE INFO": "pin",
     "QR CODE": "qr",
     "URL SHORT": "short",
@@ -1341,6 +1350,13 @@ PROMPT_DATA = {
         "ex": [("SBIN0000001", "State Bank of India"),
                ("HDFC0001234", "HDFC Bank"),
                ("PUNB0123456", "Punjab National Bank")],
+    },
+    "osint_whois": {
+        "head": "🌐 WEBSITE OWNER X-RAY (WHOIS)",
+        "ask": "Website ka naam ya link bhejein:",
+        "ex": [("xyzshop.in", "domain ka public record"),
+               ("https://www.kisi-site.com/page", "link bhi chalega"),
+               ("amazon.in", "kab bani, kiska naam par")],
     },
     # ------------------------------------------------------------- GAMING
     "bgmi": {
@@ -4400,6 +4416,66 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
                      "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.")
     _card.append(BRAND_LINK)   # v59.7: clickable
     return "\n".join([_l for _l in _card if _l])
+
+
+def whois_card(res: dict) -> str:
+    """🌐 WEBSITE OWNER X-RAY ka card (v70).
+
+    Sab data public registry (RDAP) se — koi link nahi, sab bot ke andar.
+    """
+    res = res or {}
+    L = [pcard_title("🌐", "WEBSITE OWNER X-RAY")]
+    L.append(f"🔖 <b>Domain:</b> <code>{hesc(str(res.get('domain') or ''))}</code>")
+
+    _created, _age = str(res.get("created_fmt") or ""), str(res.get("age") or "")
+    if _created:
+        L.append(f"📅 <b>Banaya:</b> {hesc(_created)}"
+                 + (f"  •  ⏳ {hesc(_age)} purana" if _age else ""))
+    _exp, _dl = str(res.get("expires_fmt") or ""), res.get("days_left")
+    if _exp:
+        _dl_txt = ""
+        if isinstance(_dl, int):
+            _dl_txt = (f"  •  ⚠️ sirf {_dl} din bache" if 0 <= _dl <= 30
+                       else (f"  •  ✅ {_dl} din bache" if _dl > 30 else "  •  ⛔ khatam ho gaya"))
+        L.append(f"⌛ <b>Khatam:</b> {hesc(_exp)}{_dl_txt}")
+    if res.get("changed_fmt"):
+        L.append(f"🔄 <b>Last update:</b> {hesc(str(res['changed_fmt']))}")
+    if res.get("registrar"):
+        L.append(f"🏢 <b>Registrar:</b> {hesc(str(res['registrar']))}")
+    _own = str(res.get("registrant") or "").strip()
+    L.append("👤 <b>Malik (public record):</b> "
+             + (hesc(_own) if _own else "🔒 Registry me chhupa hua (khula naam nahi mila)"))
+    if res.get("nameservers"):
+        L.append("🛰️ <b>Nameservers:</b> " + hesc(", ".join(res["nameservers"][:4])))
+    if res.get("status"):
+        L.append("📋 <b>Status:</b> " + hesc(" · ".join(res["status"])))
+    _dn = str(res.get("dnssec") or "").lower()
+    if _dn:
+        L.append("🔐 <b>DNSSEC:</b> " + ("✅ signed (extra safe)" if _dn == "true" else "off"))
+
+    # aam aadmi ke liye seedha matlab
+    # v70: umar "7 mahine" bhi ho sakti hai — sirf saal ginte hain (month bug fix)
+    _age_s = str(res.get("age") or "")
+    _ym = re.search(r"(\d+)\s*saal", _age_s)
+    _mm = re.search(r"(\d+)\s*mahine", _age_s)
+    _yrs = (int(_ym.group(1)) if _ym else 0) + ((int(_mm.group(1)) / 12) if _mm else 0)
+    if _yrs >= 5:
+        _verdict = "✅ Ye website purani hai — bharosa karne layak lagti hai."
+    elif _yrs >= 2:
+        _verdict = "🟡 Ye website 2-5 saal purani hai — theek hai, par badi payment se pehle soch lo."
+    elif _yrs:
+        _verdict = "🔴 Ye website nayi hai (2 saal se kam) — online paisa dene se pehle 100 baar soch lo."
+    else:
+        _verdict = ""
+    L.append(pcard_sep())
+    if _verdict:
+        L.append(f"💡 <b>Matlab:</b> {_verdict}")
+    L.append("ℹ️ Owner ka naam tabhi dikhta hai jab registry me khula ho — "
+             "warna registry khud chhupa deti hai.")
+    L.append(pcard_foot(ms=float(res.get("latency_ms") or 0),
+                        source="public registry record (RDAP)"
+                               + (" · cache" if res.get("cached") else "")))
+    return "\n".join([_l for _l in L if _l])
 
 
 def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
@@ -7538,6 +7614,32 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tel_note("numinfo", True, _ms, credit=True)
         await update.message.reply_text(
             spend_credit_msg(uid, "numinfo") + "\n" + card, parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "osint_whois":
+        # v70: 🌐 WEBSITE OWNER X-RAY — sab result BOT KE ANDAR (koi link nahi)
+        _u_w = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_w, uid):
+            await update.message.reply_text(get_credits_over_text("osint_whois"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _t0w = time.perf_counter()
+        w_res = await asyncio.to_thread(lookup_whois, raw_text)
+        _msw = (time.perf_counter() - _t0w) * 1000
+        if w_res.get("ok"):
+            w_res["latency_ms"] = w_res.get("latency_ms") or _msw
+            tel_note("osint_whois", True, _msw, credit=True)
+            await update.message.reply_text(
+                spend_credit_msg(uid, "osint_whois") + "\n" + whois_card(w_res),
+                parse_mode=HTML)
+        else:
+            tel_note("osint_whois", False, _msw, error=str(w_res.get("error"))[:90])
+            await update.message.reply_text(
+                "❌ " + str(w_res.get("error") or "Record nahi mila.") + "\n\n"
+                "💡 <b>Example:</b> <code>xyzshop.in</code> ya <code>flipkart.co.in</code>",
+                parse_mode=HTML)
         add_use(uid)
         return
 

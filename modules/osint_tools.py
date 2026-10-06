@@ -443,4 +443,207 @@ def search_by_area_name(area: str) -> dict:
         "• Ya seedha <b>6-digit pincode</b> bhejo (jaise <code>800001</code>) — wo 100% chalta hai"
     )}
 
+# =====================================================================================
+# 🌐 WEBSITE OWNER X-RAY  (v70)  — RDAP = sarkari/registry ka PUBLIC domain record
+# =====================================================================================
+# Ye "WHOIS" ka naya (RDAP) version hai — domain kiska naam par hai, kab bana,
+# kab khatam, kaun registrar, kaunse nameserver. Sab public registry se aata hai
+# (jaisa registry ke apne page par hota hai). Owner ka naam registry khud aksar
+# chhupa deti hai — hum jhooth nahi bolte, jo milta hai wahi dikhate hain.
+import re as _re70
 
+_RDAP_URL = "https://rdap.org/domain/{d}"
+_WHOIS_DOMAIN_RE = _re70.compile(r"^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$")
+
+
+def _clean_domain(domain: str) -> str:
+    """'https://www.XyzShop.in/page?x=1' → 'xyzshop.in'"""
+    d = str(domain or "").strip().lower()
+    d = _re70.sub(r"^[a-z]+://", "", d)          # https:// hatao
+    d = d.split("/")[0].split("?")[0].split("#")[0]
+    d = d.split("@")[-1]                          # user@domain
+    d = _re70.sub(r"^www\.", "", d)
+    d = d.rstrip(".").replace(" ", "")
+    if ":" in d:
+        d = d.split(":")[0]
+    if any(ord(ch) > 127 for ch in d):            # Hindi/IDN → punycode
+        try:
+            d = d.encode("idna").decode("ascii")
+        except Exception:                         # noqa: BLE001
+            pass
+    return d
+
+
+def _fmt_date(iso: str) -> str:
+    """'2026-07-29T04:00:00Z' → '29-07-2026' (bukha nahi to '')."""
+    m = _re70.match(r"(\d{4})-(\d{2})-(\d{2})", str(iso or ""))
+    return f"{m.group(3)}-{m.group(2)}-{m.group(1)}" if m else ""
+
+
+def _age_of(iso: str) -> str:
+    """'2019-03-12...' → '6 saal 6 mahine'"""
+    from datetime import date
+    m = _re70.match(r"(\d{4})-(\d{2})-(\d{2})", str(iso or ""))
+    if not m:
+        return ""
+    try:
+        b = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return ""
+    t = date.today()
+    if b > t:
+        return ""
+    mo = (t.year - b.year) * 12 + (t.month - b.month) - (1 if t.day < b.day else 0)
+    y, mo = divmod(mo, 12)
+    parts = ([f"{y} saal"] if y else []) + ([f"{mo} mahine"] if mo else [])
+    return " ".join(parts) or "1 mahine se kam"
+
+
+def _days_left(iso: str) -> int | None:
+    from datetime import date
+    m = _re70.match(r"(\d{4})-(\d{2})-(\d{2})", str(iso or ""))
+    if not m:
+        return None
+    try:
+        e = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+    return (e - date.today()).days
+
+
+_STATUS_HING = {
+    "active": "✅ active",
+    "client transfer prohibited": "🔒 transfer locked (safe)",
+    "client delete prohibited": "🔒 delete locked (safe)",
+    "client renew prohibited": "🔒 renew locked",
+    "client update prohibited": "🔒 update locked",
+    "client hold": "⚠️ hold (domain band ho sakta hai)",
+    "pending delete": "⛔ delete hone wala hai",
+    "pending transfer": "🔄 transfer chal raha hai",
+    "pending renew": "🔄 renew chal raha hai",
+    "server hold": "⚠️ server hold",
+    "inactive": "⚠️ inactive",
+    "redemption period": "⛔ redemption (chhoot gaya hai)",
+}
+
+
+def _vcard_name(ent: dict) -> str:
+    """entity ke vcard se naam nikaalo (registrar/registrant)."""
+    try:
+        for it in (ent.get("vcardArray") or [None, []])[1]:
+            if isinstance(it, list) and it and str(it[0]).lower() in ("fn", "org", "name"):
+                if len(it) >= 4 and str(it[3]).strip():
+                    return _clean_name_basic(str(it[3]))
+    except Exception:                                     # noqa: BLE001
+        pass
+    return ""
+
+
+def _clean_name_basic(t: str) -> str:
+    t = _re70.sub(r"\s+", " ", str(t or "")).strip()
+    return t[:80]
+
+
+def parse_rdap(data: dict, domain: str = "", ms: int = 0) -> dict:
+    """RDAP JSON → bot ka samajh wala shape (test ke liye alag rakha hai)."""
+    data = data if isinstance(data, dict) else {}
+    dom = str(data.get("ldhName") or domain or "").lower()
+
+    registrar = ""
+    registrant = ""
+    for ent in (data.get("entities") or []):
+        if not isinstance(ent, dict):
+            continue
+        roles = [str(r).lower() for r in (ent.get("roles") or [])]
+        nm = _vcard_name(ent)
+        if "registrar" in roles and not registrar:
+            registrar = nm or registrar
+        if ("registrant" in roles or "administrative" in roles or "technical" in roles) \
+                and not registrant and nm:
+            registrant = nm
+
+    ev = {}
+    for e in (data.get("events") or []):
+        if isinstance(e, dict) and e.get("eventAction"):
+            ev[str(e["eventAction"]).lower()] = str(e.get("eventDate") or "")
+
+    created = ev.get("registration") or ev.get("registered") or ""
+    expires = ev.get("expiration") or ""
+    changed = ev.get("last changed") or ev.get("last update of rdap database") or ""
+
+    nss = []
+    for ns in (data.get("nameservers") or []):
+        if isinstance(ns, dict):
+            nm = str(ns.get("ldhName") or ns.get("unicodeName") or "").lower().rstrip(".")
+            if nm:
+                nss.append(nm)
+
+    st_raw = [str(x) for x in (data.get("status") or [])]
+    st_h = [_STATUS_HING.get(x.lower(), x) for x in st_raw]
+
+    if not dom:
+        return {"ok": False, "error": "Domain samajh nahi aaya — jaise <code>xyzshop.in</code> bhejo."}
+
+    return {
+        "ok": True,
+        "domain": dom,
+        "registrar": registrar,
+        "registrant": registrant,
+        "created": created, "created_fmt": _fmt_date(created), "age": _age_of(created),
+        "expires": expires, "expires_fmt": _fmt_date(expires),
+        "days_left": _days_left(expires),
+        "changed": changed, "changed_fmt": _fmt_date(changed),
+        "nameservers": nss[:4],
+        "status": st_h, "status_raw": st_raw,
+        "dnssec": str((data.get("secureDNS") or {}).get("delegationSigned", "")),
+        "latency_ms": ms,
+    }
+
+
+def lookup_whois(domain: str) -> dict:
+    """Domain ka public record (RDAP) — kabhi raise nahi karta, hamesha dict."""
+    d = _clean_domain(domain)
+    if not d or not _WHOIS_DOMAIN_RE.match(d) or "." not in d:
+        return {"ok": False,
+                "error": ("Ye domain sahi nahi lagta. Aise bhejo: <code>xyzshop.in</code> "
+                          "ya <code>example.com</code> (poora link bhi chalega).")}
+
+    _ck = "whois:" + d
+    try:
+        hit = _cget(_ck)
+        if hit:
+            hit = dict(hit)
+            hit["cached"] = True
+            return hit
+    except Exception:                                     # noqa: BLE001
+        pass
+
+    import time as _t70
+    import requests as _rq70
+    t0 = _t70.time()
+    try:
+        r = _rq70.get(_RDAP_URL.format(d=d), timeout=20,
+                         headers={"Accept": "application/rdap+json",
+                                  "User-Agent": "UtilityDuniyaBot/1.0"})
+    except Exception as e:                                # noqa: BLE001
+        return {"ok": False, "error": f"Registry tak baat nahi pahunchi ({str(e)[:60]}). Dobara try karo."}
+
+    ms = int((_t70.time() - t0) * 1000)
+    if r.status_code == 404:
+        return {"ok": False, "error": ("Is domain ka public record nahi mila — spelling check karo "
+                                       "(ya ye TLD RDAP me nahi hai).")}
+    if r.status_code != 200:
+        return {"ok": False, "error": f"Registry ne jawab nahi diya (HTTP {r.status_code}). Thodi der baad try karo."}
+    try:
+        data = r.json()
+    except Exception:                                     # noqa: BLE001
+        return {"ok": False, "error": "Registry ka jawab samajh nahi aaya — dobara try karo."}
+
+    out = parse_rdap(data, d, ms)
+    if out.get("ok"):
+        try:
+            if _CACHED:
+                _INFO.set(_ck, out, ttl=3600)             # 1 ghanta — record din bhar same
+        except Exception:                                 # noqa: BLE001
+            pass
+    return out
