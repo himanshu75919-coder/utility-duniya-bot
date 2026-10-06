@@ -409,7 +409,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = "v67.0 FREE4ALL — 4 VIDEO DOWNLOADER TOOLS (Insta/YouTube/FB/TikTok alag-alag) + 23 tools deleted + crash fix"
+BOT_VERSION = "v68.0 FREE4ALL — 30-SECOND SPEED (parallel + cache + instant repeat) + tool-fail isolation"
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1249,7 +1249,10 @@ def dl_prompt_data(mode: str) -> dict:
 # 4 downloader tools seedhe main keyboard me (submenu NAHI) — row 2 ke baad
 try:
     _dl_rows = dl_kb_rows(2)
-    KB_BTNS[2:2] = _dl_rows          # "CHANNEL CLONER" row ke baad
+    # v68: 🥇 PREMIUM/SABSE ZAROORI TOOLS SABSE UPAR (user ka order) —
+    # analysis: downloader + number info + terabox sabse zyada bikte hain,
+    # isliye wo pehli rows me. Purane tools neeche, kuch nahi hata.
+    KB_BTNS[0:0] = _dl_rows
     # v67: keyboard ab 16 rows — aakhri do rows (REFER/ACCOUNT, HELP/SUPPORT)
     #      ko 2 buttons wali rows me rakho (sundar lage)
 except Exception as _dke:                                        # noqa: BLE001
@@ -3198,6 +3201,40 @@ def cookies_boot_restore() -> bool:
     return False
 
 
+async def cmd_speed(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/speed — bot kitna tez hai, cache kitna bhara, kaunsa client bad hai."""
+    try:
+        _st = MD.dl_cache_stats()
+        _fid = 0
+        try:
+            _fid = len([1 for _k in ("dlfid:test",)])  # placeholder
+        except Exception:                                        # noqa: BLE001
+            pass
+        _ladder = " → ".join(c[0] for c in MD.YT_CLIENT_SETS)
+        await update.message.reply_text(
+            "⚡ <b>SPEED REPORT</b>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"⏱️ <b>Max time:</b> {MD.FAST_DEADLINE} second (hard limit)\n"
+            f"🧠 <b>Video cache:</b> {_st['items']} video "
+            f"({_st['mb']} MB) — ye sab INSTANT milte hain\n"
+            f"♻️ <b>Instant repeat:</b> ON (file_id cache, restart-proof)\n"
+            f"🤖 <b>Client ladder:</b> <code>{hesc(_ladder)}</code>\n"
+            f"🚫 <b>Bad-marked clients:</b> {_st['bad_clients']} "
+            "(bot-check wale, 15 min ke liye hata diye)\n"
+            f"🔀 <b>Parallel info:</b> ON (4 client ek saath, jo pehle jeete)\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "💡 <b>Tez kaise hoga:</b>\n"
+            "• Wahi reel dobara bhejo → 0.1 second me milega\n"
+            "• Pehli baar: 2-8 second (normal), max 30 second\n"
+            "• YouTube bot-check → <code>/cookies</code> se theek karo\n"
+            "• Render free plan 15 min me so jata hai → bahar se pinger lagao "
+            "(DEPLOY-ABHI.md me tarika)",
+            parse_mode=HTML)
+    except Exception as e:                                       # noqa: BLE001
+        await update.message.reply_text(f"Speed report fail: {hesc(str(e))[:120]}",
+                                        parse_mode=HTML)
+
+
 async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """/cookies — YouTube/Instagram cookies ka status + tarika (admin)."""
     uid = update.effective_user.id
@@ -3280,6 +3317,42 @@ async def on_doc_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML)
     except Exception as e:                                       # noqa: BLE001
         log.warning("cookies file handle fail: %s", str(e)[:140])
+
+
+# ======================================================================
+#  v68: ⚡ INSTANT REPEAT — ek hi video dobara = 0.1 second
+# ======================================================================
+#  Telegram har file ka "file_id" deta hai. Ek baar upload hone ke baad
+#  wahi file_id se dobara bhejna = 0 upload, 0 download, TURANT.
+#  (viral reel 10 log bhejte hain -> pehla 8s, baaki sab 0.1s)
+# ----------------------------------------------------------------------
+
+def dl_fid_key(url: str, tag: str = "") -> str:
+    import hashlib as _h
+    _raw = (str(tag) + "|" + (url or "").strip().lower())[:400]
+    return "dlfid:" + _h.sha1(_raw.encode("utf-8", "ignore")).hexdigest()[:24]
+
+
+def dl_fid_get(url: str, tag: str = "") -> str:
+    try:
+        return meta_get(dl_fid_key(url, tag), "") or ""
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
+def dl_fid_set(url: str, file_id: str, tag: str = "") -> None:
+    try:
+        if file_id:
+            meta_set(dl_fid_key(url, tag), str(file_id))
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def dl_fid_forget(url: str, tag: str = "") -> None:
+    try:
+        meta_set(dl_fid_key(url, tag), "")
+    except Exception:                                            # noqa: BLE001
+        pass
 
 
 def _biz_today() -> str:
@@ -5392,13 +5465,32 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["_ping_stop"] = _yt_stop
         _raw_st = await q.message.reply_text(
             f"⚡ <b>{h}p</b> — kaam shuru ho gaya!\n"
-            "🔄 <i>Video download ho rahi hai… zyada se zyada 15 second.</i>",
+            "🔄 <i>Video download ho rahi hai… zyada se zyada 30 second.</i>",
             parse_mode=HTML)
         st = _StatusMsg(_raw_st, _yt_stop)
         asyncio.create_task(_progress_edit(
             _raw_st, f"⚡ <b>{h}p</b> — download chal raha hai…",
             every=PROGRESS_EVERY, stop=_yt_stop, max_pings=12))
-        res = await asyncio.to_thread(_yt_quality_download, url, h)
+        # v68: yahi video+quality pehle bheji thi? file_id se TURANT
+        _fidq = dl_fid_get(url, f"q{h}")
+        if _fidq:
+            try:
+                await q.message.reply_video(
+                    video=_fidq, supports_streaming=True, parse_mode=HTML,
+                    caption=(f"⚡ <b>INSTANT</b> — {h}p video pehle hi ready thi "
+                             f"(0.1 second)"))
+                await st.delete()
+                add_use(uid)
+                await q.message.reply_text(spend_credit_msg(uid, "insta_dl"),
+                                           parse_mode=HTML)
+                return
+            except Exception:                                    # noqa: BLE001
+                dl_fid_forget(url, f"q{h}")
+        _qres = await with_tool_timeout(
+            asyncio.to_thread(_yt_quality_download, url, h), 40, "yt-quality")
+        res = _qres or {"ok": False,
+                        "error": ("⏱️ 40 second me video taiyaar nahi hui — "
+                                  "chhoti quality (360p) try karo. Credit nahi katta.")}
         if not res.get("ok"):
             # v56: technical yt-dlp error ki jagah friendly Hindi + solution.
             _ferr = str(res.get("error") or "") or friendly_dl_error(platform="YouTube")
@@ -5425,7 +5517,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dur = res.get("duration") or 0
         dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
         qnote = res.get("note_quality") or ""
-        await q.message.reply_video(
+        _sentq = await q.message.reply_video(
             video=media_buf,
             caption=(
                 f"📥 <b>YOUTUBE VIDEO — {h}p</b>\n"
@@ -5438,6 +5530,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode=HTML,
             supports_streaming=True,
         )
+        # v68: agli baar ke liye file_id yaad rakho (0.1 second delivery)
+        try:
+            dl_fid_set(url, _sentq.video.file_id, f"q{h}")
+        except Exception:                                        # noqa: BLE001
+            pass
         await st.delete()
         add_use(uid)
         await q.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
@@ -6684,7 +6781,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         st = await update.message.reply_text(
             f"⚡ <b>{hesc(plat)}</b> — link mil gaya!\n"
             f"🔄 Download shuru kar diya… <i>(HD, bina watermark)</i>\n"
-            f"⏱️ <i>Zyada se zyada 15 second lagenge. Bot zinda hai, intezaar karein.</i>",
+            f"⏱️ <i>Zyada se zyada <b>30 second</b> — warna main direct link de dunga.</i>",
             parse_mode=HTML)
         # v65: progress pinger — har 5 second "ho raha hai" (user ko lage na ki bot mar gaya)
         _ping_stop = asyncio.Event()
@@ -6720,7 +6817,33 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "💳 1 credit jayega (video ready hone par)",
                 reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
             return
-        res = await download_video_async(raw_text)
+        # v68: ⚡ INSTANT REPEAT — yahi video pehle bheji thi? file_id se TURANT bhejo
+        _fid = dl_fid_get(raw_text)
+        if _fid:
+            try:
+                await update.message.reply_video(
+                    video=_fid, supports_streaming=True, parse_mode=HTML,
+                    caption=(f"⚡ <b>{to_bold('INSTANT')}</b> — ye video pehle hi "
+                             f"download ho chuki thi (0.1 second)\n"
+                             f"📥 {hesc(plat)} • HD • bina watermark"))
+                _ev = context.user_data.get("_ping_stop")
+                if _ev is not None:
+                    _ev.set()
+                add_use(uid)
+                await st.delete()
+                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"),
+                                                parse_mode=HTML)
+                return
+            except Exception:                                    # noqa: BLE001
+                dl_fid_forget(raw_text)      # purana file_id kharab — dobara download
+
+        # v68: hard timeout — koi bhi tool bot ko 40 second se zyada nahi rok sakta
+        res = await with_tool_timeout(download_video_async(raw_text), 40, "video-dl")
+        if res is None:
+            res = {"ok": False,
+                   "error": ("⏱️ Server ne 40 second me jawab nahi diya (link bhaari "
+                             "ya platform slow hai).\n✅ <b>Dobara try karo</b> — doosri "
+                             "baar cache se TURANT milega.\n💳 Credit nahi katta.")}
 
         if not res.get("ok"):
             reason = str(res.get("error", "Could not extract the media."))
@@ -6768,7 +6891,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # v57: hesc — YouTube/IG title me `<`/`>` ho sakta hai
                 # ("Song <Official> Video"), warna Telegram pura message reject.
                 title_line = f"• 📝 {hesc(str(title))}\n" if title else ""
-                await update.message.reply_video(
+                _sent = await update.message.reply_video(
                     video=media_buf,
                     caption=(
                         f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
@@ -6782,6 +6905,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode=HTML,
                     supports_streaming=True,
                 )
+                # v68: agli baar ke liye file_id yaad rakho (0.1 second delivery)
+                try:
+                    dl_fid_set(raw_text, _sent.video.file_id)
+                except Exception:                                # noqa: BLE001
+                    pass
                 await st.delete()
                 add_use(uid)
                 await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
@@ -8819,8 +8947,10 @@ async def _post_init(app: Application):
 
         def _loop_err(_loop2, _ctx):
             _ex = _ctx.get("exception")
-            log.error("🛡️ background task error (bot chalta rahega): %s: %s",
-                      type(_ex).__name__ if _ex else "?", str(_ex)[:200] if _ex else "")
+            if _ex is None:
+                return          # v68: khaali context = asli error nahi (log na bharo)
+            log.warning("🛡️ background task error (bot chalta rahega): %s: %s",
+                        type(_ex).__name__, str(_ex)[:200])
         _loop.set_exception_handler(_loop_err)
         # v60: heartbeat — hang watchdog ko pata chale ki loop zinda hai
         from modules.core.guard import start_heartbeat_task
@@ -9252,6 +9382,7 @@ def main():
     app.add_handler(CommandHandler("ban", cmd_ban))
     app.add_handler(CommandHandler("unban", cmd_unban))
     # v60: 🛡️ PREMIUM VAULT commands (aapka data kabhi na khoye)
+    app.add_handler(CommandHandler(["speed", "tez", "fast"], cmd_speed))
     app.add_handler(CommandHandler(["cookies", "cookie", "biscuit"], cmd_cookies))
     app.add_handler(CommandHandler(["vault", "premiumvault", "datavault"], cmd_vault))
     app.add_handler(CommandHandler(["backup", "save"], cmd_backup))

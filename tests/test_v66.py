@@ -145,9 +145,9 @@ except Exception:
 # =====================================================================
 section("[D] ⏱️ 45 SECOND HARD CAP (76 second wali wait khatam)")
 # =====================================================================
-check("FAST_DEADLINE 45 hai (75 nahi)", MD.FAST_DEADLINE == 45, str(MD.FAST_DEADLINE))
-check("pehla client pura budget, baaki 15s (kul 1 min se kam)",
-      "_budget = FAST_DEADLINE if _i == 0 else 15" in open(
+check("FAST_DEADLINE 30 hai (v68)", MD.FAST_DEADLINE == 30, str(MD.FAST_DEADLINE))
+check("pehla client pura budget, baaki short (kul 30s se kam)",
+      "_budget = FAST_DEADLINE if _i == 0 else 8" in open(
           os.path.join(_ROOT, "modules", "media_downloader.py"), encoding="utf-8").read())
 check("dead banda video par dobara koshish nahi (_retryable)",
       hasattr(MD, "_retryable") and MD._retryable("This video is private") is False

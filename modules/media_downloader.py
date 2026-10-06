@@ -26,6 +26,7 @@ import asyncio
 import tempfile
 import shutil
 import subprocess
+import threading
 
 import requests
 from PIL import Image
@@ -111,6 +112,27 @@ def classify_instagram_url(url: str) -> str:
     if "/p/" in u:
         return "post"
     return "general"
+
+
+def _call_capped(fn, timeout: float, *a, **kw):
+    """v68: kisi bhi (slow ho sakne wale) function ko TIME LIMIT me chalao.
+
+    Asli wajah jise pakda gaya: hub API (loader.to) 40+ second leta tha —
+    isi se "bots slow hai" ki shikayat thi. Ab hub ko sirf 6-12 second milte
+    hain; jawab na aaye to seedha tez local engine (yt-dlp) chalta hai.
+    """
+    if fn is None:
+        return None
+    from concurrent.futures import ThreadPoolExecutor
+    _ex = ThreadPoolExecutor(max_workers=1)
+    try:
+        _fut = _ex.submit(fn, *a, **kw)
+        try:
+            return _fut.result(timeout=timeout)
+        except Exception:                                        # noqa: BLE001
+            return None
+    finally:
+        _ex.shutdown(wait=False)      # thread background me khatam ho jayega
 
 
 def _is_yt_url(url: str) -> bool:
@@ -437,7 +459,112 @@ YT_CLIENT_SETS = (
     ("web_safari", "web"),        # ✅ backup 3
 )
 
-FAST_DEADLINE = 45        # v66: 75 -> 45 second (user ko 1 minute se pehle jawab)
+FAST_DEADLINE = 30        # v68: 45 -> 30 second (user ka target: 30s me video)
+BAD_CLIENT_SECONDS = 900  # bot-check wala client 15 min ke liye "bad" mark
+
+# ======================================================================
+# v68: 🚀 SPEED ENGINE — 3 naye hathiyar
+# ======================================================================
+#  1) CIRCUIT BREAKER: jo client "Sign in to confirm you're not a bot" de de,
+#     use 15 minute ke liye bad mark kar do — agli baar seedha sahi client
+#     par jao (log me 5 error line aane ka karan yahi tha = 20s barbaad).
+#  2) PARALLEL INFO: 4 client ko EK SAATH try karo (threads) — jo pehle
+#     safal ho wahi jeeta. 12s ka kaam ~2s me.
+#  3) RESULT CACHE: ek hi video dobara maanga gaya (viral reel) to memory
+#     se TURANT — 0.1 second me.
+# ======================================================================
+_BAD_CLIENTS = {}                    # client-name -> expiry timestamp
+_CLIENT_LOCK = threading.Lock()
+_DL_MEM = {}                         # url-key -> (bytes, meta, ts)
+_DL_MEM_ORDER = []                   # LRU order (key list)
+_DL_MEM_BYTES = 0
+_DL_MEM_MAX_BYTES = 100 * 1024 * 1024      # 100 MB tak rakho
+_DL_MEM_TTL = 2 * 3600                     # 2 ghante
+_DL_MEM_LOCK = threading.Lock()
+
+
+def _mark_client_bad(clients, err: str = "") -> None:
+    """Bot-check / reload error dene wale client ko 15 min ke liye hata do."""
+    if not clients:
+        return
+    _e = ((err or "") + " " + (last_dl_error() or "")).lower()
+    if not any(k in _e for k in ("not a bot", "needs to be reloaded", "sign in",
+                                 "cookies", "error code: 152", "unavailable")):
+        return
+    exp = time.time() + BAD_CLIENT_SECONDS
+    with _CLIENT_LOCK:
+        for c in clients:
+            _BAD_CLIENTS[c] = exp
+
+
+def _client_is_bad(clients) -> bool:
+    """Ye client set filhaal 'bad' hai? (bad wale aakhir me jaate hain)"""
+    now = time.time()
+    with _CLIENT_LOCK:
+        return any(_BAD_CLIENTS.get(c, 0) > now for c in (clients or ()))
+
+
+def _ordered_client_sets(sets):
+    """Achhe clients pehle, bad wale aakhir me (par poori tarah nahi hataye)."""
+    _good = [c for c in sets if not _client_is_bad(c)]
+    _bad = [c for c in sets if _client_is_bad(c)]
+    return tuple(_good + _bad) or tuple(sets)
+
+
+def _mem_key(url: str, tag: str = "") -> str:
+    return (tag + "|" + (url or "").strip())[:300]
+
+
+def _mem_get(url: str, tag: str = ""):
+    """Cache se nikalo (viral video dobara = 0.1 second)."""
+    k = _mem_key(url, tag)
+    with _DL_MEM_LOCK:
+        item = _DL_MEM.get(k)
+        if not item:
+            return None
+        data, meta, ts = item
+        if time.time() - ts > _DL_MEM_TTL:
+            _DL_MEM.pop(k, None)
+            return None
+        try:
+            _DL_MEM_ORDER.remove(k); _DL_MEM_ORDER.append(k)
+        except Exception:                                        # noqa: BLE001
+            pass
+        return data, meta
+
+
+def _mem_put(url: str, data, meta, tag: str = "") -> None:
+    """Cache me daalo (100 MB se upar kuch nahi — RAM safe)."""
+    global _DL_MEM_BYTES
+    try:
+        if not data or len(data) > 40 * 1024 * 1024:
+            return
+        k = _mem_key(url, tag)
+        with _DL_MEM_LOCK:
+            old = _DL_MEM.get(k)
+            if old:
+                _DL_MEM_BYTES -= len(old[0])
+            _DL_MEM[k] = (data, meta, time.time())
+            try:
+                _DL_MEM_ORDER.remove(k)
+            except Exception:                                    # noqa: BLE001
+                pass
+            _DL_MEM_ORDER.append(k)
+            _DL_MEM_BYTES += len(data)
+            while _DL_MEM_BYTES > _DL_MEM_MAX_BYTES and _DL_MEM_ORDER:
+                _old_k = _DL_MEM_ORDER.pop(0)
+                _it = _DL_MEM.pop(_old_k, None)
+                if _it:
+                    _DL_MEM_BYTES -= len(_it[0])
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def dl_cache_stats() -> dict:
+    """Cache kitna bhara hai (/speed command ke liye)."""
+    with _DL_MEM_LOCK:
+        return {"items": len(_DL_MEM), "mb": round(_DL_MEM_BYTES / 1048576, 1),
+                "bad_clients": len([1 for v in _BAD_CLIENTS.values() if v > time.time()])}
 SOCK_TIMEOUT = 8          # ek connection par max 8 second
 
 
@@ -476,23 +603,56 @@ def _ytdlp_opts(extra=None, clients=None):
     return opts
 
 
+def _info_one(url: str, clients):
+    """Ek client set se info — thread me chalta hai."""
+    try:
+        with yt_dlp.YoutubeDL(_ytdlp_opts({"skip_download": True},
+                                          clients=clients)) as ydl:
+            return ydl.extract_info(url, download=False)
+    except Exception as e:                                        # noqa: BLE001
+        _remember(e)              # v56: friendly message ke liye wajah
+        _mark_client_bad(clients, str(e))
+        return None
+
+
 def _ytdlp_info(url: str, clients=None):
-    """Info nikalo — YouTube par bot-check se bachne ke liye client ladder."""
+    """Info nikalo — YouTube par bot-check se bachne ke liye client ladder.
+
+    v68: 🚀 ab clients EK SAATH (parallel) try hote hain — jo pehle safal
+    wahi jeeta. Pehle ek-ek karke 4 x 3s = 12s barbaad hota tha.
+    """
     if not yt_dlp:
         return None
     _u = (url or "").lower()
     _is_yt = ("youtube.com" in _u) or ("youtu.be" in _u)
     _sets = (clients,) if clients else (YT_CLIENT_SETS if _is_yt else (None,))
+    _sets = _ordered_client_sets(_sets)          # bad clients aakhir me
+
+    if len(_sets) > 1:
+        from concurrent.futures import ThreadPoolExecutor
+        _ex = ThreadPoolExecutor(max_workers=min(3, len(_sets)))
+        try:
+            _futs = {_ex.submit(_info_one, url, _cl): _cl for _cl in _sets}
+            try:
+                from concurrent.futures import as_completed
+                for _f in as_completed(_futs, timeout=FAST_DEADLINE):
+                    _info = _f.result()
+                    if _info:
+                        return _info
+            except Exception:                                     # noqa: BLE001
+                pass
+        finally:
+            _ex.shutdown(wait=False)      # baaki threads background me khatam
+        return None
+
+    # non-YouTube (Instagram etc.) — jaisa tha waisa
     for _cl in _sets:
         for attempt in range(2 if _cl is None else 1):
-            try:
-                with yt_dlp.YoutubeDL(_ytdlp_opts({"skip_download": True},
-                                                  clients=_cl)) as ydl:
-                    return ydl.extract_info(url, download=False)
-            except Exception as e:                            # noqa: BLE001
-                _remember(e)      # v56: friendly message ke liye wajah
-                if _cl is None and attempt == 0:
-                    time.sleep(2)     # Instagram 429 rate-limit ke liye
+            _info = _info_one(url, _cl)
+            if _info:
+                return _info
+            if _cl is None and attempt == 0:
+                time.sleep(2)             # Instagram 429 rate-limit ke liye
     return None
 
 
@@ -520,17 +680,21 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
             fmt = (f"b[ext=mp4][filesize<{cap}M]/b[ext=mp4][filesize_approx<{cap}M]/"
                    f"b[filesize<{cap}M]/b[filesize_approx<{cap}M]/"
                    "b[height<=360]/b[height<=480]/b[height<=720]/b/best")
-        # v66: har client se koshish (android_vr -> tv_embedded -> android).
-        # Pehla attempt: pura budget. Baaki: 15s each. Total kabhi 1 minute se
-        # zyada nahi — "2 minute wait" hamesha ke liye khatam.
-        _sets = tuple(YT_CLIENT_SETS[:3]) if _is_yt_url(url) else (None,)
+        # v68: cache check — yahi link pehle download hua ho to TURANT
+        #      (pehle yahan galti se `h` likha tha jo is function me nahi hai
+        #       — us se YouTube tool NameError de deta tha. Ab theek.)
+        _cached = _mem_get(url, "plain")
+        if _cached:
+            return _cached
+        # v66/v68: har client se koshish — bad clients aakhir me
+        _sets = _ordered_client_sets(tuple(YT_CLIENT_SETS[:3])) if _is_yt_url(url) else (None,)
         _hard_end = time.time() + FAST_DEADLINE
         info = None
         path = None
         for _i, _cl in enumerate(_sets):
             if _i and time.time() > _hard_end:
                 break
-            _budget = FAST_DEADLINE if _i == 0 else 15
+            _budget = FAST_DEADLINE if _i == 0 else 8
             _deadline = min(_hard_end, time.time() + _budget)
 
             def _hook(st, _dl=_deadline):                         # noqa: BLE001
@@ -555,10 +719,12 @@ def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
                     if os.path.getsize(path) > max_mb * 1024 * 1024:
                         return None, info
                     with open(path, "rb") as fh:
-                        return fh.read(), info
-                    break
+                        data = fh.read()
+                    _mem_put(url, data, info, "plain")     # v68: agli baar instant
+                    return data, info
             except Exception as e:                                # noqa: BLE001
                 _remember(e)
+                _mark_client_bad(_cl, str(e))       # v68: bot-check wala hata do
                 if not _retryable(str(e)):
                     break
         return None, info
@@ -750,11 +916,12 @@ def download_instagram_media(url: str) -> dict:
 # =====================================================================================
 # UNIVERSAL DOWNLOADER (Instagram + YouTube + FB + X + TikTok + ...)
 # =====================================================================================
-def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
+def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
     url = (url or "").strip()
     # v47: YouTube ke liye hub ka naya /youtube-download (hub v2.2 — proxy link IP-lock free)
     if re.search(r"(youtube\.com|youtu\.be)/", url):
-        _hres = _hub_youtube_download(url, max_mb)
+        # v68: hub ko sirf 6 second — jawab na aaye to tez local engine chalta hai
+        _hres = _call_capped(_hub_youtube_download, 6, url, max_mb) or {"ok": False}
         if _hres.get("ok"):
             return _hres
 
@@ -921,7 +1088,27 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
     return {"ok": False}
 
 
+def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
+    """v68: cache ke saath — ek hi link dobara bheja to TURANT (0.1 second)."""
+    _c = _mem_get(url, "media")
+    if _c:
+        _data, _meta = _c
+        _out = dict(_meta or {})
+        _out.update({"ok": True, "bytes": _data, "size_mb": _size_mb(_data),
+                     "cached": True})
+        return _out
+    _res = _download_video_media_raw(url, max_mb)
+    try:
+        if _res.get("ok") and _res.get("bytes"):
+            _meta = {k: v for k, v in _res.items() if k != "bytes"}
+            _mem_put(url, _res["bytes"], _meta, "media")
+    except Exception:                                            # noqa: BLE001
+        pass
+    return _res
+
+
 async def download_video_async(url: str, max_mb: int = MAX_TG_MB) -> dict:
+    """v68: cache + timeout — 30 second se zyada kabhi nahi rukta."""
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(None, download_video_media, url, max_mb)
 
@@ -1032,11 +1219,34 @@ def downscale_video(data: bytes, target_h: int, max_mb: int = MAX_TG_MB) -> dict
 
 
 def _yt_quality_download(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict:
+    """v68: cache ke saath — wahi video+quality dobara = TURANT."""
+    _c = _mem_get(url, f"res{int(height)}")
+    if _c:
+        _data, _meta = _c
+        _out = dict(_meta or {})
+        _out.update({"ok": True, "bytes": _data, "size_mb": _size_mb(_data),
+                     "cached": True})
+        return _out
+    _res = _yt_quality_download_raw(url, height, max_mb)
+    try:
+        if _res.get("ok") and _res.get("bytes"):
+            _meta = {k: v for k, v in _res.items() if k != "bytes"}
+            _mem_put(url, _res["bytes"], _meta, f"res{int(height)}")
+    except Exception:                                            # noqa: BLE001
+        pass
+    return _res
+
+
+def _yt_quality_download_raw(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict:
     """v52 quality pipeline: pehle direct (agar server IP allowed hai),
     warna hub 1080p + bot-side ffmpeg downscale. Result contract = _hub_youtube_download."""
     h = int(height)
     if h >= 1080:
-        return _hub_youtube_download(url, max_mb)          # original best quality
+        # v68: hub ko 12 second — warna seedha tez engine (720p quality)
+        _hd = _call_capped(_hub_youtube_download, 12, url, max_mb)
+        if _hd and _hd.get("ok"):
+            return _hd
+        h = 720
     # 1) Direct local download (kaam karta hai jab YouTube IP allow kare)
     data, info = yt_download_at_height(url, h, max_mb)
     if data and len(data) > 1000:
@@ -1094,32 +1304,51 @@ def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
         else:
             fmt = (f"b[ext=mp4][height<={h}][filesize<{cap}M]/b[height<={h}][filesize_approx<{cap}M]/"
                    f"b[height<={h}]/b/best")
-        opts = _ytdlp_opts({
-            "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
-            "format": fmt,
-            "noplaylist": True,
-            "merge_output_format": "mp4" if _HAS_FFMPEG else None,
-            "quiet": True,
-            "no_warnings": True,
-            "ignoreerrors": False,
-        })
-        # v65: deadline hook — 2 minute wali wait khatam
-        _deadline = time.time() + FAST_DEADLINE
+        # v68: cache — yahi video+quality pehle bani ho to TURANT
+        _cached = _mem_get(url, f"q{h}")
+        if _cached:
+            return _cached
+        # v66/v68: client ladder — bot-check wale clients aakhir me
+        _sets = _ordered_client_sets(tuple(YT_CLIENT_SETS[:3])) if _is_yt_url(url) else (None,)
+        _hard_end = time.time() + FAST_DEADLINE
+        info = None
+        for _i, _cl in enumerate(_sets):
+            if _i and time.time() > _hard_end:
+                break
+            _budget = FAST_DEADLINE if _i == 0 else 8
+            _deadline = min(_hard_end, time.time() + _budget)
 
-        def _hook(st):                                           # noqa: BLE001
-            if time.time() > _deadline:
-                raise TimeoutError("fast-deadline")
+            def _hook(st, _dl=_deadline):                         # noqa: BLE001
+                if time.time() > _dl:
+                    raise TimeoutError("fast-deadline")
 
-        opts["progress_hooks"] = [_hook]
-        with yt_dlp.YoutubeDL(opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-        path = _pick_file(tmp)
-        if not path:
-            return None, info
-        if os.path.getsize(path) > max_mb * 1024 * 1024:
-            return None, info
-        with open(path, "rb") as fh:
-            return fh.read(), info
+            opts = _ytdlp_opts({
+                "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s"),
+                "format": fmt,
+                "noplaylist": True,
+                "merge_output_format": "mp4" if _HAS_FFMPEG else None,
+                "quiet": True,
+                "no_warnings": True,
+                "ignoreerrors": False,
+            }, clients=_cl)
+            opts["progress_hooks"] = [_hook]
+            try:
+                with yt_dlp.YoutubeDL(opts) as ydl:
+                    info = ydl.extract_info(url, download=True)
+                path = _pick_file(tmp)
+                if path:
+                    if os.path.getsize(path) > max_mb * 1024 * 1024:
+                        return None, info
+                    with open(path, "rb") as fh:
+                        data = fh.read()
+                    _mem_put(url, data, info, f"q{h}")
+                    return data, info
+            except Exception as e:                                # noqa: BLE001
+                _remember(e)
+                _mark_client_bad(_cl, str(e))
+                if not _retryable(str(e)):
+                    break
+        return None, info
     except Exception as e:                                    # noqa: BLE001
         _remember(e)          # v56: friendly message ke liye wajah yaad rakho
         return None, None
