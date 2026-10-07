@@ -348,7 +348,8 @@ TOOL_RATE_LIMITS = {
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
     "cxray":       (5,  300, "Chat X-Ray"),            # v73.0: apni chat ki report (FREE)
-    "bsebr":       (10, 300, "Result Check (BSEB)"),   # v73.1: roll code + roll no (FREE)
+    "bsebr":       (10, 300, "Result Check (BSEB)"),   # v74.0: wizard (FREE)
+    "rc":          (12, 300, "Result Check (BSEB)"),   # v74.0: rc_code/rc_roll (wizard steps)
     "media_ytmp3": (5,  120, "YouTube → MP3"),
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
@@ -426,8 +427,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v73.1 FREE4ALL — BOARD RESULT CHECK (BSEB result by roll code+roll no) "
-               "+ WHATSAPP CHAT X-RAY | saare tools tez + khud-retry")
+BOT_VERSION = ("v74.0 FREE4ALL — RESULT CHECK PRO (BSEB): exam+year chuno, "
+               "result + PDF marksheet | CHAT X-RAY | saare tools tez")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -805,7 +806,7 @@ VIP_FREE_CB_EXACT = {
 VIP_FREE_CB_PREFIX = ("buy_plan_", "toolvid:", "adm", "admin", "ugrant:", "urevoke:", "uban:",
                       "rpay:", "apay:", "askpay:", "vid:", "refer",
                       "tnum",     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
-                      "bsebr", "cbse_info")   # v73.1: RESULT CHECK — FREE, hamesha khula
+                      "bsebr", "cbse_info", "rc_")   # v74.0: RESULT CHECK wizard — FREE
 
 
 def vip_free_cb(data: str) -> bool:
@@ -1395,6 +1396,8 @@ BTN_MODE_MAP = {
     "CHAT X-RAY REPORT": "cxray",
     "RESULT CHECK": "bsebr",               # v73.1: 📋 BSEB result by roll code + roll no
     "BSEB RESULT": "bsebr",
+    "BSEB RESULT CHECK": "bsebr",
+    "BIHAR BOARD RESULT CHECK": "bsebr",
     "BOARD RESULT": "bsebr",
     "BIHAR BOARD RESULT": "bsebr",
     "RESULT": "bsebr",
@@ -5210,14 +5213,74 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _vnum_say(q, card, kb)
         return
 
-    # ---------- 📋 RESULT CHECK inline buttons (v73.1) ----------
-    if data == "bsebr_new":
-        context.user_data["mode"] = "bsebr"
-        await _vnum_say(q, bsebr_ask_card(), tool_tutorial_kb("bsebr"))
+    # ---------- 📋 RESULT CHECK (BSEB) wizard (v74.0) ----------
+    if data in ("rc_new", "bsebr_new"):
+        context.user_data["mode"] = "rc_exam"
+        context.user_data.pop("rcdb", None)
+        context.user_data.pop("rc_code_val", None)
+        await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
+        return
+
+    if data == "rc_back_ex":
+        context.user_data["mode"] = "rc_exam"
+        await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
+        return
+
+    if data == "rc_back_yr":
+        db = context.user_data.get("rcdb") or {}
+        _ek = str(db.get("exam") or "matric")
+        context.user_data["mode"] = "rc_year"
+        await _vnum_say(q, rc_year_card(_ek), _rc_year_kb())
+        return
+
+    if data.startswith("rc_ex:"):
+        key = data.split(":", 1)[1]
+        if key not in BSEBR.EXAMS:
+            await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
+            return
+        db = context.user_data.get("rcdb") or {}
+        db["exam"] = key
+        context.user_data["rcdb"] = db
+        context.user_data["mode"] = "rc_year"
+        await _vnum_say(q, rc_year_card(key), _rc_year_kb())
+        return
+
+    if data.startswith("rc_yr:"):
+        try:
+            year = int(data.split(":", 1)[1])
+        except Exception:                                        # noqa: BLE001
+            year = BSEBR.CURRENT_YEAR
+        db = context.user_data.get("rcdb") or {}
+        _ek = str(db.get("exam") or "matric")
+        db["year"] = year
+        context.user_data["rcdb"] = db
+        if year != int(BSEBR.CURRENT_YEAR):
+            context.user_data.pop("mode", None)
+            await _vnum_say(q, rc_archive_card(_ek, year),
+                            InlineKeyboardMarkup([
+                                [InlineKeyboardButton(f"✅ {BSEBR.CURRENT_YEAR} ka result dekho",
+                                                      callback_data="rc_new")],
+                                [InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info")],
+                                [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")]]))
+            return
+        context.user_data["mode"] = "rc_code"
+        await _vnum_say(q, rc_ask_code_card(_ek, year), _rc_step_kb())
+        return
+
+    if data == "rc_retry":
+        db = context.user_data.get("rcdb") or {}
+        _rc = str(db.get("rc") or "")
+        _rn = str(db.get("rn") or "")
+        if _rc and _rn:
+            await q.answer("Dobara try kar raha hoon…")
+            await rc_deliver(q.message, context, uid, _rc, _rn)
+        else:
+            context.user_data["mode"] = "rc_exam"
+            await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
         return
 
     if data == "cbse_info":
-        await _vnum_say(q, cbse_info_card(), _bsebr_kb())
+        await _vnum_say(q, cbse_info_card(), _rc_result_kb())
         return
 
     # ---------- 📞 TEMP MAIL (NUMBER) inline buttons (v71.9) ----------
@@ -7097,14 +7160,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # v73.1: 📋 RESULT CHECK (BSEB) + CBSE jaankari — apna card + inline buttons
         if action == "bsebr":
-            context.user_data["mode"] = "bsebr"
-            await update.message.reply_text(bsebr_ask_card(),
-                                            reply_markup=tool_tutorial_kb("bsebr"),
+            context.user_data["mode"] = "rc_exam"
+            context.user_data.pop("rcdb", None)
+            await update.message.reply_text(rc_exam_card(),
+                                            reply_markup=_rc_exam_kb(),
                                             parse_mode=HTML)
             return
         if action == "cbse_info":
             await update.message.reply_text(cbse_info_card(),
-                                            reply_markup=_bsebr_kb(), parse_mode=HTML)
+                                            reply_markup=_rc_result_kb(), parse_mode=HTML)
             return
 
         # Standard prompt modes
@@ -8745,35 +8809,46 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # ---------------- v73.1: BOARD RESULT (BSEB) ----------------
-    if mode == "bsebr":
-        rc, rn = BSEBR.split_input(raw_text)
-        ok, err = BSEBR.validate(rc, rn)
-        if not ok:
+    # ---------------- v74.0: RESULT CHECK (BSEB) wizard ----------------
+    if mode == "rc_code":
+        rc = BSEBR.clean_digits(raw_text)
+        if not re.match(r"^\d{3,6}$", rc):
             await update.message.reply_text(
-                f"❌ {err}\n\n💡 <b>Example:</b> <code>11001 100001</code>\n"
-                "<i>(pehle Roll Code, phir Roll Number)</i>", parse_mode=HTML)
+                "❌ Roll Code 5 digit ka hota hai.\n\n"
+                "💡 <b>Example:</b> <code>11001</code>\n"
+                "<i>Admit card par 'Roll Code' likha hota hai.</i>", parse_mode=HTML)
             return
-        st_msg = await update.message.reply_text("🔎 Bihar Board se result nikal raha hoon…")
-        res = await asyncio.to_thread(BSEBR.fetch, rc, rn)
-        try:
-            await st_msg.delete()
-        except Exception:                                        # noqa: BLE001
-            pass
-        if res.get("ok"):
-            await update.message.reply_text(bsebr_card(res["student"]),
-                                            reply_markup=_bsebr_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            add_use(uid)
-        elif res.get("status") == "server":
-            await update.message.reply_text(bsebr_server_card(),
-                                            reply_markup=_bsebr_kb(), parse_mode=HTML)
-        else:
+        db = context.user_data.get("rcdb") or {}
+        context.user_data["rc_code_val"] = rc
+        context.user_data["mode"] = "rc_roll"
+        await update.message.reply_text(
+            rc_ask_roll_card(str(db.get("exam") or "matric"),
+                             db.get("year") or BSEBR.CURRENT_YEAR, rc),
+            reply_markup=_rc_step_kb(), parse_mode=HTML)
+        return
+
+    if mode == "rc_roll":
+        nums = re.findall(r"\d{4,9}", re.sub(r"(?<=\d),(?=\d)", "", raw_text))
+        if not nums:
             await update.message.reply_text(
-                bsebr_notlive_card(rc, rn, str(res.get("error") or "")),
-                reply_markup=_bsebr_kb(), parse_mode=HTML)
-            if res.get("status") == "not_live":
-                context.user_data.pop("mode", None)
+                "❌ Roll Number nahi mila.\n\n"
+                "💡 <b>Example:</b> <code>2600046</code>", parse_mode=HTML)
+            return
+        db = context.user_data.get("rcdb") or {}
+        await rc_deliver(update.message, context, uid,
+                         context.user_data.get("rc_code_val") or "", nums[0])
+        return
+
+    if mode in RC_STEPS:
+        # user ne bina button dabe number type kar diya — sahi step dikha do
+        db = context.user_data.get("rcdb") or {}
+        _ek = str(db.get("exam") or "")
+        if mode == "rc_exam" or not _ek:
+            await update.message.reply_text(rc_exam_card(),
+                                            reply_markup=_rc_exam_kb(), parse_mode=HTML)
+        else:
+            await update.message.reply_text(rc_year_card(_ek),
+                                            reply_markup=_rc_year_kb(), parse_mode=HTML)
         return
 
     # ---------------- v73.0: CHAT X-RAY ----------------
@@ -9317,32 +9392,116 @@ async def do_ytmp3(update, context, uid, url):
 
 
 # ============================================================
-#  v73.1: 📋 BOARD RESULT CHECK (BSEB) — official API se
+#  v74.0: 📋 RESULT CHECK PRO (sirf BSEB — Bihar Board)
+# ------------------------------------------------------------
+#  Portal jaisa poora flow: EXAM chuno → YEAR chuno → Roll Code →
+#  Roll Number → Result card + PDF (web copy jaisi marksheet).
+#  Matric = official open API · Inter = official portal form.
 # ============================================================
-def _bsebr_kb():
+RC_STEPS = ("rc_exam", "rc_year")
+
+
+def _rc_exam_kb():
+    rows = [[InlineKeyboardButton(ex["btn"], callback_data=f"rc_ex:{k}")]
+            for k, ex in BSEBR.EXAMS.items()]
+    rows.append([InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info")])
+    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _rc_year_kb():
+    rows, buf = [], []
+    for y in BSEBR.YEARS:
+        lab = f"{y} ✅" if int(y) == int(BSEBR.CURRENT_YEAR) else str(y)
+        buf.append(InlineKeyboardButton(lab, callback_data=f"rc_yr:{y}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    rows.append([InlineKeyboardButton("⏪ Exam badlo", callback_data="rc_back_ex")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _rc_step_kb():
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 Dobara check", callback_data="bsebr_new"),
-         InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info")],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+        [InlineKeyboardButton("⏪ Year badlo", callback_data="rc_back_yr"),
+         InlineKeyboardButton("⏪ Exam badlo", callback_data="rc_back_ex")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="back_home")],
     ])
 
 
-def bsebr_ask_card() -> str:
+def _rc_result_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Naya check", callback_data="rc_new"),
+         InlineKeyboardButton("🔁 Dobara try", callback_data="rc_retry")],
+        [InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info"),
+         InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ])
+
+
+def _rc_head(exam_key: str, year) -> str:
+    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
+    return f"📋 <b>RESULT CHECK (BSEB)</b>\n🎓 {ex.get('short', 'BSEB')} · <b>{year}</b>"
+
+
+def rc_exam_card() -> str:
     return "\n".join([
         pcard_title("📋", "RESULT CHECK (BSEB)"),
-        "🔗 <b>Roll Code aur Roll Number bhejein</b> (dono, ek saath)",
+        "🔗 <b>Pehle EXAM chuno</b> (neeche buttons se):",
         "",
-        "     <code>11001 100001</code>",
+        "     🎓 Matric (10th) Annual",
+        "     🎓 Inter (12th) Annual",
+        "     🔁 Inter Special / Compartmental",
         "",
-        "<i>Dono number admit card par likhe hote hain.</i>",
+        "<i>Bihar Board (BSEB) ka hi result — portal jaisa.</i>",
     ])
 
 
-def bsebr_card(st: dict) -> str:
-    """Result ka poora card — student + subject-wise marks + division."""
-    L = [pcard_title("📋", "BSEB RESULT")]
-    nm = st.get("name") or "-"
-    L.append(f"👤 <b>{hesc(str(nm))}</b>")
+def rc_year_card(exam_key: str) -> str:
+    return "\n".join([
+        _rc_head(exam_key, BSEBR.CURRENT_YEAR),
+        pcard_sep(),
+        "🔗 <b>Ab YEAR chuno</b> (neeche buttons se):",
+        "",
+        f"     {BSEBR.CURRENT_YEAR} ✅  ← is saal ka result",
+        "     2025 · 2024 · 2023 · 2022  (purane saal)",
+        "",
+        "<i>Purane saal ka result board ke live portal par nahi hota — "
+        "us par poori jaankari milegi.</i>",
+    ])
+
+
+def rc_ask_code_card(exam_key: str, year) -> str:
+    return "\n".join([
+        _rc_head(exam_key, year),
+        pcard_sep(),
+        "🔗 <b>Ab Roll Code bhejein</b>:",
+        "",
+        "     <code>11001</code>",
+        "",
+        "<i>Admit card par 'Roll Code' likha hota hai (5 digit).</i>",
+    ])
+
+
+def rc_ask_roll_card(exam_key: str, year, roll_code: str) -> str:
+    return "\n".join([
+        _rc_head(exam_key, year),
+        f"✅ Roll Code: <b>{hesc(str(roll_code))}</b>",
+        pcard_sep(),
+        "🔗 <b>Ab Roll Number bhejein</b>:",
+        "",
+        "     <code>2600046</code>",
+        "",
+        "<i>Admit card par 'Roll Number' likha hota hai (6-7 digit).</i>",
+    ])
+
+
+def rc_result_card(st: dict, exam_key: str, year) -> str:
+    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
+    L = [pcard_title("📋", "BSEB RESULT"),
+         f"🎓 <b>{hesc(str(ex.get('short', 'BSEB')))}</b> · {year}"]
+    L.append(f"👤 <b>{hesc(str(st.get('name') or '-'))}</b>")
     if st.get("father"):
         L.append(f"👨 {hesc(str(st['father']))}")
     if st.get("school"):
@@ -9353,6 +9512,8 @@ def bsebr_card(st: dict) -> str:
         L.append(f"🆔 <b>Reg No:</b> {hesc(str(st['reg_no']))}")
     if st.get("bseb_id"):
         L.append(f"🎫 <b>BSEB ID:</b> {hesc(str(st['bseb_id']))}")
+    if st.get("exam_type"):
+        L.append(f"🧾 <b>Exam Type:</b> {hesc(str(st['exam_type']))}")
     subs = st.get("subjects") or []
     if subs:
         L.append(pcard_sep())
@@ -9361,51 +9522,82 @@ def bsebr_card(st: dict) -> str:
             L.append("├ " + BSEBR._sub_line(sub))
     L.append(pcard_sep())
     tot = st.get("total")
-    _div = st.get("division") or "-"
-    if st.get("is_expelled"):
-        _div = "Expelled"
-    if st.get("passed_under_regulation"):
-        _div = f"{_div} (regulation ke saath pass)"
-    L.append(f"🎯 <b>Total:</b> {int(tot) if tot and tot == int(tot) else (tot or '-')}")
-    L.append(f"🏅 <b>Result / Division:</b> {hesc(str(_div))}")
+    L.append(f"🎯 <b>Total:</b> {BSEBR._nice(tot)}")
+    L.append(f"🏅 <b>Result:</b> {BSEBR.result_text(st)}"
+             + (f" · {hesc(str(st.get('division')))}" if st.get("division") else ""))
     if st.get("is_topper"):
         L.append("🏆 <b>TOPPER!</b> — board ki topper list me naam 🎉")
     L.append("")
+    L.append("📄 <b>PDF marksheet (poora data)</b> neeche bheji gayi hai ✅")
     L.append(BSEBR.MEDIA_NOTE)
-    L.append("ℹ️ Apna (ya apne bachche ka) result hi check karein.")
     L.append("")
     L.append(BRAND_LINK)
     return "\n".join(L)
 
 
-def bsebr_notlive_card(rc: str, rn: str, why: str = "") -> str:
+def rc_archive_card(exam_key: str, year) -> str:
+    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
     return "\n".join([
-        pcard_title("📋", "RESULT CHECK (BSEB)"),
-        f"🔎 <b>Check kiya:</b> <code>{hesc(rc)} / {hesc(rn)}</code>",
-        "",
-        "⏳ <b>Is roll ka result abhi live nahi hai</b>",
-        f"<i>{hesc(why or 'board ne is roll ka result abhi declare nahi kiya')}</i>",
+        _rc_head(exam_key, year),
         pcard_sep(),
-        "📅 <b>Result kab aata hai:</b>",
-        "• Matric (10th) — <b>March-April</b>",
-        "• Inter (12th) — <b>March-April</b>",
-        "• Compartment — <b>May-August</b>",
+        f"⚠️ <b>{year} wala result board ke live portal par nahi hai</b>",
+        "<i>Bihar Board purane saal ka data portal se hata deta hai — "
+        "isliye ab wahan sirf <b>is saal (2026)</b> ka result milta hai.</i>",
         "",
-        "✅ Result declare hote hi yahi se turant mil jayega — bas dobara bhej dena.",
+        "✅ <b>Aap ye kar sakte hain:</b>",
+        f"• {year} ki marksheet school se lein (school me record hamesha hota hai)",
+        "• Board office (Patna) se duplicate marksheet banwayi ja sakti hai",
+        f"• {BSEBR.CURRENT_YEAR} ka result yahin se turant nikalta hai",
         "",
-        "🔤 <i>Roll Code aur Roll Number ulta-pulta ho gaya ho to dobara bhej dein.</i>",
+        "🔒 Hum jhoothi umeed nahi dete — jo server par nahi hai, wo nahi hai.",
         "",
         BRAND_LINK,
     ])
 
 
-def bsebr_server_card() -> str:
+def rc_notlive_card(exam_key: str, year, rc: str, rn: str) -> str:
+    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
+    L = [_rc_head(exam_key, year),
+         f"👤 <b>{hesc(str(ex.get('short', 'BSEB')))}</b>",
+         f"🔎 <b>Check kiya:</b> <code>{hesc(rc)} / {hesc(rn)}</code>",
+         "",
+         "⏳ <b>Is roll ka result abhi live nahi hai</b>",
+         "<i>Board ne is roll ka result declare nahi kiya, ya number galat hai.</i>",
+         pcard_sep(),
+         "📅 <b>Result kab aata hai:</b>",
+         "• Matric (10th) — <b>March-April</b>",
+         "• Inter (12th) — <b>March-April</b>",
+         "• Compartment — <b>May-August</b>",
+         "",
+         "🔤 Roll Code aur Roll Number ulta ho gaya ho to dobara bhej dein.",
+         "✅ Result declare hote hi yahi se turant mil jayega.",
+         "",
+         BRAND_LINK]
+    return "\n".join(L)
+
+
+def rc_server_card(exam_key: str, year) -> str:
     return "\n".join([
-        pcard_title("📋", "RESULT CHECK (BSEB)"),
+        _rc_head(exam_key, year),
+        pcard_sep(),
         "❌ <b>Bihar Board ka server abhi jawab nahi de raha</b>",
         "<i>(result season me server par bahut load hota hai)</i>",
         "",
-        "👉 1-2 minute baad <b>Dobara check</b> dabayein — hum khud phir try karenge.",
+        "👉 1-2 minute baad <b>🔁 Dobara try</b> dabayein — aapke number yaad hain.",
+        "",
+        BRAND_LINK,
+    ])
+
+
+def rc_parse_card(exam_key: str, year) -> str:
+    return "\n".join([
+        _rc_head(exam_key, year),
+        pcard_sep(),
+        "⚠️ <b>Result aa gaya, par board ne page ka format badal diya hai</b>",
+        "<i>Isliye bot use theek se padh nahi paaya. Hum 1 din me update kar denge.</i>",
+        "",
+        "✅ Aap abhi official portal par seedha dekh sakte hain:",
+        "     <code>interbiharboard.com</code>",
         "",
         BRAND_LINK,
     ])
@@ -9415,7 +9607,7 @@ def cbse_info_card() -> str:
     return "\n".join([
         pcard_title("ℹ️", "CBSE RESULT — SACH JAANKARI"),
         "CBSE ne apna purana result portal band kar diya hai.",
-        "Ab result <b>DigiLocker</b> par milta hai — aur wahan <b>login (mobile OTP)</b> zaroori hai.",
+        "Ab result <b>DigiLocker</b> par milta hai — wahan <b>login (mobile OTP)</b> zaroori hai.",
         pcard_sep(),
         "🚫 Isliye CBSE ka result bot se seedha nahi khul sakta",
         "<i>(login/password wala kaam bot kabhi nahi karta — ye aapki suraksha ke liye hai)</i>",
@@ -9425,10 +9617,61 @@ def cbse_info_card() -> str:
         "• Roll Number + Date of Birth daalein → digital marksheet mil jayegi",
         pcard_sep(),
         "🏫 <b>Bihar Board (BSEB) ka result YAHAN turant milta hai</b> —",
-        "bas Roll Code + Roll Number bhej dein 👇",
+        "Matric / Inter chuno, Roll Code + Roll No bhejo, PDF marksheet pao 👇",
         "",
         BRAND_LINK,
     ])
+
+
+async def rc_deliver(target, context, uid: int, rc: str, rn: str):
+    """Result lao → card + PDF bhejo (kabhi khaali nahi)."""
+    db = context.user_data.get("rcdb") or {}
+    exam_key = str(db.get("exam") or "matric")
+    try:
+        year = int(db.get("year") or BSEBR.CURRENT_YEAR)
+    except Exception:                                            # noqa: BLE001
+        year = BSEBR.CURRENT_YEAR
+    db["rc"], db["rn"] = str(rc), str(rn)
+    context.user_data["rcdb"] = db
+    st = await target.reply_text("🔎 Bihar Board se result nikal raha hoon…")
+    res = await asyncio.to_thread(BSEBR.check, exam_key, year, rc, rn)
+    try:
+        await st.delete()
+    except Exception:                                            # noqa: BLE001
+        pass
+    if res.get("ok"):
+        stu = res.get("student") or {}
+        await target.reply_text(rc_result_card(stu, exam_key, year),
+                                reply_markup=_rc_result_kb(), parse_mode=HTML)
+        try:
+            _label = (BSEBR.EXAMS.get(exam_key) or {}).get("label") or "BSEB"
+            pdf = await asyncio.to_thread(BSEBR.build_pdf, stu, _label, year,
+                                          "Bihar Board official portal")
+            if pdf:
+                await target.reply_document(
+                    io.BytesIO(pdf),
+                    filename=BSEBR.pdf_filename(exam_key, rc, rn, year),
+                    caption="📄 <b>Marksheet (WEB COPY)</b> — poora data isme hai "
+                            "(sirf jaankari ke liye).",
+                    parse_mode=HTML)
+        except Exception as e:                                   # noqa: BLE001
+            log.warning("result pdf fail: %s", str(e)[:120])
+        context.user_data.pop("mode", None)
+        context.user_data.pop("rc_code_val", None)
+        add_use(uid)
+        return
+    _stt = str(res.get("status") or "")
+    if _stt == "server":
+        await target.reply_text(rc_server_card(exam_key, year),
+                                reply_markup=_rc_result_kb(), parse_mode=HTML)
+    elif _stt == "parse":
+        await target.reply_text(rc_parse_card(exam_key, year),
+                                reply_markup=_rc_result_kb(), parse_mode=HTML)
+    else:
+        await target.reply_text(rc_notlive_card(exam_key, year, rc, rn),
+                                reply_markup=_rc_result_kb(), parse_mode=HTML)
+    context.user_data.pop("mode", None)
+    context.user_data.pop("rc_code_val", None)
 
 
 def cxray_caption(st: dict) -> str:
