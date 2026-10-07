@@ -25,7 +25,7 @@ import socket
 import time
 import threading
 import tempfile
-from datetime import date, datetime
+from datetime import date, datetime, timezone   # v75: timezone (smart-detect message)
 from html import escape as hesc
 from urllib.parse import quote
 
@@ -55,6 +55,9 @@ from modules.core.guard import (
     start_hang_watchdog,
     start_memory_watchdog,
 )
+# v75 — 🧠 PRO ENGINE: saare tools ka universal advanced layer
+#       (smart detect + provider race + result history + tool analytics)
+from modules.core import proengine as pro
 from modules.core.safesend import (
     safe_answer_cb,
     safe_delete,
@@ -99,6 +102,7 @@ from telegram import (
     InputMediaPhoto,
     InputMediaVideo,
     KeyboardButton,
+    Message,          # v75: smart-detect ka 1-tap button (synthetic input message)
     ReplyKeyboardMarkup,
     Update,
 )
@@ -430,9 +434,10 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.6 FREE4ALL — NO-GYAAN + SPEED: disk-cache + engine race "
-               "| temp number: WhatsApp + 3 desh | result check: BSEB LIVE + CBSE captcha-bridge "
-               "| saare tools tez")
+BOT_VERSION = ("v75 PRO ENGINE — 🧠 SMART DETECT (kuch bhi bhejo, bot khud tool chala dega) "
+               "+ ⚡ PROVIDER RACE & CIRCUIT BREAKER + 🗂️ /history + 📊 /toolstats "
+               "| 🛡️ asli crash bug fix (vault asyncio) + permanent pyflakes gate "
+               "| 💰 earning-leak band (0 credit par auto-run block)")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -5080,6 +5085,84 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return m
         return chat if chat is not None else m
 
+    # ==================================================================
+    #  v75 — 🧠 SMART DETECT ka 1-tap button (PRO ENGINE)
+    #  ------------------------------------------------------------------
+    #  User ne input bheja -> bot ne pahchana -> "chalaun?" button dikhaya.
+    #  Ab wahi button daba hai. Hum user ka value server-side se uthate hain
+    #  aur on_text ko bilkul WAISA hi Update dete hain jaise user ne wo text
+    #  khud type kiya ho. Isliye tool ka poora flow, credits, rate-limit,
+    #  VIP gate — sab exactly same rehta hai (koi shortcut nahi).
+    # ==================================================================
+    if data.startswith("pro_go:"):
+        _tok = data.split(":", 1)[1]
+        _hit = pro.pending_get(_tok)
+        if not _hit:
+            await safe_answer_cb(q, "Ye button purana ho gaya — value dobara bhejo", show_alert=True)
+            return
+        # VIP wall wahi lagti hai jo normal input par lagti hai
+        if PREMIUM_ONLY and not vip_ok(uid):
+            await send_vip_wall(update, context)
+            return
+        # ---- v75: EARNING RULE — credits gate (button path ki tarah hi) ----
+        if is_premium_tool(_hit.action):
+            _u_pg = get_user(uid, q.from_user.first_name or "")
+            if not can_use_premium_tool(_u_pg, uid):
+                await safe_answer_cb(q, "Credits khatam", show_alert=False)
+                try:
+                    await q.message.reply_text(get_credits_over_text(_hit.action),
+                                               reply_markup=get_limit_exceeded_kb(),
+                                               parse_mode=HTML)
+                except Exception:                                # noqa: BLE001
+                    pass
+                return
+        try:
+            context.user_data["mode"] = _hit.action
+            context.user_data["_pro_tool"] = _hit.label
+            context.user_data["_pro_mode"] = _hit.action
+            _m = Message(
+                message_id=getattr(q.message, "message_id", 0) or 0,
+                date=datetime.now(timezone.utc),
+                chat=update.effective_chat,
+                from_user=q.from_user,
+                text=_hit.value,
+            )
+            try:
+                _m.set_bot(context.bot)
+            except Exception:                                    # noqa: BLE001
+                pass
+            _synth = Update(update_id=update.update_id, message=_m)
+            await safe_answer_cb(q, f"⚡ {_hit.label} chalu…")
+            await on_text(_synth, context)
+        except Exception as _pe:                                 # noqa: BLE001
+            log.warning("pro_go fail: %s", str(_pe)[:160])
+            context.user_data.pop("mode", None)
+            try:
+                await q.message.reply_text(
+                    f"⚠️ <b>{_hit.label}</b> abhi nahi chala.\n"
+                    f"Value dobara bhejo (tool khud pahchan lega):\n<code>{_hit.value}</code>",
+                    parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                pass
+        return
+
+    # ---------- v75: 🗂️ /history ke buttons ----------
+    if data == "pro_histclear":
+        pro.results.clear(uid)
+        await safe_answer_cb(q, "🧹 History saaf ho gayi")
+        await q.message.reply_text("🧹 <b>History saaf ho gayi.</b>", parse_mode=HTML)
+        return
+
+    if data.startswith("pro_re:"):
+        _tool = data.split(":", 1)[1]
+        await safe_answer_cb(q, "🔁 Ready")
+        context.user_data["mode"] = _tool
+        context.user_data["_pro_tool"] = _tool
+        context.user_data["_pro_mode"] = _tool
+        await q.message.reply_text(
+            f"🔁 <b>{_tool}</b> ready — apna input bhejo.", parse_mode=HTML)
+        return
+
     # ---------- v49.4: VIP-ONLY GATE ----------
     # VIP lene / refer / madad / payment verify wale buttons sabke liye khule hain.
     if PREMIUM_ONLY and not vip_ok(uid) and not vip_free_cb(data):
@@ -7233,6 +7316,77 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Check Active Working Modes
     mode = context.user_data.get("mode")
+
+    # ==================================================================
+    #  v75 — 🧠 SMART DETECT (PRO ENGINE, ENGINE-1)
+    #  ------------------------------------------------------------------
+    #  NAYA BEHAVIOUR: user ko button dabane ki zaroorat hi nahi.
+    #  Wo seedha "SBIN0001234" ya "9876543210" ya ek link bhej de — bot
+    #  khud pahchan leta hai ki ye kya hai aur SAHI tool chala deta hai.
+    #
+    #  Kab chalta hai (teeno sach hone chahiye):
+    #    1. Koi tool mode already active na ho (warna user ka input chori na ho)
+    #    2. Text kisi button se match na hua ho
+    #    3. User ne smart detect band na kiya ho (/smart se toggle)
+    #
+    #  High-confidence input (IFSC / IMEI / mobile / URL / gaadi / GST / PAN)
+    #  = turant chalta hai. Medium (pincode / username / domain / email)
+    #  = 1-tap confirm button, khud se nahi chalta (galat tool na khule).
+    # ==================================================================
+    if not action and not mode and raw_text and len(raw_text) <= 300 \
+            and pro.AUTO_MODE != "off" and pro.detect_enabled(uid):
+        try:
+            _hit = pro.detect(raw_text)
+            if _hit:
+                _autoran = bool(_hit.high and _hit.action in pro._AUTORUN)
+                # ---- v75: EARNING RULE — premium tool ka credit gate ----------
+                #  Auto-run se credits bypass NAHI hone chahiye. Ye bilkul wahi
+                #  check hai jo button dabane par lagta hai (isliye earning model
+                #  auto-detect se bilkul nahi tootta).
+                if _autoran and is_premium_tool(_hit.action):
+                    _u_p = get_user(uid, user.first_name or "")
+                    if not can_use_premium_tool(_u_p, uid):
+                        await update.message.reply_text(
+                            get_credits_over_text(_hit.action),
+                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+                        return
+                if _autoran and pro.AUTO_MODE == "auto":
+                    context.user_data["mode"] = _hit.action
+                    context.user_data["_pro_tool"] = _hit.label
+                    context.user_data["_pro_mode"] = _hit.action
+                    mode = _hit.action
+                    try:
+                        await update.message.reply_text(
+                            f"{_hit.get('emoji') or '🧠'} <b>{_hit.label}</b> chala raha hoon…",
+                            parse_mode=HTML)
+                    except Exception:                            # noqa: BLE001
+                        pass
+                else:
+                    _skb = pro.smart_kb(_hit)
+                    if _skb is not None:
+                        await update.message.reply_text(pro.smart_line(_hit),
+                                                        reply_markup=_skb,
+                                                        parse_mode=HTML)
+                        return
+        except Exception as _pe:                                 # noqa: BLE001
+            log.debug("smart detect skip: %s", str(_pe)[:110])
+
+    # ---------- v75: is run ka naam record karo (analytics ke liye) ----------
+    #  Kaunsa tool chal raha hai — `_pro_tool` me daal do. Handler poora hone
+    #  par `_on_text_pro` wrapper ise padh kar result history + tool stats me
+    #  likh deta hai (koi tool ka code chhue bina).
+    if mode and not context.user_data.get("_pro_tool"):
+        _mkey = str(mode)
+        _ptn = None
+        if _mkey in TOOL_RATE_LIMITS:
+            _ptn = TOOL_RATE_LIMITS[_mkey][2]
+        else:
+            for _k in TOOL_RATE_LIMITS:
+                if _mkey.startswith(_k + "_"):
+                    _ptn = TOOL_RATE_LIMITS[_k][2]
+                    break
+        context.user_data["_pro_tool"] = _ptn or _mkey.replace("_", " ").title()
+        context.user_data["_pro_mode"] = _mkey
 
     # ---------- v50: CENTRAL RATE-LIMIT GATE ----------
     # Ek hi jagah se SAARE tools par limit lagti hai — har tool me alag code
@@ -11001,11 +11155,124 @@ def _force_webhook_after_conflict(app) -> bool:
         return False
 
 
+# =====================================================================
+#  v75 — 🧠 PRO ENGINE WRAPPERS + COMMANDS
+# =====================================================================
+#  Ye wrappers on_text / on_cb ko lapette hain — bas itna kaam:
+#    (1) tool ka time naapo,
+#    (2) result history + tool analytics me likho,
+#    (3) crash ho to bhi FAIL likho (chup-chaap gayab na ho).
+#  Isse KUCH BHI tool ka andar ka code nahi badla (aapke prompts bhi safe).
+# =====================================================================
+
+async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """on_text ka wrapper — har tool run ka hisaab rakhta hai."""
+    t0 = time.perf_counter()
+    ok_done = True
+    try:
+        context.user_data.pop("_pro_tool", None)
+        context.user_data.pop("_pro_mode", None)
+        await on_text(update, context)
+    except Exception:
+        ok_done = False
+        raise
+    finally:
+        try:
+            tool = context.user_data.pop("_pro_tool", None)
+            _mkey = context.user_data.pop("_pro_mode", None) or tool
+            if tool:
+                _uid = update.effective_user.id if update.effective_user else 0
+                _ms = int((time.perf_counter() - t0) * 1000)
+                pro.record_result(_uid, str(_mkey), title=str(tool),
+                                  ok=ok_done, ms=_ms)
+        except Exception:                                        # noqa: BLE001
+            pass
+
+
+async def _on_cb_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """on_cb ka wrapper — callback wale tools ka bhi hisaab."""
+    t0 = time.perf_counter()
+    ok_done = True
+    try:
+        context.user_data.pop("_pro_tool", None)
+        context.user_data.pop("_pro_mode", None)
+        await on_cb(update, context)
+    except Exception:
+        ok_done = False
+        raise
+    finally:
+        try:
+            tool = context.user_data.pop("_pro_tool", None)
+            _mkey = context.user_data.pop("_pro_mode", None) or tool
+            if tool:
+                _uid = update.effective_user.id if update.effective_user else 0
+                _ms = int((time.perf_counter() - t0) * 1000)
+                pro.record_result(_uid, str(_mkey), title=str(tool),
+                                  ok=ok_done, ms=_ms)
+        except Exception:                                        # noqa: BLE001
+            pass
+
+
+async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """🗂️ /history — user ke aakhri results (1-tap dobara chalane ke saath)."""
+    uid = update.effective_user.id
+    get_user(uid, update.effective_user.first_name or "")
+    txt = pro.history_text(uid, 8)
+    kb = pro.history_kb(uid, 5)
+    await update.message.reply_text(txt, reply_markup=kb or None, parse_mode=HTML)
+
+
+async def cmd_smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """🧠 /smart — smart auto-detect ON/OFF + kya-kya pahchanta hai."""
+    uid = update.effective_user.id
+    on = pro.detect_enabled(uid)
+    new = pro.set_detect_enabled(uid, not on)
+    icon = "🟢 ON" if new else "🔴 OFF"
+    lines = [
+        "🧠 <b>SMART DETECT</b>",
+        "──────────────────────",
+        f"Status: <b>{icon}</b>",
+    ]
+    if new:
+        lines += [
+            "──────────────────────",
+            "Ab aap seedha input bhej sakte ho — bot khud tool chala lega:",
+            "• <code>SBIN0001234</code> → 🏦 IFSC",
+            "• <code>9876543210</code> → 📱 Number Info",
+            "• <code>800001</code> → 📮 Pincode",
+            "• <code>BR01AB1234</code> → 🚗 RC + Challan",
+            "• koi bhi link → 🔍 Link Check",
+            "• <code>@username</code> → 🕵️ Username Hunter",
+            "• 15-digit number → 🔐 IMEI",
+        ]
+    else:
+        lines += ["", "Ab tools sirf button se chalenge."]
+    await update.message.reply_text("\n".join(lines), parse_mode=HTML)
+
+
+async def cmd_toolstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """📊 /toolstats — admin: kaunsa tool kitna chala, kitna pass (earning analytics)."""
+    if not is_admin(update.effective_user.id):
+        return
+    await update.message.reply_text(pro.toolstats_text(15), parse_mode=HTML)
+    try:
+        brk = pro.breaker_stats()
+        if brk:
+            _open = [b for b in brk if b["state"] != "closed"]
+            if _open:
+                await update.message.reply_text(
+                    "🔌 <b>PROVIDER HEALTH</b>\n──────────────────────\n"
+                    + "\n".join(f"• <b>{b['name']}</b> — {b['state']} "
+                                f"(fail {b['fails']}, heal {b['heals']})"
+                                for b in _open[:12]),
+                    parse_mode=HTML)
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
 def main():
     # =====================================================================
     #  v60 — 🛡️ CRASH SHIELD SABSE PEHLE ON KARO
-    #  (guard sabse pehle install hota hai taaki boot ke waqt bhi kuch crash
-    #   ho to log me dikhe aur bot chalta rahe)
     # =====================================================================
     try:
         install_global_guard()
@@ -11118,6 +11385,10 @@ def main():
     app.add_handler(CommandHandler(["vips", "viplist", "premiums"], cmd_vips))
     app.add_handler(CommandHandler(["fixvip", "vipfix"], cmd_fixvip))
     app.add_handler(CommandHandler(["ledger", "viphistory"], cmd_ledger))
+    # v75 — 🧠 PRO ENGINE commands
+    app.add_handler(CommandHandler(["history", "recent", "myrecent"], cmd_history))
+    app.add_handler(CommandHandler(["smart", "autodetect", "auto"], cmd_smart))
+    app.add_handler(CommandHandler(["toolstats", "analytics", "toolreport"], cmd_toolstats))
 
     # Specific Tool Commands
     # v49.4: tool commands bhi VIP-only (gate andar hai)
@@ -11145,7 +11416,8 @@ def main():
     # Callbacks
     # v59.10: har update ka hisaab (group=-10 = sabse pehle, koi reply nahi karta)
     app.add_handler(TypeHandler(Update, _track_update), group=-10)
-    app.add_handler(CallbackQueryHandler(on_cb))
+    # v75: on_cb ko PRO wrapper se jodo (tool analytics + history)
+    app.add_handler(CallbackQueryHandler(_on_cb_pro))
 
     # Message Handlers
     # (a) FULL AUTO: source channel ki nayi posts (bot ko us channel me admin hona chahiye)
@@ -11166,7 +11438,7 @@ def main():
     app.add_handler(MessageHandler(filters.Document.ALL & _dm_or_group, on_doc_cookies),
                     group=-5)          # v66: admin ki cookies.txt file
     app.add_handler(MessageHandler(_any_media & _dm_or_group, on_media))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, on_text))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, _on_text_pro))
 
     # 🛡️ v60: SAARE handlers ko crash-shield me lapeto (sabse zaroori line)
     _armed = arm_all_handlers(app)

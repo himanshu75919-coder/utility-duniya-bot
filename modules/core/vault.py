@@ -64,6 +64,12 @@ ADMIN COMMANDS (bot me):
 """
 from __future__ import annotations
 
+import asyncio          # v75 FIX: pehle ye import module-level par NAHI tha.
+#                        `backup_soon()` ke andar `await asyncio.sleep()` use hota
+#                        tha lekin `asyncio` sirf ek doosre function ke andar
+#                        import tha -> NameError -> VIP grant/payment approve hone
+#                        par turant backup wala path CRASH ho jata tha.
+#                        (pyflakes ne pakda: vault.py:1261 undefined name)
 import base64
 import hashlib
 import hmac
