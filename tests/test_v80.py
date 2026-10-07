@@ -189,8 +189,13 @@ except Exception as e:                                            # noqa: BLE001
 
 # =====================================================================
 section("7) Version + wiring")
-check("version v74.x hai (NO-GYAAN + SPEED)",
-      "v74." in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
+# v75: ye guard v74.x par pin tha. Aage version aane par bhi check zinda
+# rahe — isliye "v74.x ya USSE AAGE" kiya gaya (feature keywords waise hi).
+import re as _re80
+_vm80 = _re80.search(r"v(\d+)\.", bot.BOT_VERSION or "")
+check("version v74.x ya usse aage hai (NO-GYAAN + SPEED)",
+      bool(_vm80) and int(_vm80.group(1)) >= 74 and "NO-GYAAN" in bot.BOT_VERSION,
+      bot.BOT_VERSION)
 check("exports: boards import bot me", "from modules import boards as BRD" in BOT_SRC)
 check("callbacks wired (rcb/rc_page/rc_how/rc_live)",
       all(x in BOT_SRC for x in ('startswith("rcb:")', 'startswith("rc_page:")',

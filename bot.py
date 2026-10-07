@@ -434,10 +434,14 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v75 PRO ENGINE — 🧠 SMART DETECT (kuch bhi bhejo, bot khud tool chala dega) "
-               "+ ⚡ PROVIDER RACE & CIRCUIT BREAKER + 🗂️ /history + 📊 /toolstats "
-               "| 🛡️ asli crash bug fix (vault asyncio) + permanent pyflakes gate "
-               "| 💰 earning-leak band (0 credit par auto-run block)")
+# NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
+# gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
+# check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
+BOT_VERSION = ("v75.0 FREE4ALL — 🧠 PRO ENGINE UPGRADE: SMART DETECT (kuch bhi bhejo, bot khud "
+               "tool chala dega) + ⚡ PROVIDER RACE & CIRCUIT BREAKER + 🗂️ /history "
+               "+ 📊 /toolstats | 🛡️ asli crash bug fix (vault asyncio) + permanent pyflakes gate "
+               "| 💰 earning-leak band (0 credit par auto-run block) "
+               "| NO-GYAAN + SPEED (purana base zinda)")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -8497,16 +8501,19 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             return
 
-        _t0 = time.perf_counter()
-        _prov, _car = {}, {}
-        try:
-            _prov, _car = await asyncio.gather(
-                asyncio.to_thread(numprov.lookup, raw_text),
-                asyncio.to_thread(hubapi.hub_carrier_info, raw_text),
-            )
-        except Exception:                                          # noqa: BLE001
-            _prov, _car = {}, {}
-        _ms = (time.perf_counter() - _t0) * 1000
+        # v75 — ⚡ SPEED FIX (PRO ENGINE): pehle yahan `asyncio.gather` tha.
+        #  gather SLOWEST source ka wait karta hai. Agar ek source dead/slow ho
+        #  (provider API 9 second leta hai, hub 200ms me jawab de chuka hai) to
+        #  bhi user 9 second wait karta tha — "bot atka hua" lagta tha.
+        #  Ab `gather_soon`: jo jawab time ke andar aa gaya, wahi use hota hai.
+        #  Slow source ko chhod diya jaata hai (fallback pehle se neeche hai).
+        _pair, _ms = await pro.gather_soon(
+            [asyncio.to_thread(numprov.lookup, raw_text),
+             asyncio.to_thread(hubapi.hub_carrier_info, raw_text)],
+            timeout=float(os.environ.get("NUMINFO_WAIT_S", "8")),
+        )
+        _prov = _pair[0] if (_pair and isinstance(_pair[0], dict)) else {}
+        _car = _pair[1] if (len(_pair) > 1 and isinstance(_pair[1], dict)) else {}
 
         # live data ka best available source (provider > hub > offline)
         _live = {k: v for k, v in (_prov or {}).items() if v not in (None, "", False)}

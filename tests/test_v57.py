@@ -243,8 +243,12 @@ check("LINK CHECK: response time measure hota hai", "_ms = (time.perf_counter()"
 _ni_i = BOT_SRC.index('if mode == "numinfo":')
 _ni_j = BOT_SRC.index('if mode == "ifsc":', _ni_i)
 _ni = BOT_SRC[_ni_i:_ni_j]
-check("NUMBER INFO: provider + hub PARALLEL chalte hain (asyncio.gather)",
-      "asyncio.gather(" in _ni)
+# v75 UPGRADE: pehle `asyncio.gather` tha — par gather SLOWEST source ka wait
+# karta hai (ek source dead = user 9 second wait). Ab `pro.gather_soon` hai jo
+# jo jawab time me aa gaya wahi le leta hai. SPEC waara hi hai: DONO PARALLEL
+# chalte hain (serial nahi). Isliye test dono implementations accept karta hai.
+check("NUMBER INFO: provider + hub PARALLEL chalte hain (gather_soon/gather)",
+      "gather_soon(" in _ni or "asyncio.gather(" in _ni)
 check("NUMBER INFO: dono apni jagah call hote hain",
       "numprov.lookup" in _ni and "hub_carrier_info" in _ni)
 check("NUMBER INFO: fallback chain hai (provider → hub → offline)",

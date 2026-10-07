@@ -10,12 +10,38 @@
 
 Har tool ke liye likha hai: **abhi kya hai** → **kya problem hai** → **advanced upgrade kya hoga**.
 
+## 🔍 AUDIT KAISE HUA (aur kya sach me mila)
+
+Poore codebase (12,000+ lines, 35+ modules) par ye tools chalaye:
+- **pyflakes** — undefined naam (asli crash bugs) → **1 mila: vault.py, FIX ho gaya**
+- **syntax compile** — saari files ✅
+- **bare `except:` scan** — crash chhupane wala pattern → **sirf 2 (safe hain)**
+- **`requests` bina timeout** — → **1 (safe)**
+- **`asyncio.gather` scan** — ⚠️ **2 jagah mili jahan slowest source user ko rokta hai** → 1 fix ho gaya (NUMBER INFO)
+- **module-by-module padha** — har tool ka actual code, comment aur flow
+
+### ⚠️ IMANDARI SE — 2 cheezein maine pehle galat likhi thi
+
+Audit ke pehle draft me maine likha tha "quality stamp add karna hai" aur "cache nahi hai".
+**Code padhne par pata chala ye pehle se hai:**
+- `pcard_foot()` — Source + Response ms wala footer, **11 tools me pehle se laga hua hai** ✅
+- IFSC cache 24h, Pincode 7 din, GST 24h, NUMBER INFO 6h — **pehle se hai** ✅
+
+Isliye neeche wale plan me **correction kar diya gaya hai**. Jo bacha hai wahi likha hai —
+jhoothi list dikhane se aapka time barbaad hota.
+
 ## 🏆 TIER 1 — SABSE ZYADA USE HONE WALE (yahan sabse zyada paisa hai)
 
-### 1. 📱 NUMBER INFO V2 (`modules/numinfo_provider.py`)
-- **Abhi:** provider + hub parallel (v57 me hi parallel ho gaya tha) ✅
-- **Problem:** provider fail hone par user ko sirf error milta hai; koi 3rd fallback nahi; result card par source/speed nahi dikhta (bharosa kam)
-- **Upgrade:** (a) 3-provider race (b) breaker — jo provider bimar, 10 min skip (c) quality stamp `⚡ 340ms · 🏷️ provider-2` (d) offline validation turant (pehle se hai) — **isme sirf stamp + race add karna hai**
+### 1. 📱 NUMBER INFO V2 (`modules/numinfo_provider.py`) — ✅ **v75 me FIX ho gaya**
+- **Abhi (v57 se):** provider + hub **parallel** chalte the (`asyncio.gather`) ✅, 6 ghante cache ✅,
+  result card par source + response time **pehle se** dikhta hai (`pcard_foot`) ✅
+- **ASLI PROBLEM jo mila (v75 me pakda):** `asyncio.gather` **slowest source ka wait karta hai**.
+  Matlab provider API 9 second leta hai aur hub 200ms me jawab de chuka hai —
+  tab bhi user **9 second** wait karta tha ("bot atka hua" lagta tha).
+- **v75 FIX:** naya `pro.gather_soon()` — jo source time ke andar aa gaya wahi le lo,
+  slow source ko chhod do (fallback neeche pehle se hai). Timeout `NUMINFO_WAIT_S` se control hota hai (default 8s).
+  Test se sabit: 3-second slow source **0.6s** me chhod diya jaata hai ✅
+- **Bacha hua kaam (agle round):** 3rd live provider + breaker + "cached" ka ⚡ instant tag card par
 
 ### 2. 🔐 IMEI / PHONE DETAILS (`modules/imei_lookup.py` — 1046 lines)
 - **Abhi:** GSMarena + provider, specs card + PDF
@@ -27,10 +53,18 @@ Har tool ke liye likha hai: **abhi kya hai** → **kya problem hai** → **advan
 - **Problem:** plate format validation kamzor; ek provider; fail par khaali haath
 - **Upgrade:** (a) plate parser strong (BH-series, 2-letter state, old format) (b) **RC history watch** (VIP: koi gaadi par nazar — RC/insurance change hote hi alert) (c) **bulk plate check** (CSV → Excel — dealer/agent ke liye, ye PAISA deta hai)
 
-### 4. 🏦 IFSC (`modules/api_hub.py`) + 📮 PINCODE
-- **Abhi:** Razorpay IFSC (official); pincode postalpincode.in
-- **Problem:** har baar API call (slow + rate limit); repeat query par bhi full wait
-- **Upgrade:** (a) **TTL cache (30 din IFSC / 90 din pincode)** — repeat = ⚡ instant (b) **bulk mode**: 50 IFSC ek saath → Excel (**bank agents iske paise dete hain**) (c) **bank branch → sabhi branches** ek pincode me (VIP)
+### 4. 🏦 IFSC + 📮 PINCODE (`modules/osint_tools.py`)
+- **Abhi (verify kiya):** Razorpay IFSC (official) + hub fallback ✅; pincode India Post + hub ✅.
+  **Cache pehle se hai** — IFSC **24 ghante**, pincode **7 din** (`_cget`/`_cput`) ✅.
+  Result card par Source + Response ms **pehle se** dikhta hai ✅
+- **Ye sahi me bacha hai (agle round ka kaam):**
+  (a) **cache hit par user ko dikhe** — abhi `cached: True` aata hai par card par
+      "⚡ instant (pehle check kiya tha)" likha nahi jaata → **1 line ka kaam, premium feel**
+  (b) **BULK MODE**: 50-500 IFSC ek saath → **Excel file** —
+      ye sabse bada paisa hai (bank agent / CA / insurance agent iske paise dete hain)
+  (c) **pincode → sabhi branches ek card me** (VIP)
+  (d) IFSC me bhi hub+razorpay **race (gather_soon)** — abhi hub fail hone par razorpay ka
+      poora time lagta hai
 
 ### 5. 🔍 LINK CHECK (`modules/toolkit_extras.py` — 6 layer scan)
 - **Abhi:** redirect expand + openphish + urlscan + domain age + typosquat

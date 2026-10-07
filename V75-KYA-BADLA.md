@@ -1,7 +1,7 @@
 # 🚀 V75 KYA BADLA — 🧠 PRO ENGINE + 🛡️ PERMANENT CRASH FIX
 
 **Date:** 7 October 2026
-**Test status:** 29 files · **2680+ checks · 0 FAIL** (naya `test_v83` bhi shaamil)
+**Test status:** 29 files · **2684+ checks · 0 FAIL** · naya `test_v83` = **PASS 78 | FAIL 0**
 
 ---
 
@@ -72,6 +72,20 @@ Ye aage har baar chalega. Agar kabhi koi bhi file me aisa hi bug aaya →
   khud se nahi chalta (warna galat tool khul jayega)
 
 **User control:** `/smart` command se koi bhi user ise ON/OFF kar sakta hai.
+
+### ENGINE 2b — ⚡ `gather_soon()` — SLOWEST SOURCE KA WAIT KHATAM (v75 me live fix)
+
+**Asli bug jo audit me mila:** bot me 2 jagah `asyncio.gather()` use hota tha.
+`gather` **slowest source ka wait karta hai** — agar ek data source dead/slow hai
+(9 second) aur doosra 200ms me jawab de chuka hai, tab bhi user **9 second wait** karta tha.
+
+**Pehla fix lag gaya — 📱 NUMBER INFO** (aapka premium tool):
+- Ab `pro.gather_soon()` use hota hai — jo jawab **time ke andar** aa gaya, wahi le liya jaata hai
+- Slow source chhod diya jaata hai (uska fallback pehle se neeche code me hai)
+- Timeout `NUMINFO_WAIT_S` env se control hota hai (default 8 second)
+- **Test se sabit:** 3-second slow source ko **0.6s** me chhod diya jaata hai ✅
+
+**Dusra (Link Check) agle round me.**
 
 ### ENGINE 2 — ⚡ PROVIDER RACE + CIRCUIT BREAKER
 

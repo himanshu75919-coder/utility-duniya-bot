@@ -229,6 +229,38 @@ check("race: khaali/None jawab accept nahi (jhoot nahi milta)", _r2 is None)
 _r3, _, _ = pro.race([], timeout=2)
 check("race: khaali list par crash nahi", _r3 is None)
 
+# ---- v75: gather_soon (slowest source ka wait khatam) ----
+import asyncio as _aio                                            # noqa: E402
+
+
+async def _slow():
+    await _aio.sleep(3)
+    return "slow"
+
+
+async def _fast():
+    await _aio.sleep(0.05)
+    return "fast"
+
+
+async def _dead():
+    raise RuntimeError("dead")
+
+
+async def _gs():
+    import time as _t
+    t0 = _t.perf_counter()
+    res, ms = await pro.gather_soon([_slow(), _fast(), _dead()], timeout=0.6)
+    return res, _t.perf_counter() - t0
+
+
+_gres, _gel = _aio.run(_gs())
+check("gather_soon: fast ka jawab mil jaata hai", _gres[1] == "fast", f"-> {_gres}")
+check("gather_soon: slow source user ko rokta nahi (3s -> <1.5s)",
+      _gel < 1.5, f"-> {_gel:.2f}s")
+check("gather_soon: dead source crash nahi karta", _gres[2] is None)
+check("gather_soon: khaali list safe", _aio.run(pro.gather_soon([], 1))[0] == [])
+
 _br = pro.get_breaker("test-provider-v83", threshold=2, cooldown=60)
 check("breaker: shuru me allow karta hai", _br.allow() is True)
 _br.fail(); check("breaker: 1 fail par bhi khula nahi", _br.state == "closed")

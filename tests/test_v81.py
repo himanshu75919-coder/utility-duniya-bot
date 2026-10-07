@@ -205,8 +205,12 @@ check("v74.6: captcha bridge — user captcha, phir PDF (bypass nahi)",
       "rc_cap_ans" in BOT_SRC and "cb.fetch_form" in BOT_SRC.lower()
       and "captcha_img_fail" in open(os.path.join(_ROOT, "modules", "captcha_bridge.py"),
                                      encoding="utf-8").read())
-check("version v74.x (NO-GYAAN + SPEED)",
-      "v74." in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
+# v75: "v74.x ya usse aage" — aage ke version par bhi guard zinda rahe
+import re as _re81
+_vm81 = _re81.search(r"v(\d+)\.", bot.BOT_VERSION or "")
+check("version v74.x ya usse aage (NO-GYAAN + SPEED)",
+      bool(_vm81) and int(_vm81.group(1)) >= 74 and "NO-GYAAN" in bot.BOT_VERSION,
+      bot.BOT_VERSION)
 
 # =====================================================================
 section("6) Registry + baaki sab salamat (regression)")

@@ -59,7 +59,7 @@ log = logging.getLogger("ud.proengine")
 
 __all__ = [
     "detect", "SmartHit", "smart_kb", "smart_line", "pending_get",
-    "race", "Breaker", "get_breaker", "breaker_stats",
+    "race", "Breaker", "get_breaker", "breaker_stats", "gather_soon",
     "RecentResults", "results", "record_result", "history_kb", "history_text",
     "quality_line", "tool_counter", "toolstats", "toolstats_text",
     "AUTO_MODE", "detect_enabled", "set_detect_enabled",
@@ -483,6 +483,50 @@ def race(calls: Sequence[Tuple[str, Callable[[], Any]]], timeout: float = 25.0,
         if done.wait(0.15):
             break
     return box["res"], box["name"], fails
+
+
+async def gather_soon(coros: Sequence[Any], timeout: float = 8.0) -> Tuple[List[Any], int]:
+    """v75 — `asyncio.gather` ka behtar version: SLOWEST ka wait nahi karta.
+
+    PROBLEM jo ye theek karta hai:
+        `await asyncio.gather(a, b)` — dono me se EK slow/dead ho to user
+        dono ka time jod kar wait karta hai (a 200ms, b 9s dead -> 9s wait).
+        Tool "kaam kar raha tha" par user ko lagta hai bot atka hai.
+
+    YE KYA KARTA HAI:
+        `asyncio.wait(timeout=...)` se jo jawab TIME ke andar aa gaya, wo le lo.
+        Jo nahi aaya, uska None rakh do (baad me fallback lag jayega).
+        Result: sabse tez source ki speed milti hai, slow source block nahi karta.
+
+    Return: (results_list, elapsed_ms)   — list me har coro ka result ya None.
+    """
+    t0 = time.perf_counter()
+    items = list(coros or [])
+    if not items:
+        return [], 0
+    out: List[Any] = [None] * len(items)
+    try:
+        import asyncio
+        tasks = []
+        for c in items:
+            try:
+                tasks.append(asyncio.ensure_future(c))
+            except Exception:                                    # noqa: BLE001
+                tasks.append(None)
+        _live = [t for t in tasks if t is not None]
+        if _live:
+            done, _pending = await asyncio.wait(_live, timeout=max(0.5, float(timeout)))
+            for t in done:
+                i = tasks.index(t)
+                try:
+                    out[i] = t.result()
+                except Exception:                                # noqa: BLE001
+                    out[i] = None
+            for t in _pending:
+                t.cancel()
+    except Exception as e:                                       # noqa: BLE001
+        log.debug("gather_soon skip: %s", str(e)[:110])
+    return out, int((time.perf_counter() - t0) * 1000)
 
 
 # ======================================================================
