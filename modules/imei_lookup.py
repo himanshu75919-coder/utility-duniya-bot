@@ -555,9 +555,154 @@ def _ddg_marketing_name(brand: str, model: str) -> str:
 #  Jo bhi mile, dono jod ke wahi dict deta hai jo fetch_imei_details()
 #  deta hai — isliye bot ka wahi premium card/photo/JSON sab chalta hai.
 # =====================================================================
+def smart_query(q: str) -> str:
+    """v75.2 — 🧠 Device naam ki typo sudhaaro (offline, 0 API call).
+
+    ASLI PROBLEM: log device ka naam galat likhte hain —
+        "redmi not 12"      (note -> not)
+        "samsumg a54"       (samsung ki spelling)
+        "iphon 13"          (iphone)
+        "onepls nord"       (oneplus)
+        "poco x 3"          (X 3 -> X3)
+    Pehle aise query par search fail ho jaata tha aur user ko lagta tha
+    "tool kaam nahi karta". Ab naam pehle sudhaar lete hain — phir search.
+
+    Ye 100% offline hai (koi network nahi), isliye ye kabhi slow nahi karega.
+    """
+    s = " ".join(str(q or "").split())
+    if not s:
+        return s
+    try:
+        # 1) har word ko saaf karo (brand + typo + 'not'->Note)
+        toks = s.split(" ")
+        out = []
+        for i, t in enumerate(toks):
+            low = t.lower().strip(".,;:()[]")
+            if not low:
+                continue
+            if low in _BRAND_SKIP:                 # "pro", "max", "5g" jaise
+                out.append(t)
+                continue
+            # "not" -> "Note" (sirf jab aage number ho: "not 12")
+            if low == "not" and i + 1 < len(toks) and toks[i + 1][:1].isdigit():
+                out.append("Note")
+                continue
+            # brand: sahi ho to sahi display naam, typo ho to sudhaar ke
+            if not low.isdigit() and not any(ch.isdigit() for ch in low):
+                out.append(_brand_display(t))
+                continue
+            out.append(t)
+
+        s = " ".join(out)
+
+        # 2) single letter + space + number -> jodo + CAPITAL ("X 3" -> "X3")
+        s = re.sub(r"\b([A-Za-z])\s+(\d{1,4})\b",
+                   lambda m: f"{m.group(1).upper()}{m.group(2)}", s)
+        # 3) model code jodo ("SM A155F" -> "SM-A155F") — par brand ke saath nahi
+        def _join_code(m):
+            a, b = m.group(1), m.group(2)
+            if a.lower() in _BRAND_SET or a.lower() in _BRAND_SKIP:
+                return m.group(0)                  # "Mi 11X" / "Note 12" na toote
+            if not re.search(r"\d", b):
+                return m.group(0)
+            return f"{a}-{b}"
+        s = re.sub(r"\b([A-Za-z]{2,3})\s+([A-Za-z]{0,2}\d{1,4}[A-Za-z]{0,3})\b",
+                   _join_code, s)
+        # 4) extra space saaf
+        return " ".join(s.split())
+    except Exception:                                            # noqa: BLE001
+        return s
+
+
+# India me sabse common device brands
+_BRANDS = (
+    "samsung", "redmi", "xiaomi", "poco", "realme", "oppo", "vivo", "oneplus",
+    "iphone", "apple", "motorola", "moto", "nokia", "infinix", "tecno", "itel",
+    "lava", "micromax", "honor", "huawei", "google", "pixel", "asus", "iqoo",
+    "nothing", "sony", "vivo", "blackberry", "gionee", "karbonn", "intex",
+    "nothing", "lava", "philips", "panasonic", "htc", "lenovo", "tcl", "meizu",
+)
+
+
+# jo tokens kabhi brand nahi hote (inhe chhedna nahi)
+_BRAND_SKIP = {"pro", "max", "plus", "ultra", "lite", "prime", "note", "mini",
+               "se", "gt", "neo", "power", "play", "core", "5g", "4g"}
+
+# sahi display naam (marketing naam waisa hi dikhe)
+_BRAND_DISPLAY = {
+    "iphone": "iPhone", "ipad": "iPad", "iqoo": "iQOO", "oneplus": "OnePlus",
+    "redmi": "Redmi", "samsung": "Samsung", "xiaomi": "Xiaomi", "poco": "POCO",
+    "realme": "Realme", "oppo": "Oppo", "vivo": "Vivo", "moto": "Moto",
+    "motorola": "Motorola", "nokia": "Nokia", "infinix": "Infinix",
+    "tecno": "Tecno", "itel": "itel", "lava": "Lava", "micromax": "Micromax",
+    "honor": "Honor", "huawei": "Huawei", "google": "Google", "pixel": "Pixel",
+    "asus": "Asus", "nothing": "Nothing", "sony": "Sony", "lenovo": "Lenovo",
+    "tcl": "TCL", "htc": "HTC", "apple": "Apple", "mi": "Mi",
+}
+_BRAND_SET = set(_BRAND_DISPLAY) | set(_BRANDS)
+
+
+def _brand_display(word: str) -> str:
+    """Word ko sahi brand naam me badlo. Brand na ho to waisa hi chhodo.
+
+    NOTE: `word` original ho sakta hai (capitalisation bachaane ke liye) —
+    isliye compare `w` se karte hain, return original karte hain.
+    """
+    try:
+        w = str(word or "").lower()
+        if w in _BRAND_DISPLAY:
+            return _BRAND_DISPLAY[w]
+        # typo check (bahut chhote/lambe word par nahi)
+        fixed = _fix_brand(w)
+        if fixed:
+            return _BRAND_DISPLAY.get(fixed.lower(), fixed)
+        return word
+    except Exception:                                            # noqa: BLE001
+        return word
+
+
+def _lev(a: str, b: str) -> int:
+    """Chhota edit-distance (typo pakadne ke liye)."""
+    if a == b:
+        return 0
+    if abs(len(a) - len(b)) > 2:
+        return 9
+    prev = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cur.append(min(prev[j] + 1, cur[j - 1] + 1,
+                           prev[j - 1] + (ca != cb)))
+        prev = cur
+    return prev[-1]
+
+
+def _fix_brand(word: str) -> str:
+    """Ek word ko sahi brand me badlo (agar typo ho). Warna "" return karo."""
+    try:
+        w = word.lower()
+        if len(w) < 3:
+            return ""
+        if w in _BRANDS:
+            return ""                     # pehle se sahi hai
+        # "samsng"/"samsumg" -> samsung ; "iphon" -> iphone
+        best, bestd = "", 3
+        for b in set(_BRANDS):
+            d = _lev(w, b)
+            if d < bestd:
+                best, bestd = b, d
+        # 1-2 typo tak hi sudhaaro (bahut door ho to chhedo nahi)
+        limit = 1 if len(w) <= 5 else 2
+        if best and bestd <= limit:
+            return best.capitalize() if best not in ("iphone", "iqoo", "tcl") else best.title()
+        return ""
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
 def search_device(query: str, use_cache: bool = True) -> dict:
     """Device naam ya model code → spec card + photo. Kabhi crash nahi."""
-    q = (query or "").strip()
+    q = smart_query((query or "").strip())      # v75.2: typo pehle sudhaaro
     if len(q) < 2:
         return {"ok": False,
                 "error": ("Device ka naam ya model code bhejein (kam se kam 2 letter).\n"

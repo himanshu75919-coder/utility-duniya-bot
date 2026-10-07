@@ -42,7 +42,8 @@ log = logging.getLogger("ud.bulk")
 __all__ = [
     "KINDS", "detect_kind", "extract_entries", "filter_valid", "run_bulk", "to_xlsx", "to_csv",
     "bulk_intro_text", "bulk_result_text", "limits_for", "FREE_LIMIT", "VIP_LIMIT",
-    "MAX_WORKERS", "valid_entry",
+    "MAX_WORKERS", "valid_entry", "read_table_bytes", "preview_text", "file_name",
+    "table_preview_text",
 ]
 
 # ------------------------------------------------------------------ limits
@@ -334,6 +335,92 @@ def run_bulk(kind: str, entries: Sequence[str],
         pass
     res["seconds"] = round(time.perf_counter() - t0, 1)
     return res
+
+
+def read_table_bytes(filename: str, blob: bytes, max_rows: int = 2000) -> str:
+    """v75.2: File (.xlsx / .csv / .txt) se lines nikalo — TEXT ki tarah.
+
+    CA / bank agent / insurance agent ke paas list **file me** hoti hai.
+    Poochhna "paste karo" unke liye ajeeb hai — wo file bhejte hain.
+    Ye function file ko text lines me badal deta hai, taaki baaki poora
+    flow (detect -> filter -> Excel) bilkul wahi rahe.
+
+    Return: "\n" se judi lines (khaali list = "").
+    """
+    try:
+        name = str(filename or "").lower().strip()
+        data = blob or b""
+        if not data:
+            return ""
+
+        # ---------- Excel (.xlsx) ----------
+        if name.endswith((".xlsx", ".xlsm")):
+            try:
+                from openpyxl import load_workbook
+                wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+                ws = wb.active
+                rows = []
+                for i, row in enumerate(ws.iter_rows(values_only=True)):
+                    if i >= max_rows:
+                        break
+                    # har cell me data ho sakta hai — jo bhi pehla bhar hua mile
+                    for cell in (row or ()):
+                        v = _cell_to_str(cell)
+                        if v:
+                            rows.append(v)
+                            break
+                try:
+                    wb.close()
+                except Exception:                                # noqa: BLE001
+                    pass
+                return "\n".join(rows)
+            except Exception as e:                               # noqa: BLE001
+                log.warning("xlsx read fail: %s", str(e)[:110])
+                return ""
+
+        # ---------- CSV / TXT (kisi bhi encoding me) ----------
+        for enc in ("utf-8-sig", "utf-8", "cp1252", "latin-1"):
+            try:
+                txt = data.decode(enc)
+                break
+            except Exception:                                    # noqa: BLE001
+                continue
+        else:
+            txt = data.decode("utf-8", "ignore")
+        # CSV/TSV ki lines ko waise hi rakho — extract_entries() khud
+        # tab/comma/numbering saaf kar deta hai.
+        return txt[:900000]
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("file read skip: %s", str(e)[:110])
+        return ""
+
+
+def _cell_to_str(cell: Any) -> str:
+    """Excel cell -> saaf string (number wale cell 800001.0 na banein)."""
+    try:
+        if cell is None:
+            return ""
+        if isinstance(cell, bool):
+            return ""
+        if isinstance(cell, float) and cell.is_integer():
+            return str(int(cell))
+        s = str(cell).strip()
+        # "800001.0" jaisa case (float se aaya)
+        if re.match(r"^\d+\.0+$", s):
+            s = s.split(".")[0]
+        return s
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
+def table_preview_text(kind: str, count: int, matched: int, samples: Sequence[str],
+                       total_lines: int, vip: bool, limit: int,
+                       source_name: str = "") -> str:
+    """File se aayi list ka confirm card (paste wale se thoda alag)."""
+    base = preview_text(kind, count, matched, samples, total_lines, vip, limit)
+    if source_name:
+        base = base.replace("📄 Lines mili:", f"📎 <b>{str(source_name)[:40]}</b>\\n📄 Lines mili:")
+    return base
 
 
 # ------------------------------------------------------------------ writers

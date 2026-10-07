@@ -111,6 +111,7 @@ from telegram import (
 from telegram.error import Conflict
 from telegram.ext import (
     Application,
+    ApplicationHandlerStop,     # v75.2: bulk file handler ke baad aage na jaaye
     CallbackQueryHandler,
     CommandHandler,
     ContextTypes,
@@ -4699,12 +4700,21 @@ def pcard_title(icon: str, name: str) -> str:
 
 
 def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
-               brand: bool = True) -> str:
-    """Premium footer — source + response time + brand (sab optional)."""
+               brand: bool = True, cached: bool = False) -> str:
+    """Premium footer — source + response time + brand (sab optional).
+
+    v75.2: `cached=True` par seedha "instant (pehle check kiya tha)" dikhta hai.
+    Pehle cache-hit par bhi "Response: 1ms" aa jaata tha — user ko samajh hi
+    nahi aata tha ki ye **taakat** hai ya kuch toota hua. Ab saaf dikhta hai:
+    bot ko pehle se pata tha (0 API call) — premium feel + bharosa.
+    """
     L = ["", PCARD_MID]
     if source:
         L.append(f"📡 <b>Source:</b> {source}")
-    if ms:
+    if cached:
+        L.append("⚡ <b>Instant</b> — ye pehle check kiya ja chuka tha "
+                 "(0 API call, turant jawab)")
+    elif ms:
         _m = float(ms)
         L.append(f"⚡ <b>Response:</b> {int(_m)}ms" if _m < 1000 else
                  f"⚡ <b>Response:</b> {_m / 1000:.1f}s")
@@ -4932,6 +4942,10 @@ def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
         L.append("⚠️ Challan check nahi ho paya — wajah upar ⚠️ Note me likhi hai.")
 
     L.append("")
+    # v75.2: cache-hit par saaf dikhta hai (premium feel + bharosa)
+    if res.get("cached"):
+        L.append("⚡ <b>Instant</b> — ye pehle check kiya ja chuka tha "
+                 "(0 API call, turant jawab)")
     L.append(BRAND_LINK)
     return "\n".join([_l for _l in L if _l is not None])
 
@@ -6997,6 +7011,116 @@ def kv_row(label, val):
     return f"• <b>{label}:</b> {hesc(str(val))}\n" if str(val or "").strip() else ""
 
 
+# ======================================================================
+#  v75.1/v75.2 — 📤 BULK MODE (EXCEL) — earning tool
+#  ------------------------------------------------------------------
+#  User apni list deta hai (paste ya .xlsx/.csv/.txt FILE) -> hum pahchante
+#  hain, confirm button dete hain, phir parallel engine se saara check karke
+#  Excel bhejte hain.
+#  File support zaroori tha: CA / bank agent / insurance agent ke paas list
+#  FILE me hoti hai — "paste karo" unke liye ajeeb lagta hai.
+# ======================================================================
+async def _bulk_offer(update: Update, context: ContextTypes.DEFAULT_TYPE,
+                      raw_text: str, source_name: str = "") -> None:
+    """List (paste ya file se) pahchano -> confirm card dikhao."""
+    uid = update.effective_user.id if update.effective_user else 0
+    _b_lim, _b_vip = BM.limits_for(uid)
+    _ents, _lines = BM.extract_entries(raw_text, limit=BM.VIP_LIMIT)
+    if not _ents:
+        await update.message.reply_text(
+            "📤 <b>List khaali lagi.</b>\n"
+            "Ek-ek entry nayi line me bhejo — ya <b>.xlsx / .csv / .txt</b> file "
+            "bhej do (dono chalta hai).", parse_mode=HTML)
+        return
+    _b_kind, _b_match, _b_samp = BM.detect_kind(_ents)
+    if not _b_kind:
+        await update.message.reply_text(
+            "❓ <b>List pahchan nahi paya.</b>\n"
+            "Ye 5 cheezein chalti hain:\n"
+            "• 🏦 IFSC code (SBIN0001234)\n"
+            "• 📮 Pincode (800001)\n"
+            "• 📱 Mobile number (9876543210)\n"
+            "• 🚗 Gaadi number (BR01AB1234)\n"
+            "• 🔍 Link (https://…)\n\n"
+            "Sahi format me dobara bhejo.", parse_mode=HTML)
+        return
+    _b_good, _b_skip = BM.filter_valid(_b_kind, _ents)
+    if not _b_good:
+        await update.message.reply_text("❌ Koi sahi entry nahi mili — format check karo.",
+                                        parse_mode=HTML)
+        return
+    context.user_data["bulk_kind"] = _b_kind
+    context.user_data["bulk_entries"] = _b_good[:BM.VIP_LIMIT]
+    _cnt = min(len(_b_good), _b_lim)
+    _kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"✅ Chalu karo ({_cnt} entries)", callback_data="bulk_go")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="bulk_cancel")],
+    ])
+    _card = (BM.table_preview_text(_b_kind, len(_b_good), _b_match, _b_samp, _lines,
+                                   _b_vip, _b_lim, source_name=source_name)
+             if source_name else
+             BM.preview_text(_b_kind, len(_b_good), _b_match, _b_samp, _lines,
+                             _b_vip, _b_lim))
+    if _b_skip:
+        _card += f"\n⚠️ <i>{_b_skip} line skip hui (format match nahi)</i>"
+    if len(_b_good) > _b_lim:
+        _card += (f"\n⚠️ <i>{len(_b_good) - _b_lim} extra entries chhoot jayengi "
+                  f"(free limit {_b_lim})</i>")
+    await update.message.reply_text(_card, reply_markup=_kb, parse_mode=HTML)
+
+
+async def on_bulk_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v75.2: BULK MODE me user FILE bheje (.xlsx / .csv / .txt) -> wahi flow.
+
+    Ye handler group=-4 me chalta hai (cookies handler ke baad, baaki sabse
+    pehle). File handle ho gayi to `ApplicationHandlerStop` raise karte hain —
+    isse baaki handlers (media/downloader) use dobara nahi chhoote.
+    """
+    try:
+        msg = update.effective_message
+        u = update.effective_user
+        if not msg or not msg.document or u is None:
+            return
+        if str(context.user_data.get("mode") or "") != "bulk_wait":
+            return                                  # bulk mode me nahi hai -> aage jao
+        doc = msg.document
+        _name = (doc.file_name or "").lower()
+        if not _name.endswith((".xlsx", ".xlsm", ".csv", ".txt", ".tsv")):
+            raise ApplicationHandlerStop            # koi aur file -> normal handler
+        if (doc.file_size or 0) > 8 * 1024 * 1024:
+            await msg.reply_text("❌ File bahut badi hai (8 MB se kam bhejo).",
+                                 parse_mode=HTML)
+            raise ApplicationHandlerStop
+        _wait = await msg.reply_text("📥 <b>File padh raha hoon…</b>", parse_mode=HTML)
+        try:
+            _f = await context.bot.get_file(doc.file_id)
+            _blob = bytes(await _f.download_as_bytearray())
+            _txt = await asyncio.to_thread(BM.read_table_bytes, doc.file_name or "", _blob)
+        except Exception as _fe:                                 # noqa: BLE001
+            log.warning("bulk file read fail: %s", str(_fe)[:140])
+            _txt = ""
+        if not _txt.strip():
+            await _wait.edit_text(
+                "❌ <b>File padhi nahi gayi.</b>\n"
+                "Excel (.xlsx) ya CSV (.csv) bhejo — ya list seedha chat me paste kar do.",
+                parse_mode=HTML)
+            raise ApplicationHandlerStop
+        try:
+            await safe_delete(_wait)
+        except Exception:                                        # noqa: BLE001
+            pass
+        await _bulk_offer(update, context, _txt, source_name=doc.file_name or "file")
+        # ⚠️ ZAROORI: yahin rok do. Warna wahi Excel file group-0 ke media
+        # handler ko bhi mil jaati hai (downloader "unknown file" reply kar deta)
+        # — user ko do jawab aate aur confusion hota.
+        raise ApplicationHandlerStop
+    except ApplicationHandlerStop:
+        raise
+    except Exception as _be:                                     # noqa: BLE001
+        log.warning("on_bulk_file skip: %s", str(_be)[:140])
+        raise ApplicationHandlerStop
+
+
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
@@ -8763,56 +8887,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    # ==================================================================
-    #  v75.1 — 📤 BULK MODE (EXCEL) — earning tool
-    #  ------------------------------------------------------------------
-    #  User ne apni list paste ki -> hum pahchante hain, confirm button dete
-    #  hain, phir parallel engine se saara check karke Excel bhejte hain.
-    # ==================================================================
+    # v75.2: list mili (paste ya file) -> poora flow ek hi jagah
     if mode == "bulk_wait":
-        _b_uid = uid
-        _b_lim, _b_vip = BM.limits_for(_b_uid)
-        _ents, _lines = BM.extract_entries(raw_text, limit=BM.VIP_LIMIT)
-        if not _ents:
-            await update.message.reply_text(
-                "📤 <b>List khaali lagi.</b>\n"
-                "Ek-ek entry nayi line me paste karo (Excel se copy kar ke bhi chalega).",
-                parse_mode=HTML)
-            return
-        _b_kind, _b_match, _b_samp = BM.detect_kind(_ents)
-        if not _b_kind:
-            await update.message.reply_text(
-                "❓ <b>List pahchan nahi paya.</b>\n"
-                "Ye 5 cheezein chalti hain:\n"
-                "• 🏦 IFSC code (SBIN0001234)\n"
-                "• 📮 Pincode (800001)\n"
-                "• 📱 Mobile number (9876543210)\n"
-                "• 🚗 Gaadi number (BR01AB1234)\n"
-                "• 🔍 Link (https://…)\n\n"
-                "Sahi format me dobara paste kar do.",
-                parse_mode=HTML)
-            return
-        _b_good, _b_skip = BM.filter_valid(_b_kind, _ents)
-        if not _b_good:
-            await update.message.reply_text("❌ Koi sahi entry nahi mili — format check karo.",
-                                            parse_mode=HTML)
-            return
-        context.user_data["bulk_kind"] = _b_kind
-        context.user_data["bulk_entries"] = _b_good[:BM.VIP_LIMIT]
-        _cnt = min(len(_b_good), _b_lim)
-        _kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"✅ Chalu karo ({_cnt} entries)",
-                                  callback_data="bulk_go")],
-            [InlineKeyboardButton("❌ Cancel", callback_data="bulk_cancel")],
-        ])
-        await update.message.reply_text(
-            BM.preview_text(_b_kind, len(_b_good), _b_match, _b_samp, _lines,
-                            _b_vip, _b_lim)
-            + (f"\n⚠️ <i>{_b_skip} line skip hui (format match nahi)</i>" if _b_skip else "")
-            + ("" if len(_b_good) <= _b_lim else
-               f"\n⚠️ <i>{len(_b_good) - _b_lim} extra entries chhoot jayengi kabhi"
-               f" (free limit {_b_lim})</i>"),
-            reply_markup=_kb, parse_mode=HTML)
+        await _bulk_offer(update, context, raw_text)
         return
 
     if mode == "ifsc":
@@ -8840,7 +8917,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"RTGS {'✅' if i_res['rtgs'] else '❌'}",
                     f"IMPS {'✅' if i_res['imps'] else '❌'}",
                 ]) + "\n"
-                + pcard_foot(ms=_ms, source="official bank registry (Razorpay IFSC)")
+                + pcard_foot(ms=_ms, source="official bank registry (Razorpay IFSC)",
+                             cached=bool(i_res.get("cached")))
             )
             await update.message.reply_text(spend_credit_msg(uid, "ifsc") + "\n" + card,
                                             reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
@@ -8881,7 +8959,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     + f"🏤 <b>Post Offices ({len(_pos)}):</b>\n"
                     + "\n".join(f"   • {hesc(str(n))}" for n in _pos[:14])
                     + (f"\n   <i>… aur {len(_pos) - 14} aur</i>" if len(_pos) > 14 else "")
-                    + "\n" + pcard_foot(ms=_ms, source="India Post official data")
+                    + "\n" + pcard_foot(ms=_ms, source="India Post official data",
+                                         cached=bool(p_res.get("cached")))
                 )
                 await update.message.reply_text(spend_credit_msg(uid, "pin") + "\n" + card,
                                                 reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
@@ -11611,6 +11690,11 @@ def main():
                     group=-5)          # v66: admin ki cookies.txt file
     app.add_handler(MessageHandler(_any_media & _dm_or_group, on_media))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, _on_text_pro))
+    # v75.2: 📤 BULK MODE ke liye FILE input (.xlsx/.csv/.txt) — group=-4
+    # (cookies handler -5 ke baad, baaki sabse pehle). File handle ho gayi to
+    # ApplicationHandlerStop se aage koi handler use nahi chhoota.
+    app.add_handler(MessageHandler(filters.Document.ALL & _dm_or_group, on_bulk_file),
+                    group=-4)
 
     # 🛡️ v60: SAARE handlers ko crash-shield me lapeto (sabse zaroori line)
     _armed = arm_all_handlers(app)
