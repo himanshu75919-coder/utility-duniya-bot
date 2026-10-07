@@ -428,7 +428,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.3.1 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
+BOT_VERSION = ("v74.3.2 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
                "| temp number: WhatsApp + 3 desh | 34 boards | BSEB LIVE + PDF | saare tools tez")
 START_TIME = datetime.now()
 
@@ -3841,8 +3841,6 @@ def biz_answers_to_dict(key: str, ans: dict) -> dict:
         if key == "biz_certificate":
             extra = str(a.get("extra") or "").strip()
             _date, _photo = "", None
-            if extra and not extra.isdigit() is None:
-                pass
             bits = [x.strip() for x in re.split(r"[|,]+", extra) if x.strip()] if extra else []
             for b2 in bits:
                 if re.search(r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}", b2) or re.search(r"\d{4}", b2):
@@ -3851,7 +3849,7 @@ def biz_answers_to_dict(key: str, ans: dict) -> dict:
                     _photo = None
             d = biz_parse("biz_certificate",
                           " | ".join([str(a.get("org") or ""), str(a.get("name") or ""),
-                                      str(a.get("course") or ""), _date or _today()]))
+                                      str(a.get("course") or ""), _date or _biz_today()]))
             if a.get("logo"):
                 d["logo"] = a["logo"]
             if a.get("photo"):

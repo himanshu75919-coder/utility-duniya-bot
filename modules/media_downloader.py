@@ -1068,7 +1068,6 @@ def download_instagram_media(url: str) -> dict:
         except Exception:                                        # noqa: BLE001
             pass
         return hit
-    _result_fail = None
 
     if media_cat == "story":
         return {"ok": False, "category": "story",
