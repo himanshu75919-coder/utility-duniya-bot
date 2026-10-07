@@ -263,6 +263,7 @@ from modules.osint_tools import (
 )
 from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME HUNTER (public only)
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
+from modules import chat_xray as CXR                   # v73.0: 💬 WHATSAPP CHAT X-RAY (offline, free)
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -345,6 +346,7 @@ TOOL_RATE_LIMITS = {
     "dl":          (15, 120, "Video Downloader"),
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
+    "cxray":       (5,  300, "Chat X-Ray"),            # v73.0: apni chat ki report (FREE)
     "media_ytmp3": (5,  120, "YouTube → MP3"),
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
@@ -422,8 +424,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v72.2 FREE4ALL — Student Studio hata diya (aapke order par) | "
-               "saare tools tez + khud-retry")
+BOT_VERSION = ("v73.0 FREE4ALL — WHATSAPP CHAT X-RAY (apni chat ki fun report) "
+               "| saare tools tez + khud-retry")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -749,7 +751,8 @@ def all_tools_text() -> str:
     _pv = "\n".join(
         f"   • {hesc(x)}" for x in sorted(
             {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}
-            | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP"}))
+            | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP",
+               "💬 Chat X-Ray — apni WhatsApp chat ki fun report (FREE)"}))
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
@@ -1312,6 +1315,7 @@ KB_BTNS = [
     [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"📞 {to_bold('TEMP MAIL (NUMBER)')}"],   # v71.9: 100% FREE temp number + OTP (har user ko alag)
+    [f"💬 {to_bold('CHAT X-RAY')}"],           # v73.0: apni WhatsApp chat ki fun report (file bhejo)
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
@@ -1380,6 +1384,10 @@ BTN_MODE_MAP = {
     "TEMP MAIL (NUMBER)": "tnum",          # v71.9: 100% FREE temp number + OTP
     "TEMP NUMBER": "tnum",
     "TEMP MAIL NUMBER": "tnum",
+    "CHAT X-RAY": "cxray",                 # v73.0: 💬 apni chat ki fun report
+    "CHAT XRAY": "cxray",
+    "WHATSAPP CHAT X-RAY": "cxray",
+    "CHAT X-RAY REPORT": "cxray",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -1701,6 +1709,14 @@ PROMPT_DATA = {
         "foot": 'Official link · size · version',
     },
     # ------------------------------------------------------------ LOCATION
+    "cxray": {
+        "head": "💬 WHATSAPP CHAT X-RAY",
+        "ask": "Apni chat ki export file bhejein (.txt ya .zip):",
+        "ex": [('(file bhejein) — WhatsApp → chat → ⋮ → Export chat → "Without media"',
+                'poori fun report banegi')],
+        "tip": '',
+        "foot": '',
+    },
     "pin": {
         "head": "📮 PINCODE / AREA INFO ENGINE",
         "ask": "Pincode ya area ka naam bhejein:",
@@ -8688,6 +8704,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ---------------- v73.0: CHAT X-RAY ----------------
+    if mode == "cxray":
+        await update.message.reply_text(
+            "💬 <b>Chat ki file bhejein</b> (.txt ya .zip)\n"
+            "<i>WhatsApp → chat kholo → ⋮ menu → Export chat → </i><b>Without media</b>",
+            parse_mode=HTML)
+        return
+
     # ---------------- v38: BANK STATEMENT ----------------
     if mode == "bankpdf":
         await update.message.reply_text(
@@ -9220,9 +9244,78 @@ async def do_ytmp3(update, context, uid, url):
     add_use(uid)
 
 
+def cxray_caption(st: dict) -> str:
+    """Image ke saath chhoti summary (HTML)."""
+    users = st.get("users") or []
+    top = users[0] if users else {"name": "-", "n": 0, "share": 0}
+    ek = st.get("emoji_king") or ("", 0)
+    ha = st.get("haha_king") or ("", 0)
+    nt = st.get("night") or {}
+    ntop = (nt.get("top") or ("", 0)) if isinstance(nt, dict) else ("", 0)
+    bh, bhn = (st.get("busy_hour") or (None, 0))
+    L = [
+        f"💬 <b>{to_bold('WHATSAPP CHAT X-RAY')}</b>",
+        f"📊 <b>Total:</b> {st.get('total', 0):,} messages · {st.get('days', 0):,} din "
+        f"· {st.get('per_day', 0):g}/din",
+        f"👑 <b>Top chatter:</b> {hesc(str(top.get('name', '-')))} ({top.get('n', 0)} msg, "
+        f"{top.get('share', 0)}%)",
+    ]
+    if ek[1]:
+        L.append(f"😄 <b>Emoji King:</b> {hesc(str(ek[0]))} ({ek[1]} emoji)")
+    if ha[1]:
+        L.append(f"🤣 <b>Hasi King:</b> {hesc(str(ha[0]))} ({ha[1]}x)")
+    if ntop[1]:
+        L.append(f"🦉 <b>Raat ka jagaadu (12-5 baje):</b> {hesc(str(ntop[0]))} ({nt.get('n', 0)} msg)")
+    if bhn:
+        L.append(f"⏰ <b>Sabse busy waqt:</b> {int(bh):02d}:00 ({bhn} msg)")
+    if st.get("media"):
+        L.append(f"🖼️ <b>Media files:</b> {st['media']}")
+    L.append("")
+    L.append("🔒 <i>File sirf padhi gayi — kahin save ya upload nahi hui.</i>")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
 async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime=""):
     """v38: aayi hui file ko mode ke hisaab se process karo. True = handle ho gaya."""
     say = msg.reply_text
+
+    # ---------- 💬 CHAT X-RAY (v73.0) ----------
+    if mode == "cxray":
+        if kind != "chat":
+            await say("❌ Ye chat ki export file nahi lagti.\n"
+                      "📄 WhatsApp chat ki <b>.txt</b> (ya .zip) file bhejein —\n"
+                      "<i>WhatsApp → chat kholo → ⋮ (menu) → Export chat → </i>"
+                      "<b>Without media</b>", parse_mode=HTML)
+            return True
+        fname = (getattr(getattr(msg, "document", None), "file_name", "") or "")
+        st = await say("🔎 Chat padh raha hoon… (5-20 second)")
+        res = await asyncio.to_thread(CXR.analyze_file, data, fname)
+        if not res.get("ok"):
+            try:
+                await st.edit_text("❌ " + str(res.get("error") or "File samajh nahi aayi."),
+                                   parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                await say("❌ " + str(res.get("error") or "File samajh nahi aayi."),
+                          parse_mode=HTML)
+            return True
+        s2 = res["stats"]
+        cap = cxray_caption(s2)
+        img = await asyncio.to_thread(CXR.report_image, s2)
+        try:
+            await st.delete()
+        except Exception:                                        # noqa: BLE001
+            pass
+        if img:
+            try:
+                await msg.reply_photo(io.BytesIO(img), caption=cap, parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
+                await msg.reply_text(cap, parse_mode=HTML)
+        else:
+            await msg.reply_text(cap, parse_mode=HTML)
+        context.user_data.pop("mode", None)
+        add_use(uid)
+        return True
 
     # ---------- 🏦 BANK PDF ----------
     if mode in ("bankpdf", "bankpdf_pass") and kind == "pdf":
@@ -9603,7 +9696,8 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v38: naye tools ke files (PDF / audio / video / image) ----------
     _our_modes = ("bankpdf", "bankpdf_pass", "media_ringtone", "media_ringtone_start",
                   "media_karaoke", "media_8d", "media_bass", "media_voice_wait", "media_v2mp3",
-                  "media_trim_wait", "media_compress_wait", "media_status_audio")
+                  "media_trim_wait", "media_compress_wait", "media_status_audio",
+                  "cxray")                     # v73.0: 💬 chat export file (.txt/.zip)
     if mode in _our_modes:
         kind, att, fname, mime = None, None, "", ""
         if msg.document:
@@ -9618,6 +9712,8 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 kind = "audio"
             elif mime.startswith("video/") or fname.endswith((".mp4", ".mkv", ".mov", ".webm", ".3gp")):
                 kind = "video"
+            if kind is None and mode == "cxray" and (fname.endswith(".txt") or fname.endswith(".zip")):
+                kind = "chat"          # v73.0: WhatsApp export file
         elif msg.video:
             kind, att = "video", msg.video
         elif msg.animation:
