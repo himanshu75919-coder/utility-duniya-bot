@@ -428,7 +428,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.3 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
+BOT_VERSION = ("v74.3.1 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
                "| temp number: WhatsApp + 3 desh | 34 boards | BSEB LIVE + PDF | saare tools tez")
 START_TIME = datetime.now()
 
@@ -948,11 +948,9 @@ def words_amount(amount) -> str:
 
 
 def fail_msg(title: str, reason: str = "") -> str:
+    # v74.3.1: sirf outcome — koi Tip/gyaan nahi (user ka rule #2)
     body = f"\n\n{reason}" if reason else ""
-    return (
-        f"❌ <b>{to_bold(title)}</b>{body}\n\n"
-        f"💡 <b>Tip:</b> Ek baar dobara try karo. Problem rahe to support pe likho: {SUPPORT_LINK}"
-    )
+    return f"❌ <b>{to_bold(title)}</b>{body}"
 
 
 def unbold(text: str) -> str:
@@ -2064,8 +2062,7 @@ async def send_tool_video(bot_obj, chat_id, key: str, answer_cb=None):
             await bot_obj.send_message(
                 chat_id=chat_id,
                 text=("⚠️ Video send nahi ho paya. Aap yahan se dekh sakte ho:\n"
-                      f'🎬 <a href="{urls[0]}">Tutorial Video (30 sec)</a>\n\n'
-                      "<i>Tip: video start hone me 2-3 second lag sakte hain.</i>"),
+                      f'🎬 <a href="{urls[0]}">Tutorial Video (30 sec)</a>'),
                 parse_mode=HTML)
         except Exception:
             pass
@@ -2986,9 +2983,8 @@ async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _data = json.loads(_raw)
     except Exception:                                        # noqa: BLE001
         await update.message.reply_text(
-            "❌ Ye valid JSON nahi hai. Docs se sample response <b>jaisa hai waisa</b> "
-            "paste karo (curly brackets <code>{ }</code> ke saath).\n"
-            "📌 Tip: JSON ek line me paste karna sabse aasan hai.", parse_mode=HTML)
+            "❌ Ye valid JSON nahi hai — curly brackets <code>{ }</code> ke saath dobara bhejo.",
+            parse_mode=HTML)
         return
     if not isinstance(_data, dict):
         await update.message.reply_text("❌ JSON ka top part <code>{ }</code> hona chahiye.",
@@ -3663,14 +3659,11 @@ async def cmd_speed(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"🤖 <b>Client ladder:</b> <code>{hesc(_ladder)}</code>\n"
             f"🚫 <b>Bad-marked clients:</b> {_st['bad_clients']} "
             "(bot-check wale, 15 min ke liye hata diye)\n"
-            f"🔀 <b>Parallel info:</b> ON (4 client ek saath, jo pehle jeete)\n"
+            f"🔀 <b>Parallel info:</b> ON (jo engine pehle jeete)\n"
+            f"💾 <b>Disk cache:</b> {MD.disk_cache_stats()['files']} file "
+            f"({MD.disk_cache_stats()['mb']} MB) — restart-proof\n"
             "──────────────────────\n"
-            "💡 <b>Tez kaise hoga:</b>\n"
-            "• Wahi reel dobara bhejo → 0.1 second me milega\n"
-            "• Pehli baar: 2-8 second (normal), max 30 second\n"
-            "• YouTube bot-check → <code>/cookies</code> se theek karo\n"
-            "• Render free plan 15 min me so jata hai → bahar se pinger lagao "
-            "(DEPLOY-ABHI.md me tarika)",
+            f"⏱️ <b>Keepalive:</b> har {int(os.environ.get('KEEPALIVE_MINUTES') or 3)} min",
             parse_mode=HTML)
     except Exception as e:                                       # noqa: BLE001
         await update.message.reply_text(f"Speed report fail: {hesc(str(e))[:120]}",
@@ -7658,11 +7651,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ <b>{to_bold('DIRECT LINK NOT FOUND')}</b>\n\n"
                 f"{hesc(str(res.get('error', 'Could not resolve the cloud link.')))}\n\n"
             )
-            if res.get("hint"):
-                cap += f"💡 <b>Pro Tip:</b> {hesc(str(res['hint']))}\n\n"
-            cap += "👇 <b>Try these trusted free downloaders:</b>"
-            rows = [[InlineKeyboardButton(nm, url=u)] for nm, u in (res.get("fallback_links") or [])]
-            await st.edit_text(cap, reply_markup=InlineKeyboardMarkup(rows[:6]), parse_mode=HTML)
+            await st.edit_text(cap.strip(), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -7879,9 +7868,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             await st.edit_text(
-                fail_msg("SEND FAILED", "Got the media but Telegram did not accept it. Try once more.")
-                + "\n\n💡 <b>Tip:</b> big videos par ye kuch baar hota hai. Dobara try karo ya "
-                  "<b>✂️ MEDIA STUDIO → Video compress</b> se chhota karke bhejo.",
+                fail_msg("SEND FAILED", "Got the media but Telegram did not accept it."),
                 parse_mode=HTML)
         except Exception as e:
             # v44: bade video par Telegram timeout → compressed version se dobara koshish

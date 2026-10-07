@@ -316,7 +316,7 @@ def user_payment_reply(pay_id: int, plan_name: str, amount: int, analysis: dict)
         "──────────────────────\\n"
         "⏳ Admin check karke VIP chalu kar dega (aam taur par 5-30 minute).\\n"
         f"📌 To check status send <code>/mypay</code>.\\n\\n"
-        "<i>Tip: correct UTR and screenshot get approved faster.</i>"
+        "<i>UTR aur screenshot sahi ho to jaldi approve hota hai.</i>"
     )
 
 
