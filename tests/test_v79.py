@@ -237,18 +237,18 @@ check("result card: naam + marks + total + division",
       "RAHUL KUMAR" in _c5 and "M.I.L. HINDI" in _c5 and "640" in _c5 and "PASS" in _c5)
 check("result card: PDF ka zikr", "PDF" in _c5)
 _c6 = bot.rc_archive_card("matric", 2023)
-check("archive card: sach + rasta (school/board office)",
-      "nahi hai" in _c6 and "school" in _c6.lower() and "2023" in _c6)
+check("archive card: sach (nahi mila) + koi gyaan nahi",
+      "nahi mila" in _c6 and "2023" in _c6 and "school" not in _c6.lower()) 
 _c7 = bot.rc_server_card("matric", 2026)
 check("server card: dobara try ka rasta", "Dobara try" in _c7)
 _c8 = bot.rc_parse_card("inter", 2026)
 import re as _re2                                                    # noqa: E402
 _own = lambda x: _re2.sub(r'https?://t\.me/' + _re2.escape(str(bot.OWNER_USERNAME)), '', x)
-check("parse card: imaandar (format badla) + koi bahar ka link nahi",
-      "format badal" in _c8 and "http" not in _own(_c8))
+check("parse card: imaandar (nahi padha ja saka) + koi bahar ka link nahi",
+      "nahi padha" in _c8 and "http" not in _own(_c8))
 _c9 = bot.cbse_info_card()
-check("CBSE card: login bypass nahi + koi bahar ka link nahi",
-      "login" in _c9.lower() and "http" not in _own(_c9))
+check("CBSE card: sirf outcome (koi gyaan/login/app nahi) + koi link nahi",
+      ("login" not in _c9.lower()) and ("http" not in _own(_c9)) and ("Jald live" in _c9))
 check("sab card me moti line (━) nahi",
       all("━" not in x for x in (_c1, _c2, _c3, _c4, _c5, _c6, _c7, _c8, _c9)))
 
@@ -469,8 +469,7 @@ async def _wizard_flow():
     q8 = _Q("rc_yr:2023", uid)
     await bot.on_cb(_UpdQ(q8), ctx)
     _t4 = " ".join(q8.message.out)
-    check("E2E: 2023 chunte hi sach (archive) card",
-          "nahi hai" in _t4 and "school" in _t4.lower(), _t4[:80])
+    check("E2E: 2023 chunte hi sach (archive) card", "nahi mila" in _t4, _t4[:80])
     check("E2E: archive par mode saaf", ctx.user_data.get("mode") is None)
 
     # 8) galat roll code par saaf error

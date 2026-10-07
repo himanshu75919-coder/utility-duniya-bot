@@ -45,7 +45,7 @@ BOARDS = {
         "status": "live",
         "logo": "norm_bseb_live.jpg",
         "color": (139, 26, 26),
-        "note": "Sabse pehle yahi board bot se LIVE chalta hai.",
+        "note": "LIVE ✅",
     },
     "bbose": {
         "name": "Bihar Board of Open Schooling & Examination",
@@ -68,10 +68,10 @@ BOARDS = {
         "portal": "https://results.digilocker.gov.in/",
         "portal2": "https://cbse.gov.in/",
         "exams": ["Class 10", "Class 12"],
-        "need": ["Digital marksheet app login (mobile OTP)", "Roll Number", "DOB"],
+        "need": ["Mobile OTP", "Roll Number", "DOB"],
         "status": "portal",
         "logo": None, "color": (16, 88, 200),
-        "note": "CBSE result ab sarkari digital marksheet app par — login (mobile OTP) zaroori hai.",
+        "note": "",
     },
     "cisce": {
         "name": "Council for Indian School Certificate Examinations",
@@ -81,7 +81,7 @@ BOARDS = {
         "portal": "https://results.cisce.org/",
         "portal2": "https://cisce.org/",
         "exams": ["ICSE (10th)", "ISC (12th)"],
-        "need": ["Unique ID", "Index Number", "Captcha"],
+        "need": ["Unique ID", "Index Number"],
         "status": "portal",
         "logo": None, "color": (30, 58, 138),
     },
@@ -603,27 +603,3 @@ def photo_bytes(key: str):
         except Exception:                                        # noqa: BLE001
             pass
     return badge_png(key)
-
-
-def how_card(key: str) -> str:
-    """'Kaise check karein' — sahi steps, bina kisi bahar ke link ke (rule #1)."""
-    b = BOARDS.get(str(key)) or {}
-    need = b.get("need") or []
-    steps = [
-        f"🔢 Ye cheezein taiyar rakhein: <b>{', '.join(need) if need else 'Roll Number'}</b>",
-        "🌐 Apne board ki website kholein aur <b>Result 2026</b> wala section dabayein",
-        "📝 Roll Number daalein (mange to Registration / DOB bhi)",
-        "🔒 Captcha aaye to wahi type karein — wahan har baar naya aata hai",
-        "📄 Result khul jayega — screenshot rakh lein, kaam aa jayega",
-    ]
-    return "\n".join([
-        f"ℹ️ <b>{b.get('short', 'Board')} — kaise check karein</b>",
-        "──────────────────────",
-        *[f"{i}. {s}" for i, s in enumerate(steps, 1)],
-        "",
-        f"🚫 <i>Is board ka result bot ke andar seedha nahi aata (wahan login/captcha "
-        f"lagta hai) — par ye steps bilkul sahi hain. Jhootha result hum "
-        f"kabhi nahi dikhayenge.</i>",
-        "",
-        "🔥 Powered by @Supermannn_x — saare board, ek jagah 🇮🇳",
-    ])

@@ -566,7 +566,158 @@ def dl_cache_stats() -> dict:
     with _DL_MEM_LOCK:
         return {"items": len(_DL_MEM), "mb": round(_DL_MEM_BYTES / 1048576, 1),
                 "bad_clients": len([1 for v in _BAD_CLIENTS.values() if v > time.time()])}
-SOCK_TIMEOUT = 8          # ek connection par max 8 second
+# =====================================================================================
+#  v74.3: 💾 DISK CACHE — restart/deploy ke baad bhi cache zinda rehta hai
+#  (RAM cache restart par udd jaata tha — isliye "phir se slow" hota tha)
+# =====================================================================================
+_DISK_MAX_BYTES = 150 * 1024 * 1024      # 150 MB tak
+_DISK_MAX_FILE = 12 * 1024 * 1024        # 12 MB se bada file disk par nahi (RAM/hub)
+
+
+def _disk_dir() -> str:
+    d = (os.getenv("UDL_CACHE_DIR") or "").strip() \
+        or os.path.join(tempfile.gettempdir(), "udl_cache")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except Exception:                                            # noqa: BLE001
+        pass
+    return d
+
+
+def _disk_key(url: str, tag: str = "") -> str:
+    import hashlib
+    return hashlib.md5(_mem_key(url, tag).encode("utf-8", "ignore")).hexdigest()
+
+
+def _disk_gc() -> None:
+    """Purani files hatao (150 MB se upar kabhi nahi)."""
+    try:
+        d = _disk_dir()
+        items = []
+        for f in os.listdir(d):
+            fp = os.path.join(d, f)
+            try:
+                items.append((os.path.getmtime(fp), os.path.getsize(fp), fp))
+            except Exception:                                    # noqa: BLE001
+                pass
+        total = sum(i[1] for i in items)
+        for _mt, _sz, fp in sorted(items):
+            if total <= _DISK_MAX_BYTES:
+                break
+            try:
+                os.remove(fp)
+                total -= _sz
+            except Exception:                                    # noqa: BLE001
+                pass
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def disk_get(url: str, tag: str = ""):
+    """Disk se nikalo — (bytes, meta) ya None. Turbo fast (local file read)."""
+    try:
+        d = _disk_dir()
+        k = _disk_key(url, tag)
+        mf = os.path.join(d, k + ".json")
+        bf = os.path.join(d, k + ".bin")
+        if not (os.path.isfile(mf) and os.path.isfile(bf)):
+            return None
+        if (time.time() - os.path.getmtime(bf)) > _DL_MEM_TTL:
+            return None
+        import json as _json
+        with open(mf, "r", encoding="utf-8") as fh:
+            meta = _json.load(fh)
+        with open(bf, "rb") as fh:
+            data = fh.read()
+        if not data:
+            return None
+        try:
+            os.utime(bf, None)                                   # LRU touch
+        except Exception:                                        # noqa: BLE001
+            pass
+        return data, meta
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def disk_put(url: str, data, meta, tag: str = "") -> None:
+    """Disk par likho (chhote files hi — bade hub/RAM se)."""
+    try:
+        if not data or len(data) > _DISK_MAX_FILE:
+            return
+        import json as _json
+        d = _disk_dir()
+        k = _disk_key(url, tag)
+        with open(os.path.join(d, k + ".bin"), "wb") as fh:
+            fh.write(data)
+        with open(os.path.join(d, k + ".json"), "w", encoding="utf-8") as fh:
+            _json.dump(_safe_meta(meta), fh, ensure_ascii=False, default=str)
+        _disk_gc()
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def _safe_meta(meta) -> dict:
+    """meta ko JSON-safe banao (bytes/objects hatao)."""
+    out = {}
+    for k, v in (meta or {}).items():
+        if isinstance(v, (str, int, float, bool)) or v is None:
+            out[k] = v
+        elif isinstance(v, (list, tuple)) and all(isinstance(x, (str, int, float, bool)) for x in v):
+            out[k] = list(v)
+    out.pop("bytes", None)
+    return out
+
+
+def disk_cache_stats() -> dict:
+    try:
+        d = _disk_dir()
+        n = mb = 0
+        for f in os.listdir(d):
+            try:
+                mb += os.path.getsize(os.path.join(d, f))
+                n += 1
+            except Exception:                                    # noqa: BLE001
+                pass
+        return {"files": n, "mb": round(mb / 1048576, 1)}
+    except Exception:                                            # noqa: BLE001
+        return {"files": 0, "mb": 0}
+
+
+# =====================================================================================
+#  v74.3: 🏁 PARALLEL RACE — jo engine pehle result de, wahi jeete (sum ki jagah max)
+# =====================================================================================
+def _race(fns, timeout: float = 25.0):
+    """Parallel race: saare engines ek saath chalao, pehla SUCCESS wala jeeta."""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    fns = [f for f in (fns or []) if callable(f)]
+    if not fns:
+        return None
+    if len(fns) == 1:
+        try:
+            r = fns[0]()
+            return r if (r and r.get("ok")) else None
+        except Exception:                                        # noqa: BLE001
+            return None
+    ex = ThreadPoolExecutor(max_workers=len(fns))
+    try:
+        futs = [ex.submit(f) for f in fns]
+        try:
+            for f in as_completed(futs, timeout=timeout):
+                try:
+                    r = f.result()
+                except Exception:                                # noqa: BLE001
+                    r = None
+                if r and r.get("ok"):
+                    return r
+        except Exception:                                        # noqa: BLE001
+            pass
+    finally:
+        ex.shutdown(wait=False)          # baaki engines background me khatam
+    return None
+
+
+SOCK_TIMEOUT = 7          # v74.3: ek connection par max 7 second (jaldi fallback)
 
 
 def _ytdlp_opts(extra=None, clients=None):
@@ -894,14 +1045,30 @@ def download_instagram_media(url: str) -> dict:
     if not clean.startswith("http"):
         clean = "https://" + clean.lstrip("/")
     media_cat = classify_instagram_url(clean)
+    # v74.3: cache check (RAM → DISK) — dobara link par turant
+    _mc = _mem_get(clean, "ig") or disk_get(clean, "ig")
+    if _mc:
+        _d, _m = _mc
+        _o = dict(_m or {})
+        _o.update({"ok": True, "bytes": _d, "size_mb": _size_mb(_d), "cached": True})
+        return _o
 
-    for engine in (_ig_parth, _ig_ytdlp, _og_scrape):
+    # v74.3: 🏁 teeno engine EK SAATH (pehle ek-ek karke 25+ second lag jate the)
+    hit = _race([
+        lambda: _ig_parth(clean, media_cat),
+        lambda: _ig_ytdlp(clean, media_cat),
+        lambda: _og_scrape(clean, media_cat),
+    ], timeout=22.0)
+    if hit:
         try:
-            result = engine(clean, media_cat)
-        except Exception:
-            result = None
-        if result and result.get("ok"):
-            return result
+            if hit.get("bytes"):
+                _m2 = {k: v for k, v in hit.items() if k != "bytes"}
+                _mem_put(clean, hit["bytes"], _m2, "ig")
+                disk_put(clean, hit["bytes"], _m2, "ig")
+        except Exception:                                        # noqa: BLE001
+            pass
+        return hit
+    _result_fail = None
 
     if media_cat == "story":
         return {"ok": False, "category": "story",
@@ -944,12 +1111,21 @@ def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
     if not yt_dlp:
         return {"ok": False, "error": "yt-dlp engine load nahi hua (requirements.txt install check karo)."}
 
+    # v74.3: 🚀 pehle DOWNLOAD hi try karo — pehle info (3-10s) phir download (3-10s)
+    #        dono hota tha = double wajib time. Ab ek hi extraction me kaam hota hai.
+    plat = platform_name(url)
+    data1, info1 = _ytdlp_download_bytes(url, max_mb=max_mb)
+    if data1 and len(data1) > 1000:
+        return {"ok": True, "type": "video", "platform": plat,
+                "title": (info1 or {}).get("title") or "",
+                "bytes": data1, "size_mb": _size_mb(data1),
+                "duration": (info1 or {}).get("duration") or 0,
+                "engine": "yt-dlp (fast)"}
+
     info = _ytdlp_info(url)
     if not info:
         return {"ok": False, "error": friendly_dl_error(
             "yt-dlp ye link handle nahi kar paya")}
-
-    plat = platform_name(url)
 
     # Playlist / carousel (max 10)
     entries = info.get("entries") or []
@@ -1090,7 +1266,7 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
 
 
 def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
-    """v68: cache ke saath — ek hi link dobara bheja to TURANT (0.1 second)."""
+    """v74.3: 3-layer cache — RAM → DISK → network. Dobara link = TURANT (restart ke baad bhi)."""
     _c = _mem_get(url, "media")
     if _c:
         _data, _meta = _c
@@ -1098,11 +1274,20 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
         _out.update({"ok": True, "bytes": _data, "size_mb": _size_mb(_data),
                      "cached": True})
         return _out
+    _d = disk_get(url, "media")                 # v74.3: restart ke baad bhi instant
+    if _d:
+        _data, _meta = _d
+        _out = dict(_meta or {})
+        _out.update({"ok": True, "bytes": _data, "size_mb": _size_mb(_data),
+                     "cached": True})
+        _mem_put(url, _data, _meta, "media")    # RAM me bhi daal do (agle liye)
+        return _out
     _res = _download_video_media_raw(url, max_mb)
     try:
         if _res.get("ok") and _res.get("bytes"):
             _meta = {k: v for k, v in _res.items() if k != "bytes"}
             _mem_put(url, _res["bytes"], _meta, "media")
+            disk_put(url, _res["bytes"], _meta, "media")        # v74.3: disk par bhi
     except Exception:                                            # noqa: BLE001
         pass
     return _res

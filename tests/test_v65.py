@@ -76,7 +76,7 @@ check("_ytdlp_info YouTube par ladder chalata hai",
 # =====================================================================
 section("[B] 🚀 SPEED — 2 minute se 15 second ki taraf")
 # =====================================================================
-check("socket timeout 8 second (pehle 15 tha)", MD.SOCK_TIMEOUT == 8, str(MD.SOCK_TIMEOUT))
+check("socket timeout 7 second (v74.3: 8→7, jaldi fallback)", MD.SOCK_TIMEOUT == 7, str(MD.SOCK_TIMEOUT))
 check("16 parallel chunks (pehle 4 the)",
       _opts["concurrent_fragment_downloads"] == 16, str(_opts["concurrent_fragment_downloads"]))
 check("buffersize 1 MB laga hai", _opts.get("buffersize") == 1024 * 1024)

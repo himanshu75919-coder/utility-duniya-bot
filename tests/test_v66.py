@@ -153,7 +153,7 @@ check("pehla client pura budget, baaki short (kul 30s se kam)",
 check("dead banda video par dobara koshish nahi (_retryable)",
       hasattr(MD, "_retryable") and MD._retryable("This video is private") is False
       and MD._retryable("Sign in to confirm you are not a bot") is True)
-check("socket timeout 8s (atka connection chhoot jaye)", MD.SOCK_TIMEOUT == 8)
+check("socket timeout 7s (v74.3 — jaldi fallback)", MD.SOCK_TIMEOUT == 7)
 check("16 parallel chunks zinda",
       MD._ytdlp_opts({}).get("concurrent_fragment_downloads") == 16)
 

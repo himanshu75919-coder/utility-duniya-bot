@@ -270,8 +270,8 @@ check("IMEI: deliver na ho to 'Koi credit nahi kata' message",
       "Koi credit nahi kata" in _imei_seg)
 check("bot.py me koi raw HTML slice [:3900]/[:4000] nahi bacha",
       'join(L)[:3900]' not in _bot_src and 'join(L)[:4000]' not in _bot_src)
-check("keepalive ping ab 4 minute par hai (spin-down kam ho)",
-      'or 4)' in _bot_src and "_KEEPALIVE_MINUTES = 4.0" in _bot_src)
+check("keepalive ping ab 3 minute par hai (spin-down kam ho) — v74.3: 4→3",
+      'or 3)' in _bot_src and "_KEEPALIVE_MINUTES = 3.0" in _bot_src)
 
 # =====================================================================
 print("\n" + "=" * 62)

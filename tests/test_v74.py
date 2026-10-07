@@ -249,9 +249,8 @@ check("refresh button label update (Naya OTP check karo)",
       "Naya OTP check karo" in BOT_SRC)
 check("tool FREE hi hai (premium 37, tnum bahar)",
       "tnum" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 37)
-check("services 16 / countries 26 (order wahi)",
-      len(TN.SERVICES) == 16 and len(TN.COUNTRIES) == 26)
-
+check("temp number ab 1 app / 3 desh (v74.3 order — WhatsApp fi/nl/us)",
+      len(TN.SERVICES) == 1 and [c["cc"] for c in TN.COUNTRIES] == ["fi", "nl", "us"])
 # =====================================================================
 section("10) E2E — nakli Telegram: fresh number → naya OTP → purana chhupa")
 import asyncio                                                    # noqa: E402

@@ -428,8 +428,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.2 FREE4ALL — NO-LINK RULE: tools me kisi ka bhi link nahi, "
-               "sab bot ke andar | 34 boards + logos | BSEB LIVE result + PDF | saare tools tez")
+BOT_VERSION = ("v74.3 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
+               "| temp number: WhatsApp + 3 desh | 34 boards | BSEB LIVE + PDF | saare tools tez")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1094,6 +1094,10 @@ TNUM_INTRO = (
 )
 
 
+# v74.3: sirf 1 service (WhatsApp) — tab service picker skip, seedha desh chuno
+TNUM_ONE_SVC = ("whatsapp" if len(TN.SERVICES) == 1 else "")
+
+
 def _tnum_svc_kb():
     rows, buf = [], []
     for k, lbl, em, _rec in TN.SERVICES:
@@ -1304,6 +1308,10 @@ def tnum_card(rec: dict, ib: dict) -> str:
 
 async def send_tnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     target = update.callback_query.message if update.callback_query else update.message
+    if TNUM_ONE_SVC:                    # v74.3: seedha desh chuno (1 hi service hai)
+        await target.reply_text(TNUM_INTRO, reply_markup=_tnum_ctry_kb(TNUM_ONE_SVC),
+                                parse_mode=HTML)
+        return
     await target.reply_text(TNUM_INTRO, reply_markup=_tnum_svc_kb(), parse_mode=HTML)
 
 
@@ -5248,11 +5256,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if data.startswith("rc_how:"):
+        # v74.3: gyaan card hata diya — purane message ka button ab card kholta hai
         key = data.split(":", 1)[1]
-        _kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("◀️ Board ka card", callback_data=f"rcb:{key}")],
-            [InlineKeyboardButton("🇮🇳 Saare boards", callback_data="rc_new")]])
-        await _vnum_say(q, BRD.how_card(key), _kb)
+        _cap, _kb = rc_board_card(key)
+        await _rc_say_photo(q, key, _cap, _kb)
         return
 
     if data.startswith("rc_live:"):
@@ -5332,7 +5339,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     #  100% FREE tool (koi credit nahi) — har user ko apna ALAG number.
     #  Virtual Numbers (vnum) se bilkul alag hai: uska kaam admin/manual hai.
     if data == "tnum_open":
-        await _vnum_say(q, TNUM_INTRO, _tnum_svc_kb())
+        await _vnum_say(q, TNUM_INTRO,
+                        _tnum_ctry_kb(TNUM_ONE_SVC) if TNUM_ONE_SVC else _tnum_svc_kb())
         return
 
     if data.startswith("tnum_svc:"):
@@ -9501,8 +9509,6 @@ def _rc_pick_card(page: int = 0) -> str:
                  f" — {hesc(str(b.get('state')))}{live}")
     L.append("")
     L.append("💬 Board ka naam likh ke bhi khoj sakte ho (jaise <code>UP Board</code>).")
-    L.append("ℹ️ Jis board ka result bot khud laata hai wahan <b>LIVE ✅</b> likha hai;")
-    L.append("baaki board ka poora sahi tarika (steps) card me mil jayega.")
     return "\n".join(L)
 
 
@@ -9544,22 +9550,14 @@ def rc_board_card(key: str) -> tuple:
     L.append(f"📚 <b>Exam:</b> {hesc(', '.join(b.get('exams') or []))}")
     L.append(f"🔢 <b>Chahiye:</b> {hesc(', '.join(b.get('need') or []))}")
     L.append(pcard_sep())
-    if st == "live":
-        L.append("✅ <b>Ye board bot se LIVE chalta hai</b>")
-        L.append("<i>Seedha live result — koi captcha, koi login nahi.</i>")
-    else:
-        L.append("🛡️ <b>Is board ka result bot ke andar nahi aata</b>")
-        L.append("<i>Wahan login/captcha lagta hai — isliye bot seedha nahi laata. "
-                 "Poora sahi tarika neeche steps me hai.</i>")
-    if b.get("note"):
-        L.append(f"ℹ️ <i>{hesc(str(b['note']))}</i>")
+    L.append("✅ <b>LIVE</b> — result yahin se nikalta hai"
+             if st == "live" else "⏳ <b>Jald live hoga</b>")
     L.append("")
     L.append(BRAND_LINK)
     rows = []
     if st == "live":
         rows.append([InlineKeyboardButton("🔎 Result check karo (LIVE ✅)",
                                           callback_data=f"rc_live:{key}")])
-    rows.append([InlineKeyboardButton("ℹ️ Kaise check karein", callback_data=f"rc_how:{key}")])
     rows.append([InlineKeyboardButton("◀️ Saare boards", callback_data="rc_new")])
     return "\n".join(L), InlineKeyboardMarkup(rows)
 
@@ -9646,7 +9644,7 @@ def rc_exam_card() -> str:
         "     🎓 Inter (12th) Annual",
         "     🔁 Inter Special / Compartmental",
         "",
-        "<i>Bihar Board (BSEB) ka hi result — portal jaisa.</i>",
+        "<i>Bihar Board (BSEB) ka result.</i>",
     ])
 
 
@@ -9720,8 +9718,7 @@ def rc_result_card(st: dict, exam_key: str, year) -> str:
     if st.get("is_topper"):
         L.append("🏆 <b>TOPPER!</b> — board ki topper list me naam 🎉")
     L.append("")
-    L.append("📄 <b>PDF marksheet (poora data)</b> neeche bheji gayi hai ✅")
-    L.append(BSEBR.MEDIA_NOTE)
+    L.append("📄 <b>PDF marksheet</b> neeche hai ✅")
     L.append("")
     L.append(BRAND_LINK)
     return "\n".join(L)
@@ -9732,16 +9729,7 @@ def rc_archive_card(exam_key: str, year) -> str:
     return "\n".join([
         _rc_head(exam_key, year),
         pcard_sep(),
-        f"⚠️ <b>{year} wala result ab live nahi hai</b>",
-        "<i>Bihar Board purane saal ka data hata deta hai — "
-        "isliye ab sirf <b>is saal (2026)</b> ka result milta hai.</i>",
-        "",
-        "✅ <b>Aap ye kar sakte hain:</b>",
-        f"• {year} ki marksheet school se lein (school me record hamesha hota hai)",
-        "• Board office (Patna) se duplicate marksheet banwayi ja sakti hai",
-        f"• {BSEBR.CURRENT_YEAR} ka result yahin se turant nikalta hai",
-        "",
-        "🔒 Hum jhoothi umeed nahi dete — jo server par nahi hai, wo nahi hai.",
+        f"⚠️ <b>{year} ka result nahi mila</b> — sirf <b>{BSEBR.CURRENT_YEAR}</b> ka chalta hai.",
         "",
         BRAND_LINK,
     ])
@@ -9785,9 +9773,7 @@ def rc_parse_card(exam_key: str, year) -> str:
     return "\n".join([
         _rc_head(exam_key, year),
         pcard_sep(),
-        "⚠️ <b>Result aa gaya, par page ka format badal gaya hai</b>",
-        "<i>Isliye bot use theek se padh nahi paaya. Hum 1 din me update kar denge — "
-        "tab tak ye result dobara try kar sakte hain.</i>",
+        "⚠️ <b>Result nahi padha ja saka</b> — dobara try karein.",
         "",
         BRAND_LINK,
     ])
@@ -9795,20 +9781,10 @@ def rc_parse_card(exam_key: str, year) -> str:
 
 def cbse_info_card() -> str:
     return "\n".join([
-        pcard_title("ℹ️", "CBSE RESULT — SACH JAANKARI"),
-        "CBSE ne apna purana result page band kar diya hai.",
-        "Ab result sirf <b>sarkari digital marksheet app</b> par milta hai — "
-        "wahan <b>login (mobile OTP)</b> zaroori hai.",
+        pcard_title("🏛️", "CBSE — CENTRAL BOARD OF SECONDARY EDUCATION"),
+        "🇮🇳 <b>All India</b>",
         pcard_sep(),
-        "🚫 Isliye CBSE ka result bot se seedha nahi khul sakta",
-        "<i>(login/password wala kaam bot kabhi nahi karta — ye aapki suraksha ke liye hai)</i>",
-        "",
-        "✅ <b>Aap ye kar sakte hain:</b>",
-        "• Us app me apne mobile number se login karein (OTP aayega)",
-        "• Roll Number + Date of Birth daalein → digital marksheet mil jayegi",
-        pcard_sep(),
-        "🏫 <b>Bihar Board (BSEB) ka result YAHAN turant milta hai</b> —",
-        "Matric / Inter chuno, Roll Code + Roll No bhejo, PDF marksheet pao 👇",
+        "⏳ <b>Jald live hoga</b>",
         "",
         BRAND_LINK,
     ])
@@ -10564,9 +10540,9 @@ if _self_url:
 try:
     # v54.3: 10 → 4 minute. Render free instance 15 min inactivity par soti
     # hai; 4-min ping se bot + hub dono jaagte rehte hain → pehla reply fast.
-    _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 4)
+    _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 3)  # v74.3: 4→3 min
 except Exception:
-    _KEEPALIVE_MINUTES = 4.0
+    _KEEPALIVE_MINUTES = 3.0
 _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 # v59.9.2: webhook kyun on/off hua — /health par saaf dikhe (secret kabhi nahi).
 _WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not set",

@@ -60,18 +60,18 @@ TN_SRC = open(os.path.join(_ROOT, "modules", "temp_number.py"), encoding="utf-8"
 
 # =====================================================================
 section("1) Tool spec — 10+ services, 10+ countries (user ka order)")
-check("services 10+ hain", len(TN.SERVICES) >= 10, str(len(TN.SERVICES)))
-check("countries 10+ hain", len(TN.COUNTRIES) >= 10, str(len(TN.COUNTRIES)))
+check("services ab sirf 1 (WhatsApp) — v74.3 order", len(TN.SERVICES) == 1
+      and TN.SERVICES[0][0] == "whatsapp", str(len(TN.SERVICES)))
+check("countries ab 3 (fi/nl/us) — v74.3 order",
+      [c["cc"] for c in TN.COUNTRIES] == ["fi", "nl", "us"], str(len(TN.COUNTRIES)))
 check("service keys unique", len({s[0] for s in TN.SERVICES}) == len(TN.SERVICES))
 check("country codes unique", len({c["cc"] for c in TN.COUNTRIES}) == len(TN.COUNTRIES))
 check("har country me flag + naam hai",
       all(c.get("flag") and c.get("name") and c.get("cc") for c in TN.COUNTRIES))
-_expected_svc = {"whatsapp", "telegram", "instagram", "google", "discord", "tiktok"}
-check("bade apps list me hain (WhatsApp/Telegram/Instagram/Google/Discord/TikTok)",
-      _expected_svc.issubset({s[0] for s in TN.SERVICES}))
-_expected_cc = {"us", "uk", "ca", "de", "fr", "nl", "au", "nz", "se", "es"}
-check("bade desh list me hain (US/UK/CA/DE/FR/NL/AU/NZ/SE/ES)",
-      _expected_cc.issubset({c["cc"] for c in TN.COUNTRIES}))
+check("WhatsApp list me hai (v74.3: sirf WhatsApp, baaki apps aage)",
+      "whatsapp" in {s[0] for s in TN.SERVICES} and len(TN.SERVICES) == 1)
+check("OTP-friendly desh list me hain (FI/NL/US)",
+      [c["cc"] for c in TN.COUNTRIES] == ["fi", "nl", "us"])
 check("100% free promise module doc me likha hai",
       "free" in TN.__doc__.lower() and "koi key" in TN.__doc__.lower())
 check("bank red-line module doc me hai", "bank" in TN.__doc__.lower())

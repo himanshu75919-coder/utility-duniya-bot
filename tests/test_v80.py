@@ -138,13 +138,12 @@ check("aakhri page par 'Peeche' hai, 'Aage' nahi",
 _cap_ts, _kb_ts = bot.rc_board_card("telangana")
 check("board card: poora naam + state + exam", "Board of Secondary Education Telangana" in _cap_ts
       and "Telangana" in _cap_ts and "SSC" in _cap_ts)
-check("board card (portal): sach likha — bot ke andar nahi aata",
-      "bot ke andar nahi aata" in _cap_ts)
+check("board card (portal): sirf status — koi gyaan nahi",
+      "Jald live hoga" in _cap_ts and "captcha" not in _cap_ts and "steps" not in _cap_ts)
 check("board card (portal): koi link button NAHI (rule #1)",
       not any(b.url for r in _kb_ts.inline_keyboard for b in r))
-check("board card (portal): sirf 'Kaise check karein' + 'Saare boards'",
-      [b.text for r in _kb_ts.inline_keyboard for b in r] ==
-      ["ℹ️ Kaise check karein", "◀️ Saare boards"])
+check("board card (portal): sirf 'Saare boards' button",
+      [b.text for r in _kb_ts.inline_keyboard for b in r] == ["◀️ Saare boards"])
 check("board card (portal): LIVE check button NAHI (jhooth nahi)",
       not any("LIVE" in b.text for r in _kb_ts.inline_keyboard for b in r))
 _cap_bs, _kb_bs = bot.rc_board_card("bseb")
@@ -152,11 +151,11 @@ check("BSEB card: LIVE ✅ button milta hai",
       any("LIVE" in b.text for r in _kb_bs.inline_keyboard for b in r))
 check("BSEB card: koi link button NAHI (rule #1)",
       not any(b.url for r in _kb_bs.inline_keyboard for b in r))
-_how = BRD.how_card("upmsp")
-check("'kaise check karein' me steps + imaandari note (link NAHI)",
-      "1." in _how and "jhootha result" in _how.lower() and "http" not in _how)
-check("how card crash-free har board par",
-      all(len(BRD.how_card(k)) > 100 for k in BRD.BOARDS))
+check("RULE #2: how-gyaan card poori tarah hata diya (function gayab)",
+      not hasattr(BRD, "how_card"))
+check("RULE #2: koi 'Kaise check karein' button kisi bhi board card me nahi",
+      not any("Kaise" in b.text for k in BRD.BOARDS
+              for r in bot.rc_board_card(k)[1].inline_keyboard for b in r))
 
 # =====================================================================
 section("5) Port fix (Render 'No open ports' warning)")
@@ -194,8 +193,8 @@ except Exception as e:                                            # noqa: BLE001
 
 # =====================================================================
 section("7) Version + wiring")
-check("version v74.2 hai (NO-LINK RULE)",
-      "v74.2" in bot.BOT_VERSION and "NO-LINK" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v74.3 hai (NO-GYAAN + SPEED)",
+      "v74.3" in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
 check("exports: boards import bot me", "from modules import boards as BRD" in BOT_SRC)
 check("callbacks wired (rcb/rc_page/rc_how/rc_live)",
       all(x in BOT_SRC for x in ('startswith("rcb:")', 'startswith("rc_page:")',
@@ -313,11 +312,11 @@ async def _hub_flow():
               up.message.photos[0][1][:3] == b"\xff\xd8\xff")
 
     # portal board card → "Kaise check karein"
-    q3 = _Q("rc_how:upmsp", uid)
+    q3 = _Q("rc_how:upmsp", uid)          # purane button ka alias — ab card kholta hai
     await bot.on_cb(_UpdQ(q3), ctx)
     _t3 = " ".join(q3.message.out)
-    check("E2E: 'kaise check karein' me steps + koi link nahi",
-          "Roll Number" in _t3 and "http" not in _t3, _t3[:80])
+    check("E2E: purana how-button ab board card kholta hai (gyaan nahi)",
+          "Uttar Pradesh" in _t3 and "steps" not in _t3, _t3[:80])
 
     # maharashtra card (badge wala board)
     q4 = _Q("rcb:maharashtra", uid)
@@ -361,8 +360,9 @@ for _k in BRD.BOARDS:
     if any(getattr(b, "url", None) for r in _kbb.inline_keyboard for b in r):
         _bad_cards.append(_k + "(kb)")
 check("saare 34 board cards link-free (text + buttons)", not _bad_cards, str(_bad_cards[:6]))
-_bad_how = [k for k in BRD.BOARDS if "http" in _strip_own(BRD.how_card(k)).lower()]
-check("saare 'kaise check karein' cards link-free", not _bad_how, str(_bad_how[:6]))
+check("NO-GYAAN: kisi bhi board card me 'captcha/steps/login' jaisa gyaan nahi",
+      not [k for k in BRD.BOARDS
+           if any(w in bot.rc_board_card(k)[0].lower() for w in ("captcha", "steps", "login", "kaise"))])
 _nolink("CBSE jaankari card link-free", bot.cbse_info_card())
 _nolink("parse card link-free", bot.rc_parse_card("inter", 2026))
 _nolink("archive card link-free", bot.rc_archive_card("matric", 2023))
@@ -383,8 +383,7 @@ _ban = ("portal", "digilocker", "official server", "cbse.gov", "nic.in", "interb
 _hits = []
 for _k in BRD.BOARDS:
     _c, _kbx = bot.rc_board_card(_k)
-    _h = BRD.how_card(_k)
-    _blob = (_strip_own(_c) + " " + _strip_own(_h) + " " +
+    _blob = (_strip_own(_c) + " " +
              " ".join(b.text for r in _kbx.inline_keyboard for b in r)).lower()
     for _w in _ban:
         if _w in _blob:

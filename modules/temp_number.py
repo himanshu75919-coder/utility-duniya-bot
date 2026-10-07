@@ -41,60 +41,22 @@ UA = {
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-# ============================================================ SERVICES (16)
-# (key, label, emoji, recommended-country order)
+# ============================================================ SERVICE (v74.3: sirf WhatsApp)
+# User order: "temp number me sirf ek hi service ho — WhatsApp ke."
+# (Purani 16 services ki list ek-ek karke badhayi jayegi jab wo test ho jaayen.)
 SERVICES = (
-    ("whatsapp",  "WhatsApp",       "💬", ("us", "ca", "fi", "uk", "nl")),
-    ("telegram",  "Telegram",       "✈️", ("us", "ca", "uk")),
-    ("instagram", "Instagram",      "📸", ("us", "ca", "uk", "fi")),
-    ("facebook",  "Facebook",       "📘", ("us", "ca", "uk")),
-    ("google",    "Google / Gmail", "🔎", ("us", "ca", "nz", "au")),
-    ("discord",   "Discord",        "🎮", ("us", "ca")),
-    ("tiktok",    "TikTok",         "🎵", ("us", "ca")),
-    ("twitter",   "X (Twitter)",    "🐦", ("us", "ca")),
-    ("snapchat",  "Snapchat",       "👻", ("us", "ca")),
-    ("wechat",    "WeChat",         "🟩", ("us", "ca")),
-    ("signal",    "Signal",         "🔒", ("us", "ca")),
-    ("uber",      "Uber / Ola",     "🚕", ("us", "ca", "uk", "au")),
-    ("amazon",    "Amazon",         "📦", ("us", "ca", "uk", "de")),
-    ("netflix",   "Netflix",        "🎬", ("us", "ca", "uk")),
-    ("linkedin",  "LinkedIn",       "💼", ("us", "ca", "uk")),
-    ("tinder",    "Tinder",         "💘", ("us", "ca", "uk")),
+    ("whatsapp", "WhatsApp", "💬", ("fi", "nl", "us")),
 )
 
 SVC_BY_KEY = {k: (lbl, em, rec) for k, lbl, em, rec in SERVICES}
 
-# ============================================================ COUNTRIES (26)
-# rc  = receivesms.co slug  ("" = is source par nahi)
-# rsf = receive-sms-free.cc URL naam
-# ts  = temp-sms.org dial-code prefix
+# ============================================================ COUNTRIES (v74.3: 3 desh)
+# User order: "country sirf 2-3 rakho jinke number par OTP easily aata hai."
+# Teeno par WhatsApp OTP test: numbers milte hain + OTP aata hai. ✅
 COUNTRIES = (
-    {"cc": "us", "name": "United States", "flag": "🇺🇸", "rc": "us",         "rsf": "USA",         "ts": "1"},
-    {"cc": "uk", "name": "United Kingdom", "flag": "🇬🇧", "rc": "",          "rsf": "",            "ts": "44"},
-    {"cc": "ca", "name": "Canada",         "flag": "🇨🇦", "rc": "canadian",  "rsf": "Canada",      "ts": ""},
-    {"cc": "au", "name": "Australia",      "flag": "🇦🇺", "rc": "australian", "rsf": "",           "ts": "61"},
-    {"cc": "de", "name": "Germany",        "flag": "🇩🇪", "rc": "german",    "rsf": "",            "ts": ""},
-    {"cc": "fr", "name": "France",         "flag": "🇫🇷", "rc": "french",    "rsf": "",            "ts": ""},
-    {"cc": "nl", "name": "Netherlands",    "flag": "🇳🇱", "rc": "dutch",     "rsf": "Netherlands", "ts": ""},
-    {"cc": "nz", "name": "New Zealand",    "flag": "🇳🇿", "rc": "new-zealand", "rsf": "",          "ts": "64"},
-    {"cc": "fi", "name": "Finland",        "flag": "🇫🇮", "rc": "",          "rsf": "Finland",     "ts": ""},
-    {"cc": "se", "name": "Sweden",         "flag": "🇸🇪", "rc": "swedish",   "rsf": "",            "ts": ""},
-    {"cc": "ch", "name": "Switzerland",    "flag": "🇨🇭", "rc": "swiss",     "rsf": "",            "ts": ""},
-    {"cc": "pl", "name": "Poland",         "flag": "🇵🇱", "rc": "",          "rsf": "Poland",      "ts": ""},
-    {"cc": "be", "name": "Belgium",        "flag": "🇧🇪", "rc": "",          "rsf": "Belgium",     "ts": "32"},
-    {"cc": "at", "name": "Austria",        "flag": "🇦🇹", "rc": "",          "rsf": "",            "ts": "43"},
-    {"cc": "es", "name": "Spain",          "flag": "🇪🇸", "rc": "spanish",   "rsf": "",            "ts": ""},
-    {"cc": "it", "name": "Italy",          "flag": "🇮🇹", "rc": "",          "rsf": "",            "ts": ""},
-    {"cc": "no", "name": "Norway",         "flag": "🇳🇴", "rc": "norwegian", "rsf": "",            "ts": ""},
-    {"cc": "pr", "name": "Puerto Rico",    "flag": "🇵🇷", "rc": "puerto-rico", "rsf": "",          "ts": ""},
-    {"cc": "ar", "name": "Argentina",      "flag": "🇦🇷", "rc": "argentine", "rsf": "",            "ts": ""},
-    {"cc": "co", "name": "Colombia",       "flag": "🇨🇴", "rc": "colombian", "rsf": "",            "ts": ""},
-    {"cc": "hr", "name": "Croatia",        "flag": "🇭🇷", "rc": "croatian",  "rsf": "",            "ts": ""},
-    {"cc": "cy", "name": "Cyprus",         "flag": "🇨🇾", "rc": "cyprus",    "rsf": "",            "ts": ""},
-    {"cc": "hu", "name": "Hungary",        "flag": "🇭🇺", "rc": "hungarian", "rsf": "",            "ts": ""},
-    {"cc": "mt", "name": "Malta",          "flag": "🇲🇹", "rc": "malta",     "rsf": "",            "ts": ""},
-    {"cc": "sk", "name": "Slovakia",       "flag": "🇸🇰", "rc": "slovak",    "rsf": "",            "ts": ""},
-    {"cc": "lk", "name": "Sri Lanka",      "flag": "🇱🇰", "rc": "sri-lanka", "rsf": "",            "ts": ""},
+    {"cc": "fi", "name": "Finland",     "flag": "🇫🇮", "rc": "",          "rsf": "Finland",     "ts": ""},
+    {"cc": "nl", "name": "Netherlands", "flag": "🇳🇱", "rc": "dutch",     "rsf": "Netherlands", "ts": ""},
+    {"cc": "us", "name": "United States", "flag": "🇺🇸", "rc": "us",      "rsf": "USA",         "ts": "1"},
 )
 
 COUNTRY_BY_CC = {c["cc"]: c for c in COUNTRIES}
