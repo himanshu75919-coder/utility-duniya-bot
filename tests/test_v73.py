@@ -258,8 +258,8 @@ check("callbacks: open/svc/ctry/refresh/change sab wired",
                                  'startswith("tnum_ctry:")', '"tnum_refresh"', '"tnum_change"')))
 check("credit / VIP wall wala line tnum ke liye NAHI hai (100% free)",
       'get_credits_over_text("tnum")' not in BOT_SRC)
-check("assignment meta-store use hota hai",
-      'TNUM_META_KEY = "tnum_assign_v1"' in BOT_SRC and "meta_get(TNUM_META_KEY" in BOT_SRC)
+check("assignment meta-store use hota hai (v2 — fresh numbers)",
+      'TNUM_META_KEY = "tnum_assign_v2"' in BOT_SRC and "meta_get(TNUM_META_KEY" in BOT_SRC)
 
 _p = bot.TNUM_INTRO
 check("intro card me bank warning hai", "BANK / UPI / KYC" in _p.upper())
@@ -303,10 +303,11 @@ finally:
 # =====================================================================
 section("7) Card render — offline (code highlight + warnings + null-safety)")
 _card = bot.tnum_card(
-    {"cc": "de", "num": "4915510376239", "dis": "+49 15510 376239", "svc": "google"},
+    {"cc": "de", "num": "4915510376239", "dis": "+49 15510 376239", "svc": "google",
+     "since": []},
     {"ok": True, "number": "4915510376239",
-     "messages": [{"from": "SoulChill", "time": "19 minutes ago",
-                   "text": "Verification code: 875371", "code": "875371"},
+     "messages": [{"from": "Google", "time": "19 minutes ago",
+                   "text": "G-875371 is your Google verification code.", "code": "875371"},
                   {"from": "SBI", "time": "1 min ago",
                    "text": "SBI bank OTP 998877 for UPI", "code": "998877"}],
      "last_activity": "19 minutes ago", "count24": 510})
@@ -371,12 +372,25 @@ _orig_pool2, _orig_inbox2 = TN.pool, TN.inbox
 _MOCK2 = {"ok": True, "numbers": [{"nid": f"rc:us:{i}", "cc": "us", "number": f"1555123{i:04d}",
                                    "display": f"+1 555-123-{i:04d}", "src": "rc"} for i in range(5)],
           "notes": ["mock"]}
-_IBOX = {"ok": True, "number": "15551230000", "display": "+1 555-123-0000",
-         "messages": [{"from": "22395", "time": "1 min ago",
-                       "text": "Your Telegram verification code is: 445566", "code": "445566"}],
-         "last_activity": "1 min ago", "count24": 7, "cached": False}
+_CALLS = {"n": 0}
+
+
+def _fake_inbox2(nid, ttl=12.0, force=False):
+    """v71.10: pehla call = assignment baseline (khaali), phir naya SMS aata hai."""
+    _CALLS["n"] += 1
+    if _CALLS["n"] <= 1:
+        msgs = []                          # assignment ke waqt inbox khaali tha
+    else:
+        msgs = [{"from": "WhatsApp", "time": "1 min ago",
+                 "text": "Your WhatsApp code is 445566. Don't share this code.",
+                 "code": "445566"}]
+    return {"ok": True, "number": "15551230000", "display": "+1 555-123-0000",
+            "messages": msgs, "last_activity": "1 min ago", "count24": 7,
+            "cached": False}
+
+
 TN.pool = lambda cc, refresh=False: _MOCK2 if cc == "us" else {"ok": False, "error": "support nahi"}
-TN.inbox = lambda nid, ttl=12.0, force=False: _IBOX
+TN.inbox = _fake_inbox2
 
 
 async def _run_flow():
@@ -399,7 +413,7 @@ async def _run_flow():
     await bot.on_cb(_Upd(q3), ctx)
     a3 = q3.message.out[-1] if q3.message.out else ""
     check("E2E desh chuna: number card aaya", "Aapka number" in a3)
-    check("E2E desh chuna: OTP code card me hai", "<code>445566</code>" in a3)
+    check("E2E desh chuna: naya OTP card me hai (6-digit)", "<code>445566</code>" in a3)
     check("E2E desh chuna: bank line card me hai", bot.TNUM_SAFE_LINE in a3)
     _rec = bot._tnum_load().get(str(uid)) or {}
     check("E2E desh chuna: number store ho gaya", bool(_rec.get("nid")), str(_rec.get("nid")))

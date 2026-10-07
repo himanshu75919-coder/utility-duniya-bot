@@ -421,8 +421,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.9 FREE4ALL — TEMP MAIL (NUMBER): 100% FREE temp number + OTP "
-               "(har user ko ALAG number, 10+ desh, bank warning)")
+BOT_VERSION = ("v71.10 FREE4ALL — TEMP MAIL v2: sirf NAYA + sahi-app ka OTP "
+               "(fresh numbers, purane SMS chhupe, 16 app, 26 desh)")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1055,8 +1055,11 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 #  bank/UPI/KYC OTP par SAAF warning.
 #  Engine: modules/temp_number.py (public receive-SMS sites, koi login nahi)
 # ============================================================
-TNUM_META_KEY = "tnum_assign_v1"     # user_id -> uska number (alag-alag)
-TNUM_REFRESH_GAP = 9                 # ek number par itne sec se pehle refresh nahi
+# v71.10: key v2 — purane saare numbers fresh kar diye (user ka order:
+# "pichla message sab delete karo, saare number fresh karo").
+TNUM_META_KEY = "tnum_assign_v2"     # user_id -> uska number (alag-alag)
+TNUM_OLD_KEYS = ("tnum_assign_v1",)  # purani keys — ek baar saaf kar dete hain
+TNUM_REFRESH_GAP = 8                 # ek number par itne sec se pehle refresh nahi
 TNUM_SAFE_LINE = "🚫 Bank / UPI / KYC / paisa — ye number BILKUL mat do"
 
 TNUM_INTRO = (
@@ -1065,6 +1068,12 @@ TNUM_INTRO = (
     "100% FREE — koi paisa, koi key, koi login nahi.\n"
     "Har user ko <b>apna alag number</b> milta hai — doosre ka repeat nahi.\n"
     "10+ desh · 15+ app (WhatsApp, Telegram, Google, Instagram...)\n"
+    "──────────────────────\n"
+    "🆕 <b>Naya system (v71.10):</b>\n"
+    "• Sirf <b>aapke chune app ka NAYA OTP</b> dikhega — purane SMS aur\n"
+    "  doosri websites wale OTP <b>chhupe</b> rahenge.\n"
+    "• OTP us app ke hisaab se hi aayega (WhatsApp = 6 digit, Telegram = 5...).\n"
+    "• Number <b>hamesha fresh</b> milta hai — jab aap OTP maangte ho, tabhi SMS girta hai.\n"
     "──────────────────────\n"
     "⚠️ <b>Pehle ye padho:</b>\n"
     "• Ye <b>public</b> number hai — iska inbox duniya me koi bhi dekh sakta hai.\n"
@@ -1110,7 +1119,7 @@ def _tnum_ctry_kb(svc_key: str = ""):
 
 def _tnum_num_kb(rec: dict):
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 Naye SMS laao", callback_data="tnum_refresh")],
+        [InlineKeyboardButton("🔁 Naya OTP check karo", callback_data="tnum_refresh")],
         [InlineKeyboardButton("🔄 Doosra number", callback_data="tnum_change"),
          InlineKeyboardButton("🌍 Desh badlo", callback_data="tnum_countries")],
         [InlineKeyboardButton("📲 App badlo", callback_data="tnum_open"),
@@ -1138,36 +1147,58 @@ def _tnum_save(store: dict) -> None:
 def tnum_get_number(uid: int, cc: str, svc_key: str = "", change: bool = False):
     """User ko uska apna (alag) number do — dobara maangne par wahi milega.
 
-    Return: (rec | None, error-str). rec = {cc, nid, num, dis, src, svc, rot, t}
+    v71.10 upgrade (user ka order):
+      • sabse ACCHA number chunte hain — jo abhi active ho aur usi app ke SMS aate hon
+      • assignment ke waqt inbox ka "baseline" (since) record hota hai
+        → card me sirf USKE BAAD aaye NAYE OTP dikhte hain
+      • app badalne par baseline refresh — purane SMS kabhi show nahi
+
+    Return: (rec | None, error-str).
+    rec = {cc, nid, num, dis, src, svc, rot, since[], t}
     """
     try:
+        # purani (v1) list ek baar saaf — fresh shuruaat
+        try:
+            for _oldk in TNUM_OLD_KEYS:
+                if meta_get(_oldk, ""):
+                    meta_set(_oldk, "")
+        except Exception:                                   # noqa: BLE001
+            pass
         store = _tnum_load()
         me = store.get(str(uid)) if isinstance(store.get(str(uid)), dict) else {}
         taken = {v.get("nid") for k, v in store.items()
                  if k != str(uid) and isinstance(v, dict) and v.get("nid")}
+        # ---- wahi number, wahi desh: reuse (app badla to sirf baseline refresh) ----
         if me.get("nid") and me.get("cc") == cc and not change:
             if svc_key and svc_key != me.get("svc"):
                 me["svc"] = svc_key
+                try:
+                    _ib = TN.inbox(me.get("nid"), force=True)
+                    if _ib.get("ok"):
+                        me["since"] = TN.snapshot(_ib.get("messages"))
+                except Exception:                           # noqa: BLE001
+                    pass
                 store[str(uid)] = me
                 _tnum_save(store)
             return me, ""
+        # ---- naya number / number badla ----
         avoid = set(me.get("avoid") or [])
         rot = int(me.get("rot") or 0)
         if change and me.get("nid"):
             avoid.add(me.get("nid"))
             rot += 1
-            avoid = set(list(avoid)[-4:])                   # sirf last 4 yaad rakho
-        p = TN.pool(cc)
-        if not p.get("ok"):
-            return None, (p.get("error") or "Is desh me abhi number nahi mila.")
-        chosen = TN.pick(p["numbers"], taken=taken,
-                         uid=int(uid) + rot * 7919, avoid=avoid)
-        if not chosen:
-            return None, "Is desh ke saare number busy hain — doosra desh try karo."
-        rec = {"cc": cc, "nid": chosen.get("nid"), "num": chosen.get("number") or "",
-               "dis": chosen.get("display") or "", "src": chosen.get("src") or "",
+            avoid = set(list(avoid)[-6:])                   # last 6 yaad rakho
+        num, ib, err = TN.pick_best(cc, taken=taken, uid=int(uid) + rot * 7919,
+                                    svc_key=svc_key or me.get("svc") or "",
+                                    avoid=avoid, tries=3)
+        if not num:
+            return None, (err or "Is desh me abhi number nahi mila — doosra try karo.")
+        rec = {"cc": cc, "nid": num.get("nid"), "num": num.get("number") or "",
+               "dis": num.get("display") or "", "src": num.get("src") or "",
                "svc": svc_key or me.get("svc") or "", "rot": rot,
-               "avoid": sorted(avoid), "t": int(time.time())}
+               "avoid": sorted(avoid),
+               "since": TN.snapshot(ib.get("messages")) if (ib or {}).get("ok") else [],
+               "t": int(time.time())}
         store[str(uid)] = rec
         if len(store) > 5000:                               # purane records hatao
             olds = sorted(store, key=lambda x: int((store.get(x) or {}).get("t") or 0))
@@ -1181,7 +1212,15 @@ def tnum_get_number(uid: int, cc: str, svc_key: str = "", change: bool = False):
 
 
 def tnum_card(rec: dict, ib: dict) -> str:
-    """📞 TEMP MAIL ka number card — inbox + OTP + warnings (patli lines)."""
+    """📞 TEMP MAIL ka number card (v71.10).
+
+    User ka order: "sirf mera OTP rahe — jo app chuna hai usi ka NAYA OTP,
+    purane aur doosri site wale chhupe rahen."
+      • since-baseline ke baad aaye SMS = naye
+      • unme se sirf chuni hui app ke SMS dikhte hain
+      • OTP us app ki lambai ka hi nikalta hai (WhatsApp 6, Telegram 5...)
+      • bank wala koi bhi SMS mile to ⛔ warning (chhupa hua ho to bhi)
+    """
     rec = rec or {}
     ib = ib or {}
     cc = str(rec.get("cc") or "")
@@ -1189,10 +1228,10 @@ def tnum_card(rec: dict, ib: dict) -> str:
     svc_key = str(rec.get("svc") or "")
     lbl, em, _ = TN.SVC_BY_KEY.get(svc_key, ("", "📱", ()))
     num = str(ib.get("number") or rec.get("num") or "")
-    msgs = [m for m in (ib.get("messages") or []) if isinstance(m, dict)]
+    all_msgs = [m for m in (ib.get("messages") or []) if isinstance(m, dict)]
     L = [pcard_title("📞", "TEMP MAIL (NUMBER)")]
     if lbl:
-        L.append(f"{em} <b>App:</b> {hesc(str(lbl))}")
+        L.append(f"{em} <b>App:</b> {hesc(str(lbl))} <i>(OTP {hesc(TN.svc_hint(svc_key))})</i>")
     L.append(f"{c.get('flag', '🌍')} <b>Desh:</b> {hesc(c.get('name') or cc.upper())}")
     _pretty = TN.pretty_number(num)
     _num_line = f"📱 <b>Aapka number:</b> <code>+{hesc(num)}</code>"
@@ -1200,37 +1239,50 @@ def tnum_card(rec: dict, ib: dict) -> str:
         _num_line += f"  <i>({hesc(_pretty)})</i>"
     L.append(_num_line)
     L.append(pcard_sep())
+
+    # bank scan — dikhne wale ya chhupe hue, kisi bhi SMS me bank word ho
+    _banky = any(TN.looks_banky(str(m.get("text") or "")) for m in all_msgs)
+
     if not ib.get("ok"):
         L.append("⚠️ Inbox abhi nahi khul paya — " + hesc(str(ib.get("error") or "site slow hai")))
-        L.append("👉 Thodi der baad <b>🔁 Naye SMS laao</b> dabao.")
-    elif msgs:
-        head = f"📥 <b>Inbox:</b> {len(msgs)} SMS"
-        if ib.get("last_activity"):
-            head += f"  ·  🕒 {hesc(str(ib['last_activity'])[:22])}"
-        L.append(head)
-        banky = False
-        for m in msgs[:6]:
-            code = str(m.get("code") or "")
-            frm = hesc(str(m.get("from") or "SMS")[:16])
-            tm = hesc(str(m.get("time") or "")[:18])
-            txt = hesc(str(m.get("text") or "")[:130])
-            if TN.looks_banky(str(m.get("text") or "")):
-                banky = True
-            L.append(f"├ <b>{frm}</b> · {tm}")
-            if code:
-                L.append(f"│  🔑 <b>CODE:</b> <code>{hesc(code)}</code>")
-            L.append(f"│  {txt}")
-        if banky:
-            L.append("")
-            L.append(f"⛔ <b>RUKO!</b> Ye SMS bank/paisa wala lag raha hai — "
-                     "is number se banking kaam <b>mat</b> karo.")
-        if len(msgs) > 6:
-            L.append(f"└ +{len(msgs) - 6} purane SMS")
-        if ib.get("cached"):
-            L.append("<i>🧊 10s purana data — naya chahiye to dobara 🔁 dabao</i>")
+        L.append("👉 Thodi der baad <b>🔁 Naya OTP check karo</b> dabao.")
     else:
-        L.append("📭 <b>Abhi koi SMS nahi aaya.</b>")
-        L.append("👉 Ye number app/site ke OTP box me daalo, phir <b>🔁 Naye SMS laao</b> dabao.")
+        show, hidden, new_total = TN.fresh_and_matched(all_msgs, rec.get("since"),
+                                                       svc_key, limit=6)
+        _app = hesc(str(lbl or "is app"))
+        if show:
+            L.append(f"✅ <b>Naya OTP aa gaya!</b>  <i>({len(show)} naya SMS)</i>")
+            _first = True
+            for m in show:
+                code = TN.extract_code_svc(str(m.get("text") or ""), svc_key)
+                frm = hesc(str(m.get("from") or "SMS")[:16])
+                tm = hesc(str(m.get("time") or "")[:18])
+                if _first and code:
+                    L.append(f"🔑 <b>OTP:</b> <code>{hesc(code)}</code>")
+                    _first = False
+                L.append(f"├ <b>{frm}</b> · {tm}")
+                if code:
+                    L.append(f"│  🔑 <b>CODE:</b> <code>{hesc(code)}</code>")
+                L.append(f"│  {hesc(str(m.get('text') or '')[:130])}")
+                _note = TN.code_len_note(str(m.get("text") or ""), svc_key)
+                if _note:
+                    L.append(f"│  ⚠️ {hesc(_note)}")
+        else:
+            L.append(f"⏳ <b>Abhi koi naya {_app} OTP nahi aaya.</b>")
+            if new_total and hidden:
+                L.append(f"🔇 {hidden} naya SMS aaya par {_app} ka nahi hai — chhupa diya.")
+            L.append("👉 Number OTP box me daalo → SMS aayega → "
+                     "<b>🔁 Naya OTP check karo</b> dabao.")
+            L.append(f"📏 {_app} ka OTP aksar <b>{hesc(TN.svc_hint(svc_key))}</b> hota hai.")
+        if hidden and show:
+            L.append(f"🔇 {hidden} naya SMS chhupa ({_app} ka nahi tha).")
+        if ib.get("cached"):
+            L.append("<i>🧊 8s purana data — naya chahiye to dobara 🔁 dabao</i>")
+
+    if _banky:
+        L.append("")
+        L.append("⛔ <b>RUKO!</b> Inbox me bank/paisa wala SMS bhi hai — "
+                 "is number se banking kaam <b>mat</b> karo.")
     L.append(pcard_sep())
     L.append(TNUM_SAFE_LINE)
     L.append("👀 Ye PUBLIC number hai — inbox koi bhi dekh sakta hai.")
