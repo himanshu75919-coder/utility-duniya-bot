@@ -22,6 +22,7 @@ import logging
 import os
 import re
 import socket
+import random
 import time
 import threading
 from datetime import date, datetime
@@ -263,6 +264,7 @@ from modules.osint_tools import (
 )
 from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME HUNTER (public only)
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
+from modules import student_hub as SH                  # v72.1: 🎓 STUDENT STUDIO — GK Quiz + Yojana + Marks (offline, free)
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -353,6 +355,7 @@ TOOL_RATE_LIMITS = {
     "ffuid":       (8,  60,  "FF UID"),
     "tempmail":    (10, 120, "Temp Mail"),
     "tnum":        (25, 300, "Temp Mail (Number)"),    # v71.9: free temp number + OTP
+    "stud_marks":  (30, 300, "Marks Calculator"),      # v72.1: offline, free
     "ifsc":        (15, 60,  "IFSC Info"),
     "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
     "uhunt":       (10, 60,  "Username Hunter (Public)"),
@@ -422,8 +425,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v72.0 FREE4ALL — UPGRADE WAVE: saare tools tez + khud-retry "
-               "(shared HTTP engine) + TEMP MAIL v2")
+BOT_VERSION = ("v72.1 FREE4ALL — STUDENT STUDIO: GK Quiz + Yojana Checker + "
+               "Marks Calculator (FREE) | saare tools tez + khud-retry")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -749,7 +752,8 @@ def all_tools_text() -> str:
     _pv = "\n".join(
         f"   • {hesc(x)}" for x in sorted(
             {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}
-            | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP"}))
+            | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP",
+               "🎓 Student Studio — GK Quiz + Yojana Checker + Marks Calculator (FREE)"}))
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
@@ -798,7 +802,8 @@ VIP_FREE_CB_EXACT = {
 }
 VIP_FREE_CB_PREFIX = ("buy_plan_", "toolvid:", "adm", "admin", "ugrant:", "urevoke:", "uban:",
                       "rpay:", "apay:", "askpay:", "vid:", "refer",
-                      "tnum")     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
+                      "tnum",     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
+                      "stud", "gkq_", "yoj_")   # v72.1: STUDENT STUDIO — sab FREE, hamesha khula
 
 
 def vip_free_cb(data: str) -> bool:
@@ -1298,6 +1303,307 @@ async def send_tnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await target.reply_text(TNUM_INTRO, reply_markup=_tnum_svc_kb(), parse_mode=HTML)
 
 
+# ============================================================
+#  v72.1: 🎓 STUDENT STUDIO — GK Quiz + Yojana Checker + Marks Calculator
+# ------------------------------------------------------------
+#  User ka order: "Students Pack" — 3 tools, sab 100% FREE aur poori tarah
+#  OFFLINE (koi website/API nahi → kabhi fail nahi honge).
+# ============================================================
+STUD_INTRO = (
+    f"🎓 <b>{to_bold('STUDENT STUDIO')}</b>\n"
+    "──────────────────────\n"
+    "Padhai ke 3 kaam ki cheezein — sab FREE:\n"
+    "• 🎯 <b>GK Quiz</b> — roz 5 sawal, score + streak\n"
+    "• 🏛️ <b>Yojana Checker</b> — kaunsi sarkari yojana milegi\n"
+    "• 📊 <b>Marks Calculator</b> — % , grade, division\n"
+    "──────────────────────\n"
+    "Neeche se chuno 👇"
+)
+
+
+def _stud_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎯 GK Quiz (roz 5 sawal)", callback_data="gkq_start")],
+        [InlineKeyboardButton("🏛️ Yojana Checker", callback_data="yoj_open")],
+        [InlineKeyboardButton("📊 Marks Calculator", callback_data="stud_marks")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ])
+
+
+def _gkq_q_kb(qi: int, opts):
+    """Sawal ke 4 option — 2x2 (A B / C D)."""
+    rows, buf = [], []
+    for j, _o in enumerate(list(opts)[:4]):
+        buf.append(InlineKeyboardButton(f"{'ABCD'[j]}) {str(_o)[:24]}",
+                                        callback_data=f"gkq_ans:{qi}:{j}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    rows.append([InlineKeyboardButton("⏹️ Chhodo", callback_data="stud_open")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _gkq_res_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("📚 Aur 5 practice sawal", callback_data="gkq_prac")],
+        [InlineKeyboardButton("🏛️ Yojana Checker", callback_data="yoj_open"),
+         InlineKeyboardButton("📊 Marks Calculator", callback_data="stud_marks")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ])
+
+
+def _yoj_g_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("👨 Purush", callback_data="yoj_g:male"),
+         InlineKeyboardButton("👩 Mahila", callback_data="yoj_g:female")],
+        [InlineKeyboardButton("⏪ Back", callback_data="stud_open")],
+    ])
+
+
+def _yoj_w_kb():
+    rows, buf = [], []
+    for k, lab in SH.WORK_OPTIONS:
+        buf.append(InlineKeyboardButton(lab, callback_data=f"yoj_w:{k}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    rows.append([InlineKeyboardButton("⏪ Back", callback_data="yoj_open")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _yoj_i_kb():
+    rows, buf = [], []
+    for k, lab in SH.INCOME_OPTIONS:
+        buf.append(InlineKeyboardButton(lab, callback_data=f"yoj_i:{k}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    rows.append([InlineKeyboardButton("⏪ Back", callback_data="yoj_back_w")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _gkq_load() -> dict:
+    try:
+        raw = meta_get("gkq_v1", "") or ""
+        d = json.loads(raw) if raw else {}
+        return d if isinstance(d, dict) else {}
+    except Exception:                                       # noqa: BLE001
+        return {}
+
+
+def _gkq_save(d: dict) -> None:
+    try:
+        meta_set("gkq_v1", json.dumps(d, ensure_ascii=False))
+    except Exception:                                       # noqa: BLE001
+        pass
+
+
+def gkq_next_card(qi: int, sc: int) -> str:
+    """Sawal ka card (patli lines, box title)."""
+    q, opts, _ans, _fact = SH.q_at(qi)
+    return "\n".join([
+        pcard_title("🎯", "GK QUIZ CHALLENGE"),
+        f"❓ <b>Sawal {int(sc) + 1}</b> · Score: <b>{int(sc)}</b>",
+        pcard_sep(),
+        f"🧠 <b>{hesc(str(q))}</b>",
+        pcard_sep(),
+        f"A) {hesc(str(opts[0]))}\nB) {hesc(str(opts[1]))}\n"
+        f"C) {hesc(str(opts[2]))}\nD) {hesc(str(opts[3]))}",
+    ])
+
+
+def gkq_after_card(qi: int, chosen: int, done: bool = False) -> str:
+    """Jawab ke baad ka feedback — sahi/galat + chhota fact."""
+    q, opts, ans, fact = SH.q_at(qi)
+    ok = int(chosen) == int(ans)
+    L = [pcard_title("🎯", "GK QUIZ CHALLENGE")]
+    if ok:
+        L.append("✅ <b>Sahi jawab!</b> 🎉")
+    else:
+        L.append(f"❌ <b>Galat.</b> Sahi jawab: <b>{'ABCD'[int(ans)]}) "
+                 f"{hesc(str(opts[int(ans)]))}</b>")
+    if fact:
+        L.append(f"📌 {hesc(str(fact))}")
+    L.append(pcard_sep())
+    L.append(f"🧠 <b>Sawal:</b> {hesc(str(q))}")
+    L.append("")
+    L.append("🏁 <b>Quiz poora!</b> Result neeche 👇" if done
+             else "👉 Agla sawal neeche 👇")
+    return "\n".join(L)
+
+
+def gkq_result_card(uid: int, sc: int, total: int, practice: bool = False,
+                    qi=None, chosen=None) -> str:
+    """Aakhir ka result — (aakhri sawal ka feedback) + score + streak."""
+    total = max(1, int(total))
+    pct = (int(sc) / total) * 100.0
+    if pct >= 80:
+        tag = "🥇 Shabash! Topper ho aap"
+    elif pct >= 60:
+        tag = "🥈 Bahut achha!"
+    elif pct >= 40:
+        tag = "🥉 Theek hai — aur mehnat"
+    else:
+        tag = "💪 Practice karte raho"
+    L = []
+    if qi is not None and chosen is not None:
+        L.append(gkq_after_card(int(qi), int(chosen), done=True))
+        L.append("")
+    L.append(pcard_title("🏁", "QUIZ POORA!"))
+    L.append(f"📊 <b>Score:</b> {int(sc)}/{total}  <i>({pct:.0f}%)</i>")
+    L.append(f"🏅 {tag}")
+    if not practice:
+        try:
+            d = _gkq_load()
+            me = d.get(str(uid)) if isinstance(d.get(str(uid)), dict) else {}
+            today = time.strftime("%Y-%m-%d")
+            yday = time.strftime("%Y-%m-%d", time.localtime(time.time() - 86400))
+            streak = int(me.get("streak") or 0)
+            if me.get("d") == yday:
+                streak += 1
+            elif me.get("d") != today:
+                streak = 1
+            best = max(int(me.get("best") or 0), int(sc))
+            d[str(uid)] = {"d": today, "streak": streak, "best": best,
+                           "plays": int(me.get("plays") or 0) + 1}
+            if len(d) > 8000:
+                for k in sorted(d, key=lambda x: str((d.get(x) or {}).get("d") or ""))[:2000]:
+                    if k != str(uid):
+                        d.pop(k, None)
+            _gkq_save(d)
+            L.append(pcard_sep())
+            L.append(f"🔥 <b>Streak:</b> {streak} din")
+            L.append(f"🏆 <b>Best score:</b> {best}/{total}")
+            L.append("🕒 Kal naya quiz aayega — streak tootne mat dena!")
+        except Exception:                                   # noqa: BLE001
+            pass
+    else:
+        L.append("")
+        L.append("<i>Ye practice tha — streak me nahi ginega.</i>")
+        L.append("🎯 Roz ka asli quiz kal se phir milega.")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
+def yoj_card(work: str, gender: str, income_key: str, matches) -> str:
+    """Yojana ka result card — top matches (patli lines)."""
+    _lbl_w = dict(SH.WORK_OPTIONS).get(work, work)
+    _lbl_i = dict(SH.INCOME_OPTIONS).get(income_key, "")
+    _g = (" · 👩 Mahila" if gender == "female" else " · 👨 Purush") if gender else ""
+    L = [pcard_title("🏛️", "YOJANA CHECKER"),
+         f"👤 <b>Aap:</b> {hesc(str(_lbl_w))}{_g}",
+         f"💰 <b>Aay:</b> {hesc(str(_lbl_i))}",
+         pcard_sep()]
+    if not matches:
+        L.append("😕 <b>Is combination par kuch nahi mila.</b>")
+        L.append("👉 'Kuch aur / All' option se dobara try karo.")
+    else:
+        L.append(f"✅ <b>Aap in {len(matches[:8])} yojana me fit lagte ho:</b>")
+        for sc_ in matches[:8]:
+            L.append(f"├ {sc_.get('e', '🔹')} <b>{hesc(str(sc_.get('n')))}</b>")
+            L.append(f"│  {hesc(str(sc_.get('d')))}")
+            L.append(f"│  📝 {hesc(str(sc_.get('a')))}")
+        if len(matches) > 8:
+            L.append(f"└ +{len(matches) - 8} aur (aay/kaam badal ke dekho)")
+    L.append(pcard_sep())
+    L.append("⚠️ Ye jaankari aam rules par hai — <b>final</b> eligibility")
+    L.append("office/CSC par hi confirm hoti hai (kagaz wahi jama hote hain).")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
+def marks_card(res: dict) -> str:
+    """Marks Calculator ka card — % + grade + division (ya 'chahiye')."""
+    res = res or {}
+    L = [pcard_title("📊", "MARKS CALCULATOR")]
+    if res.get("mode") == "need":
+        _np = float(res.get("need_pct") or 0)
+        _tot = float(res.get("total") or 0)
+        _got = float(res.get("got") or 0)
+        _need = float(res.get("need_marks") or 0)
+        _left = float(res.get("left") or 0)
+        _pct = float(res.get("pct") or 0)
+        L.append(f"🎯 <b>Target:</b> {hesc(f'{_np:g}%')} of {hesc(f'{_tot:g}')} marks")
+        L.append(f"📈 <b>Abhi:</b> {hesc(f'{_got:g}')} marks")
+        L.append(pcard_sep())
+        if res.get("passed"):
+            L.append("✅ <b>Pass ka target PEHLE HI pura hai!</b>")
+            L.append(f"📊 Abhi ka %: <b>{hesc(f'{_pct:.1f}')}%</b>")
+        else:
+            L.append(f"📌 Pass ke liye kaafi: <b>{hesc(f'{_need:.0f}')}</b> marks")
+            L.append(f"🔴 <b>Aur chahiye:</b> {hesc(f'{_left:.0f}')} marks")
+    else:
+        _got = float(res.get("got") or 0)
+        _tot = float(res.get("total") or 0)
+        _pct = float(res.get("pct") or 0)
+        L.append(f"📈 <b>Marks:</b> {hesc(f'{_got:g}')} / {hesc(f'{_tot:g}')}")
+        if res.get("mode") == "subjects":
+            _subs = res.get("subjects") or []
+            L.append(f"📚 <b>Subjects ({len(_subs)}):</b> "
+                     f"{hesc(', '.join(f'{x:g}' for x in _subs))}")
+        L.append(pcard_sep())
+        L.append(f"📊 <b>Percentage:</b> {hesc(f'{_pct:.2f}')}%")
+        L.append(f"🏅 <b>Grade:</b> {hesc(str(res.get('grade', '-')))} "
+                 f"({hesc(str(res.get('grade_note', '')))})")
+        L.append(f"🎖️ <b>Division:</b> {hesc(str(res.get('division', '-')))}")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
+async def send_stud_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    target = update.callback_query.message if update.callback_query else update.message
+    await target.reply_text(STUD_INTRO, reply_markup=_stud_kb(), parse_mode=HTML)
+
+
+async def _gkq_start(target, context, uid: int, practice: bool = False):
+    """Quiz shuru karo — daily set (uid+date se fixed) ya practice (random)."""
+    try:
+        total = 5
+        if practice:
+            idxs = random.sample(range(len(SH.QUESTIONS)), total)
+        else:
+            day_key = time.strftime("%Y-%m-%d")
+            idxs = SH.daily_set(uid, day_key, total)
+        context.user_data["gkq_idx"] = list(idxs)
+        context.user_data["gkq_step"] = 0
+        context.user_data["gkq_sc"] = 0
+        context.user_data["gkq_total"] = len(idxs)
+        context.user_data["gkq_prac"] = bool(practice)
+        qi0 = idxs[0]
+        _q, opts, _a, _f = SH.q_at(qi0)
+        txt = gkq_next_card(qi0, 0)
+        # daily quiz par ek chhoti line — "aaj ka quiz"
+        if not practice:
+            txt += ("\n\n" + "<i>🌟 Aaj ka daily quiz (kal phir naya) — "
+                    "jitne sahi, utni streak!</i>")
+        kb = _gkq_q_kb(qi0, opts)
+        # target: CallbackQuery ya Update — dono sambhalo
+        if hasattr(target, "message") and hasattr(target, "from_user") and not hasattr(target, "effective_user"):
+            try:
+                await target.message.edit_text(txt, reply_markup=kb, parse_mode=HTML)
+                return
+            except Exception:                               # noqa: BLE001
+                try:
+                    await target.message.reply_text(txt, reply_markup=kb, parse_mode=HTML)
+                    return
+                except Exception:                           # noqa: BLE001
+                    pass
+        _msg = getattr(target, "message", None) or getattr(target, "effective_message", None)
+        if _msg is not None and hasattr(_msg, "reply_text"):
+            await _msg.reply_text(txt, reply_markup=kb, parse_mode=HTML)
+    except Exception as e:                                  # noqa: BLE001
+        log.warning("gkq start fail: %s", e)
+
+
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
@@ -1312,6 +1618,7 @@ KB_BTNS = [
     [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"📞 {to_bold('TEMP MAIL (NUMBER)')}"],   # v71.9: 100% FREE temp number + OTP (har user ko alag)
+    [f"🎓 {to_bold('STUDENT STUDIO')}"],       # v72.1: GK Quiz + Yojana + Marks (FREE, offline)
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
@@ -1380,6 +1687,11 @@ BTN_MODE_MAP = {
     "TEMP MAIL (NUMBER)": "tnum",          # v71.9: 100% FREE temp number + OTP
     "TEMP NUMBER": "tnum",
     "TEMP MAIL NUMBER": "tnum",
+    "STUDENT STUDIO": "stud",              # v72.1: 🎓 GK Quiz + Yojana + Marks (FREE)
+    "STUDENT": "stud",
+    "GK QUIZ": "gkq_start",                # seedha quiz bhi khul jaye
+    "YOJANA CHECKER": "yoj_open",
+    "MARKS CALCULATOR": "stud_marks",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -1701,6 +2013,13 @@ PROMPT_DATA = {
         "foot": 'Official link · size · version',
     },
     # ------------------------------------------------------------ LOCATION
+    "stud_marks": {
+        "head": "📊 MARKS CALCULATOR (PERCENT/GRADE)",
+        "ask": "Marks bhejein (kai tareeke chalte hain):",
+        "ex": [('350/500', 'obtained/total — percentage + grade')],
+        "tip": '',
+        "foot": '',
+    },
     "pin": {
         "head": "📮 PINCODE / AREA INFO ENGINE",
         "ask": "Pincode ya area ka naam bhejein:",
@@ -5175,6 +5494,107 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _vnum_say(q, card, kb)
         return
 
+    # ---------- 🎓 STUDENT STUDIO inline buttons (v72.1) ----------
+    if data == "stud_open":
+        await _vnum_say(q, STUD_INTRO, _stud_kb())
+        return
+
+    if data.startswith("gkq_ans:"):
+        # gkq_ans:<qi>:<choice>
+        try:
+            _pp = data.split(":")
+            qi = int(_pp[1]); chosen = int(_pp[2])
+        except Exception:                                   # noqa: BLE001
+            await _vnum_say(q, STUD_INTRO, _stud_kb())
+            return
+        sc = int(context.user_data.get("gkq_sc") or 0)
+        idxs = list(context.user_data.get("gkq_idx") or [])
+        step = int(context.user_data.get("gkq_step") or 0)
+        total = int(context.user_data.get("gkq_total") or len(idxs) or 5)
+        practice = bool(context.user_data.get("gkq_prac"))
+        _q_, _o_, _ans_, _f_ = SH.q_at(qi)
+        if int(chosen) == int(_ans_):
+            sc += 1
+            context.user_data["gkq_sc"] = sc
+        step += 1
+        context.user_data["gkq_step"] = step
+        if step >= total:
+            await _vnum_say(q, gkq_result_card(uid, sc, total, practice,
+                                               qi=qi, chosen=chosen),
+                            _gkq_res_kb())
+            for _k in ("gkq_idx", "gkq_step", "gkq_sc", "gkq_total", "gkq_prac"):
+                context.user_data.pop(_k, None)
+        else:
+            nqi = idxs[step] if step < len(idxs) else idxs[0]
+            _nq, _nopts, _na, _nf = SH.q_at(nqi)
+            await _vnum_say(q, gkq_after_card(qi, chosen, False),
+                            _gkq_q_kb(nqi, _nopts))
+        return
+
+    if data == "gkq_start":
+        await _gkq_start(q, context, uid, practice=False)
+        return
+
+    if data == "gkq_prac":
+        await _gkq_start(q, context, uid, practice=True)
+        return
+
+    if data == "yoj_open":
+        await _vnum_say(
+            q,
+            "🏛️ <b>" + to_bold("YOJANA CHECKER") + "</b>\n"
+            "──────────────────────\n"
+            "Bas 3 sawal — phir bata denge kaunsi sarkari yojana aapke liye hai.\n\n"
+            "1️⃣ Aap purush ho ya mahila?",
+            _yoj_g_kb())
+        return
+
+    if data.startswith("yoj_g:"):
+        context.user_data["yoj_g"] = data.split(":", 1)[1]
+        await _vnum_say(
+            q,
+            "🏛️ <b>" + to_bold("YOJANA CHECKER") + "</b>\n"
+            "──────────────────────\n"
+            "2️⃣ Aap kya karte hain?",
+            _yoj_w_kb())
+        return
+
+    if data.startswith("yoj_w:"):
+        context.user_data["yoj_w"] = data.split(":", 1)[1]
+        await _vnum_say(
+            q,
+            "🏛️ <b>" + to_bold("YOJANA CHECKER") + "</b>\n"
+            "──────────────────────\n"
+            "3️⃣ Ghar ki saalana aay (aamdani) kitni hai?",
+            _yoj_i_kb())
+        return
+
+    if data == "yoj_back_w":
+        await _vnum_say(
+            q,
+            "🏛️ <b>" + to_bold("YOJANA CHECKER") + "</b>\n"
+            "──────────────────────\n"
+            "2️⃣ Aap kya karte hain?",
+            _yoj_w_kb())
+        return
+
+    if data.startswith("yoj_i:"):
+        ikey = data.split(":", 1)[1]
+        g = str(context.user_data.get("yoj_g") or "")
+        w = str(context.user_data.get("yoj_w") or "all")
+        try:
+            inc = float(ikey)
+        except Exception:                                   # noqa: BLE001
+            inc = 1e12
+        _m = SH.match_schemes(w, g, inc)
+        await _vnum_say(q, yoj_card(w, g, ikey, _m), _stud_kb())
+        return
+
+    if data == "stud_marks":
+        context.user_data["mode"] = "stud_marks"
+        await _vnum_say(q, tool_prompt("stud_marks"), tool_tutorial_kb("stud_marks"))
+        return
+
     # ---------- 📞 TEMP MAIL (NUMBER) inline buttons (v71.9) ----------
     #  100% FREE tool (koi credit nahi) — har user ko apna ALAG number.
     #  Virtual Numbers (vnum) se bilkul alag hai: uska kaam admin/manual hai.
@@ -6876,6 +7296,31 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_tnum_card(update, context)
             return
 
+        # 1c. v72.1: 🎓 STUDENT STUDIO — 100% FREE (koi credit nahi).
+        if action == "stud":
+            await send_stud_card(update, context)
+            return
+
+        if action == "gkq_start":
+            await _gkq_start(update.message, context, uid, practice=False)
+            return
+
+        if action == "yoj_open":
+            await update.message.reply_text(
+                "🏛️ <b>" + to_bold("YOJANA CHECKER") + "</b>\n"
+                "──────────────────────\n"
+                "Bas 3 sawal — phir bata denge kaunsi sarkari yojana aapke liye hai.\n\n"
+                "1️⃣ Aap purush ho ya mahila?",
+                reply_markup=_yoj_g_kb(), parse_mode=HTML)
+            return
+
+        if action == "stud_marks":
+            context.user_data["mode"] = "stud_marks"
+            await update.message.reply_text(tool_prompt("stud_marks"),
+                                            reply_markup=tool_tutorial_kb("stud_marks"),
+                                            parse_mode=HTML)
+            return
+
         # 3. Channel Cloner Dashboard (premium — 1 credit per FULL AUTO / Fast-Forward)
         if action == "cloner":
             _cfg = get_cloner_config(uid)
@@ -8341,6 +8786,19 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         tel_note("uhunt", True, _msh, credit=True)
         await update.message.reply_text(
             spend_credit_msg(uid, "uhunt") + "\n" + uhunt_card(_h_res), parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "stud_marks":
+        # v72.1: 📊 MARKS CALCULATOR — 100% FREE, offline (koi API nahi)
+        _m_res = SH.parse_marks(raw_text)
+        context.user_data.pop("mode", None)
+        if not _m_res.get("ok"):
+            await update.message.reply_text(
+                "❌ " + str(_m_res.get("error") or "Samajh nahi aaya.") + "\n\n"
+                "💡 <b>Example:</b> <code>350/500</code>", parse_mode=HTML)
+            return
+        await update.message.reply_text(marks_card(_m_res), parse_mode=HTML)
         add_use(uid)
         return
 

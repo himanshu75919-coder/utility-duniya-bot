@@ -211,8 +211,12 @@ check("bot.py me http engine import hai", "httpio as http_engine" in BOT_SRC)
 check("health page par http engine line hai", "_http_engine_line()" in BOT_SRC)
 check("line me calls/retries/fails/avg dikhte hain",
       "session=shared+auto-retry" in BOT_SRC and "avg=" in BOT_SRC)
-check("v72.0 version set hai", "v72.0" in bot.BOT_VERSION, bot.BOT_VERSION)
-check("version me upgrade likha hai", "UPGRADE" in bot.BOT_VERSION.upper())
+import re as _re75
+_m75 = _re75.search(r"v(\d+)\.(\d+)", bot.BOT_VERSION or "")
+check("v72.0 ya usse naya version set hai",
+      bool(_m75) and (int(_m75.group(1)), int(_m75.group(2))) >= (72, 0), bot.BOT_VERSION)
+check("version me upgrade ki baat hai (WAVE/UPGRADE/tez)",
+      any(x in bot.BOT_VERSION.upper() for x in ("UPGRADE", "WAVE", "TEZ")))
 
 _line = bot._http_engine_line()
 check("_http_engine_line() chalta hai (crash nahi)", "calls=" in _line, _line)
