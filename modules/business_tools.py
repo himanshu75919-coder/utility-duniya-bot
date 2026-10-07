@@ -134,15 +134,21 @@ def _resolve() -> None:
 
 FONT_REG: Optional[str] = None
 FONT_BOLD: Optional[str] = None
-_FONT_CACHE: dict = {}
+# v76: bounded — pehle aam dict thi (font object kabhi release nahi hote the)
+from modules.core.bounded import BoundedCache as _BoundedCache
+_FONT_CACHE = _BoundedCache("biz_fonts", maxsize=256, default_ttl=3600)
 
 
 def _font_obj(kind: str, size: int):
     """Pillow font object (cached) — kabhi crash nahi."""
     _resolve()
     key = (kind, max(6, int(size)))
-    if key in _FONT_CACHE:
-        return _FONT_CACHE[key]
+    try:
+        _cached = _FONT_CACHE.get(key)
+        if _cached is not None:
+            return _cached
+    except Exception:                                            # noqa: BLE001
+        pass
     from PIL import ImageFont
     path = _resolved.get(kind) or _resolved.get("latin")
     obj = None
@@ -159,7 +165,10 @@ def _font_obj(kind: str, size: int):
             obj = ImageFont.load_default()
         except Exception:                                        # noqa: BLE001
             obj = None
-    _FONT_CACHE[key] = obj
+    try:
+        _FONT_CACHE.put(key, obj, 3600)
+    except Exception:                                            # noqa: BLE001
+        pass
     return obj
 
 

@@ -38,7 +38,18 @@ TIMEOUT = int(os.environ.get("OSINT_TIMEOUT", "70"))
 CACHE_TTL = int(os.environ.get("OSINT_CACHE_TTL", "300"))
 _FAIL_TTL = 45          # fail wali query ko itni der dobara try nahi karenge
 
-_CACHE: dict = {}
+# v76 FORTRESS: pehle ye ek aam `dict` tha jo KABHI saaf nahi hota tha —
+# har nayi website/username query ek nayi entry banati thi, hafton me lakhon
+# entry ban jaate the -> Render free (512 MB) par OOM KILL -> "bot crash".
+# Ab: BOUNDED (max entry + TTL + LRU) aur janitor/memory-watchdog ek jagah se
+# isse saaf kar deta hai.
+from modules.core.bounded import BoundedCache as _BoundedCache
+try:
+    _CACHE_MAX = int(float(os.environ.get("OSINT_CACHE_SIZE", "512")))
+except Exception:                                                # noqa: BLE001
+    _CACHE_MAX = 512
+_CACHE = _BoundedCache("osint_hub", maxsize=max(64, _CACHE_MAX),
+                       default_ttl=CACHE_TTL)
 _LOCK = threading.Lock()
 
 UA_HEADERS = {"User-Agent": "UtilityDuniyaBot/1.0", "Accept": "application/json"}
@@ -71,24 +82,25 @@ def is_configured() -> bool:
 
 # ------------------------------------------------------------------ cache
 def _cache_get(key: str):
-    with _LOCK:
-        hit = _CACHE.get(key)
-    if not hit:
+    # v76: bounded cache khud TTL check karta hai (expire entry apne aap hat jaati hai)
+    try:
+        return _CACHE.get(key)
+    except Exception:                                            # noqa: BLE001
         return None
-    val, ts, ttl = hit
-    if time.time() - ts > ttl:
-        return None
-    return val
 
 
 def _cache_put(key: str, val, ttl: int = CACHE_TTL):
-    with _LOCK:
-        _CACHE[key] = (val, time.time(), ttl)
+    try:
+        _CACHE.put(key, val, ttl)
+    except Exception:                                            # noqa: BLE001
+        pass
 
 
 def cache_clear():
-    with _LOCK:
+    try:
         _CACHE.clear()
+    except Exception:                                            # noqa: BLE001
+        pass
 
 
 # ------------------------------------------------------------------ http

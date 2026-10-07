@@ -5,7 +5,7 @@ v77 SELFTEST — 💬 WHATSAPP CHAT X-RAY (v73.0)
 User ka chuna hua tool: "apni exported chat ki poori fun-report".
 
 Rules:
-  • 100% FREE (premium count 37 hi rahega)
+  • 100% FREE (premium count 42 hi rahega)
   • Poora OFFLINE — koi API nahi, kabhi fail nahi
   • File sirf memory me padhi jati hai (kahin save/upload nahi)
   • Android + iOS + 24-hour + am/pm — sab format chalne chahiye
@@ -174,8 +174,8 @@ section("5) Wiring — button, prompt, mode, batch")
 _kb = [bot.unbold(b) for r in bot.KB_BTNS for b in r]
 check("keyboard me CHAT X-RAY button", any("CHAT X-RAY" in x.upper() for x in _kb))
 check("BTN_MODE_MAP: CHAT X-RAY → cxray", bot.BTN_MODE_MAP.get("CHAT X-RAY") == "cxray")
-check("FREE hai (premium count 37 wahi)", "cxray" not in bot.PREMIUM_TOOLS
-      and len(bot.PREMIUM_TOOLS) == 37, str(len(bot.PREMIUM_TOOLS)))
+check("FREE hai (premium count 42 wahi)", "cxray" not in bot.PREMIUM_TOOLS
+      and len(bot.PREMIUM_TOOLS) == 42, str(len(bot.PREMIUM_TOOLS)))
 check("rate-limit entry hai", bot.TOOL_RATE_LIMITS.get("cxray") is not None)
 check("PROMPT_DATA + PROMPTS me cxray", "cxray" in bot.PROMPT_DATA and "cxray" in bot.PROMPTS)
 _p = bot.tool_prompt("cxray")

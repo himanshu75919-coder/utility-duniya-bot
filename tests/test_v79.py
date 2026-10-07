@@ -12,7 +12,7 @@ Research (live verify kiya 7-8 Oct 2026):
   • Purane saal (2023...) → board ke live portal par NAHI — bot saaf batata hai
 
 Rules:
-  • 100% FREE (premium count 37 wahi) • crash-proof • khaali card kabhi nahi
+  • 100% FREE (premium count 42 wahi) • crash-proof • khaali card kabhi nahi
   • PDF me poora data (naam, papa, school, subject-wise marks, total, division)
 """
 import io as _io
@@ -261,7 +261,7 @@ check("exam kb me 3 exam + CBSE", len(bot._rc_exam_kb().inline_keyboard) == 5,
       str(len(bot._rc_exam_kb().inline_keyboard)))
 check("year kb me saare saal + back",
       len(bot._rc_year_kb().inline_keyboard) == 4, str(len(bot._rc_year_kb().inline_keyboard)))
-check("FREE hai (premium 37)", "bsebr" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 37)
+check("FREE hai (premium 42)", "bsebr" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 42)
 check("rate-limit: rc (wizard step) + bsebr", bot.TOOL_RATE_LIMITS.get("rc") is not None
       and bot.TOOL_RATE_LIMITS.get("bsebr") is not None)
 check("VIP wall par khula (rc_ prefix)",

@@ -39,8 +39,17 @@ import requests
 
 from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 TIMEOUT = int(os.environ.get("VEHICLE_PROVIDER_TIMEOUT", "25") or 25)
-_CACHE: dict = {}
+# v76 FORTRESS: pehle aam `dict` — har nayi number-plate ek pakki entry
+# (kabhi delete nahi) -> hafton me RAM bhar jaati thi -> Render OOM kill.
+# Ab bounded: max 512 entry, TTL ke baad apne aap ud jaati hai.
+from modules.core.bounded import BoundedCache as _BoundedCache
+try:
+    _CACHE_MAX = int(float(os.environ.get("VEHICLE_CACHE_SIZE", "512")))
+except Exception:                                                # noqa: BLE001
+    _CACHE_MAX = 512
 _CACHE_TTL = 900          # 15 min — ek gaadi ka record itni der me nahi badalta
+_CACHE = _BoundedCache("vehicle_tool", maxsize=max(64, _CACHE_MAX),
+                       default_ttl=_CACHE_TTL)
 _FAIL_TTL = 60
 
 _UA = {"User-Agent": "UtilityDuniyaBot/1.0", "Accept": "application/json"}
@@ -477,9 +486,9 @@ def vehicle_lookup(plate: str) -> dict:
                           "ya <code>DL8CAF5030</code>")}
 
     ck = "veh:" + p
-    hit = _CACHE.get(ck)
-    if hit and time.time() - hit[1] < hit[2]:
-        return {**hit[0], "cached": True}
+    hit = _CACHE.get(ck)          # v76: bounded cache (TTL + LRU apne aap)
+    if hit:
+        return {**hit, "cached": True}
 
     out = {"ok": False}
     provs = _cfg_all()
@@ -518,7 +527,7 @@ def vehicle_lookup(plate: str) -> dict:
             if _errs[0][0] == "not_found":
                 out["not_found"] = True
             if _errs[0][0] == "quota":
-                _CACHE[ck] = (out, time.time(), 1800)   # 30 min tak wahi baat dikhao
+                _CACHE.put(ck, out, 1800)   # 30 min tak wahi baat dikhao (v76 bounded)
             if len(provs) > 1:
                 _tag = {"quota": "limit khatam", "auth": "key galat",
                         "not_found": "gaadi nahi mili", "other": "jawab nahi aaya"}
@@ -530,7 +539,7 @@ def vehicle_lookup(plate: str) -> dict:
                 out["error"] = out["error"] + "\n\n<b>Providers:</b>\n" + "\n".join(_summ[:3])
 
     if out.get("ok"):
-        _CACHE[ck] = (out, time.time(), _CACHE_TTL)
+        _CACHE.put(ck, out, _CACHE_TTL)
     return out
 
 

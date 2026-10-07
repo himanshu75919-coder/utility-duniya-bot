@@ -21,6 +21,7 @@ Kaam kaise karta hai:
 """
 
 import logging
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -90,8 +91,17 @@ SITES = (
 )
 
 _USER_RE = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
-_CACHE: dict = {}
+# v76 FORTRESS: pehle aam `dict` — har naya username ek nayi pakki entry
+# (kabhi delete nahi) -> dheere-dheere RAM khatam -> OOM kill.
+# Ab bounded: zyada se zyada 512 entry, 10 min TTL, purani apne aap hat jaati hai.
+from modules.core.bounded import BoundedCache as _BoundedCache
+try:
+    _CACHE_MAX = int(float(os.environ.get("UHUNT_CACHE_SIZE", "512")))
+except Exception:                                                # noqa: BLE001
+    _CACHE_MAX = 512
 _CACHE_TTL = 600          # 10 min — itni der me kuch nahi badalta
+_CACHE = _BoundedCache("username_hunter", maxsize=max(64, _CACHE_MAX),
+                       default_ttl=_CACHE_TTL)
 
 
 def _clean(raw: str) -> str:
@@ -147,9 +157,9 @@ def hunt_username(raw: str, timeout: int = 8, workers: int = 12) -> dict:
                           "a-z 0-9 . _ - chalte hain (jaise <code>rahul_99</code>).")}
 
     ck = "uhunt:" + uname.lower()
-    hit = _CACHE.get(ck)
-    if hit and time.time() - hit[1] < _CACHE_TTL:
-        return {**hit[0], "cached": True}
+    hit = _CACHE.get(ck)          # v76: bounded cache (TTL khud sambhalta hai)
+    if hit:
+        return {**hit, "cached": True}
 
     found, unknown, nf = [], [], 0
     try:
@@ -178,5 +188,5 @@ def hunt_username(raw: str, timeout: int = 8, workers: int = 12) -> dict:
     res = {"ok": True, "username": uname, "found": found, "not_found": nf,
            "unknown": unknown, "checked": len(SITES),
            "ms": round((time.time() - t0) * 1000, 1)}
-    _CACHE[ck] = (res, time.time())
+    _CACHE.put(ck, res, _CACHE_TTL)      # v76: bounded (kabhi unlimited nahi)
     return res
