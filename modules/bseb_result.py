@@ -523,8 +523,8 @@ def build_pdf(student: dict, exam_label: str, year, source: str = "") -> bytes:
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import ParagraphStyle
         from reportlab.lib.units import mm
-        from reportlab.platypus import (Paragraph, SimpleDocTemplate, Spacer,
-                                        Table, TableStyle)
+        from reportlab.platypus import (Image as RLImage, Paragraph,
+                                        SimpleDocTemplate, Spacer, Table, TableStyle)
     except Exception:                                            # noqa: BLE001
         return None
     try:
@@ -551,21 +551,40 @@ def build_pdf(student: dict, exam_label: str, year, source: str = "") -> bytes:
                 leading=leading or (size + 3), textColor=color, alignment=align))
 
         story = []
+        # ---------- official logo (BSEB website se) ----------
+        _logo_cell = ""
+        try:
+            from modules import boards as _BRD
+            _lp = _BRD.logo_path("bseb")
+            if _lp:
+                _logo_cell = RLImage(_lp, width=21 * mm, height=21 * mm)
+        except Exception:                                        # noqa: BLE001
+            _logo_cell = ""
         # ---------- header ----------
-        hdr = Table([[
-            [P("बिहार विद्यालय परीक्षा समिति", 13, fdev, MAROON, 1),
-             Spacer(1, 2),
-             P("BIHAR SCHOOL EXAMINATION BOARD, PATNA", 11, fbd, NAVY, 1),
-             Spacer(1, 3),
-             P(f"{_sane(exam_label)} — {year}", 10, fbd, colors.black, 1)],
-            [P("WEB COPY", 16, fbd, colors.HexColor("#B91C1C"), 2),
-             P("(NOT AN OFFICIAL DOCUMENT)", 7, fb, GREY, 2)],
-        ]], colWidths=[W - 45 * mm, 45 * mm])
+        _head_col = [P("बिहार विद्यालय परीक्षा समिति", 13, fdev, MAROON, 1),
+                     Spacer(1, 2),
+                     P("BIHAR SCHOOL EXAMINATION BOARD, PATNA", 11, fbd, NAVY, 1),
+                     Spacer(1, 3),
+                     P(f"{_sane(exam_label)} — {year}", 10, fbd, colors.black, 1)]
+        if _logo_cell:
+            hdr = Table([[
+                [_logo_cell],
+                _head_col,
+                [P("WEB COPY", 15, fbd, colors.HexColor("#B91C1C"), 2),
+                 P("(NOT AN OFFICIAL DOCUMENT)", 6.5, fb, GREY, 2)],
+            ]], colWidths=[24 * mm, W - 24 * mm - 42 * mm, 42 * mm])
+        else:
+            hdr = Table([[
+                _head_col,
+                [P("WEB COPY", 16, fbd, colors.HexColor("#B91C1C"), 2),
+                 P("(NOT AN OFFICIAL DOCUMENT)", 7, fb, GREY, 2)],
+            ]], colWidths=[W - 45 * mm, 45 * mm])
         hdr.setStyle(TableStyle([
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("BOX", (0, 0), (-1, -1), 1.2, MAROON),
             ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FDF6F6")),
             ("RIGHTPADDING", (0, 0), (0, 0), 6),
+        ] + ([("ALIGN", (0, 0), (0, 0), "CENTER")] if _logo_cell else []) + [
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
             ("TOPPADDING", (0, 0), (-1, -1), 7),
             ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
@@ -662,10 +681,11 @@ def build_pdf(student: dict, exam_label: str, year, source: str = "") -> bytes:
                           if st.get("passed_under_regulation") else ""), 9.5))
         story.append(Spacer(1, 4 * mm))
 
-        note = ("NOTE: Ye <b>computer-generated WEB COPY</b> hai — sirf jaankari ke liye. "
-                "Ye official marksheet nahi hai (official copy school/board se milti hai). "
-                f"Source: {source or 'Bihar Board official portal'} · "
-                f"Banaya: {time.strftime('%d-%m-%Y %I:%M %p')}")
+        note = ("NOTE: Ye <b>WEB COPY</b> hai — data <b>Bihar Board ke OFFICIAL server</b> se "
+                "liya gaya hai (result.biharboardonline.org). Marksheet ki official copy "
+                "school/board se milti hai. "
+                f"Source: {source or 'resultapi.biharboardonline.org (BSEB official)'} · "
+                f"Downloaded: {time.strftime('%d-%m-%Y %I:%M %p')}")
         box = Table([[P(note, 8, fb, colors.HexColor("#7F1D1D"))]], colWidths=[W])
         box.setStyle(TableStyle([
             ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#E5C7C7")),

@@ -265,6 +265,7 @@ from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME 
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
 from modules import chat_xray as CXR                   # v73.0: 💬 WHATSAPP CHAT X-RAY (offline, free)
 from modules import bseb_result as BSEBR               # v73.1: 📋 BOARD RESULT (BSEB official API)
+from modules import boards as BRD                      # v74.1: 🇮🇳 34 boards hub + logos
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -427,8 +428,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.0 FREE4ALL — RESULT CHECK PRO (BSEB): exam+year chuno, "
-               "result + PDF marksheet | CHAT X-RAY | saare tools tez")
+BOT_VERSION = ("v74.1 FREE4ALL — RESULT CHECK: 34 boards (India) + official logos "
+               "| BSEB LIVE result + PDF marksheet | saare tools tez")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -1395,9 +1396,11 @@ BTN_MODE_MAP = {
     "WHATSAPP CHAT X-RAY": "cxray",
     "CHAT X-RAY REPORT": "cxray",
     "RESULT CHECK": "bsebr",               # v73.1: 📋 BSEB result by roll code + roll no
-    "BSEB RESULT": "bsebr",
-    "BSEB RESULT CHECK": "bsebr",
-    "BIHAR BOARD RESULT CHECK": "bsebr",
+    "BSEB RESULT": "bsebr_direct",
+    "BSEB RESULT CHECK": "bsebr_direct",
+    "BIHAR BOARD RESULT CHECK": "bsebr_direct",
+    "SAARE BOARDS": "bsebr",
+    "ALL BOARDS RESULT": "bsebr",
     "BOARD RESULT": "bsebr",
     "BIHAR BOARD RESULT": "bsebr",
     "RESULT": "bsebr",
@@ -5215,10 +5218,55 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # ---------- 📋 RESULT CHECK (BSEB) wizard (v74.0) ----------
     if data in ("rc_new", "bsebr_new"):
-        context.user_data["mode"] = "rc_exam"
+        context.user_data["mode"] = "rc_board"
         context.user_data.pop("rcdb", None)
         context.user_data.pop("rc_code_val", None)
-        await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
+        await _vnum_say(q, _rc_pick_card(0), _rc_pick_kb(0))
+        return
+
+    if data == "rc_noop":
+        await q.answer("Yahi page hai 🙂")
+        return
+
+    if data.startswith("rc_page:"):
+        try:
+            pg = int(data.split(":", 1)[1])
+        except Exception:                                        # noqa: BLE001
+            pg = 0
+        context.user_data["mode"] = "rc_board"
+        await _vnum_say(q, _rc_pick_card(pg), _rc_pick_kb(pg))
+        return
+
+    if data.startswith("rcb:"):
+        key = data.split(":", 1)[1]
+        if key not in BRD.BOARDS:
+            await _vnum_say(q, _rc_pick_card(0), _rc_pick_kb(0))
+            return
+        context.user_data.pop("mode", None)
+        _cap, _kb = rc_board_card(key)
+        await _rc_say_photo(q, key, _cap, _kb)
+        return
+
+    if data.startswith("rc_how:"):
+        key = data.split(":", 1)[1]
+        _b = BRD.BOARDS.get(key) or {}
+        _kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🌐 Official portal kholo",
+                                  url=str(_b.get("portal") or "https://cbse.gov.in"))],
+            [InlineKeyboardButton("◀️ Board ka card", callback_data=f"rcb:{key}"),
+             InlineKeyboardButton("🇮🇳 Saare boards", callback_data="rc_new")]])
+        await _vnum_say(q, BRD.how_card(key), _kb)
+        return
+
+    if data.startswith("rc_live:"):
+        key = data.split(":", 1)[1]
+        if key == "bseb":
+            context.user_data["mode"] = "rc_exam"
+            context.user_data.pop("rcdb", None)
+            await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
+            return
+        _cap, _kb = rc_board_card(key)
+        await _rc_say_photo(q, key, _cap, _kb)
         return
 
     if data == "rc_back_ex":
@@ -7160,6 +7208,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # v73.1: 📋 RESULT CHECK (BSEB) + CBSE jaankari — apna card + inline buttons
         if action == "bsebr":
+            context.user_data["mode"] = "rc_board"
+            context.user_data.pop("rcdb", None)
+            await update.message.reply_text(_rc_pick_card(0),
+                                            reply_markup=_rc_pick_kb(0),
+                                            parse_mode=HTML)
+            return
+        if action == "bsebr_direct":
             context.user_data["mode"] = "rc_exam"
             context.user_data.pop("rcdb", None)
             await update.message.reply_text(rc_exam_card(),
@@ -8839,6 +8894,42 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                          context.user_data.get("rc_code_val") or "", nums[0])
         return
 
+    if mode == "rc_board":
+        # user ne board ka naam likha — khojo
+        hits = BRD.find(raw_text)
+        if hits:
+            if len(hits) == 1:
+                key = hits[0][0]
+                context.user_data.pop("mode", None)
+                _cap, _kb = rc_board_card(key)
+                img = None
+                try:
+                    img = await asyncio.to_thread(BRD.photo_bytes, key)
+                except Exception:                                # noqa: BLE001
+                    img = None
+                try:
+                    if img:
+                        await update.message.reply_photo(io.BytesIO(img), caption=_cap,
+                                                         reply_markup=_kb, parse_mode=HTML)
+                    else:
+                        await update.message.reply_text(_cap, reply_markup=_kb, parse_mode=HTML)
+                except Exception:                                # noqa: BLE001
+                    await update.message.reply_text(_cap, reply_markup=_kb, parse_mode=HTML)
+                return
+            rows = [[InlineKeyboardButton(str(b.get("short"))[:24], callback_data=f"rcb:{k}")]
+                    for k, b in hits]
+            rows.append([InlineKeyboardButton("🇮🇳 Saare boards", callback_data="rc_new")])
+            await update.message.reply_text(
+                f"🔍 <b>{len(hits)} board mile</b> — jo chahiye wo dabayein:",
+                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            return
+        await update.message.reply_text(
+            "❌ Is naam ka board nahi mila.\n\n"
+            "💡 Poora naam likhein (jaise <code>UP Board</code>, <code>Maharashtra</code>, "
+            "<code>Telangana</code>) — ya neeche se chuno:",
+            reply_markup=_rc_pick_kb(0), parse_mode=HTML)
+        return
+
     if mode in RC_STEPS:
         # user ne bina button dabe number type kar diya — sahi step dikha do
         db = context.user_data.get("rcdb") or {}
@@ -9398,7 +9489,114 @@ async def do_ytmp3(update, context, uid, url):
 #  Roll Number → Result card + PDF (web copy jaisi marksheet).
 #  Matric = official open API · Inter = official portal form.
 # ============================================================
-RC_STEPS = ("rc_exam", "rc_year")
+RC_STEPS = ("rc_exam", "rc_year", "rc_board")
+
+
+def _rc_pick_card(page: int = 0) -> str:
+    """Board chuno — poore India ke boards, page ke saath."""
+    rows, pg, tot = BRD.page_boards(page)
+    L = [pcard_title("📋", "RESULT CHECK — SABHI BOARDS"),
+         f"🇮🇳 <b>Apna BOARD chuno</b>  (page {pg + 1}/{tot})",
+         ""]
+    for key, b in rows:
+        live = " ✅ <b>LIVE</b>" if b.get("status") == "live" else ""
+        L.append(f"{b.get('flag', '🔹')} <b>{hesc(str(b.get('short')))}</b>"
+                 f" — {hesc(str(b.get('state')))}{live}")
+    L.append("")
+    L.append("💬 Board ka naam likh ke bhi khoj sakte ho (jaise <code>UP Board</code>).")
+    L.append("ℹ️ Jis board ka result bot khud laata hai wahan <b>LIVE ✅</b> likha hai;")
+    L.append("baaki board par official portal ka link + poore steps milenge.")
+    return "\n".join(L)
+
+
+def _rc_pick_kb(page: int = 0):
+    rows_b, pg, tot = BRD.page_boards(page)
+    rows, buf = [], []
+    for key, b in rows_b:
+        live = "✅" if b.get("status") == "live" else ""
+        buf.append(InlineKeyboardButton(f"{str(b.get('short'))[:22]}{live}",
+                                        callback_data=f"rcb:{key}"))
+        if len(buf) == 2:
+            rows.append(buf)
+            buf = []
+    if buf:
+        rows.append(buf)
+    nav = []
+    if pg > 0:
+        nav.append(InlineKeyboardButton("◀️ Peeche", callback_data=f"rc_page:{pg - 1}"))
+    nav.append(InlineKeyboardButton(f"{pg + 1}/{tot}", callback_data="rc_noop"))
+    if pg < tot - 1:
+        nav.append(InlineKeyboardButton("Aage ▶️", callback_data=f"rc_page:{pg + 1}"))
+    rows.append(nav)
+    rows.append([InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info"),
+                 InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def rc_board_card(key: str) -> tuple:
+    """(caption, keyboard) — board ka apna card (official logo ke saath)."""
+    b = BRD.BOARDS.get(str(key)) or {}
+    if not b:
+        return "", _rc_pick_kb(0)
+    st = b.get("status")
+    L = [f"🏛️ <b>{hesc(str(b.get('name', '')))}</b>",
+         f"<b>{hesc(str(b.get('short', '')))}</b>"]
+    if b.get("hi"):
+        L.append(f"<i>{hesc(str(b['hi']))}</i>")
+    L.append(f"📍 <b>State:</b> {hesc(str(b.get('state', '')))}")
+    L.append(f"📚 <b>Exam:</b> {hesc(', '.join(b.get('exams') or []))}")
+    L.append(f"🔢 <b>Chahiye:</b> {hesc(', '.join(b.get('need') or []))}")
+    L.append(pcard_sep())
+    if st == "live":
+        L.append("✅ <b>Ye board bot se LIVE chalta hai</b>")
+        L.append("<i>Official server se seedha result — koi captcha nahi.</i>")
+    else:
+        L.append("🌐 <b>Ye board official portal par check hota hai</b>")
+        L.append("<i>Bot seedha nahi laata (wahan login/captcha lagta hai) — "
+                 "par link aur steps 100% sahi hain.</i>")
+    if b.get("note"):
+        L.append(f"ℹ️ <i>{hesc(str(b['note']))}</i>")
+    L.append("")
+    L.append(BRAND_LINK)
+    rows = []
+    if st == "live":
+        rows.append([InlineKeyboardButton("🔎 Result check karo (LIVE ✅)",
+                                          callback_data=f"rc_live:{key}")])
+    rows.append([InlineKeyboardButton("🌐 Official portal kholo",
+                                      url=str(b.get("portal") or "https://cbse.gov.in")),
+                 InlineKeyboardButton("ℹ️ Kaise check karein", callback_data=f"rc_how:{key}")])
+    rows.append([InlineKeyboardButton("◀️ Boards ki list", callback_data="rc_new"),
+                 InlineKeyboardButton("🔁 Doosra board", callback_data="rc_new")])
+    return "\n".join(L), InlineKeyboardMarkup(rows)
+
+
+async def _rc_say_photo(q, key, caption, kb):
+    """Board ka card PHOTO ke saath bhejo (official logo / color badge)."""
+    if q is None:
+        return
+    img = None
+    try:
+        img = await asyncio.to_thread(BRD.photo_bytes, key)
+    except Exception:                                            # noqa: BLE001
+        img = None
+    try:
+        if q is not None and getattr(q, "message", None) is not None:
+            try:
+                await q.message.delete()
+            except Exception:                                    # noqa: BLE001
+                pass
+            if img:
+                await q.message.reply_photo(io.BytesIO(img), caption=caption,
+                                            reply_markup=kb, parse_mode=HTML)
+                return
+            await q.message.reply_text(caption, reply_markup=kb, parse_mode=HTML)
+            return
+    except Exception:                                            # noqa: BLE001
+        pass
+    await _vnum_say(q, caption, kb)
+
+
+RC_STEPS_BOARD = True
 
 
 def _rc_exam_kb():
@@ -9447,7 +9645,7 @@ def _rc_head(exam_key: str, year) -> str:
 
 def rc_exam_card() -> str:
     return "\n".join([
-        pcard_title("📋", "RESULT CHECK (BSEB)"),
+        pcard_title("📋", "RESULT CHECK (BSEB ✅ LIVE)"),
         "🔗 <b>Pehle EXAM chuno</b> (neeche buttons se):",
         "",
         "     🎓 Matric (10th) Annual",
@@ -10528,10 +10726,19 @@ def health_html() -> str:
 
 # ---------------- KEEPALIVE WEB SERVER ON RENDER PORT 10000 ----------------
 def _keepalive():
+    """v74.1: Render ka "No open ports detected" warning fix.
+
+    Pehle default 10000 tha — agar Render koi aur PORT deta (ya env miss ho)
+    to scan warning aata tha. Ab: PORT env → RENDER_PORT → 10000, aur bind
+    fail hone par 3 retry (port release hone ka waqt milta hai).
+    """
     import http.server
     import socketserver
 
-    port = int(os.environ.get("PORT", "10000"))
+    try:
+        port = int(os.environ.get("PORT") or os.environ.get("RENDER_PORT") or "10000")
+    except Exception:                                            # noqa: BLE001
+        port = 10000
 
     class Handler(http.server.SimpleHTTPRequestHandler):
         def do_GET(self):
@@ -10547,15 +10754,23 @@ def _keepalive():
         def log_message(self, format, *args):
             pass
 
-    try:
-        with socketserver.TCPServer(("0.0.0.0", port), Handler) as httpd:
-            _KEEPALIVE_SERVER["srv"] = httpd
-            log.info("Keepalive server listening on port %s for UptimeRobot / Render", port)
-            httpd.serve_forever()
-    except Exception as e:
-        log.warning("Keepalive server warning: %s", e)
-    finally:
-        _KEEPALIVE_SERVER["srv"] = None
+    class _Srv(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    for _try in range(3):
+        try:
+            with _Srv(("0.0.0.0", port), Handler) as httpd:
+                _KEEPALIVE_SERVER["srv"] = httpd
+                log.info("Keepalive server listening on port %s (bind try %s) — Render scan OK",
+                         port, _try + 1)
+                httpd.serve_forever()
+            break
+        except Exception as e:                                   # noqa: BLE001
+            log.warning("Keepalive bind try %s fail (port %s): %s", _try + 1, port, e)
+            import time as _t2
+            _t2.sleep(3.0)
+    _KEEPALIVE_SERVER["srv"] = None
 
 
 def _stop_keepalive_server() -> None:

@@ -320,6 +320,7 @@ class _UpdT:
 class _QMsg:
     def __init__(self):
         self.out = []
+        self.photos = []
 
     async def edit_text(self, txt, **kw):
         self.out.append(txt)
@@ -327,6 +328,14 @@ class _QMsg:
 
     async def reply_text(self, txt, **kw):
         self.out.append(txt)
+        return self
+
+    async def delete(self):
+        return True
+
+    async def reply_photo(self, photo, caption=None, **kw):
+        self.photos.append((caption or "", photo.getvalue() if hasattr(photo, "getvalue") else b""))
+        self.out.append(caption or "")
         return self
 
 
@@ -357,8 +366,23 @@ async def _wizard_flow():
         return q
 
     ctx = _Ctx()
-    # 1) RESULT CHECK button → exam list
-    q1 = _Q("rc_new", uid)
+    # 1) RESULT CHECK button → BOARD list (hub)
+    q0 = _Q("rc_new", uid)
+    await bot.on_cb(_UpdQ(q0), ctx)
+    _t0 = " ".join(q0.message.out)
+    check("E2E: pehle BOARD list aayi (hub)", "BOARD chuno" in _t0 and "BSEB" in _t0)
+    check("E2E: mode = rc_board", ctx.user_data.get("mode") == "rc_board")
+
+    # 2a) BSEB board card (photo ke saath)
+    qb = _Q("rcb:bseb", uid)
+    await bot.on_cb(_UpdQ(qb), ctx)
+    check("E2E: BSEB board card aaya", "Bihar School Examination Board" in " ".join(qb.message.out))
+    check("E2E: board ka OFFICIAL LOGO photo bheji",
+          bool(qb.message.photos) and qb.message.photos[0][1][:4] == b"\xff\xd8\xff\xe0",
+          str(len(qb.message.photos)))
+
+    # 2b) LIVE check button → exam list
+    q1 = _Q("rc_live:bseb", uid)
     await bot.on_cb(_UpdQ(q1), ctx)
     _t1 = " ".join(q1.message.out)
     check("E2E: exam list aayi (Matric/Inter/Special)",
@@ -436,8 +460,6 @@ async def _wizard_flow():
         BSEBR.fetch_matric = _om2
 
     # 7) purana saal (2023) → archive card
-    q6 = _Q("rc_new", uid)
-    await bot.on_cb(_UpdQ(q6), ctx)
     q7 = _Q("rc_ex:matric", uid)
     await bot.on_cb(_UpdQ(q7), ctx)
     q8 = _Q("rc_yr:2023", uid)
