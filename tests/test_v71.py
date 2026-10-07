@@ -221,7 +221,9 @@ check("downloader sabse upar hi hai",
       "INSTA DL" in bot.unbold(bot.KB_BTNS[0][0]).upper())
 check("whois tool zinda", "osint_whois" in bot.PREMIUM_TOOLS)
 check("'Privacy' shabd koi jagah nahi", "privacy" not in BOT_SRC.lower())
-check("version v71 hai", bot.BOT_VERSION.startswith("v71"), bot.BOT_VERSION)
+_vm = __import__("re").search(r"v(\d+)\.(\d+)", bot.BOT_VERSION)
+check("version v71 ya aage hai", bool(_vm) and (int(_vm.group(1)), int(_vm.group(2))) >= (71, 0),
+      bot.BOT_VERSION)
 check("prompt texts ka structure zinda (head/ask/ex)",
       all(("head" in d and "ask" in d and "ex" in d) for d in bot.PROMPT_DATA.values()))
 

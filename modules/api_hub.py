@@ -26,6 +26,7 @@ from typing import Any
 
 import requests
 
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 # v50: shared cache — GST/PAN jaise stable lookups par hub ko baar-baar
 # hit na karna pade (hub ka timeout 60s hai, to har repeat call mehnga hai).
 try:
@@ -148,7 +149,7 @@ def hub_get(path: str, params: dict | None = None, timeout: int = 45) -> dict:
     p["key"] = hub_key()
     url = hub_base().rstrip("/") + "/" + path.lstrip("/")
     try:
-        r = requests.get(url, params=p, headers=UA, timeout=timeout)
+        r = httpio.get(url, params=p, headers=UA, timeout=timeout)
         if r.status_code == 401:
             return {"ok": False, "auth": True, "status": 401,
                     "error": "Hub ne key reject kar di (401 Invalid API key)"}

@@ -29,6 +29,7 @@ import subprocess
 import threading
 
 import requests
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 from PIL import Image
 from bs4 import BeautifulSoup
 
@@ -268,11 +269,11 @@ def _ig_parth(clean: str, media_cat: str):
                 e_kind = entry.get("kind", "")
                 e_formats = entry.get("formats", [])
                 if e_kind == "video" and e_formats:
-                    r_v = requests.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=15)
+                    r_v = httpio.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=15)
                     if r_v.status_code == 200 and len(r_v.content) > 1000:
                         items.append({"type": "video", "bytes": r_v.content})
                 elif e_formats:
-                    r_img = requests.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=12)
+                    r_img = httpio.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=12)
                     if r_img.status_code == 200:
                         try:
                             im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
@@ -285,7 +286,7 @@ def _ig_parth(clean: str, media_cat: str):
                 for img_obj in info.get("images", [])[:10]:
                     u = img_obj.get("url")
                     if u:
-                        r_img = requests.get(u, headers=DESKTOP_UA, timeout=12)
+                        r_img = httpio.get(u, headers=DESKTOP_UA, timeout=12)
                         if r_img.status_code == 200:
                             try:
                                 im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
@@ -303,7 +304,7 @@ def _ig_parth(clean: str, media_cat: str):
             formats = info.get("formats", [])
             v_url = formats[0].get("url") if formats else None
             if v_url:
-                r_v = requests.get(v_url, headers=DESKTOP_UA, timeout=25)
+                r_v = httpio.get(v_url, headers=DESKTOP_UA, timeout=25)
                 if r_v.status_code == 200 and len(r_v.content) > 1000:
                     return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
                             "title": title, "bytes": r_v.content, "size_mb": _size_mb(r_v.content),
@@ -313,7 +314,7 @@ def _ig_parth(clean: str, media_cat: str):
         if m_type in ("image", "photo") or (info.get("images") and len(info["images"]) > 0):
             img_url = info["images"][0].get("url") if info.get("images") else None
             if img_url:
-                r_img = requests.get(img_url, headers=DESKTOP_UA, timeout=12)
+                r_img = httpio.get(img_url, headers=DESKTOP_UA, timeout=12)
                 if r_img.status_code == 200 and len(r_img.content) > 1000:
                     im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
                     buf = io.BytesIO()
@@ -847,7 +848,7 @@ def _ig_ytdlp(clean: str, media_cat: str):
 def _og_scrape(clean: str, media_cat: str):
     for headers in (FB_UA, BOT_UA, DESKTOP_UA):
         try:
-            r = requests.get(clean, headers=headers, timeout=15, allow_redirects=True)
+            r = httpio.get(clean, headers=headers, timeout=15, allow_redirects=True)
             if r.status_code != 200 or len(r.content) < 500:
                 continue
             ctype = r.headers.get("content-type", "")
@@ -863,13 +864,13 @@ def _og_scrape(clean: str, media_cat: str):
             title_m = soup.find("meta", {"property": "og:title"})
             title = title_m.get("content", "")[:80] if title_m else ""
             if og_video and og_video.get("content"):
-                r_v = requests.get(og_video["content"], headers=DESKTOP_UA, timeout=20)
+                r_v = httpio.get(og_video["content"], headers=DESKTOP_UA, timeout=20)
                 if r_v.status_code == 200 and len(r_v.content) > 1000:
                     return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
                             "bytes": r_v.content, "size_mb": _size_mb(r_v.content), "title": title,
                             "platform": "Instagram", "engine": "og:video"}
             if og_image and og_image.get("content"):
-                r_i = requests.get(og_image["content"], headers=DESKTOP_UA, timeout=15)
+                r_i = httpio.get(og_image["content"], headers=DESKTOP_UA, timeout=15)
                 if r_i.status_code == 200 and len(r_i.content) > 1000:
                     try:
                         im = Image.open(io.BytesIO(r_i.content)).convert("RGB")
@@ -995,7 +996,7 @@ async def download_instagram_async(url: str) -> dict:
 def _remote_size(url: str, ua: str = "Mozilla/5.0 (bot)") -> int:
     """File ka size bina poora download kiye (Range request + Content-Length/-Range)."""
     try:
-        r = requests.get(url, headers={"User-Agent": ua, "Range": "bytes=0-1048575"},
+        r = httpio.get(url, headers={"User-Agent": ua, "Range": "bytes=0-1048575"},
                          timeout=25, stream=True)
         try:
             cr = r.headers.get("Content-Range") or ""
@@ -1047,7 +1048,7 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
             size = _remote_size(cand)
             if size and size > cap:                     # 1080p > 48MB → agla (chhota) link try karo
                 continue
-            r = requests.get(cand, timeout=600,
+            r = httpio.get(cand, timeout=600,
                              headers={"User-Agent": "Mozilla/5.0 (bot)",
                                       "Referer": "https://loader.to/"}, stream=True)
             if r.status_code != 200:

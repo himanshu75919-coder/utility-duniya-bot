@@ -31,6 +31,7 @@ from html import escape as _hesc
 
 import requests
 
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 from modules.core.html_safe import cut_html as _cut_html
 
 DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"   # v49: naya LIVE hub (purana dead tha)
@@ -126,7 +127,7 @@ def imei_of_device() -> str:
 # ---------------------------------------------------------------- http
 def _get(url: str, params: dict, tmo: int = TIMEOUT):
     try:
-        r = requests.get(url, params=params, headers=UA_HEADERS, timeout=tmo)
+        r = httpio.get(url, params=params, headers=UA_HEADERS, timeout=tmo)
     except requests.Timeout:
         return None, "API ne jawab dene me zyada time liya."
     except Exception as e:
@@ -460,7 +461,7 @@ def nanoreview_search(query: str) -> dict:
         return dict(hit[1])
     out = {"ok": False}
     try:
-        r = requests.get("https://nanoreview.net/api/search", params={"q": q},
+        r = httpio.get("https://nanoreview.net/api/search", params={"q": q},
                          headers=_NR_UA, timeout=9)
         if r.status_code == 200:
             data = r.json()
@@ -519,7 +520,7 @@ def _ddg_marketing_name(brand: str, model: str) -> str:
             return _NAME_CACHE[key]
     name = ""
     try:
-        r = requests.post("https://html.duckduckgo.com/html/",
+        r = httpio.post("https://html.duckduckgo.com/html/",
                           data={"q": f'"{model}" {brand} phone specifications'},
                           headers=_DDG_UA, timeout=8)
         if r.status_code == 200:

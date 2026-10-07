@@ -15,6 +15,7 @@ Bina internet ho ya telegra.ph block ho to bot fallback link (GitHub) use karta 
 """
 
 import hashlib
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 import json
 import os
 import re
@@ -390,7 +391,7 @@ def _api(method: str, **data):
     NOTE: param ka naam 'method' hai — 'path' nahi, warna editPage ke path= se clash ho jata hai."""
     if requests is None:
         return {}
-    r = requests.post("https://api.telegra.ph/" + method, data=data, timeout=25)
+    r = httpio.post("https://api.telegra.ph/" + method, data=data, timeout=25)
     try:
         return r.json()
     except Exception:

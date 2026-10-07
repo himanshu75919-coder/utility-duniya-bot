@@ -37,6 +37,7 @@ import time
 
 import requests
 
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 TIMEOUT = int(os.environ.get("VEHICLE_PROVIDER_TIMEOUT", "25") or 25)
 _CACHE: dict = {}
 _CACHE_TTL = 900          # 15 min — ek gaadi ka record itni der me nahi badalta
@@ -335,10 +336,10 @@ def _provider_lookup(plate: str, pr: dict | None = None) -> dict:
             payload = json.loads(body_txt)
         except Exception:                                    # noqa: BLE001
             payload = {"VehicleNumber": plate}
-        return requests.post(url, json=payload, headers=hdrs, timeout=TIMEOUT)
+        return httpio.post(url, json=payload, headers=hdrs, timeout=TIMEOUT, retry=False)
 
     def _get(url):
-        return requests.get(url, params=params, headers=hdrs, timeout=TIMEOUT)
+        return httpio.get(url, params=params, headers=hdrs, timeout=TIMEOUT, retry=False)
 
     def _urls():
         """Kaun-kaun se URL try karne hain — samajhdari se, ek-ek karke.

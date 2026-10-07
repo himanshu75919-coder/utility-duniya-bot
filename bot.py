@@ -295,6 +295,7 @@ from modules.vip_payment import (
 
 # ---------------- v50: CORE LAYER (cache + rate-limit + safe HTTP) ----------------
 from modules.core import check_limit, limiter_stats
+from modules.core import httpio as http_engine   # v72.0: shared HTTP engine (speed + auto-retry)
 # v53.0: per-tool telemetry — kaunsa tool kitni baar fail hua, kaunsi upstream
 # API DEAD hai. Admin `/sys` par dikhta hai (pehle 58 jagah `except: pass` tha
 # aur kisi ko pata hi nahi chalta tha ki BGMI/FF jaisa tool kab se toota hua hai).
@@ -421,8 +422,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v71.10 FREE4ALL — TEMP MAIL v2: sirf NAYA + sahi-app ka OTP "
-               "(fresh numbers, purane SMS chhupe, 16 app, 26 desh)")
+BOT_VERSION = ("v72.0 FREE4ALL — UPGRADE WAVE: saare tools tez + khud-retry "
+               "(shared HTTP engine) + TEMP MAIL v2")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -9962,6 +9963,17 @@ def _vault_health_html() -> str:
         return f"<p style='font-family:monospace'>vault status n/a ({type(e).__name__})</p>"
 
 
+def _http_engine_line() -> str:
+    """v72.0: shared HTTP engine ki live stats (speed + auto-retry upgrade)."""
+    try:
+        st = http_engine.stats()
+        return (f"session=shared+auto-retry calls={st.get('calls', 0)} "
+                f"retries={st.get('retries', 0)} fails={st.get('fails', 0)} "
+                f"avg={st.get('avg_ms', 0)}ms")
+    except Exception as e:                                       # noqa: BLE001
+        return f"n/a ({type(e).__name__})"
+
+
 def health_html() -> str:
     """/health ka poora report — POLLING (keepalive server) aur WEBHOOK dono me same.
 
@@ -9977,6 +9989,7 @@ def health_html() -> str:
             f" | mode: {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}"
             f" | up: {int(time.time() - _START_TS) // 60}m</p>"
             f"<p style='font-family:monospace'>{_ka}</p>"
+            f"<p style='font-family:monospace'>http engine: {_http_engine_line()}</p>"
             f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
             f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
             f"{_vault_health_html()}"

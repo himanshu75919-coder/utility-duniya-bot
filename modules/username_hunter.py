@@ -27,6 +27,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 log = logging.getLogger(__name__)
 
 UA = {
@@ -152,7 +153,7 @@ def hunt_username(raw: str, timeout: int = 8, workers: int = 12) -> dict:
 
     found, unknown, nf = [], [], 0
     try:
-        session = requests.Session()
+        session = httpio.session()
         with ThreadPoolExecutor(max_workers=max(4, min(int(workers), 20))) as ex:
             futs = [ex.submit(_check_one, session, s, uname, timeout) for s in SITES]
             for f in as_completed(futs, timeout=35):

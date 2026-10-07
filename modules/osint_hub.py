@@ -30,6 +30,7 @@ import time
 
 import requests
 
+from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
 DEFAULT_BASE = "https://osint-api-hub.onrender.com/api"
 # Hub kabhi-kabhi 30-60s leta hai (upstream sources slow hote hain).
 # Bot ab user ko beech-beech me progress dikhata hai, isliye timeout bada rakhte hain.
@@ -101,7 +102,7 @@ def hub_get(path: str, params: dict, tmo: int | None = None, tries: int = 2,
     last_err = "The API did not answer."
     for attempt in range(max(1, tries)):
         try:
-            r = requests.get(url, params=p, headers=UA_HEADERS,
+            r = httpio.get(url, params=p, headers=UA_HEADERS,
                              timeout=tmo or TIMEOUT)
         except requests.Timeout:
             last_err = "The API took too long to answer."
@@ -282,7 +283,7 @@ def hub_status(sample_plate: str = "", sample_number: str = "") -> str:
     status_line = "❌ Hub health endpoint se contact nahi ho paya."
     version = ""
     try:
-        response = requests.get(health_url, headers=UA_HEADERS, timeout=min(TIMEOUT, 20))
+        response = httpio.get(health_url, headers=UA_HEADERS, timeout=min(TIMEOUT, 20))
         if response.status_code == 200:
             try:
                 data = response.json()
