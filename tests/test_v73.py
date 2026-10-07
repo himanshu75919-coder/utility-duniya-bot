@@ -237,13 +237,14 @@ check("sab taken ho jayein to bhi number milta hai (share-safe, crash nahi)",
 # =====================================================================
 section("5) Bot wiring — keyboard, mode, callback, rate-limit (FREE)")
 _kb_labels = [bot.unbold(b) for row in bot.KB_BTNS for b in row]
-check("keyboard me 'TEMP MAIL (NUMBER)' button hai",
-      any("TEMP MAIL (NUMBER)" in _l.upper() for _l in _kb_labels))
+check("keyboard me 'TEMP NUMBER' button hai (v74.4 naya naam)",
+      any("TEMP NUMBER" in _l.upper() for _l in _kb_labels))
 check("purana 'TEMP MAIL' 📧 (email) button bhi zinda hai (kuch delete nahi hua)",
       any("\U0001F4E7" in b and "TEMP MAIL" in bot.unbold(b).upper()
           for row in bot.KB_BTNS for b in row))
-check("BTN_MODE_MAP: TEMP MAIL (NUMBER) → tnum",
-      bot.BTN_MODE_MAP.get("TEMP MAIL (NUMBER)") == "tnum")
+check("BTN_MODE_MAP: TEMP NUMBER → tnum (+ purana naam bhi chalta hai)",
+      bot.BTN_MODE_MAP.get("TEMP NUMBER") == "tnum"
+      and bot.BTN_MODE_MAP.get("TEMP MAIL (NUMBER)") == "tnum")
 check("BTN_MODE_MAP: TEMP MAIL (email) abhi bhi tempmail par", bot.BTN_MODE_MAP.get("TEMP MAIL") == "tempmail")
 check("tnum FREE hai — PREMIUM_TOOLS me NAHI",
       "tnum" not in bot.PREMIUM_TOOLS)
@@ -262,9 +263,10 @@ check("assignment meta-store use hota hai (v2 — fresh numbers)",
       'TNUM_META_KEY = "tnum_assign_v2"' in BOT_SRC and "meta_get(TNUM_META_KEY" in BOT_SRC)
 
 _p = bot.TNUM_INTRO
-check("intro card me bank warning hai", "BANK / UPI / KYC" in _p.upper())
-check("intro card me 'public number' warning hai", "public" in _p.lower())
-check("intro card me '100% FREE' likha hai", "100% FREE" in _p)
+# v74.4: intro ab 3 line ka — koi gyaan/warning nahi (user ka rule #2)
+check("intro card chhota hai (koi gyaan nahi)",
+      len(_p.splitlines()) <= 4 and "BANK" not in _p.upper() and "100% FREE" not in _p)
+check("intro me seedha desh chunne ki baat", "Desh chuno" in _p)
 check("intro card me koi moti line (━) nahi — patli lines only",
       "━" not in _p and "─" in _p)
 check("card title box style me hai", bot.tnum_card({"cc": "us"}, {"ok": True, "number": "1", "messages": []}).startswith("┏"))
@@ -313,13 +315,14 @@ _card = bot.tnum_card(
      "last_activity": "19 minutes ago", "count24": 510})
 check("card me number dikhta hai", "+4915510376239" in _card)
 check("card me OTP code dikhta hai", "<code>875371</code>" in _card)
-check("bank-wala SMS pakda gaya to ⛔ warning aayi", "⛔" in _card)
-check("card me hard bank line hai", bot.TNUM_SAFE_LINE in _card)
-check("card me public-inbox warning hai", "PUBLIC" in _card.upper())
+# v74.4: safety/gyaan lines hata di gayi (user ka rule #2 — sirf outcome)
+check("card me koi safety/warning line nahi (sirf outcome)",
+      "⛔" not in _card and "PUBLIC" not in _card.upper()
+      and not hasattr(bot, "TNUM_SAFE_LINE"))
 check("card never empty (khaali inbox par bhi body hai)",
       len(bot.tnum_card({"cc": "us"}, {"ok": True, "number": "1", "messages": []})) > 120)
-check("inbox fail par saaf wajah dikhti hai (khaali card nahi)",
-      "nahi khul paya" in bot.tnum_card({"cc": "us"}, {"ok": False, "error": "site slow"}))
+check("inbox fail par saaf line aati hai (khaali card nahi)",
+      "nahi khula" in bot.tnum_card({"cc": "us"}, {"ok": False, "error": "site slow"}))
 check("moti line (━) card me nahi", "━" not in _card)
 
 
@@ -399,7 +402,8 @@ async def _run_flow():
     q1 = _Q("tnum_open", uid)
     await bot.on_cb(_Upd(q1), ctx)
     a = q1.message.out[-1] if q1.message.out else ""
-    check("E2E open: intro + bank warning dikha", "BANK / UPI / KYC" in a.upper() and "100% FREE" in a)
+    check("E2E open: intro chhota (koi gyaan nahi)",
+          "Desh chuno" in a and "BANK" not in a.upper())
     check("E2E open: services keyboard me WhatsApp hai",
           any("whatsapp" in (b.callback_data or "") for r in bot._tnum_svc_kb().inline_keyboard for b in r))
 
@@ -414,7 +418,7 @@ async def _run_flow():
     a3 = q3.message.out[-1] if q3.message.out else ""
     check("E2E desh chuna: number card aaya", "Aapka number" in a3)
     check("E2E desh chuna: naya OTP card me hai (6-digit)", "<code>445566</code>" in a3)
-    check("E2E desh chuna: bank line card me hai", bot.TNUM_SAFE_LINE in a3)
+    check("E2E desh chuna: card me koi safety line nahi", "KYC" not in a3.upper())
     _rec = bot._tnum_load().get(str(uid)) or {}
     check("E2E desh chuna: number store ho gaya", bool(_rec.get("nid")), str(_rec.get("nid")))
 

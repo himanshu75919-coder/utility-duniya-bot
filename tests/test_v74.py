@@ -207,15 +207,16 @@ _card_new = bot.tnum_card(_rec, {"ok": True, "number": "15552222",
 check("card: naya OTP sabse upar highlight", "🔑 <b>OTP:</b> <code>445566</code>" in _card_new)
 check("card: purana SMS (3 hour ago) card me NAHI", "111111" not in _card_new)
 check("card: dusri site ka naya SMS bhi NAHI (SoulChill/875371)", "875371" not in _card_new)
-check("card: hidden count dikhata hai", "chhupa" in _card_new)
+# v74.4: hidden-count jaisi internal baatein card me nahi (sirf outcome)
 check("card: app + OTP hint dikhata hai", "WhatsApp" in _card_new and "6 digit" in _card_new)
-check("card: bank line hamesha", bot.TNUM_SAFE_LINE in _card_new)
+check("card: koi safety/bank line nahi (sirf outcome)",
+      "BANK" not in _card_new.upper() and "KYC" not in _card_new.upper())
 
 _card_wait = bot.tnum_card(_rec, {"ok": True, "number": "15552222",
                                   "messages": [_m_old, _m_junk], "last_activity": "2 min ago"})
 check("card waiting: 'abhi koi naya OTP nahi aaya'", "nahi aaya" in _card_wait)
 check("card waiting: app ka naam wahi", "WhatsApp" in _card_wait)
-check("card waiting: 4-6 apps me hidden count bhi", "chhupa" in _card_wait)
+check("card waiting: saaf 'naya OTP nahi aaya' line", "nahi aaya" in _card_wait)
 
 _card_len = bot.tnum_card({"cc": "us", "num": "15552222", "svc": "whatsapp", "since": []},
                           {"ok": True, "number": "15552222", "last_activity": "1 min ago",
@@ -227,11 +228,11 @@ _card_bank = bot.tnum_card({"cc": "us", "num": "15552222", "svc": "whatsapp", "s
                            {"ok": True, "number": "15552222", "last_activity": "1 min ago",
                             "messages": [{"from": "SBI", "time": "1 min ago",
                                           "text": "SBI bank OTP 998877 for UPI", "code": "998877"}]})
-check("card: bank SMS chhupa par ⛔ warning phir bhi aayi",
-      "⛔" in _card_bank and "998877" not in _card_bank)
+check("card: bank SMS chhupa + koi warning line nahi (v74.4)",
+      "998877" not in _card_bank and "⛔" not in _card_bank)
 
 _card_fail = bot.tnum_card(_rec, {"ok": False, "error": "site slow"})
-check("card: inbox fail par saaf wajah (khaali card nahi)", "nahi khul paya" in _card_fail)
+check("card: inbox fail par saaf line (khaali card nahi)", "nahi khula" in _card_fail)
 check("card: moti line (━) kahin nahi", "━" not in _card_new + _card_wait + _card_bank)
 
 # =====================================================================
@@ -243,8 +244,7 @@ check("assignment ab pick_best se hota hai (best number)", "TN.pick_best(" in BO
 check("baseline (since) save hota hai", '"since": TN.snapshot' in BOT_SRC)
 check("card fresh+matched filter use karta hai",
       "TN.fresh_and_matched(" in BOT_SRC and "TN.extract_code_svc(" in BOT_SRC)
-check("intro me naya system samjhaya (sirf naya OTP)",
-      "NAYA OTP" in bot.TNUM_INTRO or "Naya system" in bot.TNUM_INTRO)
+check("intro chhota hai — koi gyaan nahi (v74.4)", len(bot.TNUM_INTRO.splitlines()) <= 4)
 check("refresh button label update (Naya OTP check karo)",
       "Naya OTP check karo" in BOT_SRC)
 check("tool FREE hi hai (premium 37, tnum bahar)",
@@ -319,7 +319,7 @@ async def _flow():
     c = _Ctx()
     q1 = _Q("tnum_open", uid)
     await bot.on_cb(_Upd(q1), c)
-    check("E2E: intro me naya system likha hai", "NAYA OTP" in bot.unbold(q1.message.out[-1]) or "Naya system" in q1.message.out[-1])
+    check("E2E: intro chhota (koi gyaan nahi)", len((q1.message.out[-1] or "").splitlines()) <= 5)
     q2 = _Q("tnum_svc:whatsapp", uid)
     await bot.on_cb(_Upd(q2), c)
     check("E2E: app chuna → desh list", "DESH CHUNO" in bot.unbold(q2.message.out[-1]))
@@ -339,7 +339,7 @@ async def _flow():
     a4 = q4.message.out[-1]
     check("E2E: naya WhatsApp OTP aa gaya (556677)", "<code>556677</code>" in a4)
     check("E2E: refresh ke baad bhi purane SMS chhupe", "021075" not in a4 and "999999" not in a4)
-    check("E2E: card me bank warning line", bot.TNUM_SAFE_LINE in a4)
+    check("E2E: card me koi bank/safety line nahi", "KYC" not in a4.upper())
 
 
 try:

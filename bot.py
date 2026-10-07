@@ -24,6 +24,7 @@ import re
 import socket
 import time
 import threading
+import tempfile
 from datetime import date, datetime
 from html import escape as hesc
 from urllib.parse import quote
@@ -428,7 +429,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.3.2 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
+BOT_VERSION = ("v74.4 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
                "| temp number: WhatsApp + 3 desh | 34 boards | BSEB LIVE + PDF | saare tools tez")
 START_TIME = datetime.now()
 
@@ -1068,27 +1069,12 @@ async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 TNUM_META_KEY = "tnum_assign_v2"     # user_id -> uska number (alag-alag)
 TNUM_OLD_KEYS = ("tnum_assign_v1",)  # purani keys — ek baar saaf kar dete hain
 TNUM_REFRESH_GAP = 8                 # ek number par itne sec se pehle refresh nahi
-TNUM_SAFE_LINE = "🚫 Bank / UPI / KYC / paisa — ye number BILKUL mat do"
+# v74.4: safety/gyaan lines hata di gayi (user ka rule #2 — sirf outcome)
 
 TNUM_INTRO = (
-    f"📞 <b>{to_bold('TEMP MAIL (NUMBER)')}</b>\n"
+    f"📞 <b>{to_bold('TEMP NUMBER')}</b>\n"
     "──────────────────────\n"
-    "100% FREE — koi paisa, koi key, koi login nahi.\n"
-    "Har user ko <b>apna alag number</b> milta hai — doosre ka repeat nahi.\n"
-    "10+ desh · 15+ app (WhatsApp, Telegram, Google, Instagram...)\n"
-    "──────────────────────\n"
-    "🆕 <b>Naya system (v71.10):</b>\n"
-    "• Sirf <b>aapke chune app ka NAYA OTP</b> dikhega — purane SMS aur\n"
-    "  doosri websites wale OTP <b>chhupe</b> rahenge.\n"
-    "• OTP us app ke hisaab se hi aayega (WhatsApp = 6 digit, Telegram = 5...).\n"
-    "• Number <b>hamesha fresh</b> milta hai — jab aap OTP maangte ho, tabhi SMS girta hai.\n"
-    "──────────────────────\n"
-    "⚠️ <b>Pehle ye padho:</b>\n"
-    "• Ye <b>public</b> number hai — iska inbox duniya me koi bhi dekh sakta hai.\n"
-    "• Sirf <b>ek-baar ke OTP</b> (signup / verification) ke liye use karo.\n"
-    "• 🚫 Bank / UPI / KYC / paisa wale OTP ke liye ye number <b>bilkul mat</b> do.\n"
-    "──────────────────────\n"
-    "📲 <b>Number kis app/site ke liye chahiye?</b> Neeche se chuno 👇"
+    "🌍 <b>Desh chuno</b> 👇"
 )
 
 
@@ -1226,12 +1212,7 @@ def tnum_get_number(uid: int, cc: str, svc_key: str = "", change: bool = False):
 def tnum_card(rec: dict, ib: dict) -> str:
     """📞 TEMP MAIL ka number card (v71.10).
 
-    User ka order: "sirf mera OTP rahe — jo app chuna hai usi ka NAYA OTP,
-    purane aur doosri site wale chhupe rahen."
-      • since-baseline ke baad aaye SMS = naye
-      • unme se sirf chuni hui app ke SMS dikhte hain
-      • OTP us app ki lambai ka hi nikalta hai (WhatsApp 6, Telegram 5...)
-      • bank wala koi bhi SMS mile to ⛔ warning (chhupa hua ho to bhi)
+    v74.4: sirf outcome — number + naya OTP. Koi gyaan/warning line nahi.
     """
     rec = rec or {}
     ib = ib or {}
@@ -1241,7 +1222,7 @@ def tnum_card(rec: dict, ib: dict) -> str:
     lbl, em, _ = TN.SVC_BY_KEY.get(svc_key, ("", "📱", ()))
     num = str(ib.get("number") or rec.get("num") or "")
     all_msgs = [m for m in (ib.get("messages") or []) if isinstance(m, dict)]
-    L = [pcard_title("📞", "TEMP MAIL (NUMBER)")]
+    L = [pcard_title("📞", "TEMP NUMBER")]
     if lbl:
         L.append(f"{em} <b>App:</b> {hesc(str(lbl))} <i>(OTP {hesc(TN.svc_hint(svc_key))})</i>")
     L.append(f"{c.get('flag', '🌍')} <b>Desh:</b> {hesc(c.get('name') or cc.upper())}")
@@ -1252,15 +1233,11 @@ def tnum_card(rec: dict, ib: dict) -> str:
     L.append(_num_line)
     L.append(pcard_sep())
 
-    # bank scan — dikhne wale ya chhupe hue, kisi bhi SMS me bank word ho
-    _banky = any(TN.looks_banky(str(m.get("text") or "")) for m in all_msgs)
-
     if not ib.get("ok"):
-        L.append("⚠️ Inbox abhi nahi khul paya — " + hesc(str(ib.get("error") or "site slow hai")))
-        L.append("👉 Thodi der baad <b>🔁 Naya OTP check karo</b> dabao.")
+        L.append("⚠️ Inbox abhi nahi khula — thodi der baad dobara dekho.")
     else:
-        show, hidden, new_total = TN.fresh_and_matched(all_msgs, rec.get("since"),
-                                                       svc_key, limit=6)
+        show, _hidden, _new_total = TN.fresh_and_matched(all_msgs, rec.get("since"),
+                                                         svc_key, limit=6)
         _app = hesc(str(lbl or "is app"))
         if show:
             L.append(f"✅ <b>Naya OTP aa gaya!</b>  <i>({len(show)} naya SMS)</i>")
@@ -1280,25 +1257,7 @@ def tnum_card(rec: dict, ib: dict) -> str:
                 if _note:
                     L.append(f"│  ⚠️ {hesc(_note)}")
         else:
-            L.append(f"⏳ <b>Abhi koi naya {_app} OTP nahi aaya.</b>")
-            if new_total and hidden:
-                L.append(f"🔇 {hidden} naya SMS aaya par {_app} ka nahi hai — chhupa diya.")
-            L.append("👉 Number OTP box me daalo → SMS aayega → "
-                     "<b>🔁 Naya OTP check karo</b> dabao.")
-            L.append(f"📏 {_app} ka OTP aksar <b>{hesc(TN.svc_hint(svc_key))}</b> hota hai.")
-        if hidden and show:
-            L.append(f"🔇 {hidden} naya SMS chhupa ({_app} ka nahi tha).")
-        if ib.get("cached"):
-            L.append("<i>🧊 8s purana data — naya chahiye to dobara 🔁 dabao</i>")
-
-    if _banky:
-        L.append("")
-        L.append("⛔ <b>RUKO!</b> Inbox me bank/paisa wala SMS bhi hai — "
-                 "is number se banking kaam <b>mat</b> karo.")
-    L.append(pcard_sep())
-    L.append(TNUM_SAFE_LINE)
-    L.append("👀 Ye PUBLIC number hai — inbox koi bhi dekh sakta hai.")
-    L.append("🔐 Ye number sirf <b>aapke liye</b> assign hua hai (bot side se).")
+            L.append(f"⏳ <b>Abhi naya OTP nahi aaya.</b>")
     L.append("")
     L.append(BRAND_LINK)
     return "\n".join(L)
@@ -1326,7 +1285,8 @@ KB_BTNS = [
     [f"🕵️ {to_bold('USERNAME HUNTER')}"],       # v71.8: sirf public profiles (koi login nahi)
     [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
-    [f"📞 {to_bold('TEMP MAIL (NUMBER)')}"],   # v71.9: 100% FREE temp number + OTP (har user ko alag)
+    [f"📞 {to_bold('TEMP NUMBER')}"],   # v74.4: `TEMP MAIL (NUMBER)` confusing naam tha
+
     [f"💬 {to_bold('CHAT X-RAY')}"],           # v73.0: apni WhatsApp chat ki fun report (file bhejo)
     [f"📋 {to_bold('RESULT CHECK')}"],         # v73.1: BSEB result — roll code + roll number se
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
@@ -1394,8 +1354,8 @@ BTN_MODE_MAP = {
     "FREE FIRE UID": "ffuid",
     "TEMP MAIL": "tempmail",
     "TEMPMAIL": "tempmail",
-    "TEMP MAIL (NUMBER)": "tnum",          # v71.9: 100% FREE temp number + OTP
-    "TEMP NUMBER": "tnum",
+    "TEMP NUMBER": "tnum",                 # v74.4: naya naam
+    "TEMP MAIL (NUMBER)": "tnum",          # purana naam (compatibility)
     "TEMP MAIL NUMBER": "tnum",
     "CHAT X-RAY": "cxray",                 # v73.0: 💬 apni chat ki fun report
     "CHAT XRAY": "cxray",
@@ -1796,7 +1756,7 @@ PROMPT_DATA = {
         "head": "📧 TEMP MAIL ENGINE",
         "ask": "Naya email banane ke liye <code>NEW</code> bhejein:",
         "ex": [('NEW', 'naya mail id banane ke liye')],
-        "tip": 'Naya email chahiye (form bharne ke liye) to bas NEW dabao',
+        "tip": '',
         "foot": 'Bina number ke email · 10 minute me',
     },
     "kagaz": {
@@ -10557,6 +10517,125 @@ if not _GIT_COMMIT:
 _START_TS = time.time()
 
 
+def _webhook_watchdog(url: str, path: str) -> None:
+    """v74.4: webhook ka PERMANENT ilaaj — har 15 min khud check,
+
+    error/URL-mismatch mile to khud dobara set kar deta hai (3 retry).
+    Kuch bhi galat ho, bot chup-chaap theek ho jata hai — user ko pata bhi nahi.
+    """
+    import time as _t
+    import urllib.request
+    import json as _json
+    _full = (url or "").rstrip("/") + (path or "")
+    if not _full:
+        return
+    _api = f"https://api.telegram.org/bot{BOT_TOKEN}/"
+    _secret = (os.environ.get("WEBHOOK_SECRET_TOKEN") or "").strip()
+    while True:
+        _t.sleep(900)                                  # 15 min
+        try:
+            with urllib.request.urlopen(_api + "getWebhookInfo", timeout=25) as r:
+                info = (_json.loads(r.read().decode("utf-8", "ignore")) or {}).get("result") or {}
+            need = (str(info.get("url") or "") != _full) or bool(info.get("last_error_message")) \
+                or int(info.get("pending_update_count") or 0) > 60
+            if not need:
+                continue
+            for _try in range(3):
+                try:
+                    body = {"url": _full, "drop_pending_updates": False}
+                    if _secret:
+                        body["secret_token"] = _secret
+                    req = urllib.request.Request(
+                        _api + "setWebhook", data=_json.dumps(body).encode(),
+                        headers={"Content-Type": "application/json"})
+                    with urllib.request.urlopen(req, timeout=25) as r2:
+                        if (_json.loads(r2.read().decode("utf-8", "ignore")) or {}).get("ok"):
+                            log.info("WEBHOOK self-heal OK — dobara set ho gaya (try %s)", _try + 1)
+                            break
+                except Exception:                      # noqa: BLE001
+                    _t.sleep(5)
+        except Exception:                              # noqa: BLE001
+            pass
+
+
+# v74.4: jo boards abhi `portal` hain — inka result page har 6 ghante check hota
+# hai (Render se). Jis din page khulega (roll form + captcha nahi), admin ko
+# message jayega — usi din us board ko LIVE banayenge.
+_BOARD_WATCH = (
+    ("upmsp", "https://results.upmsp.edu.in/"),
+    ("jac", "https://jac.jharkhand.gov.in/jac/"),
+    ("bseh", "https://bseh.org.in/"),
+    ("pseb", "https://results.pseb.ac.in/"),
+    ("gseb", "https://www.gseb.org/"),
+    ("mbose", "https://www.mbose.in/result-notification"),
+    ("mbse", "https://www.mbse.edu.in/"),
+    ("bbose", "https://bbose.org/"),
+    ("odisha", "https://results.bseodisha.ac.in/"),
+    ("hpbose", "https://results.hpbose.org/"),
+    ("cisce", "https://results.cisce.org/"),
+    ("nios", "https://results.nios.ac.in/"),
+)
+_BW_STATE = os.path.join(tempfile.gettempdir(), "ud_bw_seen.txt")
+
+
+def _board_watch_loop(app) -> None:
+    """Har 6 ghante boards ka result page check — khula mile to admin ko batao."""
+    import time as _t
+    import urllib.request
+    _aid = 0
+    try:
+        _aid = int(os.environ.get("ADMIN_ID") or 0)
+    except Exception:                                  # noqa: BLE001
+        _aid = 0
+    if not _aid:
+        return
+    while True:
+        _t.sleep(6 * 3600)
+        try:
+            seen = set()
+            try:
+                with open(_BW_STATE, "r", encoding="utf-8") as fh:
+                    seen = {x.strip() for x in fh if x.strip()}
+            except Exception:                          # noqa: BLE001
+                pass
+            found = []
+            for key, url in _BOARD_WATCH:
+                if key in seen:
+                    continue
+                try:
+                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+                    with urllib.request.urlopen(req, timeout=15) as r:
+                        html = r.read(400000).decode("utf-8", "ignore")
+                    low = html.lower()
+                    if ("captcha" in low) or ("turnstile" in low):
+                        continue
+                    if "roll" not in low:
+                        continue
+                    found.append((key, url))
+                except Exception:                      # noqa: BLE001
+                    continue
+            if found:
+                for k, _u in found:
+                    seen.add(k)
+                try:
+                    with open(_BW_STATE, "w", encoding="utf-8") as fh:
+                        fh.write("\n".join(sorted(seen)))
+                except Exception:                      # noqa: BLE001
+                    pass
+                try:
+                    app.bot.send_message(
+                        chat_id=_aid,
+                        text=("📡 <b>BOARD WATCH</b> — in boards ka result page khula mila "
+                              "(roll + captcha nahi):\n"
+                              + "\n".join(f"• <code>{k}</code>" for k, _u in found)
+                              + "\nBolo to LIVE add kar dun."),
+                        parse_mode="HTML")
+                except Exception:                      # noqa: BLE001
+                    pass
+        except Exception:                              # noqa: BLE001
+            pass
+
+
 def _keepalive_pinger():
     """Pehli ping 90 sec me, phir har ~10 min — Render free plan par bot+hub 24/7 ON."""
     import time as _t
@@ -10971,6 +11050,10 @@ def main():
         _startup_selfcheck()
     except Exception as _e:                                      # noqa: BLE001
         log.warning("self-check skip (crash nahi): %s", str(_e)[:120])
+    try:                                           # v74.4: board live-watch (har 6h)
+        threading.Thread(target=_board_watch_loop, args=(app,), daemon=True).start()
+    except Exception:                              # noqa: BLE001
+        pass
     # ---------- v47+: WEBHOOK MODE (Render par sabse safe) ----------
     # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
     # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
@@ -10983,8 +11066,14 @@ def main():
         path = f"/webhook/{secret}"
         full_url = WEBHOOK_URL.rstrip("/") + path
         # Secret webhook path ko logs me kabhi print na karein.
-        log.warning("WEBHOOK MODE | instance=%s pid=%s | polling OFF (koi Conflict nahi)",
-                    socket.gethostname(), os.getpid())
+        log.info("WEBHOOK MODE ON — polling OFF (Conflict ka koi chance nahi) | "
+                 "instance=%s pid=%s", socket.gethostname(), os.getpid())
+        try:                                           # v74.4: webhook self-heal
+            threading.Thread(target=_webhook_watchdog,
+                             args=(WEBHOOK_URL, path), daemon=True).start()
+            log.info("WEBHOOK watchdog ON — har 15 min self-check (permanent ilaaj)")
+        except Exception:                              # noqa: BLE001
+            pass
         try:
             app.run_webhook(
                 listen="0.0.0.0",

@@ -193,8 +193,8 @@ except Exception as e:                                            # noqa: BLE001
 
 # =====================================================================
 section("7) Version + wiring")
-check("version v74.3 hai (NO-GYAAN + SPEED)",
-      "v74.3" in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v74.x hai (NO-GYAAN + SPEED)",
+      "v74." in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
 check("exports: boards import bot me", "from modules import boards as BRD" in BOT_SRC)
 check("callbacks wired (rcb/rc_page/rc_how/rc_live)",
       all(x in BOT_SRC for x in ('startswith("rcb:")', 'startswith("rc_page:")',

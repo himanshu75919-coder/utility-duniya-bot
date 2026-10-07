@@ -200,8 +200,8 @@ check("Tamil Nadu card: sirf 'Jald live hoga' + Saare boards button",
 check("hub card: page + search hint, koi lecture nahi",
       "BOARD chuno" in bot._rc_pick_card(0) and "LIVE" in bot._rc_pick_card(0)
       and "steps" not in bot._rc_pick_card(0).lower())
-check("version v74.3 (NO-GYAAN + SPEED)",
-      "v74.3" in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
+check("version v74.x (NO-GYAAN + SPEED)",
+      "v74." in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
 
 # =====================================================================
 section("6) Registry + baaki sab salamat (regression)")
@@ -213,6 +213,42 @@ check("BSEB hi live hai (jhoothi live list nahi)",
 check("logos/badges sab boards par", all(BRD.photo_bytes(k) for k in BRD.BOARDS))
 check("search ab bhi chalta hai", [k for k, _ in BRD.find("bihar")][:1] == ["bseb"]
       or "bseb" in [k for k, _ in BRD.find("bihar")])
+
+# =====================================================================
+section("7) v74.4 — webhook permanent fix + board watch + TEMP NUMBER clean")
+
+# webhook watchdog
+check("webhook watchdog function maujood hai (self-heal)", callable(getattr(bot, "_webhook_watchdog", None)))
+check("watchdog start hota hai main me (15 min self-check)",
+      "_webhook_watchdog" in BOT_SRC and "WEBHOOK watchdog ON" in BOT_SRC)
+check("webhook log ab INFO hai (scary WARNING nahi)",
+      'log.info("WEBHOOK MODE ON' in BOT_SRC
+      and 'log.warning("WEBHOOK MODE' not in BOT_SRC)
+check("watchdog setWebhook dobara karta hai (3 retry)",
+      "setWebhook" in BOT_SRC and "for _try in range(3)" in BOT_SRC)
+
+# board watch
+check("board watch loop maujood (har 6 ghante)", callable(getattr(bot, "_board_watch_loop", None)))
+check("board watch me 10+ boards ki list", len(getattr(bot, "_BOARD_WATCH", ())) >= 10,
+      str(len(getattr(bot, "_BOARD_WATCH", ()))))
+check("board watch admin ko batata hai (jhootha live nahi karta)",
+      "BOARD WATCH" in BOT_SRC and "app.bot.send_message" in BOT_SRC)
+
+# TEMP NUMBER — gyaan zero
+_intro = bot.TNUM_INTRO
+check("TEMP NUMBER intro 4 line se chhota", len(_intro.splitlines()) <= 4, str(len(_intro.splitlines())))
+check("intro me koi warning/gyaan nahi",
+      not any(w in _intro.upper() for w in ("BANK", "KYC", "UPI", "PUBLIC", "100% FREE", "NAYA SYSTEM")))
+check("purane safety constants gayab", not hasattr(bot, "TNUM_SAFE_LINE"))
+_card = bot.tnum_card({"cc": "us", "num": "15551234567", "svc": "whatsapp"},
+                      {"ok": True, "number": "15551234567", "messages": []})
+check("number card me koi safety line nahi",
+      "BANK" not in _card.upper() and "KYC" not in _card.upper()
+      and "PUBLIC" not in _card.upper())
+check("menu label ab 'TEMP NUMBER' hai", "TEMP NUMBER" in BOT_SRC)
+check("purana naam bhi chalta hai (compatibility)",
+      bot.BTN_MODE_MAP.get("TEMP MAIL (NUMBER)") == "tnum"
+      and bot.BTN_MODE_MAP.get("TEMP NUMBER") == "tnum")
 
 print(f"\n{'=' * 62}")
 print(f"  v81 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
