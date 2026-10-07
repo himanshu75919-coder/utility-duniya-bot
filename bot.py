@@ -266,7 +266,8 @@ from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME 
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
 from modules import chat_xray as CXR                   # v73.0: 💬 WHATSAPP CHAT X-RAY (offline, free)
 from modules import bseb_result as BSEBR               # v73.1: 📋 BOARD RESULT (BSEB official API)
-from modules import boards as BRD                      # v74.1: 🇮🇳 34 boards hub + logos
+from modules import boards as BRD                      # v74.5: BSEB + CBSE
+from modules import captcha_bridge as CB              # v74.6: 🔐 captcha bridge (user solve karta hai)
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -429,8 +430,9 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.5 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
-               "| temp number: WhatsApp + 3 desh | 34 boards | BSEB LIVE + PDF | saare tools tez")
+BOT_VERSION = ("v74.6 FREE4ALL — NO-GYAAN + SPEED: disk-cache + engine race "
+               "| temp number: WhatsApp + 3 desh | result check: BSEB LIVE + CBSE captcha-bridge "
+               "| saare tools tez")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -5213,6 +5215,39 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _rc_say_photo(q, key, _cap, _kb)
         return
 
+    if data.startswith("rc_cap:"):                     # v74.6: captcha bridge start
+        key = data.split(":", 1)[1]
+        _urls = RC_CAP_ENDPOINTS.get(key) or []
+        _form = None
+        _last_why = "form_nahi"
+        for _u in _urls:
+            _f = await asyncio.to_thread(CB.fetch_form, _u)
+            if _f.get("ok"):
+                _form = _f
+                break
+            _last_why = _f.get("why") or "form_nahi"
+        context.user_data.pop("mode", None)
+        if not _form:
+            _kb = InlineKeyboardMarkup([[InlineKeyboardButton(
+                "◀️ Saare boards", callback_data="rc_new")]])
+            await _vnum_say(q, rcap_fail_card(_last_why, key), _kb)
+            return
+        context.user_data["mode"] = "rc_cap_ans"
+        context.user_data["rcap"] = {"key": key, "form": _form, "tries": 0}
+        _ask = ("🔐 <b>Captcha likho + Roll Number</b>\n"
+                + ("<i>jaise: AB12C 1234567 dob</i>" if _form.get("needs_dob")
+                   else "<i>jaise: AB12C 1234567</i>"))
+        try:
+            await q.message.delete()
+        except Exception:                                    # noqa: BLE001
+            pass
+        try:
+            await q.message.reply_photo(io.BytesIO(_form["img"]), caption=_ask,
+                                        parse_mode=HTML)
+        except Exception:                                    # noqa: BLE001
+            await _vnum_say(q, _ask, None)
+        return
+
     if data.startswith("rc_live:"):
         key = data.split(":", 1)[1]
         if key == "bseb":
@@ -8844,6 +8879,63 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                          context.user_data.get("rc_code_val") or "", nums[0])
         return
 
+    if mode == "rc_cap_ans":                           # v74.6: captcha jawab
+        st = context.user_data.get("rcap") or {}
+        form = st.get("form") or {}
+        key = str(st.get("key") or "")
+        bits = (raw_text or "").split()
+        cap_in = bits[0] if bits else ""
+        roll_in = bits[1] if len(bits) > 1 else ""
+        dob_in = bits[2] if len(bits) > 2 else ""
+        if not cap_in or not roll_in:
+            await update.message.reply_text(
+                "✍️ Aise likho: <code>AB12C 1234567</code>", parse_mode=HTML)
+            return
+        st["tries"] = int(st.get("tries") or 0) + 1
+        context.user_data["rcap"] = st
+        _res = await asyncio.to_thread(CB.submit, form, cap_in, roll_in, dob_in)
+        _kb_bs = InlineKeyboardMarkup([[InlineKeyboardButton(
+            "◀️ Saare boards", callback_data="rc_new")]])
+        if _res.get("ok"):
+            stu = _res.get("student") or {}
+            context.user_data.pop("mode", None)
+            context.user_data.pop("rcap", None)
+            _lbl = "Class 10 / Class 12"
+            await update.message.reply_text(rcap_result_card(stu, _lbl, 2026, key),
+                                            reply_markup=_kb_bs, parse_mode=HTML)
+            try:
+                _pdf = await asyncio.to_thread(BSEBR.build_pdf, stu, _lbl, 2026,
+                                               "board record", key)
+                if _pdf:
+                    await update.message.reply_document(
+                        io.BytesIO(_pdf),
+                        filename=f"{(key or 'board').upper()}_{roll_in}_2026.pdf",
+                        caption="📄 <b>Marksheet (WEB COPY)</b> — poora data isme hai ✅",
+                        parse_mode=HTML)
+            except Exception:                                # noqa: BLE001
+                pass
+            add_use(update.effective_user.id)
+            return
+        why = str(_res.get("why") or "")
+        if why == "captcha_galat" and st["tries"] < 4:
+            _f2 = await asyncio.to_thread(CB.fetch_form, (form.get("url") or ""))
+            if _f2.get("ok"):
+                st["form"] = _f2
+                context.user_data["rcap"] = st
+                try:
+                    await update.message.reply_photo(
+                        io.BytesIO(_f2["img"]),
+                        caption="❌ Captcha galat tha — <b>naya captcha likho</b>",
+                        parse_mode=HTML)
+                    return
+                except Exception:                            # noqa: BLE001
+                    pass
+        context.user_data.pop("mode", None)
+        context.user_data.pop("rcap", None)
+        await update.message.reply_text(rcap_fail_card(why, key),
+                                        reply_markup=_kb_bs, parse_mode=HTML)
+        return
+
     if mode == "rc_board":
         # user ne board ka naam likha — khojo
         hits = BRD.find(raw_text)
@@ -9441,6 +9533,55 @@ async def do_ytmp3(update, context, uid, url):
 # ============================================================
 RC_STEPS = ("rc_exam", "rc_year", "rc_board")
 
+# v74.6: captcha bridge ke official endpoints (form khule to yahin se chalega)
+RC_CAP_ENDPOINTS = {
+    "cbse": ["https://cbseresults.nic.in/",
+             "https://results.cbse.nic.in/",
+             "https://cbseresults.nic.in/class10/",
+             "https://cbseresults.nic.in/class12/"],
+}
+
+
+def rcap_result_card(stu: dict, label: str, year, key: str) -> str:
+    """Bridge ka result card — sirf outcome."""
+    b = BRD.BOARDS.get(key) or {}
+    L = [pcard_title("📋", f"RESULT — {str(b.get('short') or key).upper()}"),
+         f"🎓 {hesc(str(label))} · <b>{year}</b>", pcard_sep()]
+    if stu.get("name"):
+        L.append(f"👤 <b>{hesc(str(stu['name']))}</b>")
+    for k2, lb in (("roll_no", "🔢 Roll"), ("school_name", "🏫 School"),
+                   ("father_name", "👨 Father"), ("mother_name", "👩 Mother")):
+        if stu.get(k2):
+            L.append(f"{lb}: {hesc(str(stu[k2]))}")
+    subs = stu.get("subjects") or []
+    if subs:
+        L.append("")
+        L.append("📚 <b>Marks:</b>")
+        for sub in subs[:15]:
+            L.append("├ " + BSEBR._sub_line(sub))
+    L.append(pcard_sep())
+    if stu.get("total"):
+        L.append(f"🎯 <b>Total:</b> {BSEBR._nice(stu.get('total'))}")
+    if stu.get("result"):
+        L.append(f"🏅 <b>Result:</b> {hesc(str(stu['result']))}")
+    L.append("📄 <b>PDF marksheet</b> neeche hai ✅")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
+def rcap_fail_card(why: str, key: str = "") -> str:
+    b = BRD.BOARDS.get(key) or {}
+    line = {"login": "❌ Result abhi nahi mila (portal band/login maangta hai)",
+            "form_nahi": "❌ Result abhi nahi mila",
+            "captcha_img_fail": "❌ Captcha image nahi khuli — dobara try karo",
+            "roll_nahi": "❌ Ye roll number nahi mila",
+            "captcha_galat": "❌ Captcha galat tha",
+            "parse": "❌ Result aa gaya par padha nahi ja saka — dobara try karo",
+            }.get(why, "❌ Result nahi mila — dobara try karo")
+    return "\n".join([pcard_title("📋", f"RESULT — {str(b.get('short') or 'BOARD').upper()}"),
+                       pcard_sep(), line, "", BRAND_LINK])
+
 
 def _rc_pick_card(page: int = 0) -> str:
     """Board chuno (v74.5: sirf BSEB + CBSE)."""
@@ -9501,6 +9642,9 @@ def rc_board_card(key: str) -> tuple:
     if st == "live":
         rows.append([InlineKeyboardButton("🔎 Result check karo (LIVE ✅)",
                                           callback_data=f"rc_live:{key}")])
+    elif key in RC_CAP_ENDPOINTS:
+        rows.append([InlineKeyboardButton("🔎 Result check karo (🔐 captcha)",
+                                          callback_data=f"rc_cap:{key}")])
     rows.append([InlineKeyboardButton("◀️ Saare boards", callback_data="rc_new")])
     return "\n".join(L), InlineKeyboardMarkup(rows)
 

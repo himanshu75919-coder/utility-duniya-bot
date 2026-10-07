@@ -516,7 +516,14 @@ def pdf_filename(exam_key: str, roll_code, roll_no, year) -> str:
     return f"BSEB_{exam_key}_{clean_digits(roll_code)}-{clean_digits(roll_no)}_{year}.pdf"
 
 
-def build_pdf(student: dict, exam_label: str, year, source: str = "") -> bytes:
+_PDF_BOARDS = {
+    "bseb": ("बिहार विद्यालय परीक्षा समिति", "BIHAR SCHOOL EXAMINATION BOARD, PATNA"),
+    "cbse": ("केंद्रीय माध्यमिक शिक्षा बोर्ड", "CENTRAL BOARD OF SECONDARY EDUCATION"),
+}
+
+
+def build_pdf(student: dict, exam_label: str, year, source: str = "",
+              board_key: str = "bseb") -> bytes:
     """Marksheet PDF (portal wali web copy jaisi) — bytes deta hai, fail par None."""
     try:
         from reportlab.lib import colors
@@ -555,15 +562,20 @@ def build_pdf(student: dict, exam_label: str, year, source: str = "") -> bytes:
         _logo_cell = ""
         try:
             from modules import boards as _BRD
-            _lp = _BRD.logo_path("bseb")
+            _lp = _BRD.logo_path(board_key)
             if _lp:
                 _logo_cell = RLImage(_lp, width=21 * mm, height=21 * mm)
+            else:
+                _bb = _BRD.photo_bytes(board_key)          # badge (CBSE etc.)
+                if _bb:
+                    _logo_cell = RLImage(io.BytesIO(_bb), width=21 * mm, height=21 * mm)
         except Exception:                                        # noqa: BLE001
             _logo_cell = ""
         # ---------- header ----------
-        _head_col = [P("बिहार विद्यालय परीक्षा समिति", 13, fdev, MAROON, 1),
+        _bn_dev, _bn_en = _PDF_BOARDS.get(str(board_key), _PDF_BOARDS["bseb"])
+        _head_col = [P(_bn_dev, 13, fdev, MAROON, 1),
                      Spacer(1, 2),
-                     P("BIHAR SCHOOL EXAMINATION BOARD, PATNA", 11, fbd, NAVY, 1),
+                     P(_bn_en, 11, fbd, NAVY, 1),
                      Spacer(1, 3),
                      P(f"{_sane(exam_label)} — {year}", 10, fbd, colors.black, 1)]
         if _logo_cell:

@@ -194,12 +194,17 @@ _c_live, _kb_live = bot.rc_board_card("bseb")
 check("BSEB card: LIVE + check button", "✅ <b>LIVE</b>" in _c_live
       and any("Result check karo" in b.text for r in _kb_live.inline_keyboard for b in r))
 _c_soon, _kb_soon = bot.rc_board_card("cbse")
-check("CBSE card: sirf status + Saare boards button (gyaan nahi)",
+check("CBSE card (v74.6): status + captcha button (gyaan nahi)",
       "Jald live hoga" in _c_soon
-      and [b.text for r in _kb_soon.inline_keyboard for b in r] == ["◀️ Saare boards"])
+      and [b.text for r in _kb_soon.inline_keyboard for b in r] ==
+      ["🔎 Result check karo (🔐 captcha)", "◀️ Saare boards"])
 check("hub card: page + search hint, koi lecture nahi",
       "BOARD chuno" in bot._rc_pick_card(0) and "LIVE" in bot._rc_pick_card(0)
       and "steps" not in bot._rc_pick_card(0).lower())
+check("v74.6: captcha bridge — user captcha, phir PDF (bypass nahi)",
+      "rc_cap_ans" in BOT_SRC and "cb.fetch_form" in BOT_SRC.lower()
+      and "captcha_img_fail" in open(os.path.join(_ROOT, "modules", "captcha_bridge.py"),
+                                     encoding="utf-8").read())
 check("version v74.x (NO-GYAAN + SPEED)",
       "v74." in bot.BOT_VERSION and "NO-GYAAN" in bot.BOT_VERSION, bot.BOT_VERSION)
 

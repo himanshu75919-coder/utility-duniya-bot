@@ -135,10 +135,13 @@ check("board card (portal): sirf status — koi gyaan nahi",
       "Jald live hoga" in _cap_ts and "captcha" not in _cap_ts and "steps" not in _cap_ts)
 check("board card (portal): koi link button NAHI (rule #1)",
       not any(b.url for r in _kb_ts.inline_keyboard for b in r))
-check("board card (portal): sirf 'Saare boards' button",
-      [b.text for r in _kb_ts.inline_keyboard for b in r] == ["◀️ Saare boards"])
+check("board card (v74.6): captcha-bridge button + 'Saare boards'",
+      [b.text for r in _kb_ts.inline_keyboard for b in r] ==
+      ["🔎 Result check karo (🔐 captcha)", "◀️ Saare boards"])
 check("board card (portal): LIVE check button NAHI (jhooth nahi)",
       not any("LIVE" in b.text for r in _kb_ts.inline_keyboard for b in r))
+check("v74.6: CBSE ka captcha bridge wire hai (bot me handler)",
+      "rc_cap:" in BOT_SRC and hasattr(bot, "RC_CAP_ENDPOINTS"))
 _cap_bs, _kb_bs = bot.rc_board_card("bseb")
 check("BSEB card: LIVE ✅ button milta hai",
       any("LIVE" in b.text for r in _kb_bs.inline_keyboard for b in r))
