@@ -215,7 +215,7 @@ check("/rcsetup command hai (step-by-step help)", callable(getattr(bot, "cmd_rcs
 section("[D] 🔁 PURANA KUCH TOOTA NAHI")
 # =====================================================================
 check("4 downloader tools zinda", len(bot.DL_SITES) == 4)
-check("premium tools 42 (35 + vahan + uhunt + 5 v76)", len(bot.PREMIUM_TOOLS) == 42, str(len(bot.PREMIUM_TOOLS)))
+check("premium tools 37 (35 + vahan + uhunt)", len(bot.PREMIUM_TOOLS) == 37, str(len(bot.PREMIUM_TOOLS)))
 check("keyboard rows badhe (18)", len(bot.KB_BTNS) >= 18, str(len(bot.KB_BTNS)))
 check("downloader sabse upar hi hai",
       "INSTA DL" in bot.unbold(bot.KB_BTNS[0][0]).upper())

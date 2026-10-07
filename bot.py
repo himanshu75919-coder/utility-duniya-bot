@@ -123,19 +123,6 @@ from modules.business_tools import (
     menu_card_image as biz_menucard,       # v62
     letter_image as biz_letter,
 )
-# v76: 💰 EARN STUDIO — 5 NAYE premium kamai wale tools
-#      (rent receipt · udhaar khata · offer poster · quotation · profit card)
-#      Ye sab 100% OFFLINE hain — koi API kharidni nahi padti.
-from modules.earn_studio import (
-    EARN_MENU as EARN_STUDIO_MENU,
-    EARN_ORDER as EARN_STUDIO_ORDER,
-    earn_build as earn_studio_build,
-    khata_image as biz_khata,
-    poster_image as biz_poster,
-    profit_card_image as biz_profit,
-    quotation_image as biz_quote,
-    rent_receipt_image as biz_rent,
-)
 
 
 
@@ -444,12 +431,6 @@ TOOL_RATE_LIMITS = {
     "biz_emi":         (12, 120, "EMI / Loan Card"),
     "biz_salary":      (10, 120, "Salary Slip"),          # v62
     "biz_menucard":    (10, 120, "Menu / Rate Card"),     # v62
-    # ---- v76: 💰 EARN STUDIO (5 naye kamai wale tools) ----
-    "biz_rent":        (10, 120, "Rent Receipt"),         # v76
-    "biz_khata":       (10, 120, "Udhaar Khata"),         # v76
-    "biz_poster":      (12, 120, "Offer Poster"),         # v76
-    "biz_quote":       (12, 120, "Quotation"),            # v76
-    "biz_profit":      (10, 120, "Profit Card"),          # v76
 }
 
 # ---------------- CONFIG ----------------
@@ -501,11 +482,9 @@ BOT_VERSION = ("v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saat
                "percent-encoding + asli bank domains ab galat flag NAHI hote) | "
                "🛡️ FORTRESS (crash-proof): bounded cache "
                "(kabhi unlimited nahi badhta) + 🧹 JANITOR (temp safai · atke hue "
-               "ffmpeg process · disk watchdog) + 💰 EARN STUDIO: 5 NAYE kamai wale "
-               "tools (Rent Receipt · Udhaar Khata · Offer Poster · Quotation · "
-               "Profit Card) | 🧠 PRO ENGINE + SMART DETECT + ⚡ PROVIDER RACE & "
-               "CIRCUIT BREAKER + 🗂️ /history + 📊 /toolstats | NO-GYAAN + SPEED "
-               "(purana base zinda)")
+               "ffmpeg process · disk watchdog) | 🧠 PRO ENGINE + SMART DETECT + "
+               "⚡ PROVIDER RACE & CIRCUIT BREAKER + 🗂️ /history + 📊 /toolstats "
+               "| NO-GYAAN + SPEED (purana base zinda)")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -622,12 +601,6 @@ PREMIUM_TOOLS = {
     # ---- v62: 2 naye earning tools ----
     "biz_salary",          # 💰 Salary Slip
     "biz_menucard",        # 🍽️ Menu / Rate Card
-    # ---- v76: 💰 EARN STUDIO — 5 naye kamai wale tools (100% offline) ----
-    "biz_rent",            # 🧾 Rent Receipt (kiraya rasid)
-    "biz_khata",           # 📒 Udhaar Khata (dukaan ka ledger)
-    "biz_poster",          # 🎨 Offer Poster (Diwali / sale)
-    "biz_quote",           # 💼 Quotation (estimate)
-    "biz_profit",          # 📈 Profit Card (business health)
 }
 
 PREMIUM_TOOL_NAMES = {
@@ -669,12 +642,6 @@ PREMIUM_TOOL_NAMES = {
     "biz_emi": "🧮 EMI / Loan Card",
     "biz_salary": "💰 Salary Slip",
     "biz_menucard": "🍽️ Menu / Rate Card",
-    # ---- v76 💰 EARN STUDIO ----
-    "biz_rent": "🧾 Rent Receipt",
-    "biz_khata": "📒 Udhaar Khata",
-    "biz_poster": "🎨 Offer Poster",
-    "biz_quote": "💼 Quotation",
-    "biz_profit": "📈 Profit Card",
 }
 
 
@@ -1381,10 +1348,6 @@ KB_BTNS = [
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
-    # v76: 💰 EARN STUDIO — 5 naye kamai wale tools (rent · khata · poster ·
-    #      quotation · profit card). Alag button isliye: ye sabse zyada
-    #      baar chalne wale tools hain, user ko turant dikhne chahiye.
-    [f"💰 {to_bold('EARN STUDIO')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
     # v75.1: 📤 BULK MODE — earning tool (Excel report). Ye row jaan-boojh kar
@@ -1522,21 +1485,6 @@ BTN_MODE_MAP = {
     "EMI CALCULATOR": "biz_emi", "EMI / VYAAJ CALC": "biz_emi",
     "INTEREST CALC": "biz_emi", "INTEREST CALCULATOR": "biz_emi",
     "EMI CARD": "biz_emi", "LOAN EMI": "biz_emi",
-    # ---- v76: 💰 EARN STUDIO (5 naye kamai wale tools) ----
-    "EARN STUDIO": "earnstudio",
-    "KAMAI STUDIO": "earnstudio",
-    "RENT RECEIPT": "biz_rent", "KIRAYA RASID": "biz_rent",
-    "KIRAYA RECEIPT": "biz_rent", "RENT RASID": "biz_rent",
-    "HOUSE RENT RECEIPT": "biz_rent", "HRA RECEIPT": "biz_rent",
-    "UDHAAR KHATA": "biz_khata", "KHATA": "biz_khata",
-    "LEDGER": "biz_khata", "HISAB KHATA": "biz_khata",
-    "OFFER POSTER": "biz_poster", "POSTER": "biz_poster",
-    "FESTIVAL POSTER": "biz_poster", "SALE POSTER": "biz_poster",
-    "DIWALI POSTER": "biz_poster", "BANNER": "biz_poster",
-    "QUOTATION": "biz_quote", "QUOTE": "biz_quote",
-    "ESTIMATE": "biz_quote", "RATE QUOTATION": "biz_quote",
-    "PROFIT CARD": "biz_profit", "PROFIT LOSS": "biz_profit",
-    "MARGIN CALC": "biz_profit", "BUSINESS HEALTH": "biz_profit",
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
     "VIP PREMIUM": "premium",
@@ -1986,53 +1934,6 @@ PROMPT_DATA = {
                ("500000 | 9.5 | 60", "5 lakh home loan"),
                ("50000 | 18 | 12", "50 hazaar personal loan")],
         "tip": 'Ek line me: loan kitna | byaaz % | kitne mahine',
-    },
-    # ---------------------------------------------- v76 💰 EARN STUDIO (5 naye)
-    "biz_rent": {
-        "head": "🧾 RENT RECEIPT (KIRAYA RASID)",
-        "ask": "Ek line me: <code>makan malik | kirayedar | pata | kiraya | mahina</code>",
-        "ex": [("Ramesh Kumar | Himanshu Kumar | Makan 42, Bihta, Patna | 8500 | September 2026",
-                "poori rasid — HRA claim ke liye"),
-               ("Sunita Devi | Anjali Kumari | Flat 3B, Patna | 12000 | October 2026",
-                "flat ki rasid")],
-        "tip": 'Ek line me: malik | kirayedar | pata | kiraya | mahina',
-    },
-    "biz_khata": {
-        "head": "📒 UDHAAR KHATA (DUKAAN KA LEDGER)",
-        "ask": "Ek line me: <code>dukaan | grahak | phone | entries</code>\n"
-               "Entry format: <code>taareekh, saaman, udhaar, jama</code>",
-        "ex": [("Sharma Kirana | Mohan Yadav | 9876543210 | 01-09, aata, 500, 0",
-                "ek udhaar entry"),
-               ("Kumar Store | Ramesh | | 01-09, cheeni, 300, 0 | 10-09, jama, 0, 300",
-                "udhaar + jama dono")],
-        "tip": 'Ek line me: dukaan | grahak | entries (taareekh, saaman, udhaar, jama)',
-    },
-    "biz_poster": {
-        "head": "🎨 OFFER / FESTIVAL POSTER",
-        "ask": "Ek line me: <code>tyohar | dukaan | offer | phone</code>",
-        "ex": [("Diwali | Sharma Electronics | 50% OFF | 9876543210",
-                "Diwali ka HD poster"),
-               ("Sale | Kumar Garments | Buy 1 Get 1 | 9812345678",
-                "sale ka poster")],
-        "tip": 'Ek line me: tyohar (Diwali/Holi/Sale) | dukaan | offer | phone',
-    },
-    "biz_quote": {
-        "head": "💼 QUOTATION / ESTIMATE",
-        "ask": "Ek line me: <code>company | grahak | kaam qty x rate | GST%</code>",
-        "ex": [("Himanshu Interiors | Ramesh Kumar | Wardrobe 2x45000, Kitchen 1x78000 | 18",
-                "interior ka quotation"),
-               ("Sharma Electricals | Mohan | Wiring 1x25000, Fan 4x1800 | 18",
-                "electrical ka quote")],
-        "tip": 'Ek line me: company | grahak | kaam qty x rate | GST %',
-    },
-    "biz_profit": {
-        "head": "📈 PROFIT CARD (BUSINESS HEALTH)",
-        "ask": "Ek line me: <code>dukaan | mahina | bikri | laagat | kharche</code>",
-        "ex": [("Sharma Kirana | September 2026 | 420000 | 330000 | 58000",
-                "poora munafa + margin + salah"),
-               ("Hotel Shivam | October 2026 | 250000 | 180000 | 45000",
-                "hotel ka munafa")],
-        "tip": 'Ek line me: dukaan | mahina | kul bikri | laagat | baaki kharche',
     },
     "mediastudio": {
         "head": "⚡ MEDIA STUDIO",
@@ -3440,12 +3341,6 @@ BIZ_MENU = {
     "biz_salary":      ("💰", "Salary Slip",            "staff ka monthly pay slip"),
     "biz_menucard":    ("🍽️", "Menu / Rate Card",       "dhaba · hotel · dukaan ka rate list"),
     "biz_emi":         ("🧮", "EMI / Loan Card",         "poora hisaab + schedule"),
-    # ---- v76: 💰 EARN STUDIO — 5 naye kamai wale tools (100% offline) ----
-    "biz_rent":        ("🧾", "Rent Receipt",            "kiraya rasid · HRA claim · 3 page me"),
-    "biz_khata":       ("📒", "Udhaar Khata",            "dukaan ka ledger · kaun kitna dena hai"),
-    "biz_poster":      ("🎨", "Offer Poster",            "Diwali · sale · 50% OFF · HD status"),
-    "biz_quote":       ("💼", "Quotation",               "professional estimate · GST ke saath"),
-    "biz_profit":      ("📈", "Profit Card",             "munafa · margin · business health"),
 }
 
 # ======================================================================
@@ -3542,46 +3437,6 @@ BIZ_STEPS = {
         ("loan_amount", "💰 <b>Step 1/3 — Loan kitne ka hai?</b>\n<i>Sirf number, jaise: 250000</i>", "250000", False),
         ("rate", "📈 <b>Step 2/3 — Byaaj (interest) % saalana?</b>\n<i>Jaise: 11.5</i>", "11.5", False),
         ("months", "🗓️ <b>Step 3/3 — Kitne mahine me chukana hai?</b>\n<i>Jaise: 36</i>", "36", False),
-    ],
-    # ------------------------------------------------ v76 💰 EARN STUDIO (5 naye)
-    "biz_rent": [
-        ("owner", "🏠 <b>Step 1/6 — Makan malik ka naam?</b>\n<i>Jaise: Ramesh Kumar</i>", "Ramesh Kumar", False),
-        ("tenant", "🙋 <b>Step 2/6 — Kirayedar ka naam?</b>\n<i>Jaise: Himanshu Kumar</i>", "Himanshu Kumar", False),
-        ("address", "📍 <b>Step 3/6 — Makan / flat ka poora pata?</b>\n<i>Jaise: Makan No. 42, Bihta, Patna</i>", "Makan No. 42, Bihta, Patna", False),
-        ("amount", "💰 <b>Step 4/6 — Mahine ka kiraya kitna hai?</b>\n<i>Sirf number, jaise: 8500</i>", "8500", False),
-        ("month", "📅 <b>Step 5/6 — Kaunsa mahina?</b>\n<i>Jaise: September 2026</i>", "September 2026", False),
-        ("mode", "💳 <b>Step 6/6 — Payment kaise mila? (aur PAN — optional)</b>\n<i>Jaise: PhonePe | ABCPK1234K</i>\n<i>PAN nahi to <code>SKIP</code></i>", "PhonePe", False),
-    ],
-    "biz_khata": [
-        ("shop", "🏪 <b>Step 1/4 — Dukaan ka naam?</b>", "Sharma Kirana Store", False),
-        ("customer", "🙋 <b>Step 2/4 — Grahak ka naam?</b>", "Mohan Yadav", False),
-        ("phone", "📞 <b>Step 3/4 — Phone number? (optional)</b>\n<i>Nahi to <code>SKIP</code></i>", "9876543210", False),
-        ("entries", "📒 <b>Step 4/4 — Hisaab likhein (har entry alag line)</b>\n<b>Format:</b> <code>taareekh, saaman, udhaar, jama</code>\n<i>Jaise: 01-09, aata, 500, 0</i>\n<i>Jaise: 10-09, jama diya, 0, 400</i>",
-         "01-09, aata, 500, 0", False),
-    ],
-    "biz_poster": [
-        ("theme", "🎊 <b>Step 1/6 — Kaunsa tyohar / offer?</b>\n1 = Diwali · 2 = Holi · 3 = Sale\n4 = New Year · 5 = Eid · 6 = Republic Day\n7 = Independence Day · 8 = Grand Opening\n<i>Number ya naam likhein</i>", "Diwali", False),
-        ("shop", "🏪 <b>Step 2/6 — Dukaan ka naam?</b>", "Sharma Electronics", False),
-        ("offer", "🔥 <b>Step 3/6 — Kya offer hai?</b>\n<i>Jaise: 50% OFF ya Buy 1 Get 1</i>", "50% OFF", False),
-        ("phone", "📞 <b>Step 4/6 — Phone number?</b>", "9876543210", False),
-        ("address", "📍 <b>Step 5/6 — Dukaan ka pata? (optional)</b>\n<i>Nahi to <code>SKIP</code></i>", "Main Road, Bihta, Patna", False),
-        ("items", "📋 <b>Step 6/6 — Kya-kya mil raha hai? (optional)</b>\n<i>Jaise: LED TV, Mixer, Cooler</i>\n<i>Nahi to <code>SKIP</code></i>", "LED TV, Mixer, Cooler", False),
-    ],
-    "biz_quote": [
-        ("shop", "🏢 <b>Step 1/6 — Aapki company / dukaan ka naam?</b>", "Himanshu Interiors", False),
-        ("to", "🙋 <b>Step 2/6 — Grahak (client) ka naam?</b>", "Ramesh Kumar", False),
-        ("items", "🛒 <b>Step 3/6 — Kaam / saaman ki list (qty x rate)</b>\n<i>Jaise: Wardrobe 2x45000, Kitchen 1x78000</i>", "Wardrobe 2x45000, Kitchen 1x78000", False),
-        ("gst", "🧾 <b>Step 4/6 — GST kitna %?</b>\n<i>Jaise: 18 (nahi lagana to 0)</i>", "18", False),
-        ("valid", "⏳ <b>Step 5/6 — Quotation kitne din tak maany rahe?</b>\n<i>Jaise: 30 din</i>", "30 din", False),
-        ("phone", "📞 <b>Step 6/6 — Apna phone / payment ID? (optional)</b>\n<i>Jaise: 9876543210@ybl</i>\n<i>Nahi to <code>SKIP</code></i>", "9876543210@ybl", False),
-    ],
-    "biz_profit": [
-        ("shop", "🏪 <b>Step 1/6 — Business ka naam?</b>", "Sharma Kirana Store", False),
-        ("month", "📅 <b>Step 2/6 — Kaunsa mahina?</b>\n<i>Jaise: September 2026</i>", "September 2026", False),
-        ("sale", "💰 <b>Step 3/6 — Is mahine kul kitni BIKRI hui?</b>\n<i>Sirf number, jaise: 420000</i>", "420000", False),
-        ("cost", "📦 <b>Step 4/6 — Saaman kharidne me kitna kharcha? (laagat)</b>\n<i>Sirf number, jaise: 330000</i>", "330000", False),
-        ("expense", "🧾 <b>Step 5/6 — Baaki kharche? (kiraya, bijli, staff)</b>\n<i>Sirf number, jaise: 58000</i>", "58000", False),
-        ("expense_items", "📋 <b>Step 6/6 — Kharchon ki list? (optional)</b>\n<i>Jaise: Kiraya 12000, Bijli 3500, Staff 30000</i>\n<i>Nahi to <code>SKIP</code></i>", "Kiraya 12000, Bijli 3500, Staff 30000", False),
     ],
 }
 # photo wale step ke field-naam — inme bytes jaate hain, text nahi
@@ -4115,51 +3970,21 @@ def biz_answers_to_dict(key: str, ans: dict) -> dict:
 BIZ_MENU_TEXT = (
     "💼 <b>𝐁𝐔𝐒𝐈𝐍𝐄𝐒𝐒 𝐒𝐓𝐔𝐃𝐈𝐎</b>\n"
     "──────────────────────\n"
-    "Dukaan, school, coaching, job aur loan — <b>17 kaam ki cheezein</b>\n"
+    "Dukaan, school, coaching, job aur loan — <b>12 kaam ki cheezein</b>\n"
     "sirf ek line likh kar banao. Sab <b>print-ready A4 PDF</b> me.\n\n"
-    "🆕 <b>Naye (v76):</b> Rent Receipt · Udhaar Khata · Offer Poster ·\n"
-    "Quotation · Profit Card\n\n"
     "👇 Neeche se tool chuno:"
-)
-
-# v76: 💰 EARN STUDIO — 5 naye kamai wale tools ka alag premium menu
-EARN_MENU_TEXT = (
-    "💰 <b>𝐄𝐀𝐑𝐍 𝐒𝐓𝐔𝐃𝐈𝐎</b> <i>(v76 · naya)</i>\n"
-    "──────────────────────\n"
-    "Ye 5 tools India me <b>sabse zyada maang</b> wale hain —\n"
-    "rent har mahine, khata roz, poster har tyohar.\n\n"
-    "✅ 100% offline (koi API nahi) · ✅ Hindi + English\n"
-    "✅ PNG <b>+ PDF</b> — seedha print ya WhatsApp\n\n"
-    "👇 Tool chuno:"
 )
 
 
 def biz_menu_kb():
     rows, pair = [], []
-    # v76: EARN STUDIO ka shortcut sabse upar
-    rows.append([InlineKeyboardButton("💰 EARN STUDIO — naye tools ➡️",
-                                      callback_data="earnstudio")])
     for key, (icon, name, _sub) in BIZ_MENU.items():
-        if key in EARN_STUDIO_MENU:
-            continue          # ye EARN STUDIO menu me hain
         pair.append(InlineKeyboardButton(f"{icon} {name}", callback_data=f"biz:{key}"))
         if len(pair) == 2:
             rows.append(pair); pair = []
     if pair:
         rows.append(pair)
     rows.append([InlineKeyboardButton("🏠 Home", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def earn_menu_kb():
-    """v76: 💰 EARN STUDIO ka keyboard (5 naye premium tools)."""
-    rows = []
-    for key in EARN_STUDIO_ORDER:
-        icon, name, sub = EARN_STUDIO_MENU.get(key, ("📄", key, ""))
-        rows.append([InlineKeyboardButton(f"{icon} {name}",
-                                          callback_data=f"biz:{key}")])
-    rows.append([InlineKeyboardButton("💼 Business Studio", callback_data="bizstudio"),
-                 InlineKeyboardButton("🏠 Home", callback_data="back_home")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -4318,75 +4143,9 @@ def biz_parse(key: str, line: str, owner_name: str = "") -> dict:
                  "loan_amount": _biz_num(p[0]) if p else 0,
                  "rate": _biz_num(p[1]) if len(p) > 1 else 10,
                  "months": int(_biz_num(p[2], 12)) if len(p) > 2 else 12}
-
-        # ------------------------------------------- v76 💰 EARN STUDIO (5 naye)
-        elif key == "biz_rent":
-            # ek line: makan-malik | kirayedar | pata | kiraya | mahina | mode|PAN
-            d = {"owner": (p[0] if p else "") or owner_name,
-                 "tenant": p[1] if len(p) > 1 else "",
-                 "address": p[2] if len(p) > 2 else "",
-                 "amount": _biz_num(p[3]) if len(p) > 3 else 0,
-                 "month": (p[4] if len(p) > 4 else ""),
-                 "mode": (p[5] if len(p) > 5 else "Cash")}
-            if len(p) > 6:
-                d["pan"] = p[6]
-        elif key == "biz_khata":
-            # ek line: dukaan | grahak | phone | entries
-            d = {"shop": (p[0] if p else "") or owner_name,
-                 "customer": p[1] if len(p) > 1 else "",
-                 "phone": p[2] if len(p) > 2 else "",
-                 "entries": p[3] if len(p) > 3 else ""}
-        elif key == "biz_poster":
-            d = {"theme": _poster_theme(p[0] if p else ""),
-                 "shop": (p[1] if len(p) > 1 else "") or owner_name,
-                 "offer": (p[2] if len(p) > 2 else "") or "SALE",
-                 "phone": p[3] if len(p) > 3 else "",
-                 "address": p[4] if len(p) > 4 else "",
-                 "items": p[5] if len(p) > 5 else ""}
-        elif key == "biz_quote":
-            d = {"shop": (p[0] if p else "") or owner_name,
-                 "to": p[1] if len(p) > 1 else "",
-                 "items": _biz_items(p[2] if len(p) > 2 else ""),
-                 "gst": _biz_num(p[3], 18) if len(p) > 3 else 18,
-                 "valid": (p[4] if len(p) > 4 else "") or "15 din",
-                 "upi": p[5] if len(p) > 5 else ""}
-        elif key == "biz_profit":
-            d = {"shop": (p[0] if p else "") or owner_name,
-                 "month": p[1] if len(p) > 1 else "",
-                 "sale": _biz_num(p[2]) if len(p) > 2 else 0,
-                 "cost": _biz_num(p[3]) if len(p) > 3 else 0,
-                 "expense": _biz_num(p[4]) if len(p) > 4 else 0,
-                 "expense_items": p[5] if len(p) > 5 else ""}
     except Exception:                                            # noqa: BLE001
         pass
     return d
-
-
-# v76: poster theme ka naam -> key (user "Diwali" likhe ya "1", dono chalenge)
-_POSTER_THEME_MAP = {
-    "1": "diwali", "diwali": "diwali", "deepawali": "diwali", "दिवाली": "diwali",
-    "2": "holi", "holi": "holi", "होली": "holi",
-    "3": "sale", "sale": "sale", "offer": "sale", "sail": "sale",
-    "4": "newyear", "new year": "newyear", "naye saal": "newyear",
-    "5": "eid", "eid": "eid", "ईद": "eid",
-    "6": "republic", "republic day": "republic", "ganatantra": "republic",
-    "7": "independence", "15 august": "independence", "swatantrata": "independence",
-    "8": "opening", "grand opening": "opening", "nayi dukaan": "opening",
-}
-
-
-def _poster_theme(raw: str) -> str:
-    """User ne jo bhi likha (naam ya number) -> sahi theme key."""
-    try:
-        t = str(raw or "").strip().lower()
-        if t in _POSTER_THEME_MAP:
-            return _POSTER_THEME_MAP[t]
-        for k, v in _POSTER_THEME_MAP.items():
-            if len(k) > 3 and k in t:
-                return v
-    except Exception:                                            # noqa: BLE001
-        pass
-    return "sale"
 
 
 def biz_build(key: str, d: dict) -> dict:
@@ -4398,12 +4157,6 @@ def biz_build(key: str, d: dict) -> dict:
           "biz_labels": biz_labels, "biz_emi": biz_emi_card,
           "biz_salary": biz_salary, "biz_menucard": biz_menucard}.get(key)
     if fn is None:
-        # v76: 💰 EARN STUDIO ke 5 naye tools (rent · khata · poster · quote · profit)
-        try:
-            if str(key) in EARN_STUDIO_MENU:
-                return earn_studio_build(key, d)
-        except Exception:                                        # noqa: BLE001
-            pass
         return {"ok": False, "error": "tool nahi mila"}
     return fn(d)
 
@@ -6428,13 +6181,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                              InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
         return
 
-    # v76: 💰 EARN STUDIO — 5 naye kamai wale tools ka apna menu
-    if data == "earnstudio":
-        context.user_data["mode"] = "earn_menu"
-        await safe_edit(q.message, EARN_MENU_TEXT, reply_markup=earn_menu_kb(),
-                        parse_mode=HTML)
-        return
-
     if data == "bizstudio":
         context.user_data["mode"] = "biz_menu"
         await safe_edit(q.message, BIZ_MENU_TEXT, reply_markup=biz_menu_kb(), parse_mode=HTML)
@@ -7685,12 +7431,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if action == "bizstudio":
             context.user_data["mode"] = "biz_menu"
             await update.message.reply_text(BIZ_MENU_TEXT, reply_markup=biz_menu_kb(),
-                                            parse_mode=HTML)
-            return
-        # 3d-2. v76: 💰 EARN STUDIO (5 naye kamai wale tools)
-        if action == "earnstudio":
-            context.user_data["mode"] = "earn_menu"
-            await update.message.reply_text(EARN_MENU_TEXT, reply_markup=earn_menu_kb(),
                                             parse_mode=HTML)
             return
         if action and action.startswith("biz_"):

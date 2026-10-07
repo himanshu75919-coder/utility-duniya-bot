@@ -223,7 +223,7 @@ check("_http_engine_line() chalta hai (crash nahi)", "calls=" in _line, _line)
 
 # =====================================================================
 section("6) Regression — purane tools jaise the waise hi (kuch nahi toota)")
-check("premium tools count wahi (42)", len(bot.PREMIUM_TOOLS) == 42, str(len(bot.PREMIUM_TOOLS)))
+check("premium tools count wahi (37)", len(bot.PREMIUM_TOOLS) == 37, str(len(bot.PREMIUM_TOOLS)))
 check("temp mail (number) tool zinda", bot.BTN_MODE_MAP.get("TEMP MAIL (NUMBER)") == "tnum")
 check("temp number apna throttled session rakhta hai (jaan-boojh ke)",
       "requests.Session()" in open(os.path.join(_ROOT, "modules", "temp_number.py"),

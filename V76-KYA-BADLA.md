@@ -1,18 +1,23 @@
-# v76.0 — FORTRESS + EARN STUDIO
+# v76.0 — FORTRESS (sirf CRASH-FIX)
 
-**Ek line me:** Bot ab *crash-proof* hai (3 chhupe kaaran khatam) aur 5 **naye kamai wale** tools jud gaye hain.
+> ⚠️ **Is release me KOI NAYA TOOL ADD NAHI HUA.**
+> Sirf ek kaam hua hai: **bot ko crash hone se rokna**.
+> Naye tool ke *ideas* neeche **sirf list** kiye gaye hain (Hissa 3) —
+> unme se koi bhi bot me daala nahi gaya. Aap bataayein kaunsa chahiye,
+> tabhi add hoga.
 
-Test suite: **2,981 checks · 0 FAIL** (33 test files)
+Test suite: **2,709 checks · 0 FAIL** (33 test files)
+Baseline (v75.2) se compare kiya — **ek bhi purana check nahi toota**.
 
 ---
 
-## 🚨 Hissa 1 — CRASH KYUN HO RAHA THA (aur kya fix hua)
+## 🚨 CRASH KYUN HO RAHA THA (asli wajah)
 
-Bot mein pehle se memory-watchdog aur hang-watchdog the. Phir bhi Render par bot
-baar-baar crash hota tha. Poore code ki khoj (29,000+ lines) ke baad **3 asli
-kaaran** mile — teenon ab band hain:
+Bot mein pehle se memory-watchdog aur hang-watchdog the. Phir bhi Render par
+bot baar-baar crash hota tha. Poore code ki khoj (29,000+ lines) ke baad
+**3 asli kaaran** mile — teenon ab band hain:
 
-### ❌ Kaaran 1: Cache jo kabhi saaf nahi hota (OOM KILL)
+### ❌ Kaaran 1: Cache jo kabhi saaf nahi hota → **OOM KILL**
 
 ```python
 # PEHLE (modules/osint_hub.py, username_hunter.py, vehicle_tool.py)
@@ -32,14 +37,14 @@ _CACHE = BoundedCache("osint_hub", maxsize=512, default_ttl=300)
 
 - Zyada se zyada 512 entry — usse aage purani apne aap nikal jaati hai (LRU)
 - TTL khatam → entry apne aap hat jaati hai
-- Saare cache ek **registry** mein → memory watchdog ek hi baar mein sab saaf kar deta hai
+- Saare cache ek **registry** mein → memory watchdog ek hi baar mein sab saaf karta hai
 - Thread-safe (6 thread ek saath test kiya — zero crash)
 
 **Fix hue:** `osint_hub`, `username_hunter`, `vehicle_tool`, `business_tools` (fonts)
 
 ---
 
-### ❌ Kaaran 2: `/tmp` bhar jaata tha (DISK FULL)
+### ❌ Kaaran 2: `/tmp` bhar jaata tha → **DISK FULL**
 
 Media tools `tempfile.mkdtemp(prefix="udl_")` banate hain. Agar download ke
 beech error aaye to `shutil.rmtree` tak pahunch hi nahi paata — folder
@@ -60,7 +65,7 @@ chhoo-ta hai — kisi doosre program ki file ko haath nahi lagata (test mein che
 
 ---
 
-### ❌ Kaaran 3: Atke hue process (RAM + CPU leak)
+### ❌ Kaaran 3: Atke hue process → **RAM + CPU leak**
 
 Download timeout hone par uska **ffmpeg process chalta rehta tha** — RAM aur CPU
 khaata rehta. 20 aise process = Render free 512 MB full = OOM kill.
@@ -70,7 +75,7 @@ Pehle unhe koi maarta hi nahi tha.
 
 ---
 
-### ➕ Bonus: `/sys` aur `/health` ab aur bhi zyada batate hain
+## ➕ Bonus: `/sys` aur `/health` ab crash ka kaaran **dikhate** hain
 
 ```
 🧹 JANITOR (v76 — khud safai):
@@ -80,100 +85,88 @@ Pehle unhe koi maarta hi nahi tha.
    💾 Disk: 41% bhari · 86 safai cycle
 ```
 
-Ab aap `/sys` dabakar **seedha dekh sakte hain** ki bot kyun slow/crash ho raha hai.
+Telegram par `/sys` dabayein (sirf admin) — ab aap **seedha dekh sakte hain**
+ki bot kyun slow/crash ho raha tha. Pehle ye sab andhera tha.
+
+Live par bhi: `https://utility-duniya-bot.onrender.com/health`
 
 ---
 
-## 💰 Hissa 2 — 5 NAYE KAMAI WALE TOOLS (EARN STUDIO)
+## 🔒 JO KUCH NAHI CHHERA GAYA (aapke order ke mutabiq)
 
-Naya main-keyboard button: **💰 EARN STUDIO**
-
-| Tool | Kya banta hai | Kaun use karega | Kitni baar |
-|---|---|---|---|
-| 🧾 **Rent Receipt** | Ek A4 page par **3 kiraya rasid** (revenue-stamp box, PAN, HRA ke liye) | Kirayedar + makan malik | **Har mahine** |
-| 📒 **Udhaar Khata** | Dukaan ka ledger — udhaar, jama, running balance, net baaki | Kirana/dukaandaar | **Roz** |
-| 🎨 **Offer Poster** | HD 1080×1920 poster — Diwali/Holi/Sale/Opening (9 themes) | Har dukaan | **Har tyohar** |
-| 💼 **Quotation** | Professional estimate — items, GST, validity, terms | Contractor, designer, electrician | Kaam ke hisaab se |
-| 📈 **Profit Card** | Munafa/nuksan + margin % + business health + salah | Har business owner | Mahine mein |
-
-**Kyun ye 5?** Kyunki inki maang *roz / har mahine* ki hai — matlab user
-baar-baar aayega. Ye sab **100% offline** hain (koi API kharidni nahi padti,
-koi monthly bill nahi). PNG **+ PDF** dono bhejta hai.
-
-Kaise chalega: `💰 EARN STUDIO` → tool chuno → **step-by-step** sawalon ke
-jawab do → file tayyar. Chahein to **ek line** mein bhi likh sakte hain.
-
----
-
-## 🔒 Hissa 3 — JO NAHI CHHERA GAYA
-
-Aapke order ke mutabiq:
-
-- ✅ **Koi bhi purana prompt nahi badla** — saare 22 purane tool ke prompt waise hi hain
-- ✅ Saare 12 purane Business Studio tool waise hi zinda (tests check karte hain)
+- ✅ **Koi bhi purana prompt nahi badla** — saare purane tools ke prompt waise hi
+- ✅ **Koi naya tool / button add nahi kiya**
+- ✅ Saare 12 Business Studio tool waise hi zinda
+- ✅ `BIZ_MENU` 12, `PREMIUM_TOOLS` 37 — sab wahi (tests check karte hain)
 - ✅ VIP / credits / referral / vault system jaisa tha waisa hi
-- ✅ Naye tools ke liye **naye** prompt add kiye (purane chhune nahi gaye)
 - ✅ **Koi nayi dependency nahi** — `requirements.txt` wahi hai (deploy safe)
 
 ---
 
-## 📂 Nayi files
+## 📂 Files
 
 | File | Kaam |
 |---|---|
-| `modules/core/bounded.py` | Bounded cache + global registry |
-| `modules/core/janitor.py` | Temp safai · process safai · disk watchdog |
-| `modules/earn_studio.py` | 5 naye kamai wale tools |
-| `tests/test_v86.py` | 126 naye checks |
-
-**Badli gayi:** `bot.py`, `modules/osint_hub.py`, `modules/username_hunter.py`,
-`modules/vehicle_tool.py`, `modules/business_tools.py`
+| `modules/core/bounded.py` | **NAYI** — Bounded cache + global registry |
+| `modules/core/janitor.py` | **NAYI** — Temp safai · process safai · disk watchdog |
+| `tests/test_v86.py` | **NAYI** — 42 naye checks (crash-fix + regression) |
+| `bot.py` | Janitor ON karna, cache registry, `/sys` + `/health` report |
+| `modules/osint_hub.py` | Cache → bounded |
+| `modules/username_hunter.py` | Cache → bounded |
+| `modules/vehicle_tool.py` | Cache → bounded |
+| `modules/business_tools.py` | Font cache → bounded |
 
 ---
 
-## 🌱 Hissa 4 — AAGE KYA-KYA ADD KAR SAKTE HAIN (aur earning ideas)
+# 🌱 Hissa 3 — AUR EARNING TOOLS KE IDEAS
 
-Yeh woh tools hain jinse aage **sabse zyada kamai** ho sakti hai. Priority ke hisaab se:
+> 👉 **Ye SIRF IDEAS hain. Inme se kuch bhi bot me add NAHI kiya gaya hai.**
+> Neeche se jo pasand aaye, bata dijiye — main wahi add kar dunga.
 
-### 🔥 Pehle ye (sabse zyada maang)
+## 🔥 Sabse zyada maang wale (pehle inpe sochiye)
 
-1. **🧾 Kiraya Agreement (Rent Agreement)** — 11 mahine ka rent agreement, stamp paper
-   ke saath. Rent receipt ka *natural next step* — same user khareedega.
-2. **📊 GST Bill Book (monthly register)** — poore mahine ke bill ek register me,
-   GSTR-1 jaisa summary. Dukaandaar ko har mahine chahiye.
-3. **🧮 Business Loan / CC Calculator** — muddat, byaaj, EMI, total vyaj.
-4. **👷 Labour / Mistri Payment Slip** — daily-wage workers ka payment record
-   (construction, factory — Bahut bada market).
-5. **🏪 Shop Stock / Inventory Sheet** — kya bacha, kya khatam, reorder list.
-6. **📅 EMI Reminder / Udhaar Reminder** — "aaj 3 grahak ko reminder bhejo"
-   (bot khud yaad dilaye) — retention badhata hai.
-7. **🎓 School / Coaching Fee Receipt** — har mahine, har student.
-8. **🧾 Payslip Pack (10 staff ek saath)** — ek baar mein 10 salary slip.
+| # | Idea | Kya banega | Kaun use karega | Kitni baar |
+|---|---|---|---|---|
+| 1 | 🧾 **Rent Agreement** | 11 mahine ka rent agreement (stamp-paper format) | Kirayedar + makan malik | Saal me 1 baar |
+| 2 | 🧾 **Rent Receipt** | Kiraya ki rasid (HRA tax claim ke liye), ek page par 3 | Kirayedar | **Har mahine** |
+| 3 | 📒 **Udhaar Khata** | Dukaan ka ledger — udhaar, jama, balance | Kirana / dukaandaar | **Roz** |
+| 4 | 🧾 **Fee Receipt** | School / coaching ki fee rasid | School, coaching | **Har mahine** |
+| 5 | 📊 **GST Bill Register** | Poore mahine ke bill ek register me + GSTR-1 summary | Har dukaandaar | **Har mahine** |
+| 6 | 👷 **Labour / Mistri Payment Slip** | Daily-wage worker ka payment record | Construction, factory | **Roz** |
+| 7 | 📦 **Stock / Inventory Sheet** | Kya bacha, kya khatam, reorder list | Dukaandaar | Hafte me |
+| 8 | 🎓 **Marksheet / Result Card** | School ka result card | School | Saal me |
+| 9 | 💰 **Salary Slip Pack** | Ek baar me 10 staff ki salary slip | Chhoti company | **Har mahine** |
+| 10 | ⏰ **Udhaar Reminder** | "Aaj 3 grahak ko reminder bhejo" — bot khud yaad dilaye | Dukaandaar | **Roz** |
 
-### 💎 Premium feel badhane wale
+## 💎 Premium feel badhane wale
 
-9. **🪪 Digital Visiting Card (link + QR)** — ek link, jisme card + call + WhatsApp
-   + Google Maps location. Dukaandaar ₹199–₹499 de sakta hai.
-10. **🛒 WhatsApp Catalogue Maker** — product photo + rate → ek catalogue PDF.
-11. **🖼️ Social Media Kit** — ek hi design me Instagram post + story + WhatsApp status.
-12. **🎉 Birthday / Anniversary Wishing Poster** — dukaan ka brand lagakar
-    (har din kisi na kisi ko chahiye — viral bhi hota hai).
-13. **📜 Legal Notice / Notice Format Pack** — legal notice, rent notice.
-14. **🏥 Medical / Clinic Prescription Pad + Appointment Card**.
-15. **🚚 Delivery Challan / Transport Receipt.**
+11. 🪪 **Digital Visiting Card** — ek link jisme card + call + WhatsApp + Google Maps location. Dukaandaar ₹199–₹499 de sakta hai.
+12. 🛒 **WhatsApp Catalogue Maker** — product photo + rate → catalogue PDF.
+13. 🖼️ **Social Media Kit** — ek hi design me Instagram post + story + WhatsApp status.
+14. 🎉 **Birthday / Anniversary Poster** — dukaan ka brand lagakar (har din kisi na kisi ko chahiye, viral bhi hota hai).
+15. 🏪 **Shop Banner / Flex Design** — dukaan ke bahar lagane wala flex (festival + offer).
+16. 📜 **Legal Notice Pack** — legal notice, rent notice, cheque-bounce notice.
+17. 🏥 **Clinic Prescription Pad + Appointment Card**.
+18. 🚚 **Delivery Challan / Transport Receipt**.
+19. 🧮 **Business Loan / CC Calculator** — muddat, byaaj, EMI, total vyaj.
+20. 📈 **Profit & Loss / Margin Card** — munafa, margin %, business health + salah.
 
-### 💵 Kamai ka model (sabse zaroori)
+## 💵 Kamai ka model (sabse zaroori)
 
 | Tareeka | Kaise |
 |---|---|
 | **VIP subscription** | ₹99/mah · ₹249/3 mahine · ₹499/saal — unlimited sab tools |
 | **Pay-per-file** | 10 credit free, uske baad ₹5–₹20 per file |
-| **Reseller** | Dukaandaar ko 50-file pack ₹299 (bulk) |
-| **Apni branding** | Business Studio me dukaan ka naam/logo — log apna brand dekh kar khareedte hain |
+| **Reseller / bulk** | Dukaandaar ko 50-file pack ₹299 |
+| **Apni branding** | Har document me dukaan ka naam/logo — log apna brand dekh kar khareedte hain |
 | **Referral** | Pehle se hai — "5 dost lao, 1 mahina free VIP" |
 
-> 💡 **Sabse tez kamai wala combo:** Rent Receipt + Rent Agreement + Fee Receipt.
-> Ye teeno *mahine ke hisaab se* chalte hain, matlab user har mahine wapas aayega.
+> 💡 **Sabse tez kamai wala combo:** Rent Receipt + Rent Agreement + Fee Receipt +
+> Udhaar Khata. Ye *mahine / roz* ke hisaab se chalte hain — matlab user
+> baar-baar aayega. Ek baar aaya user = lifetime customer.
+
+> 🎯 **Sabse zyada premium feel:** Digital Visiting Card + Social Media Kit —
+> inme dukaan ka apna brand dikhta hai, isliye log paisa dene ko taiyaar rehte hain.
 
 ---
 
@@ -181,9 +174,9 @@ Yeh woh tools hain jinse aage **sabse zyada kamai** ho sakti hai. Priority ke hi
 
 ```bash
 # poora test suite
-python3 -m pytest tests/ -q        # ya: har file alag se chalayein
+python3 -m pytest tests/ -q
 
-# sirf naye v76 tests
+# sirf v76 ke crash-fix tests
 python3 tests/test_v86.py
 
 # bot ki health (bina Telegram ke)

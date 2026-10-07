@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-v86 SELFTEST — v76 "FORTRESS + EARN STUDIO"
-===========================================
-Aaj ke 3 kaam ke test:
+v86 SELFTEST — v76 "FORTRESS" (SIRF CRASH-FIX)
+==============================================
+Is release me sirf EK kaam hua hai: **bot ko crash hone se rokna**.
+Koi naya tool add nahi hua, koi purana prompt nahi badla.
 
   A. 🪣 BOUNDED CACHE — cache jo KABHI unlimited nahi badhta
      v76 se pehle: osint_hub / username_hunter / vehicle_tool ke cache aam
@@ -16,18 +17,13 @@ Aaj ke 3 kaam ke test:
      3) expire cache entry nikaalte hain
      4) disk 88% se upar -> turant aggressive safai
 
-  C. 💰 EARN STUDIO — 5 naye premium kamai wale tools
-     Rent Receipt · Udhaar Khata · Offer Poster · Quotation · Profit Card
-     Har tool: PNG + PDF, Hindi+English, aur galat input par bhi CRASH NAHI.
-
-  D. 🔗 WIRING — naye tools BIZ_MENU / PREMIUM / STEPS / keyboard me hain,
-     aur purane tools ka kuch nahi bigda (regression check).
+  C. 🔗 WIRING + 🛡️ REGRESSION — crash-shield zinda hai, aur bot me
+     koi bhi NAya tool nahi juda (BIZ_MENU / PREMIUM_TOOLS count wahi).
 """
-import io
 import os
-import re
 import sys
 import tempfile
+import time as _t
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -83,7 +79,6 @@ check("evictions count hua", c.stats()["evictions"] > 0,
 c2 = BoundedCache("v86_ttl", maxsize=10, default_ttl=1)
 c2.put("soon", "value", ttl=1)
 check("TTL se pehle value milti hai", c2.get("soon") == "value")
-import time as _t                                                  # noqa: E402
 _t.sleep(1.3)
 check("TTL ke baad value expire (None)", c2.get("soon") is None,
       f"got={c2.get('soon')}")
@@ -91,7 +86,7 @@ check("TTL ke baad value expire (None)", c2.get("soon") is None,
 # registry + clear
 c3 = BoundedCache("v86_reg", maxsize=50, default_ttl=600)
 c3.put("a", 1)
-names = [x["name"] for x in cache_report()["caches"]]
+names = [x.name for x in registry()]
 check("registry me saare cache dikhte hain",
       "v86_reg" in names and "v86_test" in names, f"names={names[:6]}")
 check("prune_all_caches chalta hai (int return)",
@@ -129,7 +124,7 @@ with open(os.path.join(old_dir, "video.mp4"), "wb") as fh:
     fh.write(b"x" * 4096)
 os.utime(old_dir, (_t.time() - 7200, _t.time() - 7200))     # 2 ghante purana
 fresh_dir = tempfile.mkdtemp(prefix="udl_v86_fresh_")        # abhi bana hai
-res = J.sweep_now()
+J.sweep_now()
 check("purana udl_ folder hat gaya", not os.path.exists(old_dir))
 check("JANITOR ne folder ginati badhayi", J.JAN["tmp_dirs"] >= 1,
       f"dirs={J.JAN['tmp_dirs']}")
@@ -163,233 +158,30 @@ check("disk_pct 0 se 100 ke beech", 0.0 <= st["disk_pct"] <= 100.0,
 
 
 # ======================================================================
-section("C) 💰 EARN STUDIO — 5 naye premium kamai wale tools")
-# ======================================================================
-from modules import earn_studio as ES                              # noqa: E402
-from PIL import Image                                              # noqa: E402
-
-GOOD = {
-    "biz_rent": dict(owner="Ramesh Kumar", tenant="Himanshu Kumar",
-                     address="Makan 42, Bihta, Patna", amount=8500,
-                     month="September 2026", mode="UPI", pan="ABCPK1234K",
-                     start_no=11),
-    "biz_khata": dict(shop="Sharma Kirana", customer="Mohan Yadav",
-                      phone="9876543210",
-                      entries="01-09, aata, 500, 0 | 10-09, jama, 0, 300"),
-    "biz_poster": dict(shop="Sharma Electronics", offer="50% OFF",
-                       theme="diwali", phone="9876543210",
-                       address="Main Road, Patna", dates="20 Oct se 5 Nov",
-                       items="LED TV, Mixer, Cooler"),
-    "biz_quote": dict(shop="Himanshu Interiors", to="Ramesh Kumar",
-                      items=[{"name": "Wardrobe", "qty": 2, "rate": 45000},
-                             {"name": "Kitchen", "qty": 1, "rate": 78000}],
-                      gst=18, valid="30 din", upi="9876543210@ybl"),
-    "biz_profit": dict(shop="Sharma Kirana", month="September 2026",
-                       sale=420000, cost=330000, expense=58000,
-                       expense_items="Kiraya 12000, Bijli 3500, Staff 30000"),
-}
-
-for key, data in GOOD.items():
-    r = ES.earn_build(key, data)
-    ok = bool(r.get("ok"))
-    check(f"{key}: image bani", ok, str(r.get("error"))[:80])
-    if not ok:
-        continue
-    png = r.get("png") or b""
-    check(f"{key}: PNG bytes mile (>10 KB)", len(png) > 10000,
-          f"{len(png)}B")
-    try:
-        im = Image.open(io.BytesIO(png))
-        check(f"{key}: image khulti hai {im.size}", im.size[0] > 500)
-    except Exception as e:
-        check(f"{key}: image khulti hai", False, str(e)[:80])
-    pdf = ES.earn_pdf(r)
-    check(f"{key}: PDF bhi bana (print ke liye)", bool(pdf), "pdf=None")
-
-# ---- Rent receipt khaas baatein ----
-r = ES.earn_build("biz_rent", GOOD["biz_rent"])
-check("rent receipt: ek page par 3 receipt", r.get("count") == 3,
-      f"count={r.get('count')}")
-check("rent receipt: stamp lagane ki salah deta hai",
-      "stamp" in str(r.get("notice", "")).lower())
-
-# ---- Khata ka hisaab ----
-r = ES.earn_build("biz_khata", dict(shop="S", customer="M",
-                                    entries="01-09, aata, 500, 0 | 10-09, jama, 0, 300"))
-check("khata: hisaab sahi (500 udhaar - 300 jama = 200 baaki)",
-      abs(r.get("amount", 0) - 200.0) < 0.01, f"amount={r.get('amount')}")
-
-# ---- Quotation ka hisaab ----
-r = ES.earn_build("biz_quote", dict(shop="X", to="Y",
-                                    items=[{"name": "A", "qty": 2, "rate": 1000}],
-                                    gst=18))
-# 2000 + 18% = 2360
-check("quotation: 2000 + 18% GST = 2360", abs(r.get("amount", 0) - 2360.0) < 0.01,
-      f"amount={r.get('amount')}")
-
-# ---- Profit card ka hisaab ----
-r = ES.earn_build("biz_profit", dict(shop="X", sale=100000, cost=60000,
-                                     expense=20000))
-check("profit: 100000 - 60000 - 20000 = 20000",
-      abs(r.get("amount", 0) - 20000.0) < 0.01, f"amount={r.get('amount')}")
-r_loss = ES.earn_build("biz_profit", dict(shop="X", sale=50000, cost=60000,
-                                          expense=10000))
-check("profit: ghata wala case bhi chalta hai (negative)",
-      bool(r_loss.get("ok")) and r_loss.get("amount", 0) < 0,
-      f"amount={r_loss.get('amount')}")
-
-# ---- Poster themes ----
-for theme in ("diwali", "holi", "sale", "newyear", "eid", "republic",
-              "independence", "opening", "custom", "kuch-bhi-galat"):
-    rr = ES.poster_image(dict(shop="Test", offer="50% OFF", theme=theme,
-                              phone="9876543210"))
-    check(f"poster theme '{theme}' chalta hai", bool(rr.get("ok")),
-          str(rr.get("error"))[:60])
-
-# ---- CRASH TEST: har tarah ka kharaab input ----
-BAD = ["", "   ", "|", "|||", "abc", "0", "-5", "99999999999999",
-       "😀😀😀", "a" * 5000, None, 12345, [], {}]
-crashes = 0
-for key in GOOD:
-    for bad in BAD:
-        try:
-            out = ES.earn_build(key, bad if isinstance(bad, dict) else
-                                {"shop": bad, "amount": bad, "sale": bad,
-                                 "entries": bad, "items": bad})
-            if not isinstance(out, dict):
-                crashes += 1
-                print(f"     ⚠️ {key}: dict nahi mila -> {type(out)}")
-        except Exception as e:
-            crashes += 1
-            print(f"     ⚠️ CRASH {key} input={str(bad)[:20]!r}: "
-                  f"{type(e).__name__}: {e}")
-check("❌ ZERO crash — 65 kharaab input ke bawajood (sab dict return)",
-      crashes == 0, f"crashes={crashes}")
-
-
-# ======================================================================
-section("D) 🔗 WIRING — bot.py me sab juda hai (regression ke saath)")
+section("C) 🔗 WIRING + 🛡️ REGRESSION — crash-shield zinda, koi naya tool nahi")
 # ======================================================================
 import bot                                                         # noqa: E402
 
-NEW = ["biz_rent", "biz_khata", "biz_poster", "biz_quote", "biz_profit"]
-for k in NEW:
-    check(f"{k}: BIZ_MENU me hai (routing isi se hoti hai)", k in bot.BIZ_MENU)
-    check(f"{k}: PREMIUM_TOOLS me hai (kamai ka model)", k in bot.PREMIUM_TOOLS)
-    check(f"{k}: TOOL_RATE_LIMITS me hai (rate-limit to crash na ho)",
-          k in bot.TOOL_RATE_LIMITS)
-    check(f"{k}: PREMIUM_TOOL_NAMES me hai", k in bot.PREMIUM_TOOL_NAMES)
-    check(f"{k}: BIZ_STEPS (step-by-step wizard) me hai",
-          len(bot.biz_steps(k)) >= 3, f"steps={len(bot.biz_steps(k))}")
-    check(f"{k}: PROMPT_DATA me hai (tool ka prompt)", k in bot.PROMPT_DATA)
-
-check("EARN_STUDIO_MENU me 5 tools", len(bot.EARN_STUDIO_MENU) == 5)
-check("EARN_STUDIO_ORDER sahi kram me", bot.EARN_STUDIO_ORDER[0] == "biz_rent")
-check("'EARN STUDIO' keyword → earnstudio action",
-      bot.BTN_MODE_MAP.get("EARN STUDIO") == "earnstudio")
-for kw, want in (("RENT RECEIPT", "biz_rent"), ("KIRAYA RASID", "biz_rent"),
-                 ("UDHAAR KHATA", "biz_khata"), ("OFFER POSTER", "biz_poster"),
-                 ("QUOTATION", "biz_quote"), ("PROFIT CARD", "biz_profit"),
-                 ("KHATA", "biz_khata"), ("ESTIMATE", "biz_quote")):
-    check(f"keyword '{kw}' → {want}", bot.BTN_MODE_MAP.get(kw) == want,
-          f"got={bot.BTN_MODE_MAP.get(kw)}")
-
-# menu keyboards
-try:
-    kb = bot.earn_menu_kb()
-    flat = [b.callback_data for row in kb.inline_keyboard for b in row]
-    check("earn_menu_kb: 5 tool buttons hain",
-          sum(1 for x in flat if x.startswith("biz:biz_")) == 5, f"{flat}")
-    check("earn_menu_kb: callback data 64 byte se chhota (Telegram limit)",
-          all(len(x.encode()) <= 64 for x in flat))
-except Exception as e:
-    check("earn_menu_kb banta hai", False, str(e)[:90])
-
-try:
-    kb2 = bot.biz_menu_kb()
-    flat2 = [b.callback_data for row in kb2.inline_keyboard for b in row]
-    check("biz_menu_kb: EARN STUDIO ka shortcut button hai",
-          "earnstudio" in flat2)
-    check("biz_menu_kb: 12 purane tool abhi bhi hain (regression)",
-          sum(1 for x in flat2 if x.startswith("biz:biz_")) == 12,
-          f"n={sum(1 for x in flat2 if x.startswith('biz:biz_'))}")
-    check("biz_menu_kb: callback 64 byte limit me",
-          all(len(x.encode()) <= 64 for x in flat2))
-except Exception as e:
-    check("biz_menu_kb banta hai", False, str(e)[:90])
-
-# main keyboard me EARN STUDIO button
-try:
-    kb_rows = bot.KB_BTNS
-    has_earn = any(any("EARN STUDIO" in bot.unbold(t).upper() for t in row)
-                   for row in kb_rows)
-    check("main keyboard me 💰 EARN STUDIO button hai", has_earn)
-except Exception as e:
-    check("main keyboard check", False, str(e)[:90])
-
-# ---- ek-line input se poora flow (parse -> build) ----
-LINES = {
-    "biz_rent": "Ramesh Kumar | Himanshu Kumar | Makan 42, Patna | 8500 | September 2026",
-    "biz_khata": "Sharma Kirana | Mohan Yadav | 9876543210 | 01-09, aata, 500, 0",
-    "biz_poster": "Diwali | Sharma Electronics | 50% OFF | 9876543210",
-    "biz_quote": "Himanshu Interiors | Ramesh | Wardrobe 2x45000 | 18 | 30 din",
-    "biz_profit": "Sharma Kirana | September 2026 | 420000 | 330000 | 58000",
-}
-for k, line in LINES.items():
-    try:
-        d = bot.biz_parse(k, line, "Owner")
-        rr = bot.biz_build(k, d)
-        check(f"ek-line flow {k}: image bani", bool(rr.get("ok")),
-              str(rr.get("error"))[:70])
-    except Exception as e:
-        check(f"ek-line flow {k}", False, f"{type(e).__name__}: {e}")
-
-# poster theme mapping (user "Diwali" likhe ya "1")
-check("theme 'Diwali' → diwali", bot._poster_theme("Diwali") == "diwali")
-check("theme '1' → diwali", bot._poster_theme("1") == "diwali")
-check("theme 'holi' → holi", bot._poster_theme("holi") == "holi")
-check("theme galat ho to default 'sale' (crash nahi)",
-      bot._poster_theme("kuch bhi") == "sale")
-
-# ---- REGRESSION: purane tools abhi bhi hain ----
-OLD = ["biz_invoice", "biz_resume", "biz_biodata", "biz_certificate",
-       "biz_idcard", "biz_vcard", "biz_letter", "biz_upi", "biz_labels",
-       "biz_emi", "biz_salary", "biz_menucard"]
-missing = [k for k in OLD if k not in bot.BIZ_MENU]
-check("sab 12 PURANE Business Studio tool abhi bhi hain (koi nahi hata)",
-      not missing, f"missing={missing}")
-check("purane tools ke steps wahi rahe (regression)",
-      len(bot.biz_steps("biz_invoice")) == 5,
-      f"steps={len(bot.biz_steps('biz_invoice'))}")
-
-
-# ======================================================================
-section("E) 🛡️ CRASH-SHIELD — v60 wali cheezein abhi bhi ON hain")
-# ======================================================================
+# --- crash-shield ON ---
 check("arm_all_handlers() maujood hai", callable(getattr(bot, "arm_all_handlers", None)))
 check("on_error handler maujood hai", callable(getattr(bot, "on_error", None)))
 check("start_janitor import hua hai", callable(getattr(bot, "start_janitor", None)))
-check("_clear_caches_mem ab module cache bhi saaf karta hai",
-      callable(getattr(bot, "_clear_caches_mem", None)))
 try:
     bot._clear_caches_mem()
     check("_clear_caches_mem bina crash chal gaya", True)
 except Exception as e:
     check("_clear_caches_mem bina crash chal gaya", False, str(e)[:80])
 
-# bounded caches registered hone chahiye (module import ke baad)
-# NOTE: osint_hub lazy-import hota hai — isliye pehle import karte hain
+# --- module cache registry me (osint_hub lazy import hota hai) ---
 try:
-    import modules.osint_hub as _oh                               # noqa: F401
+    import modules.osint_hub as _oh                                # noqa: F401
 except Exception:
     pass
 reg_names = [getattr(x, "name", "") for x in registry()]
-for want in ("osint_hub", "username_hunter", "vehicle_tool"):
-    check(f"module cache '{want}' registry me registered hai",
+for want in ("osint_hub", "username_hunter", "vehicle_tool", "biz_fonts"):
+    check(f"module cache '{want}' bounded ho gaya (pehle leak karta tha)",
           want in reg_names, f"registry={reg_names}")
-check("business font cache bhi bounded hai", "biz_fonts" in reg_names)
 
-# janitor / bounded reports /sys me lagane layak hain
 try:
     rep = bot._janitor_stats()
     check("_janitor_stats() dict deta hai", isinstance(rep, dict))
@@ -398,6 +190,41 @@ try:
           isinstance(rep2, dict) and "caches" in rep2)
 except Exception as e:
     check("janitor/bounded report", False, str(e)[:90])
+
+# --- KOI NAYA TOOL NAHI JUDA (yahi is release ka rule hai) ---
+check("❌ koi naya tool nahi juda: PREMIUM_TOOLS 37 hi hai",
+      len(bot.PREMIUM_TOOLS) == 37, str(len(bot.PREMIUM_TOOLS)))
+check("❌ koi naya tool nahi juda: BIZ_MENU 12 hi hai",
+      len(bot.BIZ_MENU) == 12, str(len(bot.BIZ_MENU)))
+check("❌ koi naya tool nahi juda: BIZ_STEPS 12 hi hai",
+      len(bot.BIZ_STEPS) == 12, str(len(bot.BIZ_STEPS)))
+check("❌ koi naya tool nahi juda: main keyboard me koi naya button nahi",
+      not any("EARN STUDIO" in bot.unbold(t).upper()
+              for row in bot.KB_BTNS for t in row))
+check("❌ koi naya tool nahi juda: BIZ_MENU_TEXT me '12 kaam ki cheezein' wahi",
+      "12 kaam ki cheezein" in bot.BIZ_MENU_TEXT)
+
+# --- saare PURANE tools zinda (regression) ---
+OLD = ["biz_invoice", "biz_resume", "biz_biodata", "biz_certificate",
+       "biz_idcard", "biz_vcard", "biz_letter", "biz_upi", "biz_labels",
+       "biz_emi", "biz_salary", "biz_menucard"]
+missing = [k for k in OLD if k not in bot.BIZ_MENU]
+check("sab 12 purane Business Studio tool zinda (koi nahi hata)",
+      not missing, f"missing={missing}")
+check("purane tools ke steps wahi rahe",
+      len(bot.biz_steps("biz_invoice")) == 5,
+      f"steps={len(bot.biz_steps('biz_invoice'))}")
+check("puraana insta_dl zinda", "insta_dl" in bot.PREMIUM_TOOLS)
+check("puraana PRO ENGINE zinda", hasattr(bot, "pro"))
+
+# --- version format (purane tests ka rule) ---
+import re as _re                                                   # noqa: E402
+_m = _re.search(r"v(\d+)\.(\d+)", bot.BOT_VERSION or "")
+check("version v74+ set hai", bool(_m) and int(_m.group(1)) >= 74,
+      bot.BOT_VERSION)
+check("version me FREE4ALL hai (purana feature zinda)",
+      "FREE4ALL" in bot.BOT_VERSION)
+check("version me NO-GYAAN + SPEED hai", "NO-GYAAN" in bot.BOT_VERSION)
 
 
 # ======================================================================

@@ -69,8 +69,8 @@ for _k in NEW:
     check(f"TOOL_RATE_LIMITS me '{_k}'", _k in bot.TOOL_RATE_LIMITS)
     check(f"PROMPT_DATA me '{_k}' (prompt maujood)", _k in bot.PROMPT_DATA)
     check(f"BTN_MODE_MAP/prompt aliases '{_k}'", bot._biz_kind(_k.replace("biz_", "")) == _k)
-check("business menu me total 17 tools", len(bot.BIZ_MENU) == 17, len(bot.BIZ_MENU))
-check("BIZ_MENU_TEXT me 17 likha hai", "17 kaam ki cheezein" in bot.BIZ_MENU_TEXT)
+check("business menu me total 12 tools", len(bot.BIZ_MENU) == 12, len(bot.BIZ_MENU))
+check("BIZ_MENU_TEXT me 12 likha hai", "12 kaam ki cheezein" in bot.BIZ_MENU_TEXT)
 check("business menu keyboard me 12 buttons",
       sum(len(r) for r in bot.biz_menu_kb().inline_keyboard) >= 12)
 check("biz_build me salary mapped hai",
@@ -221,7 +221,7 @@ check("purane emi prompt ka head waisa hi hai",
 check("purane 10 business tools abhi bhi render karte hain",
       all(bot.biz_build(k, bot.biz_parse(k, "A | B | C", "X")).get("ok") is not None
           for k in _OLD10))
-check("PREMIUM_TOOLS 42 (32 + 2 naye + 5 v76 + v70 whois + v71 vahan + v71.8 uhunt)", len(bot.PREMIUM_TOOLS) == 42,
+check("PREMIUM_TOOLS 37 (32 + 2 naye + v70 whois + v71 vahan + v71.8 uhunt)", len(bot.PREMIUM_TOOLS) == 37,
       str(len(bot.PREMIUM_TOOLS)))
 check("keyboard me BUSINESS STUDIO button zinda",
       any("BUSINESS STUDIO" in bot.unbold(b).upper() for r in bot.KB_BTNS for b in r))

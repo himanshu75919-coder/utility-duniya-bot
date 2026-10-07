@@ -248,8 +248,8 @@ check("BTN_MODE_MAP: TEMP NUMBER → tnum (+ purana naam bhi chalta hai)",
 check("BTN_MODE_MAP: TEMP MAIL (email) abhi bhi tempmail par", bot.BTN_MODE_MAP.get("TEMP MAIL") == "tempmail")
 check("tnum FREE hai — PREMIUM_TOOLS me NAHI",
       "tnum" not in bot.PREMIUM_TOOLS)
-check("premium count same (42) — free tool se nahi badla",
-      len(bot.PREMIUM_TOOLS) == 42, str(len(bot.PREMIUM_TOOLS)))
+check("premium count same (37) — free tool se nahi badla",
+      len(bot.PREMIUM_TOOLS) == 37, str(len(bot.PREMIUM_TOOLS)))
 check("rate-limit entry hai (25 / 300s)", bot.TOOL_RATE_LIMITS.get("tnum") == (25, 300, "Temp Mail (Number)"),
       str(bot.TOOL_RATE_LIMITS.get("tnum")))
 check("VIP wall par bhi tool khula rehta hai (vip_free_cb)", bot.vip_free_cb("tnum_open"))

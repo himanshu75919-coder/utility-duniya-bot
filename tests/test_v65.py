@@ -225,8 +225,8 @@ check("purana insta_dl zinda", "insta_dl" in bot.PREMIUM_TOOLS)
 check("purane labels kaam karte hain (remove-message ya sahi tool)",
       bot.BTN_MODE_MAP.get("VIDEO DOWNLOADER") == "dl_gone"
       and bot.BTN_MODE_MAP.get("INSTA DOWNLOADER") == "dl_instagram")
-check("17 business tools zinda", len(bot.BIZ_MENU) >= 17, str(len(bot.BIZ_MENU)))
-check("wizard zinda", len(bot.BIZ_STEPS) == 17)
+check("11 business tools zinda", len(bot.BIZ_MENU) >= 12, str(len(bot.BIZ_MENU)))
+check("wizard zinda", len(bot.BIZ_STEPS) == 12)
 check("keyboard rows barhe (27 naye tools jude)", len(bot.KB_BTNS) >= 14,
       str(len(bot.KB_BTNS)))
 import re as _r65                                                      # noqa: E402

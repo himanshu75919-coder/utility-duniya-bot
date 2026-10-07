@@ -229,7 +229,7 @@ except Exception as _e:
 # =====================================================================
 section("[I] 🚪 REACHABILITY — har tool ka darwaza khula hai")
 # =====================================================================
-check(f"PREMIUM_TOOLS me 42 tools hain (17 Business Studio + whois + vahan + uhunt)", len(bot.PREMIUM_TOOLS) == 42,
+check(f"PREMIUM_TOOLS me 37 tools hain (12 Business Studio + whois + vahan + uhunt)", len(bot.PREMIUM_TOOLS) == 37,
       str(len(bot.PREMIUM_TOOLS)))
 # v64 ke baad 27 downloader prompts bhi jude (33 -> 60). Is liye ab ginti ke
 # bajaye ASLI baat check hoti hai: purane prompts DELETE hue ya nahi.
@@ -250,7 +250,7 @@ check("PROMPT_DATA me purane 33 se kam nahi (naye sirf jude hain)",
       str(len(bot.PROMPT_DATA)))
 check("PROMPT ka content bhi waisa hi hai (koi chhed-chhad nahi)",
       all(isinstance(v, (str, tuple, dict)) for v in bot.PROMPT_DATA.values()))
-check("BIZ_MENU me 17 tools", len(bot.BIZ_MENU) == 17, str(len(bot.BIZ_MENU)))
+check("BIZ_MENU me 12 tools", len(bot.BIZ_MENU) == 12, str(len(bot.BIZ_MENU)))
 check("TOOL_RATE_LIMITS zinda hai (spam se bachav)", len(bot.TOOL_RATE_LIMITS) >= 32,
       str(len(bot.TOOL_RATE_LIMITS)))
 check("crash shield (arm_all_handlers) zinda hai", hasattr(bot, "arm_all_handlers"))
