@@ -180,3 +180,27 @@ Koi bhi isse aapke repo me code push/delete kar sakta hai.
 4. Naya token **kabhi chat me na bhejo** — Render ke Environment me daalo (`VAULT_GITHUB_TOKEN`)
 
 Bot ko backup ke liye token chahiye hi. Render me daalna kaafi hai.
+
+---
+
+## 🆕 v75.1 — 📤 BULK MODE (EXCEL) — *aapka naya earning tool*
+
+**Menu me naya button:** 📤 **BULK MODE (EXCEL)** (ya `/bulk`)
+
+User apni list paste karta hai → bot khud pahchan leta hai (IFSC / pincode / mobile /
+gaadi number / link) → **poora Excel file** milta hai (colour-coded, filter-ready).
+
+| | FREE | 👑 VIP |
+|---|---|---|
+| Ek baar me entries | 15 | **500** |
+
+**Live test (abhi chalaya):** `800001 → B.C. Road, Patna, Bihar, 22 post offices` ✅
+— 3 pincodes ek saath, **1.8 second**, asli Excel bani.
+
+**Saath me 2 speed fix:**
+- 🔗 **URL SHORTENER** ka slow-source bug gaya (dusra `asyncio.gather` → `gather_soon`)
+- 🚨 **Chhupa hua deploy-killer pakda:** `requirements.txt` me inline comment pip ko
+  crash karta hai → Render par deploy FAIL → bot band. Test karke fix kiya.
+
+**Nayi file:** `modules/bulk_mode.py` · **Naya test:** `tests/test_v84.py` (PASS 82)
+**Naya doc:** `V75.1-BULK-aur-EARNING.md` (paisa banane ka poora plan)

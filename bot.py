@@ -58,6 +58,8 @@ from modules.core.guard import (
 # v75 — 🧠 PRO ENGINE: saare tools ka universal advanced layer
 #       (smart detect + provider race + result history + tool analytics)
 from modules.core import proengine as pro
+# v75.1 — 📤 BULK MODE (EXCEL): earning tool (list -> poora Excel report)
+from modules import bulk_mode as BM
 from modules.core.safesend import (
     safe_answer_cb,
     safe_delete,
@@ -1307,6 +1309,9 @@ KB_BTNS = [
     [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
     [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
+    # v75.1: 📤 BULK MODE — earning tool (Excel report). Ye row jaan-boojh kar
+    # HELP/SUPPORT row se PEHLE rakhi hai (wo aakhri row rehni chahiye).
+    [f"📤 {to_bold('BULK MODE (EXCEL)')}"],
     [f"❓ {to_bold('HELP / TUTORIAL')}", f"💬 {to_bold('SUPPORT / MADAD')}"],
 ]
 
@@ -1368,6 +1373,9 @@ BTN_MODE_MAP = {
     "TEMP NUMBER": "tnum",                 # v74.4: naya naam
     "TEMP MAIL (NUMBER)": "tnum",          # purana naam (compatibility)
     "TEMP MAIL NUMBER": "tnum",
+    # v75.1: 📤 BULK MODE (earning tool)
+    "BULK MODE (EXCEL)": "bulk", "BULK MODE": "bulk", "BULK (EXCEL)": "bulk",
+    "BULK EXCEL": "bulk", "BULK REPORT": "bulk", "EXCEL REPORT": "bulk",
     "CHAT X-RAY": "cxray",                 # v73.0: 💬 apni chat ki fun report
     "CHAT XRAY": "cxray",
     "WHATSAPP CHAT X-RAY": "cxray",
@@ -5150,6 +5158,85 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
         return
 
+    # ---------- v75.1: 📤 BULK MODE ke buttons ----------
+    if data == "bulk_cancel":
+        context.user_data.pop("mode", None)
+        context.user_data.pop("bulk_kind", None)
+        context.user_data.pop("bulk_entries", None)
+        await safe_answer_cb(q, "Cancel ho gaya")
+        await q.message.reply_text("❌ <b>Bulk mode band.</b>", parse_mode=HTML)
+        return
+
+    if data == "bulk_go":
+        _bk = str(context.user_data.get("bulk_kind") or "")
+        _be = list(context.user_data.get("bulk_entries") or [])
+        if not _bk or not _be:
+            await safe_answer_cb(q, "List purani ho gayi — dobara bhejo", show_alert=True)
+            return
+        _lim, _vip = BM.limits_for(uid)
+        _be = _be[:_lim]
+        # typing indicator — bhaari kaam ki suchna
+        await safe_answer_cb(q, f"⚡ {len(_be)} entries check ho rahi hain…")
+        _prog = await cbmsg().reply_text(
+            f"⚡ <b>Chalu…</b> 0/{len(_be)}", parse_mode=HTML)
+        _last = {"t": 0.0, "n": 0}
+
+        def _on_prog(i, total):
+            """Har entry par — par edit sirf har ~8 entries ya 1.2s me (limit safe)."""
+            now = time.time()
+            if i < total and (i - _last["n"]) < 8 and (now - _last["t"]) < 1.2:
+                return
+            _last["n"], _last["t"] = i, now
+            try:
+                asyncio.create_task(safe_edit(
+                    _prog, f"⚡ <b>Chalu…</b> {i}/{total}", parse_mode="HTML"))
+            except Exception:                                    # noqa: BLE001
+                pass
+
+        try:
+            _res = await asyncio.to_thread(BM.run_bulk, _bk, _be, _on_prog)
+        except Exception as _bex:                                # noqa: BLE001
+            log.warning("bulk run fail: %s", str(_bex)[:150])
+            _res = {"ok": False, "total": len(_be), "passed": 0, "failed": len(_be),
+                    "rows": [], "headers": [], "kind": _bk, "seconds": 0}
+        # progress message saaf
+        try:
+            await safe_delete(_prog)
+        except Exception:                                        # noqa: BLE001
+            pass
+        if not _res.get("rows"):
+            await cbmsg().reply_text(
+                "❌ <b>Report nahi ban payi.</b>\n"
+                "Ek-ek karke try karo, ya thodi der baad dobara bhejo.", parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        # Excel file banao + bhejo
+        _fname = BM.file_name(_bk, int(_res.get("total") or len(_be)))
+        _blob = await asyncio.to_thread(BM.to_xlsx, _res)
+        if not _blob:
+            _blob = await asyncio.to_thread(BM.to_csv, _res)
+            _fname = _fname.rsplit(".", 1)[0] + ".csv"
+        _cap = BM.bulk_result_text(_res, _bk, _vip)
+        try:
+            await context.bot.send_document(
+                chat_id=update.effective_chat.id,
+                document=io.BytesIO(_blob), filename=_fname,
+                caption=_cap, parse_mode=HTML)
+        except Exception as _sd:                                 # noqa: BLE001
+            log.warning("bulk send fail: %s", str(_sd)[:140])
+            await cbmsg().reply_text(_cap, parse_mode=HTML)
+        # earning: credit/use count
+        try:
+            add_use(uid)
+            pro.record_result(uid, "bulk", title=f"Bulk ({_bk})",
+                              ok=True, ms=int(float(_res.get("seconds") or 0) * 1000))
+        except Exception:                                        # noqa: BLE001
+            pass
+        context.user_data.pop("mode", None)
+        context.user_data.pop("bulk_kind", None)
+        context.user_data.pop("bulk_entries", None)
+        return
+
     # ---------- v75: 🗂️ /history ke buttons ----------
     if data == "pro_histclear":
         pro.results.clear(uid)
@@ -7133,6 +7220,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        # 3a-bulk. v75.1: 📤 BULK MODE (EXCEL) — earning tool
+        if action == "bulk":
+            context.user_data["mode"] = "bulk_wait"
+            context.user_data["_pro_tool"] = "Bulk Mode"
+            context.user_data["_pro_mode"] = "bulk"
+            _bd, _ = BM.limits_for(uid)
+            await update.message.reply_text(BM.bulk_intro_text(vip=_bd >= BM.VIP_LIMIT),
+                                            parse_mode=HTML)
+            return
+
         # 3b. v38: SARKARI KAGAZ SUITE (menu)
         if action == "kagaz":
             context.user_data["mode"] = "kagaz_menu"
@@ -8666,6 +8763,58 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ==================================================================
+    #  v75.1 — 📤 BULK MODE (EXCEL) — earning tool
+    #  ------------------------------------------------------------------
+    #  User ne apni list paste ki -> hum pahchante hain, confirm button dete
+    #  hain, phir parallel engine se saara check karke Excel bhejte hain.
+    # ==================================================================
+    if mode == "bulk_wait":
+        _b_uid = uid
+        _b_lim, _b_vip = BM.limits_for(_b_uid)
+        _ents, _lines = BM.extract_entries(raw_text, limit=BM.VIP_LIMIT)
+        if not _ents:
+            await update.message.reply_text(
+                "📤 <b>List khaali lagi.</b>\n"
+                "Ek-ek entry nayi line me paste karo (Excel se copy kar ke bhi chalega).",
+                parse_mode=HTML)
+            return
+        _b_kind, _b_match, _b_samp = BM.detect_kind(_ents)
+        if not _b_kind:
+            await update.message.reply_text(
+                "❓ <b>List pahchan nahi paya.</b>\n"
+                "Ye 5 cheezein chalti hain:\n"
+                "• 🏦 IFSC code (SBIN0001234)\n"
+                "• 📮 Pincode (800001)\n"
+                "• 📱 Mobile number (9876543210)\n"
+                "• 🚗 Gaadi number (BR01AB1234)\n"
+                "• 🔍 Link (https://…)\n\n"
+                "Sahi format me dobara paste kar do.",
+                parse_mode=HTML)
+            return
+        _b_good, _b_skip = BM.filter_valid(_b_kind, _ents)
+        if not _b_good:
+            await update.message.reply_text("❌ Koi sahi entry nahi mili — format check karo.",
+                                            parse_mode=HTML)
+            return
+        context.user_data["bulk_kind"] = _b_kind
+        context.user_data["bulk_entries"] = _b_good[:BM.VIP_LIMIT]
+        _cnt = min(len(_b_good), _b_lim)
+        _kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton(f"✅ Chalu karo ({_cnt} entries)",
+                                  callback_data="bulk_go")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="bulk_cancel")],
+        ])
+        await update.message.reply_text(
+            BM.preview_text(_b_kind, len(_b_good), _b_match, _b_samp, _lines,
+                            _b_vip, _b_lim)
+            + (f"\n⚠️ <i>{_b_skip} line skip hui (format match nahi)</i>" if _b_skip else "")
+            + ("" if len(_b_good) <= _b_lim else
+               f"\n⚠️ <i>{len(_b_good) - _b_lim} extra entries chhoot jayengi kabhi"
+               f" (free limit {_b_lim})</i>"),
+            reply_markup=_kb, parse_mode=HTML)
+        return
+
     if mode == "ifsc":
         # v50: to_thread — event loop block nahi hoga (rate-limit central gate se lagta hai)
         _t0 = time.perf_counter()
@@ -9442,13 +9591,17 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "short":
         st = await update.message.reply_text("🔗 Making short links (6 providers)...")
-        _t0 = time.perf_counter()
-        # v50: dono HTTP-heavy hain — thread me chalao, ek saath (parallel = 2x fast)
-        links, exp = await asyncio.gather(
-            asyncio.to_thread(shorten_url, raw_text, 3),
-            asyncio.to_thread(expand_url, raw_text),
+        # v75.1 — ⚡ SPEED FIX: pehle `asyncio.gather` tha (SLOWEST ka wait).
+        #  `shorten_url` 6 provider try karta hai aur `expand_url` redirect chain
+        #  follow karta hai — dono me se koi ek slow ho to user dono ka time
+        #  jod kar wait karta tha. Ab `gather_soon`: jo time me aa gaya wahi.
+        _pair, _ms = await pro.gather_soon(
+            [asyncio.to_thread(shorten_url, raw_text, 3),
+             asyncio.to_thread(expand_url, raw_text)],
+            timeout=float(os.environ.get("SHORT_WAIT_S", "9")),
         )
-        _ms = (time.perf_counter() - _t0) * 1000
+        links = _pair[0] if _pair and _pair[0] else []
+        exp = _pair[1] if (len(_pair) > 1 and isinstance(_pair[1], dict)) else {}
         clean = exp.get("cleaned", raw_text)
         if links:
             body = "\n\n".join(f"{i}️⃣ <b>{name}</b> → <code>{u}</code>" for i, (name, u) in enumerate(links, 1))
@@ -11229,6 +11382,17 @@ async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(txt, reply_markup=kb or None, parse_mode=HTML)
 
 
+async def cmd_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """📤 /bulk — ek saath poora Excel report (IFSC/pincode/mobile/gaadi/link)."""
+    uid = update.effective_user.id
+    get_user(uid, update.effective_user.first_name or "")
+    context.user_data["mode"] = "bulk_wait"
+    context.user_data["_pro_tool"] = "Bulk Mode"
+    context.user_data["_pro_mode"] = "bulk"
+    _lim, _vip = BM.limits_for(uid)
+    await update.message.reply_text(BM.bulk_intro_text(vip=_vip), parse_mode=HTML)
+
+
 async def cmd_smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """🧠 /smart — smart auto-detect ON/OFF + kya-kya pahchanta hai."""
     uid = update.effective_user.id
@@ -11395,6 +11559,7 @@ def main():
     # v75 — 🧠 PRO ENGINE commands
     app.add_handler(CommandHandler(["history", "recent", "myrecent"], cmd_history))
     app.add_handler(CommandHandler(["smart", "autodetect", "auto"], cmd_smart))
+    app.add_handler(CommandHandler(["bulk", "bulkexcel", "report"], cmd_bulk))
     app.add_handler(CommandHandler(["toolstats", "analytics", "toolreport"], cmd_toolstats))
 
     # Specific Tool Commands

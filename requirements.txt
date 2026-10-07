@@ -16,3 +16,5 @@ numpy
 pdfplumber
 reportlab
 pypdf
+# v75.1: BULK MODE (EXCEL) — xlsx report
+openpyxl
