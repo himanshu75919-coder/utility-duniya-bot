@@ -264,6 +264,7 @@ from modules.osint_tools import (
 from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME HUNTER (public only)
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
 from modules import chat_xray as CXR                   # v73.0: 💬 WHATSAPP CHAT X-RAY (offline, free)
+from modules import bseb_result as BSEBR               # v73.1: 📋 BOARD RESULT (BSEB official API)
 from modules.gaming_tools import (
     ff_player_info,
     bgmi_player_info,
@@ -347,6 +348,7 @@ TOOL_RATE_LIMITS = {
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
     "cxray":       (5,  300, "Chat X-Ray"),            # v73.0: apni chat ki report (FREE)
+    "bsebr":       (10, 300, "Result Check (BSEB)"),   # v73.1: roll code + roll no (FREE)
     "media_ytmp3": (5,  120, "YouTube → MP3"),
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
@@ -424,8 +426,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v73.0 FREE4ALL — WHATSAPP CHAT X-RAY (apni chat ki fun report) "
-               "| saare tools tez + khud-retry")
+BOT_VERSION = ("v73.1 FREE4ALL — BOARD RESULT CHECK (BSEB result by roll code+roll no) "
+               "+ WHATSAPP CHAT X-RAY | saare tools tez + khud-retry")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -752,7 +754,8 @@ def all_tools_text() -> str:
         f"   • {hesc(x)}" for x in sorted(
             {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}
             | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP",
-               "💬 Chat X-Ray — apni WhatsApp chat ki fun report (FREE)"}))
+               "💬 Chat X-Ray — apni WhatsApp chat ki fun report (FREE)",
+               "📋 Result Check — BSEB result (roll code + roll number) se"}))
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
@@ -801,7 +804,8 @@ VIP_FREE_CB_EXACT = {
 }
 VIP_FREE_CB_PREFIX = ("buy_plan_", "toolvid:", "adm", "admin", "ugrant:", "urevoke:", "uban:",
                       "rpay:", "apay:", "askpay:", "vid:", "refer",
-                      "tnum")     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
+                      "tnum",     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
+                      "bsebr", "cbse_info")   # v73.1: RESULT CHECK — FREE, hamesha khula
 
 
 def vip_free_cb(data: str) -> bool:
@@ -1316,6 +1320,7 @@ KB_BTNS = [
     [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
     [f"📞 {to_bold('TEMP MAIL (NUMBER)')}"],   # v71.9: 100% FREE temp number + OTP (har user ko alag)
     [f"💬 {to_bold('CHAT X-RAY')}"],           # v73.0: apni WhatsApp chat ki fun report (file bhejo)
+    [f"📋 {to_bold('RESULT CHECK')}"],         # v73.1: BSEB result — roll code + roll number se
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
@@ -1388,6 +1393,13 @@ BTN_MODE_MAP = {
     "CHAT XRAY": "cxray",
     "WHATSAPP CHAT X-RAY": "cxray",
     "CHAT X-RAY REPORT": "cxray",
+    "RESULT CHECK": "bsebr",               # v73.1: 📋 BSEB result by roll code + roll no
+    "BSEB RESULT": "bsebr",
+    "BOARD RESULT": "bsebr",
+    "BIHAR BOARD RESULT": "bsebr",
+    "RESULT": "bsebr",
+    "CBSE RESULT": "cbse_info",            # CBSE ab DigiLocker par — saaf jaankari card
+    "DIGILOCKER RESULT": "cbse_info",
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
@@ -1709,6 +1721,13 @@ PROMPT_DATA = {
         "foot": 'Official link · size · version',
     },
     # ------------------------------------------------------------ LOCATION
+    "bsebr": {
+        "head": "📋 RESULT CHECK (BSEB)",
+        "ask": "Roll Code aur Roll Number bhejein (dono, ek saath):",
+        "ex": [('11001 100001', 'roll code + roll number')],
+        "tip": '',
+        "foot": '',
+    },
     "cxray": {
         "head": "💬 WHATSAPP CHAT X-RAY",
         "ask": "Apni chat ki export file bhejein (.txt ya .zip):",
@@ -5191,6 +5210,16 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await _vnum_say(q, card, kb)
         return
 
+    # ---------- 📋 RESULT CHECK inline buttons (v73.1) ----------
+    if data == "bsebr_new":
+        context.user_data["mode"] = "bsebr"
+        await _vnum_say(q, bsebr_ask_card(), tool_tutorial_kb("bsebr"))
+        return
+
+    if data == "cbse_info":
+        await _vnum_say(q, cbse_info_card(), _bsebr_kb())
+        return
+
     # ---------- 📞 TEMP MAIL (NUMBER) inline buttons (v71.9) ----------
     #  100% FREE tool (koi credit nahi) — har user ko apna ALAG number.
     #  Virtual Numbers (vnum) se bilkul alag hai: uska kaam admin/manual hai.
@@ -7066,6 +7095,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(_txt, reply_markup=_kb, parse_mode=HTML)
             return
 
+        # v73.1: 📋 RESULT CHECK (BSEB) + CBSE jaankari — apna card + inline buttons
+        if action == "bsebr":
+            context.user_data["mode"] = "bsebr"
+            await update.message.reply_text(bsebr_ask_card(),
+                                            reply_markup=tool_tutorial_kb("bsebr"),
+                                            parse_mode=HTML)
+            return
+        if action == "cbse_info":
+            await update.message.reply_text(cbse_info_card(),
+                                            reply_markup=_bsebr_kb(), parse_mode=HTML)
+            return
+
         # Standard prompt modes
         context.user_data["mode"] = action
         if action in PROMPTS:
@@ -8704,6 +8745,37 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    # ---------------- v73.1: BOARD RESULT (BSEB) ----------------
+    if mode == "bsebr":
+        rc, rn = BSEBR.split_input(raw_text)
+        ok, err = BSEBR.validate(rc, rn)
+        if not ok:
+            await update.message.reply_text(
+                f"❌ {err}\n\n💡 <b>Example:</b> <code>11001 100001</code>\n"
+                "<i>(pehle Roll Code, phir Roll Number)</i>", parse_mode=HTML)
+            return
+        st_msg = await update.message.reply_text("🔎 Bihar Board se result nikal raha hoon…")
+        res = await asyncio.to_thread(BSEBR.fetch, rc, rn)
+        try:
+            await st_msg.delete()
+        except Exception:                                        # noqa: BLE001
+            pass
+        if res.get("ok"):
+            await update.message.reply_text(bsebr_card(res["student"]),
+                                            reply_markup=_bsebr_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            add_use(uid)
+        elif res.get("status") == "server":
+            await update.message.reply_text(bsebr_server_card(),
+                                            reply_markup=_bsebr_kb(), parse_mode=HTML)
+        else:
+            await update.message.reply_text(
+                bsebr_notlive_card(rc, rn, str(res.get("error") or "")),
+                reply_markup=_bsebr_kb(), parse_mode=HTML)
+            if res.get("status") == "not_live":
+                context.user_data.pop("mode", None)
+        return
+
     # ---------------- v73.0: CHAT X-RAY ----------------
     if mode == "cxray":
         await update.message.reply_text(
@@ -9242,6 +9314,121 @@ async def do_ytmp3(update, context, uid, url):
         parse_mode=HTML)
     context.user_data.pop("mode", None)
     add_use(uid)
+
+
+# ============================================================
+#  v73.1: 📋 BOARD RESULT CHECK (BSEB) — official API se
+# ============================================================
+def _bsebr_kb():
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔁 Dobara check", callback_data="bsebr_new"),
+         InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info")],
+        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
+    ])
+
+
+def bsebr_ask_card() -> str:
+    return "\n".join([
+        pcard_title("📋", "RESULT CHECK (BSEB)"),
+        "🔗 <b>Roll Code aur Roll Number bhejein</b> (dono, ek saath)",
+        "",
+        "     <code>11001 100001</code>",
+        "",
+        "<i>Dono number admit card par likhe hote hain.</i>",
+    ])
+
+
+def bsebr_card(st: dict) -> str:
+    """Result ka poora card — student + subject-wise marks + division."""
+    L = [pcard_title("📋", "BSEB RESULT")]
+    nm = st.get("name") or "-"
+    L.append(f"👤 <b>{hesc(str(nm))}</b>")
+    if st.get("father"):
+        L.append(f"👨 {hesc(str(st['father']))}")
+    if st.get("school"):
+        L.append(f"🏫 {hesc(str(st['school']))}")
+    L.append(f"🔢 <b>Roll:</b> <code>{hesc(str(st.get('roll_code') or '-'))}"
+             f" / {hesc(str(st.get('roll_no') or '-'))}</code>")
+    if st.get("reg_no"):
+        L.append(f"🆔 <b>Reg No:</b> {hesc(str(st['reg_no']))}")
+    if st.get("bseb_id"):
+        L.append(f"🎫 <b>BSEB ID:</b> {hesc(str(st['bseb_id']))}")
+    subs = st.get("subjects") or []
+    if subs:
+        L.append(pcard_sep())
+        L.append("📚 <b>Marks (subject-wise):</b>")
+        for sub in subs[:15]:
+            L.append("├ " + BSEBR._sub_line(sub))
+    L.append(pcard_sep())
+    tot = st.get("total")
+    _div = st.get("division") or "-"
+    if st.get("is_expelled"):
+        _div = "Expelled"
+    if st.get("passed_under_regulation"):
+        _div = f"{_div} (regulation ke saath pass)"
+    L.append(f"🎯 <b>Total:</b> {int(tot) if tot and tot == int(tot) else (tot or '-')}")
+    L.append(f"🏅 <b>Result / Division:</b> {hesc(str(_div))}")
+    if st.get("is_topper"):
+        L.append("🏆 <b>TOPPER!</b> — board ki topper list me naam 🎉")
+    L.append("")
+    L.append(BSEBR.MEDIA_NOTE)
+    L.append("ℹ️ Apna (ya apne bachche ka) result hi check karein.")
+    L.append("")
+    L.append(BRAND_LINK)
+    return "\n".join(L)
+
+
+def bsebr_notlive_card(rc: str, rn: str, why: str = "") -> str:
+    return "\n".join([
+        pcard_title("📋", "RESULT CHECK (BSEB)"),
+        f"🔎 <b>Check kiya:</b> <code>{hesc(rc)} / {hesc(rn)}</code>",
+        "",
+        "⏳ <b>Is roll ka result abhi live nahi hai</b>",
+        f"<i>{hesc(why or 'board ne is roll ka result abhi declare nahi kiya')}</i>",
+        pcard_sep(),
+        "📅 <b>Result kab aata hai:</b>",
+        "• Matric (10th) — <b>March-April</b>",
+        "• Inter (12th) — <b>March-April</b>",
+        "• Compartment — <b>May-August</b>",
+        "",
+        "✅ Result declare hote hi yahi se turant mil jayega — bas dobara bhej dena.",
+        "",
+        "🔤 <i>Roll Code aur Roll Number ulta-pulta ho gaya ho to dobara bhej dein.</i>",
+        "",
+        BRAND_LINK,
+    ])
+
+
+def bsebr_server_card() -> str:
+    return "\n".join([
+        pcard_title("📋", "RESULT CHECK (BSEB)"),
+        "❌ <b>Bihar Board ka server abhi jawab nahi de raha</b>",
+        "<i>(result season me server par bahut load hota hai)</i>",
+        "",
+        "👉 1-2 minute baad <b>Dobara check</b> dabayein — hum khud phir try karenge.",
+        "",
+        BRAND_LINK,
+    ])
+
+
+def cbse_info_card() -> str:
+    return "\n".join([
+        pcard_title("ℹ️", "CBSE RESULT — SACH JAANKARI"),
+        "CBSE ne apna purana result portal band kar diya hai.",
+        "Ab result <b>DigiLocker</b> par milta hai — aur wahan <b>login (mobile OTP)</b> zaroori hai.",
+        pcard_sep(),
+        "🚫 Isliye CBSE ka result bot se seedha nahi khul sakta",
+        "<i>(login/password wala kaam bot kabhi nahi karta — ye aapki suraksha ke liye hai)</i>",
+        "",
+        "✅ <b>Aap ye kar sakte hain:</b>",
+        "• DigiLocker app / website par apne mobile number se login karein",
+        "• Roll Number + Date of Birth daalein → digital marksheet mil jayegi",
+        pcard_sep(),
+        "🏫 <b>Bihar Board (BSEB) ka result YAHAN turant milta hai</b> —",
+        "bas Roll Code + Roll Number bhej dein 👇",
+        "",
+        BRAND_LINK,
+    ])
 
 
 def cxray_caption(st: dict) -> str:
