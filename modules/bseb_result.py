@@ -308,8 +308,21 @@ def _inter_session():
     return s
 
 
+def _txt_in(v):
+    """Kachra input (None/bool/dict) -> str. v78: `(x or '')` True/5 jaisa
+    truthy non-str pass kar deta tha -> re.compile TypeError = tool crash."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    try:
+        return v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v)
+    except Exception:                                       # noqa: BLE001
+        return ""
+
+
 def _extract_token(html: str) -> str:
-    m = re.search(r'name="__RequestVerificationToken"[^>]*value="([^"]+)"', html or "")
+    m = re.search(r'name="__RequestVerificationToken"[^>]*value="([^"]+)"', _txt_in(html))
     return m.group(1) if m else ""
 
 

@@ -322,7 +322,9 @@ def _inline(html: str) -> list:
 
 def text_to_nodes(text: str) -> list:
     nodes = []
-    for raw in (text or "").split("\n"):
+    if not isinstance(text, str):                      # v78: non-str par AttributeError
+        text = "" if text is None else str(text)
+    for raw in text.split("\n"):
         line = raw.strip()
         if not line:
             continue

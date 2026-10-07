@@ -62,7 +62,8 @@ def validate_utr(raw: str) -> dict:
       ok=True  → sahi format (kind: 'UPI/Bank UTR (12 digit)' ya 'Bank Reference (16-22 char)')
       ok=False → reason me saaf wajah
     """
-    text = (raw or "").strip()
+    raw = raw if isinstance(raw, str) else ("" if raw is None else str(raw))   # v78: bool/int par crash
+    text = raw.strip()
     if not text:
         return {"ok": False, "utr": "", "reason": "Khaali hai — UTR number type karke bhejo."}
 

@@ -103,8 +103,21 @@ _AMT_RE = re.compile(r"^[\d,]+\.?\d{0,2}$")
 _AMT_STRICT = re.compile(r"^(?:\d{1,3}(?:,\d{2,3})+(?:\.\d{1,2})?|\d+\.\d{1,2}|\d{1,3}(?:\.\d{3})+)$")
 
 
+def _txt_in(v):
+    """Kachra input (None/bool/dict) -> str. v78: `(x or '')` True/5 jaisa
+    truthy non-str pass kar deta tha -> re.compile TypeError = tool crash."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    try:
+        return v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v)
+    except Exception:                                       # noqa: BLE001
+        return ""
+
+
 def detect_bank(text: str) -> str:
-    low = (text or "").lower()[:6000]
+    low = _txt_in(text).lower()[:6000]
     for name, keys in _BANK_SIGNS.items():
         for k in keys:
             if k in low:
@@ -303,16 +316,30 @@ def parse_bank_statement(pdf_bytes: bytes, password: str = "") -> dict:
 
 
 def statement_summary_text(res: dict) -> str:
-    s = res["summary"]
+    # v78: parse fail hone par 'summary' key hoti hi nahi -> KeyError -> tool
+    # crash. Ab saaf dict-bharosa wala path.
+    if not isinstance(res, dict):
+        return "❌ <b>Statement parse nahi ho paya</b> (file khaali ya galat format)."
+    summ = res.get("summary") or {}
+    if not isinstance(summ, dict):
+        summ = {}
+    def _num(v):
+        # v78: parser har field hamesha bharta hi nahi (aadha-pora statement) —
+        # `s['total_debit']:,.2f` par KeyError/ValueError se tool crash hota tha.
+        try:
+            return f"{float(v):,.2f}"
+        except Exception:                                          # noqa: BLE001
+            return "—"
+
     return (
         "🏦 <b>BANK STATEMENT READY ✅</b>\n"
         "──────────────────────\n"
         f"🏛️ <b>Bank:</b> {res.get('bank', 'UNKNOWN')}\n"
-        f"📅 <b>Period:</b> {s['period']}\n"
-        f"🧾 <b>Transactions:</b> {s['count']}  ({s['months']} months)\n"
-        f"🔴 <b>Total debit:</b> ₹{s['total_debit']:,.2f}\n"
-        f"🟢 <b>Total credit (in):</b> ₹{s['total_credit']:,.2f}\n"
-        f"📂 <b>Opening:</b> ₹{s['opening']:,.2f}   →   <b>Closing:</b> ₹{s['closing']:,.2f}\n"
+        f"📅 <b>Period:</b> {summ.get('period', '—')}\n"
+        f"🧾 <b>Transactions:</b> {summ.get('count', '—')}  ({summ.get('months', '—')} months)\n"
+        f"🔴 <b>Total debit:</b> ₹{_num(summ.get('total_debit'))}\n"
+        f"🟢 <b>Total credit (in):</b> ₹{_num(summ.get('total_credit'))}\n"
+        f"📂 <b>Opening:</b> ₹{_num(summ.get('opening'))}   →   <b>Closing:</b> ₹{_num(summ.get('closing'))}\n"
         "──────────────────────\n"
         "⬇️ Excel/CSV file neeche hai — Google Sheets ya Excel me kholo, table ready hai."
     )
@@ -815,7 +842,7 @@ def audio_cut(data: bytes, start: str, end: str = "", fmt: str = "mp3") -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp("." + fmt), _tmp("." + fmt)
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         args = ["-i", pin, "-ss", str(start)]
         if end:
             args += ["-to", str(end)]
@@ -833,6 +860,26 @@ def audio_cut(data: bytes, start: str, end: str = "", fmt: str = "mp3") -> dict:
                 pass
 
 
+def _as_bytes(data) -> bytes:
+    """Jo bhi aaye (bytes / BytesIO / str / None) -> likhne-yogy bytes.
+
+    v78: download fail hone par callers kabhi str ya None bhej dete the, aur
+    `open(pin,'wb').write(data)` par `TypeError: a bytes-like object is
+    required, not 'str'` seedha tool crash kar deta tha. Ab khaali bytes
+    chale jaate hain -> ffmpeg apni saaf error deta hai, crash nahi.
+    """
+    try:
+        if data is None:
+            return b""
+        if hasattr(data, "getvalue"):                     # io.BytesIO
+            data = data.getvalue()
+        if isinstance(data, (bytes, bytearray, memoryview)):
+            return bytes(data)
+    except Exception:                                      # noqa: BLE001
+        pass
+    return b""
+
+
 def make_ringtone(data: bytes, start: str = "0", dur: int = 30) -> dict:
     res = audio_cut(data, start, str(int(float(start)) + int(dur)) if str(start).replace(".", "").isdigit() else "", "mp3")
     return res
@@ -844,7 +891,7 @@ def eff_8d(data: bytes) -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         filt = ("apulsator=hz=0.09,"
                 "aecho=0.8:0.88:60:0.4,"
                 "aformat=channel_layouts=stereo")
@@ -863,7 +910,7 @@ def bass_boost(data: bytes, gain_db: int = 8) -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         filt = f"bass=g={gain_db},loudnorm=I=-16:TP=-1.5:LRA=11"
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=900)
         return _out(cp, pout, {"effect": f"Bass +{gain_db}dB"})
@@ -881,7 +928,7 @@ def make_karaoke(data: bytes) -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         filt = ("pan=stereo|c0=c0-0.9*c1|c1=c1-0.9*c0,"
                 "highpass=f=120,alimiter=limit=0.95")
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=900)
@@ -914,7 +961,7 @@ def voice_change(data: bytes, preset: str) -> dict:
         return {"ok": False, "error": "preset not understood"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         lbl, filt = VOICE_PRESETS[preset]
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "3", pout], timeout=900)
         return _out(cp, pout, {"effect": lbl})
@@ -935,7 +982,7 @@ def video_trim(data: bytes, start: str, end: str, ext: str = ".mp4") -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         cp = _ff(["-ss", str(start), "-to", str(end), "-i", pin,
                   "-vf", "scale='min(1280,iw)':-2",
                   "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26", "-maxrate", "1800k", "-bufsize", "3600k",
@@ -955,7 +1002,7 @@ def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         dur = ffprobe_duration(pin) or 30.0
         if dur > max_seconds:
             return {"ok": False, "too_long": True, "duration": round(dur, 1),
@@ -990,7 +1037,7 @@ def video_to_mp3(data: bytes, ext: str = ".mp4") -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(data)
+        open(pin, "wb").write(_as_bytes(data))
         cp = _ff(["-i", pin, "-vn", "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=1200)
         return _out(cp, pout, {"duration": round(ffprobe_duration(pout), 1)})
     finally:
@@ -1018,15 +1065,22 @@ def make_status_video(photo_bytes: bytes, audio_bytes: bytes, text: str = "",
     p_out = _tmp(".mp4")
     p_canvas = _tmp(".png")
     try:
-        open(p_photo, "wb").write(photo_bytes)
-        open(p_audio, "wb").write(audio_bytes)
+        open(p_photo, "wb").write(_as_bytes(photo_bytes))
+        open(p_audio, "wb").write(_as_bytes(audio_bytes))
         dur = min(max(ffprobe_duration(p_audio) or seconds, 3.0), max(seconds, 3.0))
 
         # ---- canvas 1080x1920 banao: photo upar, neeche text ----
         if Image:
             W, H = 1080, 1920
             base = Image.new("RGB", (W, H), (12, 12, 18))
-            ph = Image.open(p_photo).convert("RGB")
+            try:
+                ph = Image.open(p_photo).convert("RGB")
+                ph.load()
+            except Exception:                                   # noqa: BLE001
+                # v78: photo asli image nahi thi to PIL ka
+                # UnidentifiedImageError seedha tool crash kar raha tha.
+                return {"ok": False,
+                        "error": "Photo padhi nahi ja saki — JPG/PNG bhejo."}
             ph.thumbnail((W, 1120))
             base.paste(ph, ((W - ph.width) // 2, 250))
             if text:

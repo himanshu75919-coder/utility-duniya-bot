@@ -100,6 +100,7 @@ SHORTENER_PROVIDERS = [
 
 
 def shorten_url(url: str, want: int = 2) -> list:
+    url = _s(url)
     """Ek ya zyada working short links return karta hai: [(provider, short_url), ...]
 
     v50: AB PARALLEL — saare 6 provider ek saath chalte hain (ThreadPool).
@@ -222,6 +223,7 @@ def friendly_net_error(exc, host: str = "") -> str:
 def expand_url(url: str, max_hops: int = 6):
     """Redirect chain follow karta hai aur final + cleaned URL deta hai.
     Returns dict: {ok, original, final, cleaned, chain: [...], hops, is_shortener}"""
+    url = _s(url)
     if not url.startswith(("http://", "https://")):
         # v50: "file:///etc/passwd" jaise input par blindly "https://" mat jodo —
         # wo "https://file:///etc/passwd" ban kar hostname="file" ke roop me
@@ -524,8 +526,8 @@ def brand_in_text(brand: str, low: str, tokens: set) -> bool:
     Pehle ka galat result: `https://www.sbi.co.in/portal/web/customer-services`
     par brand 'vi' "servICes" me dhoondh kar "brand fake hai" keh raha tha.
     """
-    b = (brand or "").lower()
-    if not b:
+    b = str(brand if isinstance(brand, str) else (brand or "")).lower()
+    if not b or not isinstance(low, str):
         return False
     if len(b) <= 3:
         return b in tokens or any(t.startswith(b) and len(t) <= len(b) + 4 for t in tokens)
@@ -655,6 +657,20 @@ LURE_WORDS = {"login": 12, "verify": 12, "secure": 8, "update": 8, "kyc": 15, "o
               "support": 6, "account": 8, "payment": 8, "reward": 12, "cashback": 10, "offer": 6}
 
 
+def _s(v) -> str:
+    """Kuch bhi aaye (None/int/list/bytes) -> safe str. Crash na ho, bas."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    if isinstance(v, (bytes, bytearray)):
+        try:
+            return v.decode("utf-8", "ignore")
+        except Exception:                                    # noqa: BLE001
+            return ""
+    return str(v)
+
+
 def analyze_link(raw_url: str) -> dict:
     """
     Professional multi-signal link check.
@@ -673,6 +689,7 @@ def analyze_link(raw_url: str) -> dict:
       • aur ek GALAT verdict: asli `sbi.co.in` "SUSPICIOUS 32" bata raha tha
         (check me `.co.in` official hi nahi tha + 'vi' "services" me mil raha tha)
     """
+    raw_url = _s(raw_url)          # v78: None/bool/list par .strip() crash karta tha
     url0 = (raw_url or "").strip()
     # --- A-0) NON-WEB SCHEME: pehle hi rok do (domain analysis bekaar hai) ---
     _m = re.match(r"\s*([a-zA-Z][a-zA-Z0-9+.\-]{1,14})\s*:", url0)

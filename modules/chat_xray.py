@@ -204,12 +204,25 @@ def extract_text(data: bytes, filename: str = "") -> tuple:
 #  PARSE
 # ======================================================================
 
+def _txt_in(v):
+    """Kachra input (None/bool/dict) -> str. v78: `(x or '')` True/5 jaisa
+    truthy non-str pass kar deta tha -> re.compile TypeError = tool crash."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    try:
+        return v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v)
+    except Exception:                                       # noqa: BLE001
+        return ""
+
+
 def parse_chat(text: str) -> dict:
     """Chat text → messages list + counters (system msgs alag)."""
     msgs = []                      # (user, raw_text, hour, iso_date)
     sys_n = 0
     cur = None                     # [user, text, hour, iso]
-    lines = (text or "").splitlines()
+    lines = _txt_in(text).splitlines()
     if len(lines) > MAX_LINES:
         lines = lines[:MAX_LINES]
     for ln in lines:

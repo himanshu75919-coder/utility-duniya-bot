@@ -109,7 +109,8 @@ VEHICLE_CLASS = {
 
 def lookup_vehicle_rto(plate: str) -> dict:
     """Parses Indian number plate: state, RTO office, vehicle class + official check links."""
-    clean = re.sub(r"[^A-Za-z0-9]", "", plate or "").upper()
+    plate = plate if isinstance(plate, str) else ("" if plate is None else str(plate))  # v78
+    clean = re.sub(r"[^A-Za-z0-9]", "", plate).upper()
     if len(clean) < 6:
         return {"ok": False, "error": "Wrong format. Type it like: <code>BR01AB1234</code> or <code>DL8CAF5030</code>"}
 
@@ -148,7 +149,8 @@ def lookup_vehicle_rto(plate: str) -> dict:
 # =====================================================================================
 def lookup_phone_info(number_str: str) -> dict:
     """Carrier, circle/region, timezone, number type (100% public data)."""
-    clean = re.sub(r"[^\d+]", "", number_str or "")
+    number_str = number_str if isinstance(number_str, str) else ("" if number_str is None else str(number_str))  # v78
+    clean = re.sub(r"[^\d+]", "", number_str)
     if not clean:
         return {"ok": False, "error": "Number bhejo (jaise <code>9876543210</code> ya <code>+919876543210</code>)"}
 
@@ -223,7 +225,8 @@ def lookup_phone_info(number_str: str) -> dict:
 # =====================================================================================
 def lookup_ifsc(code: str) -> dict:
     """Razorpay public IFSC API — bank branch, MICR, UPI/NEFT/IMPS, map link."""
-    clean = re.sub(r"[^A-Za-z0-9]", "", code or "").upper()
+    code = code if isinstance(code, str) else ("" if code is None else str(code))  # v78
+    clean = re.sub(r"[^A-Za-z0-9]", "", code).upper()
     if len(clean) != 11:
         return {"ok": False, "error": "IFSC is 11 characters (example SBIN0000001, HDFC0001234)"}
     if not re.match(r"^[A-Z]{4}0[A-Z0-9]{6}$", clean):
@@ -277,7 +280,8 @@ def lookup_ifsc(code: str) -> dict:
 # =====================================================================================
 def lookup_pincode(pincode: str) -> dict:
     """India Post API — district, state, taluk, division + map link."""
-    clean = re.sub(r"[^\d]", "", pincode or "")
+    pincode = pincode if isinstance(pincode, str) else ("" if pincode is None else str(pincode))  # v78
+    clean = re.sub(r"[^\d]", "", pincode)
     if len(clean) != 6:
         return {"ok": False, "error": "Pincode is 6 digits (example 800001)"}
     # India ke real pincode 1-9 se start hote hain (0 se koi pincode nahi)

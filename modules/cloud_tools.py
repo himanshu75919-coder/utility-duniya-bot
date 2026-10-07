@@ -71,7 +71,8 @@ def is_gdrive_url(url: str) -> bool:
 
 def _extract_surl(url: str):
     """Terabox share link se surl (short url id) nikalta hai."""
-    url = (url or "").strip()
+    url = url if isinstance(url, str) else ("" if url is None else str(url))   # v78
+    url = url.strip()
     m = re.search(r"/s/1?([A-Za-z0-9_\-]+)", url)
     if m:
         return "1" + m.group(1) if not m.group(0).startswith("/s/1") else m.group(1)

@@ -75,9 +75,13 @@ AUTO_MODE = (os.environ.get("SMART_DETECT", "auto") or "auto").strip().lower()
 if AUTO_MODE not in ("off", "suggest", "auto"):
     AUTO_MODE = "auto"
 
-HISTORY_MAX = int(os.environ.get("PRO_HISTORY_MAX", "20000") or 20000)
-BREAKER_FAILS = int(os.environ.get("PRO_BREAKER_FAILS", "3") or 3)
-BREAKER_COOLDOWN = int(os.environ.get("PRO_BREAKER_COOLDOWN", "600") or 600)
+# v78: `int()` seedha import-time par tha -> ek galat env value poora bot
+# boot se pehle maar deta thi. Ab safeconf (kachra = default, kabhi raise nahi).
+from .safeconf import env_int as _env_int
+
+HISTORY_MAX = _env_int("PRO_HISTORY_MAX", 20000, 100, 1_000_000)
+BREAKER_FAILS = _env_int("PRO_BREAKER_FAILS", 3, 1, 100)
+BREAKER_COOLDOWN = _env_int("PRO_BREAKER_COOLDOWN", 600, 10, 86400)
 
 
 # ======================================================================
@@ -335,13 +339,25 @@ def _short(v: str, n: int = 28) -> str:
     return v if len(v) <= n else v[:n] + "…"
 
 
+def _safe_uid(uid, default=0):
+    """DB/env/user-text se aaya hoi uid kabhi bhi int() pe na tute (v78)."""
+    try:
+        return int(uid)
+    except Exception:                                    # noqa: BLE001
+        try:
+            s = "".join(c for c in str(uid) if c.isdigit())
+            return int(s) if s else default
+        except Exception:                                # noqa: BLE001
+            return default
+
+
 def detect_enabled(uid: int) -> bool:
     """User ne smart detect band kiya hai kya? (default ON)"""
-    return _prefs.get(int(uid), True)
+    return _prefs.get(_safe_uid(uid), True)
 
 
 def set_detect_enabled(uid: int, on: bool) -> bool:
-    _prefs[int(uid)] = bool(on)
+    _prefs[_safe_uid(uid)] = bool(on)
     return bool(on)
 
 

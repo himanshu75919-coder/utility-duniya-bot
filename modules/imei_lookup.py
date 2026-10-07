@@ -306,6 +306,8 @@ def parse_imei_payload(payload, imei: str = "") -> dict:
                 "source": "hub (TAC)"}
 
     res = payload.get("result")
+    if res is None:
+        res = {}                                   # API ne "result": null bheja
     if isinstance(res, str):                       # {"result": "Invalid IMEI"}
         low = res.lower()
         if "invalid" in low:

@@ -31,9 +31,14 @@ from typing import Dict, Optional, Tuple
 __all__ = ["RateLimiter", "limiter", "check_limit", "reset_limit", "limiter_stats"]
 
 # ---------------- defaults (env se override) ----------------
-_DEFAULT_LIMIT = int(os.environ.get("RATE_LIMIT_DEFAULT", "20"))     # requests per window
-_DEFAULT_WINDOW = int(os.environ.get("RATE_LIMIT_WINDOW", "60"))     # seconds
-_BURST_LIMIT = int(os.environ.get("RATE_LIMIT_BURST", "6"))          # heavy tools
+# v78: pehle ye raw int() the. Render par ek bhi khaali/galat value
+# (RATE_LIMIT_WINDOW=) = ImportError = bot ek baar bhi start nahi hota tha,
+# aur crash "mystery" lagta tha. Ab safeconf se: kachra -> default + WARN.
+from .safeconf import env_int as _env_int
+
+_DEFAULT_LIMIT = _env_int("RATE_LIMIT_DEFAULT", 20, 1, 5000)      # per window
+_DEFAULT_WINDOW = _env_int("RATE_LIMIT_WINDOW", 60, 5, 86400)     # seconds
+_BURST_LIMIT = _env_int("RATE_LIMIT_BURST", 6, 1, 500)            # heavy tools
 _CLEANUP_EVERY = 300                                                  # seconds
 
 
@@ -174,6 +179,14 @@ def _fmt_wait(seconds: float) -> str:
 def check_limit(uid: int, action: str = "any", *, heavy: bool = False,
                 bypass: bool = False, tool_name: str = "",
                 limit: Optional[int] = None, window: Optional[int] = None) -> Optional[str]:
+    # v78: `int('')`/`int(None)` se ye function khud crash ho jata tha — aur ye
+    # HAR tool se pehle chalta hai, yani ek bad value = poora tool fail. Ab
+    # uid/action safe karke limit check hamesha chalta hai.
+    try:
+        uid = int(uid)
+    except Exception:                                    # noqa: BLE001
+        uid = 0
+    action = str(action if isinstance(action, str) else (action or "any"))
     """Rate-limit check karke message do.
 
     Args:

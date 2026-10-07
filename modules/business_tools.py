@@ -420,7 +420,25 @@ def to_pdf(png_list) -> Optional[bytes]:
     """PNG(s) -> PDF. img2pdf, warna Pillow. Kabhi crash nahi."""
     if isinstance(png_list, (bytes, bytearray)):
         png_list = [bytes(png_list)]
-    items = [bytes(x) for x in (png_list or []) if x]
+    elif isinstance(png_list, str):
+        png_list = [png_list]
+    if isinstance(png_list, dict):
+        png_list = [png_list.get("png") or png_list.get("bytes") or ""]
+    elif not isinstance(png_list, (list, tuple, set, frozenset)):
+        png_list = [] if png_list is None else [png_list]   # v78: int/None par crash
+    items = []
+    for x in (png_list or []):
+        if not x:
+            continue
+        # v78: str/Path/int jaisa galat type `bytes(x)` par TypeError deta tha
+        # (tool crash). Ab sirf asli image bytes lete hain, baaki chhod dete hain.
+        if isinstance(x, (bytes, bytearray, memoryview)):
+            items.append(bytes(x))
+        elif hasattr(x, "getvalue"):
+            try:
+                items.append(bytes(x.getvalue()))
+            except Exception:                                       # noqa: BLE001
+                pass
     if not items:
         return None
     try:

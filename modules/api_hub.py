@@ -62,9 +62,22 @@ _GST_STATE_CODES = frozenset(
 )
 
 
+def _txt_in(v):
+    """Kachra input (None/bool/dict) -> str. v78: `(x or '')` True/5 jaisa
+    truthy non-str pass kar deta tha -> re.compile TypeError = tool crash."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    try:
+        return v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v)
+    except Exception:                                       # noqa: BLE001
+        return ""
+
+
 def gstin_format_ok(g: str) -> bool:
     """15-char GSTIN: 2 state code + 10 PAN + 1 entity + 'Z' + 1 checksum."""
-    g = g or ""
+    g = _txt_in(g)
     if not _GSTIN_RE.match(g):
         return False
     return g[:2] in _GST_STATE_CODES
@@ -76,6 +89,7 @@ def pan_format_ok(p: str) -> bool:
     4th character PAN ki category batata hai — valid letters:
     C P M F A T H B L J G (Company, Person, ... etc.).
     """
+    p = _txt_in(p)
     p = p or ""
     if not _PAN_RE.match(p):
         return False

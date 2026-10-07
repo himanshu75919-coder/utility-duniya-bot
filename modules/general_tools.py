@@ -58,6 +58,7 @@ from modules.core.telemetry import tracked as _tracked
 log = logging.getLogger("ud.general")
 
 __all__ = [
+    "qr_capacity", "QrTooLong",
     "make_qr_bytes", "make_branded_qr", "wifi_qr_data", "vcard_data",
     "build_upi_link", "domain_age_days", "get_app_store_links", "app_lookup",
     "app_cache_snapshot", "TRUSTED_STORES",
@@ -86,6 +87,64 @@ def app_cache_snapshot() -> dict:
 # =====================================================================
 #  QR CODE
 # =====================================================================
+class QrTooLong(ValueError):
+    """Text QR ki capacity se bada hai — '⚠️ ghatna' nahi, saaf jawab milna chahiye."""
+
+
+# QR version 40 (max) ki capacity, bytes me, error-correction level ke hisaab se.
+# Ye values QR spec (ISO/IEC 18004) ke level-B capacity table se hain (byte mode).
+_QR_MAX_BYTES = {"L": 2953, "M": 2331, "Q": 1663, "H": 1273}
+_EC_BY_CONST = {0: "L", 1: "M", 2: "Q", 3: "H"}       # qrcode.constants order
+_EC_BY_NAME = {"L": 0, "M": 1, "Q": 2, "H": 3}
+
+
+def _ec_letter(val) -> str:
+    try:
+        return _EC_BY_CONST.get(int(val), "M")
+    except Exception:                                   # noqa: BLE001
+        return "M"
+
+
+def qr_capacity(text) -> dict:
+    """Kitna bheja ja sakta hai + aapka text fit hai ya nahi (levels ke saath).
+
+    Ye function tool ko "andhe dhakk" banane ke liye nahi hai — QR handler isse
+    pehle check karke user ko SAAF bata sakta hai ki limit kya hai.
+    """
+    raw = text if isinstance(text, bytes) else str(text or "").encode("utf-8")
+    n = len(raw)
+    room = {k: v for k, v in _QR_MAX_BYTES.items()}
+    best = max((k for k, v in room.items() if n <= v), key=lambda k: _EC_BY_NAME[k], default=None)
+    return {"ok": best is not None, "bytes": n, "best_ec": best,
+            "max": {k: v for k, v in room.items()},
+            "advice": ("" if best else
+                       f"Text {n} bytes ka hai — QR ki sabse badi capacity bhi "
+                       f"{_QR_MAX_BYTES['L']} bytes (level L) hai. Chhota karo ya "
+                       "file ke roop me bhejo.")}
+
+
+def _qr_pick_ec(raw_len: int, want: str):
+    """Sabse MAZBOOT error-correction level jo text ko samet le.
+
+    Pehle: sirf M/H use hota tha aur 2900+ character par `qrcode` library
+    `ValueError: Invalid version (was 41, expected 1 to 40)` de deti thi — yaani
+    user lamba text bhejta aur tool crash (bot "⚠️ chhota sa ghatna" kehta).
+    Ab level ko khud degrade karte hain (H→Q→M→L) taaki zyada se zyada text
+    SCAN-HOGAYE QR me aa jaaye, aur jo sach me namumkin hai wahi clearly
+    bataye (jhootha/chhota QR banana theek nahi).
+    """
+    order = ["H", "Q", "M", "L"]
+    if want in order:
+        order = [want] + [x for x in order if x != want]
+    for lvl in order:
+        if raw_len <= _QR_MAX_BYTES[lvl]:
+            return qrcode.constants.ERROR_CORRECT_L if lvl == "L" else \
+                   qrcode.constants.ERROR_CORRECT_M if lvl == "M" else \
+                   qrcode.constants.ERROR_CORRECT_Q if lvl == "Q" else \
+                   qrcode.constants.ERROR_CORRECT_H
+    return None
+
+
 def make_qr_bytes(text: str, box_size: int = 18, fill: str = "black",
                   back: str = "white", border: int = 2,
                   error_correction: Optional[int] = None) -> io.BytesIO:
@@ -95,10 +154,26 @@ def make_qr_bytes(text: str, box_size: int = 18, fill: str = "black",
     hi nahi karta tha, par function support karta tha — ab dono).
     `error_correction` default `M`; logo embed karna ho to `H` bhejo.
     """
-    ec = qrcode.constants.ERROR_CORRECT_M if error_correction is None else error_correction
+    data = text if isinstance(text, (bytes, bytearray)) else str(text or "")
+    if not str(data).strip():
+        raise QrTooLong("QR banane ke liye kuch text/URL chahiye tha (khaali mila).")
+    want = _ec_letter(qrcode.constants.ERROR_CORRECT_M if error_correction is None
+                      else error_correction)
+    raw_len = len(data if isinstance(data, (bytes, bytearray)) else str(data).encode("utf-8"))
+    ec = _qr_pick_ec(raw_len, want)
+    if ec is None:
+        raise QrTooLong(qr_capacity(data)["advice"])
+    try:
+        _bs = max(2, int(box_size))
+    except Exception:                                    # noqa: BLE001
+        _bs = 18
+    try:
+        _bd = max(0, int(border))
+    except Exception:                                    # noqa: BLE001
+        _bd = 2
     qr = qrcode.QRCode(version=None, error_correction=ec,
-                       box_size=max(2, int(box_size)), border=max(0, int(border)))
-    qr.add_data(text)
+                       box_size=_bs, border=_bd)
+    qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill_color=fill or "black", back_color=back or "white").convert("RGB")
     buf = io.BytesIO()
@@ -130,9 +205,17 @@ def make_branded_qr(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
 
     Returns PNG BytesIO.
     """
-    ec = qrcode.constants.ERROR_CORRECT_H if logo_bytes else qrcode.constants.ERROR_CORRECT_Q
-    qr = qrcode.QRCode(version=None, error_correction=ec, box_size=10, border=3)
-    qr.add_data(text)
+    data = text if isinstance(text, (bytes, bytearray)) else str(text or "")
+    if not str(data).strip():
+        raise QrTooLong("QR banane ke liye kuch text/URL chahiye tha (khaali mila).")
+    _raw_len = len(data if isinstance(data, (bytes, bytearray)) else str(data).encode("utf-8"))
+    # logo hai to H zaroori hai (22% area cover hota hai) — H me fit na ho to
+    # khud chhota karke bata do, warna scanned QR tootega
+    _ec = _qr_pick_ec(_raw_len, "H" if logo_bytes else "Q")
+    if _ec is None:
+        raise QrTooLong(qr_capacity(data)["advice"])
+    qr = qrcode.QRCode(version=None, error_correction=_ec, box_size=10, border=3)
+    qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill_color=_hex_to_rgb(fg), back_color=_hex_to_rgb(bg)).convert("RGB")
 

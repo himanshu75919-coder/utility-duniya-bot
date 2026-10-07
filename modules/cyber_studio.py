@@ -35,7 +35,7 @@ def make_stamped_passport(photo_bytes: bytes, candidate_name: str, dop_date: str
     - Uppercase Candidate Name & Date of Photo (DOP)
     - Compressed to 20KB - 50KB range
     """
-    img = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
+    img = _load_photo(photo_bytes).convert("RGB")
     
     # Standard 3.5 x 4.5 ratio (700 x 900 px)
     w, h = 700, 900
@@ -86,6 +86,26 @@ def make_stamped_passport(photo_bytes: bytes, candidate_name: str, dop_date: str
     return out, int(sizes[chosen])
 
 
+def _load_photo(photo_bytes, what: str = "photo"):
+    """Photo bytes -> PIL image. Asli photo na ho to SAAF ValueError (crash nahi)."""
+    if isinstance(photo_bytes, io.BytesIO) or hasattr(photo_bytes, "getvalue"):
+        try:
+            photo_bytes = photo_bytes.getvalue()
+        except Exception:                                           # noqa: BLE001
+            photo_bytes = b""
+    if isinstance(photo_bytes, str):
+        photo_bytes = photo_bytes.encode("utf-8", "ignore")
+    if not isinstance(photo_bytes, (bytes, bytearray)) or len(photo_bytes) < 64:
+        raise ValueError(f"{what} padhi nahi ja saki — file khaali ya image nahi lag rahi.")
+    try:
+        img = Image.open(io.BytesIO(photo_bytes))
+        img.load()
+    except Exception as e:                                          # noqa: BLE001
+        raise ValueError(f"{what} ek asli photo (JPG/PNG) honi chahiye "
+                         f"(mila: {type(e).__name__}).") from e
+    return img
+
+
 def make_printable_sheet(photo_bytes: bytes, copies: int = 8) -> io.BytesIO:
     """
     v50: EXACT 3.5 × 4.5 cm passport photos on a standard 6×4 inch lab sheet
@@ -93,7 +113,7 @@ def make_printable_sheet(photo_bytes: bytes, copies: int = 8) -> io.BytesIO:
     standard passport size hi print hoga (purana 350×450 chhota padta tha).
     4 columns × 2 rows = 8 copies, soft cut lines ke saath.
     """
-    img = Image.open(io.BytesIO(photo_bytes)).convert("RGB")
+    img = _load_photo(photo_bytes).convert("RGB")
     pw, ph = 413, 532  # 3.5×4.5 cm @ 300 DPI
     single = ImageOps.fit(img, (pw, ph), centering=(0.5, 0.35))
 

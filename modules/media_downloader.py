@@ -105,6 +105,8 @@ def platform_name(url: str) -> str:
 
 def classify_instagram_url(url: str) -> str:
     """Classifies Instagram URL into 'reel', 'story', or 'post'"""
+    if not isinstance(url, str):                       # v78: None/list par crash hota tha
+        url = "" if url is None else str(url)
     u = url.lower().split("?")[0]
     if "/reel/" in u or "/reels/" in u or "/tv/" in u:
         return "reel"
@@ -177,7 +179,7 @@ def cookies_path() -> str:
 
 def save_cookies_text(text: str):
     """Admin ke bheje cookies.txt ko disk par likho (DB me bhi rakha jaata hai)."""
-    txt = (text or "").strip()
+    txt = (text if isinstance(text, str) else "").strip()   # v78: non-str par crash
     if len(txt) < 40 or "youtube.com" not in txt and ".instagram.com" not in txt:
         return None
     try:

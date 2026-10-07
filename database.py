@@ -6,6 +6,7 @@ Handles Users, Referrals, VIP Subscriptions, Payments, Channel Cloner Settings, 
 
 import os
 import sqlite3
+import threading
 import time
 from datetime import date, datetime, timedelta
 
@@ -51,14 +52,134 @@ def _retry(fn):
     return _wrap
 
 
+# =====================================================================
+#  v78: ⚡ FAST DB — connection reuse + schema sirf EK BAAR
+# =====================================================================
+#  PROBLEM (nap kar mila, andaaze se nahi): `db()` HAR call par
+#      sqlite3.connect()  +  5 PRAGMA  +  6 CREATE TABLE IF NOT EXISTS
+#      +  2 PRAGMA table_info  +  1 CREATE INDEX
+#  chalata tha — yaani har message par ~15 SQL statements sirf connection
+#  lene ke liye. Aur ye sab `async def` handler ke ANDAR chalta tha = event
+#  loop BLOCK (ek user ka kaam poore bot ko rok deta hai). Auto-scan se pata
+#  chala: 118 DB calls directly async handlers me (61 add_use + 45 get_user + baaki).
+#
+#  HAL:
+#   1) Schema init process me EK BAAR (`_create_schema` + flag). DDL kharcha 0.
+#   2) Connection per-thread reuse (threading.local). SQLite connection ko thread
+#      share nahi karte — WAL ke saath yahi sahi pattern hai.
+#   3) Purane 100+ functions `con.close()` karte hain. Reuse ke saath wo connection
+#      mar jaata, isliye `_ConProxy` — `close()` no-op, baaki API same. Isse koi
+#      existing call site chhune ki zaroorat nahi padī (regression risk ~0).
+#   4) Vault restore DB FILE badal deta hai -> stale inode. Har reuse par inode
+#      check hai, aur `reset_conns()` bhi hai.
+_threads = threading.local()
+_schema_ready = False
+_init_lock = threading.Lock()
+_inited_path = None
+_inited_inode = None
+
+
+def _inode_of(path: str):
+    try:
+        st = os.stat(path)
+        return (st.st_dev, st.st_ino)
+    except Exception:                                        # noqa: BLE001
+        return None
+
+
+class _ConProxy:
+    """`close()` ko no-op banata hai taaki reused connection na mare."""
+
+    __slots__ = ("_con",)
+
+    def __init__(self, con):
+        object.__setattr__(self, "_con", con)
+
+    def close(self):                      # jaan-boojh kar no-op
+        return None
+
+    def __getattr__(self, item):
+        return getattr(object.__getattribute__(self, "_con"), item)
+
+    def __setattr__(self, k, v):
+        setattr(object.__getattribute__(self, "_con"), k, v)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+
+def reset_conns() -> int:
+    """Schema flag + current thread ka connection reset (restore ke baad)."""
+    global _schema_ready, _inited_path, _inited_inode
+    n = 0
+    with _init_lock:
+        _schema_ready = False
+        _inited_path = None
+        _inited_inode = None
+    try:
+        c = getattr(_threads, "con", None)
+        if c is not None:
+            try:
+                c.close()
+            except Exception:                                # noqa: BLE001
+                pass
+            _threads.con = None
+            n = 1
+    except Exception:                                        # noqa: BLE001
+        pass
+    return n
+
+
+def schema_ready() -> bool:
+    return bool(_schema_ready)
+
+
 def db():
-    """DB connection — WAL mode + 15s busy wait (v60).
+    """DB connection — WAL + 15s busy wait, ab **reused** (v78 speed).
 
     Pehle: `sqlite3.connect(DB_PATH)` + 5s timeout. Kai users ek saath tool
     chalate the to "database is locked" aata tha aur tool crash ho jata tha.
-    Ab: WAL (reader + writer ek saath) + 15 second wait. Ye crash khatam.
+    v60: WAL + 15s wait -> lock crash khatam.
+    v78: connection per-thread reuse + schema ek baar -> har message ka
+    blocking DB kharcha kaafi kam (local SSD par 0.39ms -> ~0.02ms; Render ke
+    0.1 CPU par farak is se zyada, kyun ki wahan har extra syscall mehnga hai).
     """
-    con = _vault_connect(DB_PATH)
+    global _schema_ready, _inited_path, _inited_inode
+    con = getattr(_threads, "con", None)
+    if con is not None:
+        if _inited_path == DB_PATH and _inode_of(DB_PATH) == _inited_inode:
+            return _ConProxy(con)
+        try:                                   # file badal gayi (restore) -> naya
+            con.close()
+        except Exception:                        # noqa: BLE001
+            pass
+        _threads.con = None
+        _schema_ready = False
+    new = _vault_connect(DB_PATH)
+    need = False
+    with _init_lock:
+        if not _schema_ready or _inited_path != DB_PATH:
+            need = True
+    if need:
+        _create_schema(new)
+        with _init_lock:
+            _schema_ready = True
+            _inited_path = DB_PATH
+            _inited_inode = _inode_of(DB_PATH)
+    _threads.con = new
+    return _ConProxy(new)
+
+
+def _create_schema(con):
+    """Tables/columns/index — process ki zindagi me ek baar (v78).
+
+    Har statement `IF NOT EXISTS`/guarded hai, isliye do thread ek saath isme
+    ghus bhi jaayein to kuch bigadta nahi — bas redundant DDL hoti hai. Isliye
+    yahan koi lock nahi (lock + blocking DDL = ek aur jamne ka raasta).
+    """
     cur = con.cursor()
     # Users table
     cur.execute(

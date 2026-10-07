@@ -171,10 +171,23 @@ _LBL = {"name": ("name", "candidate", "student"), "father_name": ("father", "fna
         "result": ("result", "status", "outcome"), "division": ("division",)}
 
 
+def _txt_in(v):
+    """Kachra input (None/bool/dict) -> str. v78: `(x or '')` True/5 jaisa
+    truthy non-str pass kar deta tha -> re.compile TypeError = tool crash."""
+    if isinstance(v, str):
+        return v
+    if v is None:
+        return ""
+    try:
+        return v.decode("utf-8", "ignore") if isinstance(v, (bytes, bytearray)) else str(v)
+    except Exception:                                       # noqa: BLE001
+        return ""
+
+
 def parse_result(html: str) -> dict:
     """Result page se student dict (best-effort — boards ka format alag hota hai)."""
     stu = {}
-    txt = re.sub(r"<script.*?</script>|<style.*?</style>", " ", html or "",
+    txt = re.sub(r"<script.*?</script>|<style.*?</style>", " ", _txt_in(html),
                  flags=re.S | re.I)
     _HDRS = {"sub code", "subject", "subjects", "marks", "total", "grand total", "grade",
              "paper", "theory", "practical", "subject code", "max marks", "obtained",
