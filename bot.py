@@ -429,7 +429,7 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.4 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
+BOT_VERSION = ("v74.5 FREE4ALL — NO-GYAAN (sirf outcome) + SPEED: disk-cache + engine race "
                "| temp number: WhatsApp + 3 desh | 34 boards | BSEB LIVE + PDF | saare tools tez")
 START_TIME = datetime.now()
 
@@ -9443,17 +9443,15 @@ RC_STEPS = ("rc_exam", "rc_year", "rc_board")
 
 
 def _rc_pick_card(page: int = 0) -> str:
-    """Board chuno — poore India ke boards, page ke saath."""
+    """Board chuno (v74.5: sirf BSEB + CBSE)."""
     rows, pg, tot = BRD.page_boards(page)
-    L = [pcard_title("📋", "RESULT CHECK — SABHI BOARDS"),
-         f"🇮🇳 <b>Apna BOARD chuno</b>  (page {pg + 1}/{tot})",
+    L = [pcard_title("📋", "RESULT CHECK"),
+         f"🇮🇳 <b>Apna BOARD chuno</b>" + (f"  (page {pg + 1}/{tot})" if tot > 1 else ""),
          ""]
     for key, b in rows:
         live = " ✅ <b>LIVE</b>" if b.get("status") == "live" else ""
         L.append(f"{b.get('flag', '🔹')} <b>{hesc(str(b.get('short')))}</b>"
                  f" — {hesc(str(b.get('state')))}{live}")
-    L.append("")
-    L.append("💬 Board ka naam likh ke bhi khoj sakte ho (jaise <code>UP Board</code>).")
     return "\n".join(L)
 
 
@@ -9469,15 +9467,15 @@ def _rc_pick_kb(page: int = 0):
             buf = []
     if buf:
         rows.append(buf)
-    nav = []
-    if pg > 0:
-        nav.append(InlineKeyboardButton("◀️ Peeche", callback_data=f"rc_page:{pg - 1}"))
-    nav.append(InlineKeyboardButton(f"{pg + 1}/{tot}", callback_data="rc_noop"))
-    if pg < tot - 1:
-        nav.append(InlineKeyboardButton("Aage ▶️", callback_data=f"rc_page:{pg + 1}"))
-    rows.append(nav)
-    rows.append([InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info"),
-                 InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
+    if tot > 1:                                    # v74.5: 1 page ho to nav row nahi
+        nav = []
+        if pg > 0:
+            nav.append(InlineKeyboardButton("◀️ Peeche", callback_data=f"rc_page:{pg - 1}"))
+        nav.append(InlineKeyboardButton(f"{pg + 1}/{tot}", callback_data="rc_noop"))
+        if pg < tot - 1:
+            nav.append(InlineKeyboardButton("Aage ▶️", callback_data=f"rc_page:{pg + 1}"))
+        rows.append(nav)
+    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
     return InlineKeyboardMarkup(rows)
 
 
@@ -10562,18 +10560,10 @@ def _webhook_watchdog(url: str, path: str) -> None:
 # hai (Render se). Jis din page khulega (roll form + captcha nahi), admin ko
 # message jayega — usi din us board ko LIVE banayenge.
 _BOARD_WATCH = (
-    ("upmsp", "https://results.upmsp.edu.in/"),
-    ("jac", "https://jac.jharkhand.gov.in/jac/"),
-    ("bseh", "https://bseh.org.in/"),
-    ("pseb", "https://results.pseb.ac.in/"),
-    ("gseb", "https://www.gseb.org/"),
-    ("mbose", "https://www.mbose.in/result-notification"),
-    ("mbse", "https://www.mbse.edu.in/"),
-    ("bbose", "https://bbose.org/"),
-    ("odisha", "https://results.bseodisha.ac.in/"),
-    ("hpbose", "https://results.hpbose.org/"),
-    ("cisce", "https://results.cisce.org/"),
-    ("nios", "https://results.nios.ac.in/"),
+    # v74.5: sirf CBSE (baaki boards hata diye). Jis din CBSE ka roll-number
+    # page bina login/captcha khulega, usi din LIVE add hoga.
+    ("cbse", "https://cbseresults.nic.in/"),
+    ("cbse2", "https://results.cbse.nic.in/"),
 )
 _BW_STATE = os.path.join(tempfile.gettempdir(), "ud_bw_seen.txt")
 

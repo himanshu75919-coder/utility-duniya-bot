@@ -63,14 +63,13 @@ BOT_SRC = open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read()
 
 # =====================================================================
 section("1) Registry — India ke saare boards alag-alag")
-check("30+ boards hain", len(BRD.BOARDS) >= 30, str(len(BRD.BOARDS)))
+check("v74.5: sirf 2 boards (BSEB + CBSE)", list(BRD.BOARDS.keys()) == ["bseb", "cbse"],
+      str(list(BRD.BOARDS.keys())))
 check("sab ORDER me maujood (koi orphan nahi)",
       all(k in BRD.BOARDS for k in BRD.ORDER) and len(BRD.ORDER) == len(BRD.BOARDS))
-_major = ["bseb", "cbse", "upmsp", "maharashtra", "telangana", "tn", "karnataka",
-          "gseb", "rbse", "mpbse", "wbbse", "kerala", "odisha", "pseb", "bseh",
-          "jkbose", "jac", "cgbse", "assam", "meghalaya", "nagaland", "mizoram"]
-_missing = [k for k in _major if k not in BRD.BOARDS]
-check("saare bade states ke board maujood", not _missing, str(_missing))
+check("Bihar + CBSE dono maujood (baaki delete)", {"bseb", "cbse"} <= set(BRD.BOARDS))
+check("purane boards gayab (upmsp/jac/gseb...)", not any(
+      k in BRD.BOARDS for k in ("upmsp", "jac", "gseb", "pseb", "bseh", "tn", "kerala")))
 _bad = [k for k, b in BRD.BOARDS.items()
         if not (b.get("name") and b.get("short") and b.get("portal")
                 and b.get("exams") and b.get("need") and b.get("status"))]
@@ -83,38 +82,32 @@ check("RULE #1: portal fields sirf internal (kabhi user ko nahi dikhte)",
 # =====================================================================
 section("2) Pagination + search")
 _rows, pg, tot = BRD.page_boards(0)
-check("page size 6", len(_rows) == 6, str(len(_rows)))
-check("kul pages sahi", tot == (len(BRD.ORDER) + 5) // 6, str(tot))
+check("page me 2 boards (page size 6 me fit)", len(_rows) == 2, str(len(_rows)))
+check("sirf 1 page", tot == 1, str(tot))
 check("page 0 me BSEB sabse pehle (LIVE board pehle)", _rows[0][0] == "bseb")
 _rows_l, pg_l, _ = BRD.page_boards(tot - 1)
 check("aakhri page par bhi boards hain", len(_rows_l) >= 1, str(len(_rows_l)))
 check("kharab page number par crash nahi", len(BRD.page_boards(999)[0]) >= 1)
-check("search: 'UP Board' → upmsp", [k for k, _ in BRD.find("UP Board")][:1] == ["upmsp"])
-check("search: 'telangana' kaam karta hai", "telangana" in [k for k, _ in BRD.find("telangana")])
+check("search: 'CBSE' → cbse", [k for k, _ in BRD.find("CBSE")][:1] == ["cbse"])
+check("search: 'cbse' kaam karta hai", "cbse" in [k for k, _ in BRD.find("cbse")])
 check("search: 'bihar' se BSEB/BBOSE milte hain",
       {"bseb"} <= {k for k, _ in BRD.find("bihar")})
-check("search: 'bengal' → wbbse", "wbbse" in [k for k, _ in BRD.find("bengal")])
+check("search: purana board 'UP' ab nahi milta", BRD.find("UP Board") == [])
 check("search: bakwaas → khaali", BRD.find("xyzzy qwerty") == [])
 check("search: case/Hindi mix bhi chalta hai", "bseb" in [k for k, _ in BRD.find("BIHAR")])
 
 # =====================================================================
 section("3) OFFICIAL LOGOS (unki hi website se)")
-_have = {"bseb": BRD.logo_path("bseb"), "upmsp": BRD.logo_path("upmsp"),
-         "gseb": BRD.logo_path("gseb"), "pseb": BRD.logo_path("pseb"),
-         "bseh": BRD.logo_path("bseh"), "hpbose": BRD.logo_path("hpbose"),
-         "odisha": BRD.logo_path("odisha"), "jac": BRD.logo_path("jac"),
-         "meghalaya": BRD.logo_path("meghalaya"), "mizoram": BRD.logo_path("mizoram")}
-_ok = [k for k, v in _have.items() if v and os.path.isfile(v)]
-check("10 official logos file me maujood", len(_ok) == 10, str(len(_ok)))
-for _k in ("bseb", "upmsp", "gseb"):
-    _p = _have[_k]
-    _b = open(_p, "rb").read() if _p else b""
-    check(f"logo {_k} asli image hai (khali nahi)",
-          _b[:3] == b"\xff\xd8\xff" or _b[:4] == b"\x89PNG", str(len(_b)))
+_lp = BRD.logo_path("bseb")
+check("BSEB ka official logo maujood", bool(_lp) and os.path.isfile(_lp))
+check("BSEB logo asli image hai", open(_lp, "rb").read()[:3] == b"\xff\xd8\xff")
+check("baaki purane logos delete (sirf bseb bacha)",
+      os.path.isfile(os.path.join(_ROOT, "assets", "logos", "norm_bseb_live.jpg"))
+      and not os.path.isfile(os.path.join(_ROOT, "assets", "logos", "norm_up_live.jpg")))
 check("jin boards ka logo nahi — unka COLOR BADGE banta hai (khaali nahi)",
       bool(BRD.badge_png("cbse")) and BRD.badge_png("maharashtra")[:4] == b"\x89PNG")
 check("badge me board ka naam/state likha hota hai (512px)",
-      len(BRD.badge_png("tripura") or b"") > 5000)
+      len(BRD.badge_png("cbse") or b"") > 5000)
 check("har board ka photo bytes milta hai (logo ya badge)",
       all(BRD.photo_bytes(k) for k in BRD.BOARDS))
 check("photo_bytes crash-free (galat key par bhi)", BRD.photo_bytes("xyz") is not None
@@ -123,21 +116,21 @@ check("photo_bytes crash-free (galat key par bhi)", BRD.photo_bytes("xyz") is no
 # =====================================================================
 section("4) Hub cards + board cards (bot ke)")
 _hub = bot._rc_pick_card(0)
-check("hub card: 'apna BOARD chuno' + page number", "BOARD chuno" in _hub and "1/6" in _hub)
+check("hub card: 'apna BOARD chuno' (1 page — koi page no. nahi)",
+      "BOARD chuno" in _hub and "/6" not in _hub)
 check("hub card: BSEB par LIVE ✅ mark", "BSEB" in _hub and "LIVE" in _hub)
 check("hub card me moti line nahi", "━" not in _hub)
 _kb0 = bot._rc_pick_kb(0)
 _rows_kb = _kb0.inline_keyboard
-check("hub kb: 6 board buttons + nav + footer", len(_rows_kb) == 5, str(len(_rows_kb)))
+check("hub kb: 1 board-row + footer (nav nahi — 1 page)", len(_rows_kb) == 2, str(len(_rows_kb)))
 check("hub kb: pehla button BSEB ✅", "BSEB" in _rows_kb[0][0].text and "✅" in _rows_kb[0][0].text)
-_kb5 = bot._rc_pick_kb(5)
-check("aakhri page par 'Peeche' hai, 'Aage' nahi",
-      any("Peeche" in b.text for r in _kb5.inline_keyboard for b in r)
-      and not any("Aage" in b.text for r in _kb5.inline_keyboard for b in r))
+check("1 page par koi Aage/Peeche nav nahi",
+      not any(("Aage" in b.text or "Peeche" in b.text)
+              for r in _kb0.inline_keyboard for b in r))
 
-_cap_ts, _kb_ts = bot.rc_board_card("telangana")
-check("board card: poora naam + state + exam", "Board of Secondary Education Telangana" in _cap_ts
-      and "Telangana" in _cap_ts and "SSC" in _cap_ts)
+_cap_ts, _kb_ts = bot.rc_board_card("cbse")
+check("board card: poora naam + state + exam", "Central Board of Secondary Education" in _cap_ts
+      and "All India" in _cap_ts)
 check("board card (portal): sirf status — koi gyaan nahi",
       "Jald live hoga" in _cap_ts and "captcha" not in _cap_ts and "steps" not in _cap_ts)
 check("board card (portal): koi link button NAHI (rule #1)",
@@ -295,34 +288,26 @@ async def _hub_flow():
     check("E2E: hub khula — boards + LIVE mark", "BOARD chuno" in _t and "LIVE" in _t,
           _t[:70])
 
-    q2 = _Q("rc_page:1", uid)
-    await bot.on_cb(_UpdQ(q2), ctx)
-    check("E2E: aage page par naye boards",
-          "2/6" in " ".join(q2.message.out), " ".join(q2.message.out)[:60])
-
-    # search: UP Board likho
-    up = _UpdT("UP Board", uid)
+    # search: CBSE likho → seedha card (badge ke saath)
+    up = _UpdT("CBSE", uid)
     ctx.user_data["mode"] = "rc_board"
     await bot.on_text(up, ctx)
-    check("E2E: search 'UP Board' → seedha board card (logo ke saath)",
-          bool(up.message.photos) and "UPMSP" in (up.message.photos[0][0] or ""),
+    check("E2E: search 'CBSE' → seedha board card (badge photo ke saath)",
+          bool(up.message.photos) and up.message.photos[0][1][:4] == b"\x89PNG",
           str(len(up.message.photos)))
-    if up.message.photos:
-        check("E2E: UP ka official logo image asli hai",
-              up.message.photos[0][1][:3] == b"\xff\xd8\xff")
 
-    # portal board card → "Kaise check karein"
-    q3 = _Q("rc_how:upmsp", uid)          # purane button ka alias — ab card kholta hai
+    # CBSE card → purana how-button ab card kholta hai
+    q3 = _Q("rc_how:cbse", uid)
     await bot.on_cb(_UpdQ(q3), ctx)
     _t3 = " ".join(q3.message.out)
     check("E2E: purana how-button ab board card kholta hai (gyaan nahi)",
-          "Uttar Pradesh" in _t3 and "steps" not in _t3, _t3[:80])
+          "Central Board" in _t3 and "steps" not in _t3, _t3[:80])
 
-    # maharashtra card (badge wala board)
-    q4 = _Q("rcb:maharashtra", uid)
+    # BSEB card (LIVE + logo)
+    q4 = _Q("rcb:bseb", uid)
     await bot.on_cb(_UpdQ(q4), ctx)
-    check("E2E: badge wale board ka card bhi photo ke saath",
-          bool(q4.message.photos) and q4.message.photos[0][1][:4] == b"\x89PNG",
+    check("E2E: BSEB card photo (official logo) ke saath",
+          bool(q4.message.photos) and q4.message.photos[0][1][:3] == b"\xff\xd8\xff",
           str(len(q4.message.photos)))
 
     # search fail

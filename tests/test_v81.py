@@ -193,9 +193,9 @@ section("5) Outcome cards ka look (nakli Telegram)")
 _c_live, _kb_live = bot.rc_board_card("bseb")
 check("BSEB card: LIVE + check button", "✅ <b>LIVE</b>" in _c_live
       and any("Result check karo" in b.text for r in _kb_live.inline_keyboard for b in r))
-_c_soon, _kb_soon = bot.rc_board_card("tn")
-check("Tamil Nadu card: sirf 'Jald live hoga' + Saare boards button",
-      "⏳ <b>Jald live hoga</b>" in _c_soon
+_c_soon, _kb_soon = bot.rc_board_card("cbse")
+check("CBSE card: sirf status + Saare boards button (gyaan nahi)",
+      "Jald live hoga" in _c_soon
       and [b.text for r in _kb_soon.inline_keyboard for b in r] == ["◀️ Saare boards"])
 check("hub card: page + search hint, koi lecture nahi",
       "BOARD chuno" in bot._rc_pick_card(0) and "LIVE" in bot._rc_pick_card(0)
@@ -205,9 +205,8 @@ check("version v74.x (NO-GYAAN + SPEED)",
 
 # =====================================================================
 section("6) Registry + baaki sab salamat (regression)")
-check("34 boards + 34 order (koi orphan nahi)",
-      len(BRD.BOARDS) == 34 and len(BRD.ORDER) == 34
-      and all(k in BRD.BOARDS for k in BRD.ORDER))
+check("v74.5: sirf 2 boards — BSEB + CBSE (koi orphan nahi)",
+      list(BRD.BOARDS.keys()) == ["bseb", "cbse"] and BRD.ORDER == ["bseb", "cbse"])
 check("BSEB hi live hai (jhoothi live list nahi)",
       [k for k, b in BRD.BOARDS.items() if b.get("status") == "live"] == ["bseb"])
 check("logos/badges sab boards par", all(BRD.photo_bytes(k) for k in BRD.BOARDS))
@@ -229,7 +228,9 @@ check("watchdog setWebhook dobara karta hai (3 retry)",
 
 # board watch
 check("board watch loop maujood (har 6 ghante)", callable(getattr(bot, "_board_watch_loop", None)))
-check("board watch me 10+ boards ki list", len(getattr(bot, "_BOARD_WATCH", ())) >= 10,
+check("board watch ab sirf CBSE (v74.5 — baaki boards delete)",
+      all(k.startswith("cbse") for k, _ in getattr(bot, "_BOARD_WATCH", ()))
+      and len(getattr(bot, "_BOARD_WATCH", ())) >= 1,
       str(len(getattr(bot, "_BOARD_WATCH", ()))))
 check("board watch admin ko batata hai (jhootha live nahi karta)",
       "BOARD WATCH" in BOT_SRC and "app.bot.send_message" in BOT_SRC)
