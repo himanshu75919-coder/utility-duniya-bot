@@ -43,6 +43,9 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
     healthCheckPath: /health   # polling aur webhook dono modes me 200 OK route
+                               # ⚠️ v77: Dashboard par bhi check kar lena — live
+                               # service me ye khaali mila tha, isliye Render
+                               # "zinda magar atka" app ko dobara nahi uthata tha.
 
     envVars:
       # ---------- ZAROORI (Render khud poochhega — yahan mat likho) ----------
@@ -114,11 +117,39 @@ services:
       # hai). Memory watchdog 400 MB par khud cache saaf karta hai.
       - key: MEMORY_LIMIT_MB
         value: "512"           # plan ki RAM (Starter=512, Standard=2048)
-      # Bot "zinda" dikhe par jawab na de (hung loop) — tab khud restart.
-      # 0 = sirf log karega. 600 = 10 minute se atka ho to restart.
-      - key: HANG_RESTART_SECONDS
-        value: "0"             # pehle 0 rakho; baar-baar hang ho to 600 karo
 
+      # ==================================================================
+      #  v77: 🏗️ HEAVY GATE + 🚦 UPDATE GATE  (yaahi "baar-baar crash" ka ilaaj)
+      # ==================================================================
+      # Render free plan = 512 MB RAM / 0.1 CPU. Is limit se zyada RAM =
+      # Linux OOM killer BOT ko maar deta hai (log me sirf "Killed").
+      # Do naye layers:
+      #
+      #  1) HEAVY GATE — video download / ffmpeg / PDF jaise bhaari kaam ek
+      #     saath kitne chalein. 2 free plan ke liye safe number hai.
+      #     Bheed me user ko saaf "busy" jawab milta hai, bot marta nahi.
+      #  2) UPDATE GATE — PTB ka default ek time par EK update process karta
+      #     hai: ek user ka 30-second video tool baaki sabko block kar deta
+      #     tha ("bot atak gaya" = sabse common crash-shadow). Ab alag-alag
+      #     chat parallel chalti hain, ek hi chat ke messages order me
+      #     (wizard flows safe), aur Telegram ka dobara bheja hua update drop
+      #     ho jaata hai (dohra kaam / dohra credit nahi).
+      - key: HEAVY_MAX_SLOTS
+        value: "2"             # ek saath bhaari kaam (Starter/Standard par 3-4 kar sakte ho)
+      - key: HEAVY_WAIT_SECONDS
+        value: "25"            # queue me kitni der rukein, phar "busy" jawab
+      - key: HEAVY_GATE
+        value: "on"            # off = gate band (sirf debugging ke liye)
+      - key: MAX_CONCURRENT_UPDATES
+        value: "8"             # ek saath total updates (chat-wise order bani rahegi)
+      - key: UPDATE_DEDUPE
+        value: "on"            # Telegram ke retry (same update_id) drop karo
+      - key: UPDATE_PER_CHAT_ORDER
+        value: "on"            # ek hi user ke messages kram se chalen (state safe)
+      # v77: hang par khud theek — loop 240s atka to log, 900s atka to clean
+      #      restart (dead bot se behtar 15-second ka restart). 0 = restart off.
+      - key: HANG_RESTART_SECONDS
+        value: "900"
       # ---------- v60: 🧹 AUTO CLEANUP ----------
       # Purane temp files + expired caches khud safai hoti hai (disk bharne se bachao)
       - key: CLEANUP_MINUTES

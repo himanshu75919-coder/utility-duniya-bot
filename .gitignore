@@ -8,3 +8,6 @@ botdata.db.prerestore.*
 vault_local/
 .venv/
 MERI-KEYS*.txt
+
+# v77: tests ka temporary DB (repo me kabhi nahi)
+tests/_*.db

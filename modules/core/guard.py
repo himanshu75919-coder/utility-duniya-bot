@@ -66,6 +66,7 @@ __all__ = [
     "install_global_guard", "guarded", "heartbeat", "HEART",
     "start_memory_watchdog", "start_hang_watchdog", "crash_state",
     "mem_mb", "guard_stats", "GC_TRIGGERS",
+    "heart_report", "set_heartbeat_interval",
 ]
 
 # =====================================================================
@@ -75,7 +76,12 @@ _START = time.time()
 HEART: dict = {
     "beat": 0.0,           # aakhri baar event loop hilaya (epoch)
     "beats": 0,            # total beats
-    "lag": 0.0,            # sabse zyada kitni der loop atka
+    "lag": 0.0,            # sabse zyada kitni der loop ATKA (interval se zyada)
+    "interval": 20.0,      # heartbeat ka target gap (v77)
+    "last_gap": 0.0,       # do beats ke beech ka aakhri gap
+    "worst_gap": 0.0,      # sabse bada gap kabhi (stall 20s+ bhi pakda jaye)
+    "total_gap": 0.0,      # average ke liye jama
+    "gaps": 0,             # kitne gaps nape
 }
 _crash: dict = {
     "handler": 0,          # handler me kitni baar bug aaya (bot zinda raha)
@@ -114,6 +120,15 @@ def guard_stats() -> dict:
             "mem_mb": _mem_state["last_mb"], "mem_peak_mb": _mem_state["peak_mb"],
             "gc_runs": _mem_state["gc_runs"], "aggressive": _mem_state["aggressive"],
             "heart_lag": HEART["lag"], "beats": HEART["beats"],
+            "heart_last_gap": HEART.get("last_gap", 0.0),
+            "heart_worst_gap": HEART.get("worst_gap", 0.0),
+            "heart_interval": HEART.get("interval", 20.0),
+            "heart_avg_gap": (round(float(HEART.get("total_gap", 0.0))
+                                    / HEART["gaps"], 1) if HEART.get("gaps") else 0.0),
+            "heart_stalled": bool(
+                HEART["beat"] and
+                (time.time() - HEART["beat"]) >
+                float(HEART.get("interval", 20.0)) * 3 + 5),
             "uptime": int(time.time() - _START),
         }
 
@@ -319,22 +334,74 @@ def install_global_guard(loop: Optional[asyncio.AbstractEventLoop] = None) -> No
 
 
 def heartbeat() -> None:
-    """Event loop 'zinda hai' ka signal. Loop har 20 second me isko call kare."""
+    """Event loop 'zinda hai' ka signal. Loop har 20 second me isko call kare.
+
+    v77 METRIC FIX (asli bug): pehle `lag = now - beat` napta tha, jahan beat
+    khud 20 second me ek baar chalta hai. Iska matlab healthy bot par bhi
+    hamesha ~20.0s "lag" dikhta tha — aur 20 second se chhota stall kabhi
+    dikhta hi nahi tha. /health par "loop_lag=20.0s" dekh kar admin ulajh
+    jaate the, aur chhota hang (jo sabse pehle dikhna chahiye tha) chup jaata
+    tha. Ab INTENDED wake time se drift napte hain: healthy = ~0.0s.
+    """
     try:
         now = time.time()
         with _LOCK:
             if HEART["beat"]:
-                lag = now - HEART["beat"]
-                if lag > HEART["lag"]:
-                    HEART["lag"] = round(lag, 1)
+                gap = now - HEART["beat"]
+                HEART["total_gap"] = round(HEART.get("total_gap", 0.0) + gap, 1)
+                HEART["gaps"] = HEART.get("gaps", 0) + 1
+                # drift = kitni der BEHUAL se chalti (interval ke upar se)
+                drift = gap - HEART.get("interval", 20.0)
+                if drift < 0:
+                    drift = 0.0
+                # boot ke baad pehla gap (module load + imports) lamba hota hai —
+                # use peak me na ginein, warna startup hi "hang" dikh jaayega.
+                # (beats abhi-increment value hai: pehle measurement par 1)
+                if HEART["beats"] >= 2 and drift > HEART["lag"]:
+                    HEART["lag"] = round(drift, 1)
+                HEART["last_gap"] = round(gap, 1)
+                if gap > HEART.get("worst_gap", 0.0):
+                    HEART["worst_gap"] = round(gap, 1)
             HEART["beat"] = now
             HEART["beats"] += 1
     except Exception:                                            # noqa: BLE001
         pass
 
 
+def set_heartbeat_interval(interval: float) -> None:
+    """Heartbeat kitne second me ek baar — watchdog/saaf reporting ke liye."""
+    try:
+        iv = float(interval)
+        if iv >= 1.0:
+            with _LOCK:
+                HEART["interval"] = iv
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def heart_report() -> dict:
+    """/health ke liye: sacha lag (drift), average gap, aur 'abhi kya hai'."""
+    with _LOCK:
+        iv = float(HEART.get("interval", 20.0))
+        gaps = int(HEART.get("gaps", 0))
+        total = float(HEART.get("total_gap", 0.0))
+        since = round(time.time() - HEART["beat"], 1) if HEART["beat"] else -1.0
+        return {
+            "beats": HEART["beats"],
+            "interval": iv,
+            "lag": round(float(HEART.get("lag", 0.0)), 1),
+            "last_gap": HEART.get("last_gap", 0.0),
+            "worst_gap": HEART.get("worst_gap", 0.0),
+            "avg_gap": round(total / gaps, 1) if gaps else 0.0,
+            "since_beat": since,
+            "stalled": bool(HEART["beat"] and since > iv * 3 + 5),
+        }
+
+
+
 async def _heartbeat_loop(interval: float = 20.0) -> None:
     """Khud hi beat karta rahega — bot.py isko task me daal dega."""
+    set_heartbeat_interval(interval)
     while True:
         try:
             heartbeat()
@@ -346,6 +413,7 @@ async def _heartbeat_loop(interval: float = 20.0) -> None:
 def start_heartbeat_task(loop) -> None:
     """Heartbeat loop chalu karo (koi bhi loop me)."""
     async def _runner():
+        set_heartbeat_interval(20)
         while True:
             try:
                 heartbeat()

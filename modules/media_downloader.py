@@ -1054,11 +1054,31 @@ def download_instagram_media(url: str) -> dict:
         return _o
 
     # v74.3: 🏁 teeno engine EK SAATH (pehle ek-ek karke 25+ second lag jate the)
-    hit = _race([
-        lambda: _ig_parth(clean, media_cat),
-        lambda: _ig_ytdlp(clean, media_cat),
-        lambda: _og_scrape(clean, media_cat),
-    ], timeout=22.0)
+    # v77: poora race HEAVY GATE ke andar — ek request 3 engines (parth +
+    #      yt-dlp + scrape) ek saath chalata hai; 3-4 users ek saath aayein to
+    #      RAM 512 MB (free plan) phat jaati thi = OOM kill = "bot crash".
+    hit = None
+    try:
+        from modules.core import heavy as _hg
+    except Exception:                                          # noqa: BLE001
+        _hg = None
+    if _hg is None:
+        hit = _race([
+            lambda: _ig_parth(clean, media_cat),
+            lambda: _ig_ytdlp(clean, media_cat),
+            lambda: _og_scrape(clean, media_cat),
+        ], timeout=22.0)
+    else:
+        try:
+            with _hg.gate("media"):
+                hit = _race([
+                    lambda: _ig_parth(clean, media_cat),
+                    lambda: _ig_ytdlp(clean, media_cat),
+                    lambda: _og_scrape(clean, media_cat),
+                ], timeout=22.0)
+        except _hg.HeavyBusy:
+            return {"ok": False, "busy": True,
+                    "error": _hg.HeavyBusy("timeout").user_msg}
     if hit:
         try:
             if hit.get("bytes"):
@@ -1161,6 +1181,32 @@ def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
                          "Neeche wale direct link se browser ya IDM me download kar lo.") if mb else
                         "Direct link taiyar hai — browser ya IDM me turant download ho jayegi."}
     return {"ok": False, "error": "Download failed. The site blocked it or the link is private."}
+
+
+def _download_video_gated(url: str, max_mb: int = MAX_TG_MB) -> dict:
+    """v77: `_download_video_media_raw` + HEAVY GATE (OOM se bachao).
+
+    Kyun: download karte waqt yt-dlp file ko /tmp me likhta hai, phir poora
+    bytes RAM me aata hai (48 MB limit) + merge ho to ffmpeg bhi chalta hai.
+    Ek request ka peak ~150 MB. 512 MB wale free instance par 3-4 log ek
+    saath link bhejein to Linux OOM killer BOT ko hi maar deta tha — isliye
+    bot "baar-baar crash" karta hua lagta tha (asli mein RAM bhaari ho gayi
+    thi, code me bug nahi). Ab 2 kaam ek saath chalte hain, baaki 25 second
+    queue me rukte hain (user ko saaf 'busy' jawab, credit nahi katta),
+    isliye RAM chhat ko chhoo-ti hi nahi.
+    """
+    try:
+        from modules.core import heavy as _hg
+    except Exception:                                          # noqa: BLE001
+        _hg = None
+    if _hg is None:
+        return _download_video_media_raw(url, max_mb)
+    try:
+        with _hg.gate("media"):
+            return _download_video_media_raw(url, max_mb)
+    except _hg.HeavyBusy:
+        return {"ok": False, "busy": True,
+                "error": _hg.HeavyBusy("timeout").user_msg}
 
 
 async def download_instagram_async(url: str) -> dict:
@@ -1281,7 +1327,7 @@ def download_video_media(url: str, max_mb: int = MAX_TG_MB) -> dict:
                      "cached": True})
         _mem_put(url, _data, _meta, "media")    # RAM me bhi daal do (agle liye)
         return _out
-    _res = _download_video_media_raw(url, max_mb)
+    _res = _download_video_gated(url, max_mb)
     try:
         if _res.get("ok") and _res.get("bytes"):
             _meta = {k: v for k, v in _res.items() if k != "bytes"}
@@ -1370,6 +1416,27 @@ def yt_available_qualities(url: str) -> list:
         return []
 
 
+def _ffmpeg_gated(cmd: list, timeout: int = 900) -> subprocess.CompletedProcess:
+    """v77: heavy gate ke saath ffmpeg chalao.
+
+    Slot na mila (bheed / RAM pressure) -> returncode 124 + `stderr` me saaf
+    line. Callers already `returncode != 0` handle karte hain, isliye user ko
+    "kaam fail" dikhega — par bot zinda rahega. Purana behaviour: 4 ffmpeg ek
+    saath = OOM kill = poora bot restart.
+    """
+    try:
+        from modules.core import heavy as _hg
+    except Exception:                                          # noqa: BLE001
+        _hg = None
+    if _hg is None:
+        return subprocess.run(cmd, capture_output=True, timeout=timeout)
+    try:
+        with _hg.gate("ffmpeg"):
+            return subprocess.run(cmd, capture_output=True, timeout=timeout)
+    except _hg.HeavyBusy as e:
+        return subprocess.CompletedProcess(cmd, 124, b"", str(e.user_msg).encode())
+
+
 def downscale_video(data: bytes, target_h: int, max_mb: int = MAX_TG_MB) -> dict:
     """MP4 bytes ko chhoti height par scale karo (ffmpeg, bot server par).
 
@@ -1383,11 +1450,13 @@ def downscale_video(data: bytes, target_h: int, max_mb: int = MAX_TG_MB) -> dict
     try:
         with open(src, "wb") as f:
             f.write(data)
-        cp = subprocess.run(
+        # v77: ffmpeg encode bhi gate ke andar (1080p -> 480p re-encode sabse
+        #      zyada RAM/CPU leta hai; 2-3 log ek saath karein to OOM pakka)
+        cp = _ffmpeg_gated(
             [_FFMPEG_LOC, "-y", "-i", src, "-vf", f"scale=-2:{int(target_h)}",
              "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
              "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out],
-            capture_output=True, timeout=900)
+            900)
         if cp.returncode != 0 or not os.path.exists(out) or os.path.getsize(out) < 5000:
             return {"ok": False,
                     "error": (cp.stderr or b"").decode(errors="ignore")[-160:]}

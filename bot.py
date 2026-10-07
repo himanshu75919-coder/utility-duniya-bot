@@ -69,6 +69,21 @@ from modules.core.bounded import (
     clear_all_caches as _clear_module_caches,
     prune_all_caches as _prune_module_caches,
 )
+# v77: 🏗️ HEAVY GATE — bhaari kaam (video download / ffmpeg / PDF) ek saath
+#      kitne chalein, ye OOM-kill ("bot baar-baar crash") ka asli ilaaj hai.
+from modules.core import heavy as _heavy
+# v77: 🚦 UPDATE GATE — ek user ka bhaari tool baaki sab ko line me na khada
+#      kare (PTB ka default webhook concurrency 1 = "bot atak gaya"), aur
+#      Telegram ka dobara bheja hua update double kaam na kare.
+from modules.core import updategate as _ug
+
+
+def _heavy_health_line() -> str:
+    """/health + /sys ke liye ek line; gate kabhi bot ko nahi rokta."""
+    try:
+        return _heavy.health_line()
+    except Exception as _e:                                      # noqa: BLE001
+        return f"heavy-gate: (unavailable: {str(_e)[:40]})"
 # v75 — 🧠 PRO ENGINE: saare tools ka universal advanced layer
 #       (smart detect + provider race + result history + tool analytics)
 from modules.core import proengine as pro
@@ -479,7 +494,12 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v76.0 FREE4ALL — 🛡️ FORTRESS UPGRADE (crash-proof): bounded cache "
+BOT_VERSION = ("v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
+               "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
+               "ab baaki 40 ko line me nahi khada karta; Telegram ke duplicate retry "
+               "drop) + 🔗 LINK CHECK PRO (obfuscated IP, homoglyph, typosquat, RTL, "
+               "percent-encoding + asli bank domains ab galat flag NAHI hote) | "
+               "🛡️ FORTRESS (crash-proof): bounded cache "
                "(kabhi unlimited nahi badhta) + 🧹 JANITOR (temp safai · atke hue "
                "ffmpeg process · disk watchdog) + 💰 EARN STUDIO: 5 NAYE kamai wale "
                "tools (Rent Receipt · Udhaar Khata · Offer Poster · Quotation · "
@@ -4594,6 +4614,7 @@ def _vault_admin_block() -> str:
             f"🧠 RAM: {g.get('mem_mb', 0):.0f} MB (peak {g.get('mem_peak_mb', 0):.0f} MB)",
             f"   🧹 GC runs: {g.get('gc_runs', 0)} · "
             f"⏱️ loop lag: {g.get('heart_lag', 0)}s · beats {g.get('beats', 0)}",
+            f"   🏗️ {_heavy_health_line()}",
         ]
         if g.get("last_why"):
             lines.append(f"   🔎 Aakhri: {hesc(str(g['last_why'])[:110])}")
@@ -11538,7 +11559,13 @@ def _vault_health_html() -> str:
                f"| fatal={g.get('fatal', 0)}</p>",
                f"<p style='font-family:monospace'>memory: {mem_mb():.0f} MB "
                f"(peak {g.get('mem_peak_mb', 0):.0f} MB) | gc_runs={g.get('gc_runs', 0)} "
-               f"| loop_lag={g.get('heart_lag', 0)}s | beats={g.get('beats', 0)}</p>"]
+               f"| loop_lag={g.get('heart_lag', 0)}s | beats={g.get('beats', 0)}</p>",
+               f"<p style='font-family:monospace'>{hesc(_heavy_health_line())}</p>",
+               f"<p style='font-family:monospace'>{hesc(_ug.health_line())}</p>",
+               f"<p style='font-family:monospace'>loop: avg gap "
+               f"{g.get('heart_avg_gap', 0)}s | worst {g.get('heart_worst_gap', 0)}s "
+               f"(target {g.get('heart_interval', 20):.0f}s) | "
+               f"{'⚠️ STALLED' if g.get('heart_stalled') else 'ok'}</p>"]
         if g.get("last_why"):
             out.append(f"<p style='font-family:monospace'>last caught: "
                        f"{hesc(str(g['last_why'])[:140])}</p>")
@@ -11913,12 +11940,21 @@ def main():
     # v65: NetworkError ("Unknown error in HTTP implementation") ka pakka ilaaj —
     #      bada connection pool + HTTP/1.1. Pehle pool chhota hone se
     #      ek saath kai file/photo bhejne par connection toot jaata tha.
-    app = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
-           .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
-           .media_write_timeout(300.0).pool_timeout(60.0)
-           .connection_pool_size(64).http_version("1.1")
-           .get_updates_connection_pool_size(16)
-           .build())
+    _ug_proc = None
+    try:
+        _ug_proc = _ug.build_processor()
+    except Exception as _uge:                                      # noqa: BLE001
+        log.warning("update gate build skip: %s", str(_uge)[:120])
+    _app_builder = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
+                    .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
+                    .media_write_timeout(300.0).pool_timeout(60.0)
+                    .connection_pool_size(64).http_version("1.1")
+                    .get_updates_connection_pool_size(16))
+    if _ug_proc is not None:
+        _app_builder = _app_builder.concurrent_updates(_ug_proc)
+        log.info("🚦 Update gate: %s updates parallel (per-chat order + retry-drop)",
+                 _ug_proc.stats().get("max_concurrent"))
+    app = _app_builder.build()
 
     # Commands
     app.add_handler(CommandHandler("start", cmd_start))

@@ -1,20 +1,62 @@
-python-telegram-bot[webhooks]>=21,<23
-qrcode[pil]
-Pillow
-requests
-python-dotenv
-edge-tts
-gtts
-img2pdf
-phonenumbers
-aiohttp
-yt-dlp
-beautifulsoup4
-parth-dl
-imageio-ffmpeg
-numpy
-pdfplumber
-reportlab
-pypdf
-# v75.1: BULK MODE (EXCEL) — xlsx report
-openpyxl
+# =====================================================================
+#  Utility Duniya Super Bot — v77 dependencies
+#
+#  KYUN PIN KIYE GAYE (pehle sab "latest" the):
+#  Pehle yahan ek bhi version nahi likha tha (`Pillow`, `requests`, ...).
+#  Iska matlab har BUILD par Render sabse naya version uthata tha. Ek din
+#  koi library nayi breaking release de de -> bot deploy par hi mar jaata
+#  ("Application failed to start" / "unknown command ..." / handler API
+#  change) — aur aapko pata bhi nahi chalta ki wajah aapka code nahi,
+#  doosre ka update tha. Ye "kal tak chalta tha, aaj nahi" type crash ka
+#  sabse common kaaran hai.
+#
+#  PIN KI PRINCIPLE
+#  ----------------
+#  • Har library ko ek KNOWN-GOOD range diya gaya hai: floor = jis version
+#    par poora test suite (33 files) green hai, ceiling = agla major
+#    (jahan breaking change ki asha hai). Build hamesha install ho jaaye,
+#    aur chup-chaap koi nayi badi version na aa jaaye.
+#  • Python version ke hisaab se wheels sab ranges me milte rehte hain —
+#    isliye `==` (exact) nahi, `>=x,<y` use kiya hai. Exact pin ek din
+#    Render ke Python par wheel na milne se BUILD hi tod deta.
+#  • ❌ `yt-dlp` aur `parth-dl` JAAN-BOOJH kar ceiling ke bina (sirf floor)
+#    hain: ye YouTube/Instagram ke badalte APIs ke liye roz update hote
+#    hain. Purana version freeze karna = 2-3 hafte me "video download
+#    fail" hona. Ye library update honi chahiye — iska crash-proof ilaaj
+#    version pin nahi, modules/core/heavy.py ka gate + timeout hai.
+# =====================================================================
+
+# --- Telegram core (22.x API; 23 aane par handler API badal sakti hai) ---
+python-telegram-bot[webhooks]>=22.8,<23
+
+# --- HTTP / networking ---
+requests>=2.32,<3
+aiohttp>=3.10,<4
+
+# --- Images / PDF / documents (RAM bhaari — inka behaviour stable chahiye) ---
+Pillow>=11.0,<13
+qrcode[pil]>=7.4,<9
+img2pdf>=0.5,<1
+reportlab>=4.1,<6
+pypdf>=4.2,<7
+pdfplumber>=0.11,<0.12
+openpyxl>=3.1,<4          # v75.1 BULK MODE (Excel report)
+
+# --- Text / data ---
+beautifulsoup4>=4.12,<5
+phonenumbers>=8.13,<10
+numpy>=1.26,<3
+
+# --- Speech ---
+edge-tts>=6.1,<8
+gtts>=2.5,<3
+
+# --- Config ---
+python-dotenv>=1.0,<2
+
+# --- Video/audio engines (updates ke liye FREE chhode hain — upar dekhein) ---
+yt-dlp>=2025.1.1
+parth-dl>=1.2
+
+# --- ffmpeg binary (bundled; Render par system ffmpeg nahi hota) ---
+imageio-ffmpeg>=0.5,<1

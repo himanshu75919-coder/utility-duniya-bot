@@ -773,7 +773,27 @@ KAGAZ_FIELDS = {
 #  4) ⚡ MEDIA STUDIO (ffmpeg jadoo — koi API nahi)
 # ============================================================
 def _ff(args: list, timeout: int = 600) -> subprocess.CompletedProcess:
-    return subprocess.run([ffmpeg_path(), "-hide_banner", "-y"] + args, capture_output=True, timeout=timeout)
+    """v77: har ffmpeg encode ab HEAVY GATE se guzarta hai.
+
+    Render free = 512 MB. 3-4 log ek saath "video compress"/"ringtone"
+    dabayein to 4 ffmpeg process milkar box ko OOM-kill kar dete the
+    (bot mar jata, user ko "crash" dikhta). Ab ek saath sirf
+    HEAVY_MAX_SLOTS (default 2) encode chalte hain; bheed ho to ye
+    returncode=124 deta hai aur upar wala caller user ko saaf message de
+    deta hai — process KABHI marta nahi.
+    """
+    cmd = [ffmpeg_path(), "-hide_banner", "-y"] + list(args)
+    try:
+        from modules.core import heavy as _hg
+    except Exception:                                          # noqa: BLE001
+        _hg = None                                             # gate na mila -> jaisa tha waisa
+    if _hg is None:
+        return subprocess.run(cmd, capture_output=True, timeout=timeout)
+    try:
+        with _hg.gate("ffmpeg"):
+            return subprocess.run(cmd, capture_output=True, timeout=timeout)
+    except _hg.HeavyBusy as e:
+        return subprocess.CompletedProcess(cmd, 124, b"", str(e.user_msg).encode())
 
 
 def _out(cp: subprocess.CompletedProcess, path: str, extra: dict = None) -> dict:
