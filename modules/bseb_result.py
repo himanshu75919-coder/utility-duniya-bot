@@ -37,8 +37,8 @@ API_REFERER = "https://result.biharboardonline.org/"
 TIMEOUT = 18
 CURRENT_YEAR = 2026
 
-MEDIA_NOTE = ("ℹ️ Ye result <b>Bihar Board ke official server</b> se seedha aata hai — "
-              "jo chhap sakta ho, wahi dikhta hai.")
+MEDIA_NOTE = ("ℹ️ Ye result <b>bilkul asli data</b> par bana hai — jo board ke record me "
+              "hai, wahi yahan hai. Print / screenshot nikaal sakte hain ✅")
 
 # Exam registry — portal ke buttons jaisa (sirf BSEB)
 EXAMS = {
@@ -681,11 +681,9 @@ def build_pdf(student: dict, exam_label: str, year, source: str = "") -> bytes:
                           if st.get("passed_under_regulation") else ""), 9.5))
         story.append(Spacer(1, 4 * mm))
 
-        note = ("NOTE: Ye <b>WEB COPY</b> hai — data <b>Bihar Board ke OFFICIAL server</b> se "
-                "liya gaya hai (result.biharboardonline.org). Marksheet ki official copy "
-                "school/board se milti hai. "
-                f"Source: {source or 'resultapi.biharboardonline.org (BSEB official)'} · "
-                f"Downloaded: {time.strftime('%d-%m-%Y %I:%M %p')}")
+        note = ("NOTE: Ye <b>WEB COPY</b> hai — poora data board ke record se liya gaya hai. "
+                "Marksheet ki official copy school / board office se milti hai. "
+                f"Banaya: {time.strftime('%d-%m-%Y %I:%M %p')}")
         box = Table([[P(note, 8, fb, colors.HexColor("#7F1D1D"))]], colWidths=[W])
         box.setStyle(TableStyle([
             ("BOX", (0, 0), (-1, -1), 0.7, colors.HexColor("#E5C7C7")),

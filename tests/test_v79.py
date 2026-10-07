@@ -242,9 +242,13 @@ check("archive card: sach + rasta (school/board office)",
 _c7 = bot.rc_server_card("matric", 2026)
 check("server card: dobara try ka rasta", "Dobara try" in _c7)
 _c8 = bot.rc_parse_card("inter", 2026)
-check("parse card: imaandar (format badla) + portal link", "format badal" in _c8 and "interbiharboard" in _c8)
+import re as _re2                                                    # noqa: E402
+_own = lambda x: _re2.sub(r'https?://t\.me/' + _re2.escape(str(bot.OWNER_USERNAME)), '', x)
+check("parse card: imaandar (format badla) + koi bahar ka link nahi",
+      "format badal" in _c8 and "http" not in _own(_c8))
 _c9 = bot.cbse_info_card()
-check("CBSE card: DigiLocker + login bypass nahi", "DigiLocker" in _c9 and "login" in _c9.lower())
+check("CBSE card: login bypass nahi + koi bahar ka link nahi",
+      "login" in _c9.lower() and "http" not in _own(_c9))
 check("sab card me moti line (━) nahi",
       all("━" not in x for x in (_c1, _c2, _c3, _c4, _c5, _c6, _c7, _c8, _c9)))
 

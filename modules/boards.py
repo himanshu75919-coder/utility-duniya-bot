@@ -45,7 +45,7 @@ BOARDS = {
         "status": "live",
         "logo": "norm_bseb_live.jpg",
         "color": (139, 26, 26),
-        "note": "Sabse pehle yahi board bot se LIVE chalta hai (official server).",
+        "note": "Sabse pehle yahi board bot se LIVE chalta hai.",
     },
     "bbose": {
         "name": "Bihar Board of Open Schooling & Examination",
@@ -68,10 +68,10 @@ BOARDS = {
         "portal": "https://results.digilocker.gov.in/",
         "portal2": "https://cbse.gov.in/",
         "exams": ["Class 10", "Class 12"],
-        "need": ["DigiLocker login (mobile OTP)", "Roll Number", "DOB"],
+        "need": ["Digital marksheet app login (mobile OTP)", "Roll Number", "DOB"],
         "status": "portal",
         "logo": None, "color": (16, 88, 200),
-        "note": "CBSE ab DigiLocker par — login (mobile OTP) zaroori hai.",
+        "note": "CBSE result ab sarkari digital marksheet app par — login (mobile OTP) zaroori hai.",
     },
     "cisce": {
         "name": "Council for Indian School Certificate Examinations",
@@ -454,6 +454,8 @@ BOARDS = {
 }
 
 # pagination order — sabse kaam ke board pehle
+# ⚠️ RULE #1: portal/portal2 sirf INTERNAL reference hai — user ko kabhi nahi
+# dikhaya jaata (na button me, na text me). User ko sirf bot ke andar ke cards.
 ORDER = ["bseb", "cbse", "upmsp", "jac", "maharashtra", "telangana", "karnataka",
          "tn", "rbse", "mpbse", "gseb", "kerala", "wbbse", "odisha", "pseb",
          "bseh", "hpbose", "ubse", "jkbose", "cgbse", "assam", "meghalaya", "mizoram",
@@ -604,22 +606,23 @@ def photo_bytes(key: str):
 
 
 def how_card(key: str) -> str:
-    """'Kaise check karein' — official portal ke hisaab se sahi steps."""
+    """'Kaise check karein' — sahi steps, bina kisi bahar ke link ke (rule #1)."""
     b = BOARDS.get(str(key)) or {}
     need = b.get("need") or []
     steps = [
-        f"🌐 Official portal kholein: <code>{b.get('portal', '')}</code>",
-        "📝 Wahan apna board ka result link dabayein",
         f"🔢 Ye cheezein taiyar rakhein: <b>{', '.join(need) if need else 'Roll Number'}</b>",
-        "🔒 Agar captcha aaye to wahi type karein (wahan har baar naya aata hai)",
+        "🌐 Apne board ki website kholein aur <b>Result 2026</b> wala section dabayein",
+        "📝 Roll Number daalein (mange to Registration / DOB bhi)",
+        "🔒 Captcha aaye to wahi type karein — wahan har baar naya aata hai",
+        "📄 Result khul jayega — screenshot rakh lein, kaam aa jayega",
     ]
     return "\n".join([
         f"ℹ️ <b>{b.get('short', 'Board')} — kaise check karein</b>",
         "──────────────────────",
         *[f"{i}. {s}" for i, s in enumerate(steps, 1)],
         "",
-        f"🚫 <i>Is board ka result bot seedha nahi laa sakta (wahan login/captcha "
-        f"lagta hai) — par ye link aur steps bilkul sahi hain. Jhootha result hum "
+        f"🚫 <i>Is board ka result bot ke andar seedha nahi aata (wahan login/captcha "
+        f"lagta hai) — par ye steps bilkul sahi hain. Jhootha result hum "
         f"kabhi nahi dikhayenge.</i>",
         "",
         "🔥 Powered by @Supermannn_x — saare board, ek jagah 🇮🇳",

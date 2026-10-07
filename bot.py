@@ -428,8 +428,8 @@ BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
 REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-BOT_VERSION = ("v74.1 FREE4ALL — RESULT CHECK: 34 boards (India) + official logos "
-               "| BSEB LIVE result + PDF marksheet | saare tools tez")
+BOT_VERSION = ("v74.2 FREE4ALL — NO-LINK RULE: tools me kisi ka bhi link nahi, "
+               "sab bot ke andar | 34 boards + logos | BSEB LIVE result + PDF | saare tools tez")
 START_TIME = datetime.now()
 
 logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
@@ -5249,12 +5249,9 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data.startswith("rc_how:"):
         key = data.split(":", 1)[1]
-        _b = BRD.BOARDS.get(key) or {}
         _kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🌐 Official portal kholo",
-                                  url=str(_b.get("portal") or "https://cbse.gov.in"))],
-            [InlineKeyboardButton("◀️ Board ka card", callback_data=f"rcb:{key}"),
-             InlineKeyboardButton("🇮🇳 Saare boards", callback_data="rc_new")]])
+            [InlineKeyboardButton("◀️ Board ka card", callback_data=f"rcb:{key}")],
+            [InlineKeyboardButton("🇮🇳 Saare boards", callback_data="rc_new")]])
         await _vnum_say(q, BRD.how_card(key), _kb)
         return
 
@@ -9505,7 +9502,7 @@ def _rc_pick_card(page: int = 0) -> str:
     L.append("")
     L.append("💬 Board ka naam likh ke bhi khoj sakte ho (jaise <code>UP Board</code>).")
     L.append("ℹ️ Jis board ka result bot khud laata hai wahan <b>LIVE ✅</b> likha hai;")
-    L.append("baaki board par official portal ka link + poore steps milenge.")
+    L.append("baaki board ka poora sahi tarika (steps) card me mil jayega.")
     return "\n".join(L)
 
 
@@ -9549,11 +9546,11 @@ def rc_board_card(key: str) -> tuple:
     L.append(pcard_sep())
     if st == "live":
         L.append("✅ <b>Ye board bot se LIVE chalta hai</b>")
-        L.append("<i>Official server se seedha result — koi captcha nahi.</i>")
+        L.append("<i>Seedha live result — koi captcha, koi login nahi.</i>")
     else:
-        L.append("🌐 <b>Ye board official portal par check hota hai</b>")
-        L.append("<i>Bot seedha nahi laata (wahan login/captcha lagta hai) — "
-                 "par link aur steps 100% sahi hain.</i>")
+        L.append("🛡️ <b>Is board ka result bot ke andar nahi aata</b>")
+        L.append("<i>Wahan login/captcha lagta hai — isliye bot seedha nahi laata. "
+                 "Poora sahi tarika neeche steps me hai.</i>")
     if b.get("note"):
         L.append(f"ℹ️ <i>{hesc(str(b['note']))}</i>")
     L.append("")
@@ -9562,11 +9559,8 @@ def rc_board_card(key: str) -> tuple:
     if st == "live":
         rows.append([InlineKeyboardButton("🔎 Result check karo (LIVE ✅)",
                                           callback_data=f"rc_live:{key}")])
-    rows.append([InlineKeyboardButton("🌐 Official portal kholo",
-                                      url=str(b.get("portal") or "https://cbse.gov.in")),
-                 InlineKeyboardButton("ℹ️ Kaise check karein", callback_data=f"rc_how:{key}")])
-    rows.append([InlineKeyboardButton("◀️ Boards ki list", callback_data="rc_new"),
-                 InlineKeyboardButton("🔁 Doosra board", callback_data="rc_new")])
+    rows.append([InlineKeyboardButton("ℹ️ Kaise check karein", callback_data=f"rc_how:{key}")])
+    rows.append([InlineKeyboardButton("◀️ Saare boards", callback_data="rc_new")])
     return "\n".join(L), InlineKeyboardMarkup(rows)
 
 
@@ -9738,9 +9732,9 @@ def rc_archive_card(exam_key: str, year) -> str:
     return "\n".join([
         _rc_head(exam_key, year),
         pcard_sep(),
-        f"⚠️ <b>{year} wala result board ke live portal par nahi hai</b>",
-        "<i>Bihar Board purane saal ka data portal se hata deta hai — "
-        "isliye ab wahan sirf <b>is saal (2026)</b> ka result milta hai.</i>",
+        f"⚠️ <b>{year} wala result ab live nahi hai</b>",
+        "<i>Bihar Board purane saal ka data hata deta hai — "
+        "isliye ab sirf <b>is saal (2026)</b> ka result milta hai.</i>",
         "",
         "✅ <b>Aap ye kar sakte hain:</b>",
         f"• {year} ki marksheet school se lein (school me record hamesha hota hai)",
@@ -9791,11 +9785,9 @@ def rc_parse_card(exam_key: str, year) -> str:
     return "\n".join([
         _rc_head(exam_key, year),
         pcard_sep(),
-        "⚠️ <b>Result aa gaya, par board ne page ka format badal diya hai</b>",
-        "<i>Isliye bot use theek se padh nahi paaya. Hum 1 din me update kar denge.</i>",
-        "",
-        "✅ Aap abhi official portal par seedha dekh sakte hain:",
-        "     <code>interbiharboard.com</code>",
+        "⚠️ <b>Result aa gaya, par page ka format badal gaya hai</b>",
+        "<i>Isliye bot use theek se padh nahi paaya. Hum 1 din me update kar denge — "
+        "tab tak ye result dobara try kar sakte hain.</i>",
         "",
         BRAND_LINK,
     ])
@@ -9804,14 +9796,15 @@ def rc_parse_card(exam_key: str, year) -> str:
 def cbse_info_card() -> str:
     return "\n".join([
         pcard_title("ℹ️", "CBSE RESULT — SACH JAANKARI"),
-        "CBSE ne apna purana result portal band kar diya hai.",
-        "Ab result <b>DigiLocker</b> par milta hai — wahan <b>login (mobile OTP)</b> zaroori hai.",
+        "CBSE ne apna purana result page band kar diya hai.",
+        "Ab result sirf <b>sarkari digital marksheet app</b> par milta hai — "
+        "wahan <b>login (mobile OTP)</b> zaroori hai.",
         pcard_sep(),
         "🚫 Isliye CBSE ka result bot se seedha nahi khul sakta",
         "<i>(login/password wala kaam bot kabhi nahi karta — ye aapki suraksha ke liye hai)</i>",
         "",
         "✅ <b>Aap ye kar sakte hain:</b>",
-        "• DigiLocker app / website par apne mobile number se login karein",
+        "• Us app me apne mobile number se login karein (OTP aayega)",
         "• Roll Number + Date of Birth daalein → digital marksheet mil jayegi",
         pcard_sep(),
         "🏫 <b>Bihar Board (BSEB) ka result YAHAN turant milta hai</b> —",
@@ -9844,13 +9837,13 @@ async def rc_deliver(target, context, uid: int, rc: str, rn: str):
         try:
             _label = (BSEBR.EXAMS.get(exam_key) or {}).get("label") or "BSEB"
             pdf = await asyncio.to_thread(BSEBR.build_pdf, stu, _label, year,
-                                          "Bihar Board official portal")
+                                          "board record")
             if pdf:
                 await target.reply_document(
                     io.BytesIO(pdf),
                     filename=BSEBR.pdf_filename(exam_key, rc, rn, year),
                     caption="📄 <b>Marksheet (WEB COPY)</b> — poora data isme hai "
-                            "(sirf jaankari ke liye).",
+                            "(sirf jaankari ke liye) ✅",
                     parse_mode=HTML)
         except Exception as e:                                   # noqa: BLE001
             log.warning("result pdf fail: %s", str(e)[:120])
