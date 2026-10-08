@@ -485,7 +485,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v97.0 YT-COOKIELESS — ⬇️ loader.to engine + prewarm picker + TikTok photo-carousel win | v96.0 SOCIAL-FIX | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v98.0 REAL-HD — 🎞️ loader-1080 master + ffmpeg HD + background tap | v97.0 YT-COOKIELESS — ⬇️ loader.to engine + prewarm picker + TikTok photo-carousel win | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -5356,6 +5356,107 @@ def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
     return {"ok": True, "bytes": buf, "logo": bool(lg), "note": note}
 
 
+
+_YT_HD_RUNNING = {}   # v98: (chat_id, url, h) → True (double-tap = double transcode rokho)
+
+
+async def _yt_hd_bg(app, chat_id, uid, url, h, st, fname):
+    """v98: quality-tap ka background REAL-HD pipeline (transcode 1-4 min).
+
+    Tap handler turant free; video taiyaar hote hi yahin bhej di jati hai.
+    Credit sirf safal bhejne par kat-ta hai (fail par nahi — purana niyam)."""
+    _key = (chat_id, url, int(h or 0))
+    try:
+        if _YT_HD_RUNNING.get(_key):
+            try:
+                await st.edit_text("⏳ Ye quality pehle se taiyaar ho rahi hai — thoda ruko…")
+            except Exception:                                # noqa: BLE001
+                pass
+            return
+        _YT_HD_RUNNING[_key] = True
+        try:
+            res = await asyncio.wait_for(
+                asyncio.to_thread(_yt_quality_download, url, int(h or 720)), 600)
+        except asyncio.TimeoutError:
+            res = {"ok": False,
+                   "error": ("⏱️ Video bahut lambi/bhaari hai — 10 min me HD nahi "
+                             "ban paya. Chhoti video try karo. Credit nahi katta.")}
+        except Exception as e:                               # noqa: BLE001
+            res = {"ok": False, "error": str(e)[:150]}
+        res = res or {"ok": False, "error": "HD ban nahi paya — dobara try karo."}
+        if not res.get("ok"):
+            _ferr = str(res.get("error") or "") or friendly_dl_error(platform="YouTube")
+            try:
+                await st.edit_text(fail_msg("YOUTUBE DOWNLOAD FAILED", _ferr),
+                                   parse_mode=HTML)
+            except Exception:                                # noqa: BLE001
+                pass
+            return
+        if res.get("type") == "link" and res.get("direct_url"):
+            mb = res.get("size_mb") or 0
+            try:
+                await st.edit_text(
+                    f" <b>VIDEO ({h}p)</b> — file badi hai ({mb} MB, Telegram limit 48MB).\n"
+                    "Neeche ke direct link se browser/IDM me poora video download ho jayega:\n"
+                    f"<code>{res['direct_url']}</code>\n\n"
+                    + (res.get("note") or ""),
+                    parse_mode=HTML)
+            except Exception:                                # noqa: BLE001
+                pass
+            try:
+                add_use(uid)
+                _t = spend_credit_msg(uid, "insta_dl")
+                if _t and str(_t).strip():
+                    await app.bot.send_message(chat_id=chat_id, text=_t, parse_mode=HTML)
+            except Exception:                                # noqa: BLE001
+                pass
+            return
+        if res.get("type") != "video" or not res.get("bytes"):
+            try:
+                await st.edit_text(
+                    fail_msg("VIDEO READY NAHI HUI", "Dobara try karo (link public hai kya?)"),
+                    parse_mode=HTML)
+            except Exception:                                # noqa: BLE001
+                pass
+            return
+        media_buf = io.BytesIO(res["bytes"])
+        media_buf.name = "youtube_video.mp4"
+        dur = res.get("duration") or 0
+        dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
+        qnote = res.get("note_quality") or ""
+        _q = res.get("quality") or f"{h}p"
+        _sentq = await app.bot.send_video(
+            chat_id=chat_id,
+            video=media_buf,
+            caption=(
+                f"📥 <b>YOUTUBE VIDEO — {h}p</b>\n"
+                f"• 📝 {hesc(str(res.get('title') or '')[:60])}\n"
+                f"{dur_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
+                f"• 🎞️ <b>Quality:</b> {hesc(str(_q))}\n"
+                f"• ⚙️ Engine: {hesc(str(res.get('engine') or ''))}\n"
+                + (f"⚠️ {qnote}\n" if qnote else "")
+            ),
+            parse_mode=HTML,
+            supports_streaming=True,
+        )
+        try:
+            dl_fid_set(url, _sentq.video.file_id, f"q{h}")
+        except Exception:                                    # noqa: BLE001
+            pass
+        try:
+            await st.delete()
+        except Exception:                                    # noqa: BLE001
+            pass
+        try:
+            add_use(uid)
+            _t2 = spend_credit_msg(uid, "insta_dl")
+            if _t2 and str(_t2).strip():
+                await app.bot.send_message(chat_id=chat_id, text=_t2, parse_mode=HTML)
+        except Exception:                                    # noqa: BLE001
+            pass
+    finally:
+        _YT_HD_RUNNING.pop(_key, None)
+
 async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -6820,11 +6921,26 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             except Exception:                                    # noqa: BLE001
                 dl_fid_forget(url, f"q{h}")
-        _qres = await with_tool_timeout(
-            asyncio.to_thread(_yt_quality_download, url, h), 40, "yt-quality")
-        res = _qres or {"ok": False,
-                        "error": ("⏱️ 40 second me video taiyaar nahi hui — "
-                                  "chhoti quality (360p) try karo. Credit nahi katta.")}
+        # v98: REAL-HD background — transcode me 1-4 min lag sakta hai,
+        # isliye tap turant free + video taiyaar hote hi auto-bhej.
+        # (Neeche ka purana inline-send ab _yt_hd_bg me hai — dead code,
+        #  agle version me safai hogi.)
+        try:
+            await st.edit_text(
+                f"⏳ <b>{h}p HD</b> taiyaar ho raha hai…\n"
+                "🎞️ Asli HD quality me convert ho raha hai (1–4 min). "
+                "Taiyaar hote hi video yahin aa jayegi 📥",
+                parse_mode=HTML)
+        except Exception:                                    # noqa: BLE001
+            pass
+        _fname_y = (q.from_user.first_name if q.from_user else "")
+        asyncio.create_task(_yt_hd_bg(context.application, q.message.chat_id,
+                                       uid, url, h, st, _fname_y))
+        try:
+            await q.answer("HD taiyaar ho raha hai… ⏳")
+        except Exception:                                    # noqa: BLE001
+            pass
+        return
         if not res.get("ok"):
             # v56: technical yt-dlp error ki jagah friendly Hindi + solution.
             _ferr = str(res.get("error") or "") or friendly_dl_error(platform="YouTube")
@@ -8428,7 +8544,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                   callback_data=f"ytq:{h}") for h in opts[i:i + 2]])
             rows.append([InlineKeyboardButton("❌ Cancel", callback_data="ytq:0")])
             try:
-                MD.yt_loader_prewarm(raw_text)   # v97: tap se pehle hi loader job (cookieless YT)
+                MD.yt_loader_prewarm(raw_text, 1080)  # v98: 1080-master (sab quality isi se)   # v97: tap se pehle hi loader job (cookieless YT)
             except Exception:                    # noqa: BLE001
                 pass
             context.user_data["yt_url"] = raw_text

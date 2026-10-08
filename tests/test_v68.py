@@ -67,9 +67,11 @@ section("[A] ⏱️ 30 SECOND TARGET")
 check("hard deadline 30 second hai", MD.FAST_DEADLINE == 30, str(MD.FAST_DEADLINE))
 check("download par 40s outer timeout laga hai",
       'with_tool_timeout(download_video_async(raw_text), 40' in BOT_SRC)
-check("YouTube quality par bhi 40s outer timeout",
-      'with_tool_timeout(\n            asyncio.to_thread(_yt_quality_download, url, h), 40' in BOT_SRC
-      or 'asyncio.to_thread(_yt_quality_download, url, h), 40' in BOT_SRC)
+# v98: quality-tap ab background HD task hai (transcode 1-4 min); 40s-inline hata,
+# 600s wait_for cap + double-tap guard uski jagah (latakna ab bhi impossible).
+check("YouTube quality par timeout-guard hai (v98 background + 600s cap)",
+      "asyncio.wait_for(" in BOT_SRC and "_yt_hd_bg" in BOT_SRC
+      and "_YT_HD_RUNNING" in BOT_SRC)
 check("user ko 'max 30 second' bataya jaata hai",
       "zyada se zyada <b>30 second</b>" in BOT_SRC.lower())
 check("purana '15 second' ka wada hata diya",

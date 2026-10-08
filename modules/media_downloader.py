@@ -1916,10 +1916,202 @@ def _yt_loader(url: str, height: int = 360, wait: float = 30, max_mb: int = MAX_
             return None
         return {"ok": True, "type": "video", "platform": "YouTube", "title": title or "",
                 "bytes": data, "size_mb": _size_mb(data),
-                "quality": ((fmt + "p") if fmt.isdigit() else (fmt or f"{h}p")),
+                "quality": (({"1080": "1080p", "720": "360p", "480": "240p", "360": "144p"}.get(fmt, fmt + "p"))  # v98: ladder ka SACH (ffprobe-verified)
+                        if fmt.isdigit() else (fmt or f"{h}p")),
                 "engine": "loader.to"}
     except Exception:  # noqa: BLE001
         return None
+
+
+# =====================================================================================
+# v98 REAL-HD — loader ladder (360/480/720) NAKLI nikla, sirf 1080 ASLI hai.
+# Live proof (8 Oct, ffprobe): "720"→360x640, "480"→240x426, "360"→144x256,
+# "1080"→608x1080 asli @8Mbps. Isliye: 1080-master lao → verify → ffmpeg HD.
+# =====================================================================================
+_HD_MASTER_CAP_MB = 700    # master disk par stream (RAM-safe); 15-min 1080 ≈ 900MB
+_HD_MAX_DUR = 900          # 15 min se lambi video ka HD possible nahi (honest message)
+
+
+def _ff_probe(path):
+    """`ffmpeg -i` ke stderr se (duration-sec, width, height). Fail → (0,0,0)."""
+    try:
+        if not _HAS_FFMPEG or not path or not os.path.exists(path):
+            return 0, 0, 0
+        cp = subprocess.run([_FFMPEG_LOC, "-hide_banner", "-i", str(path)],
+                            capture_output=True, timeout=30)
+        txt = ((cp.stderr or b"").decode(errors="ignore"))[-3000:]
+        dur = 0.0
+        m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", txt)
+        if m:
+            dur = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+        w = h = 0
+        m2 = re.search(r"Video:.*?,\s*(\d{2,5})x(\d{2,5})[,\s]", txt)
+        if m2:
+            w, h = int(m2.group(1)), int(m2.group(2))
+        return dur, w, h
+    except Exception:  # noqa: BLE001
+        return 0, 0, 0
+
+
+def _hd_pick(master_mb, master_h, req):
+    """Single-shot target: sabse badi height jo ~46MB me samaaye. Junk → 360."""
+    try:
+        mb = float(master_mb or 0)
+        mh = int(master_h or 0)
+        rq = int(req or 0)
+    except Exception:  # noqa: BLE001
+        return 360
+    if mb <= 0 or mh <= 0:
+        return 360
+    lad = [h for h in (1080, 720, 480, 360) if h <= rq] or [360]
+    for h in lad:
+        est = mb * ((h / mh) ** 2) * 0.45
+        if est <= 46:
+            return h
+    return 360
+
+
+def _dl_to_path(url, path, max_mb, headers=None, timeout=120, want="video"):
+    """Stream-to-disk (RAM-safe) + size cap + content-type guard. Ok → True."""
+    try:
+        cap = int(max_mb) * 1048576
+        if not url or not str(url).startswith("http") or cap <= 0:
+            return False
+        r = httpio.get(str(url), headers=headers or DESKTOP_UA, timeout=timeout,
+                       stream=True)
+        try:
+            if r.status_code != 200:
+                return False
+            try:
+                ct = str(r.headers.get("content-type") or "").lower()
+            except Exception:  # noqa: BLE001
+                ct = ""
+            if "text/html" in ct:
+                return False
+            if want == "video" and ct and ("video" not in ct) and ("octet-stream" not in ct):
+                return False
+            n = 0
+            with open(path, "wb") as f:
+                for chunk in r.iter_content(262144):
+                    if chunk:
+                        f.write(chunk)
+                        n += len(chunk)
+                    if n > cap:
+                        return False
+            return n > 1000
+        finally:
+            try:
+                r.close()
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _hd_transcode(master, out, tgt, dur):
+    """ffmpeg disk→disk HD. Ok → True (output ≥5KB), warna False."""
+    try:
+        cp = _ffmpeg_gated(
+            [_FFMPEG_LOC, "-y", "-i", master, "-vf", f"scale=-2:{int(tgt)}",
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+             "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", out],
+            min(900, 120 + int(dur or 0) * 10))
+        return (cp.returncode == 0 and os.path.exists(out)
+                and os.path.getsize(out) >= 5000)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _yt_loader_hd(url, height=720, wait=120, max_mb=MAX_TG_MB):
+    """v98 REAL HD: 1080-master → verify → ffmpeg target.
+
+    Returns video-dict, ya {"ok": False, "fatal": True} (bahut lambi video),
+    ya None (legacy chain try karo)."""
+    tmp = None
+    try:
+        vid = _lkey(url)
+        if not vid:
+            return None
+        try:
+            rq = int(height or 720)
+        except Exception:  # noqa: BLE001
+            rq = 720
+        req = 1080 if rq >= 1080 else (720 if rq >= 720 else (480 if rq >= 480 else 360))
+        if not _HAS_FFMPEG:
+            return None
+        # --- 1080-master: prewarm pickup, warna inline job ---
+        key = (vid, 1080)
+        with _LOADER_LOCK:
+            st = _LOADER_JOBS.get(key)
+        dl, title = "", ""
+        if st and st[0] == "done" and time.time() - st[2] < 1500 and st[1]:
+            dl, title = st[1], st[3]
+        elif st and st[0] == "run" and time.time() - st[2] < 1500:
+            end = time.time() + max(10.0, float(wait or 0))
+            while time.time() < end:
+                time.sleep(4)
+                with _LOADER_LOCK:
+                    st2 = _LOADER_JOBS.get(key)
+                if not st2:
+                    break
+                if st2[0] == "done" and st2[1]:
+                    dl, title = st2[1], st2[3]
+                    break
+                if st2[0] == "fail":
+                    break
+        else:
+            dl, title, _fmt = _loader_run(url, 1080, wait)
+        if not dl:
+            return None
+        tmp = tempfile.mkdtemp(prefix="yhd_")
+        master = os.path.join(tmp, "master.mp4")
+        if not _dl_to_path(dl, master, _HD_MASTER_CAP_MB, headers=_LOADER_UA,
+                           timeout=180):
+            return None
+        dur, _w, mh = _ff_probe(master)
+        if mh < 700:   # master nakli/chhota → legacy chain
+            return None
+        if dur > _HD_MAX_DUR:
+            return {"ok": False, "fatal": True,
+                    "error": ("🎞️ Ye video bahut lambi hai "
+                              f"({int(dur) // 60} min) — HD me convert possible nahi. "
+                              "Chhoti videos/Shorts bhejo, turant HD milegi. "
+                              "Credit nahi katta.")}
+        mmb = os.path.getsize(master) / 1048576
+        if req == 1080 and mmb <= int(max_mb):
+            with open(master, "rb") as f:
+                data = f.read()
+            return {"ok": True, "type": "video", "platform": "YouTube",
+                    "title": title or "", "bytes": data, "size_mb": _size_mb(data),
+                    "duration": int(dur), "quality": "1080p", "engine": "loader-hd"}
+        tgt = _hd_pick(mmb, mh, req)
+        out = os.path.join(tmp, "hd.mp4")
+        if not _hd_transcode(master, out, tgt, dur):
+            return None
+        if os.path.getsize(out) / 1048576 > int(max_mb):
+            tgt2 = {1080: 720, 720: 480, 480: 360}.get(tgt)   # estimate miss → ek neeche
+            if not tgt2:
+                return None
+            out2 = os.path.join(tmp, "hd2.mp4")
+            if not _hd_transcode(master, out2, tgt2, dur):
+                return None
+            if os.path.getsize(out2) / 1048576 > int(max_mb):
+                return None
+            out, tgt = out2, tgt2
+        with open(out, "rb") as f:
+            data = f.read()
+        d = {"ok": True, "type": "video", "platform": "YouTube",
+             "title": title or "", "bytes": data, "size_mb": _size_mb(data),
+             "duration": int(dur), "quality": f"{tgt}p HD", "engine": "loader-hd"}
+        if tgt < req:
+            d["note_quality"] = (f"{req}p me file 48MB se badi thi — "
+                                 f"asli {tgt}p HD bheja hai")
+        return d
+    except Exception:  # noqa: BLE001
+        return None
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 # =====================================================================================
@@ -2359,6 +2551,12 @@ def _yt_quality_download_raw(url: str, height: int, max_mb: int = MAX_TG_MB) -> 
     warna hub 1080p + bot-side ffmpeg downscale. Result contract = _hub_youtube_download."""
     h = int(height)
     if h >= 1080:
+        # v98: REAL HD — 1080-master se ffmpeg (ladder nakli hai, master asli)
+        _hd10 = _yt_loader_hd(url, 1080, wait=120, max_mb=max_mb)
+        if _hd10 and _hd10.get("ok"):
+            return _hd10
+        if _hd10 and _hd10.get("fatal"):
+            return _hd10
         # v97: cookieless 1080 pehle (shorts par ~20s); fail → hub → 720
         _l10 = _yt_loader(url, 1080, wait=30, max_mb=max_mb)
         if _l10 and _l10.get("ok"):
@@ -2368,6 +2566,12 @@ def _yt_quality_download_raw(url: str, height: int, max_mb: int = MAX_TG_MB) -> 
         if _hd and _hd.get("ok"):
             return _hd
         h = 720
+    # v98: REAL HD — 1080-master se ffmpeg (360/480/720 sab asli)
+    _hd = _yt_loader_hd(url, h, wait=120, max_mb=max_mb)
+    if _hd and _hd.get("ok"):
+        return _hd
+    if _hd and _hd.get("fatal"):
+        return _hd
     # v97: prewarmed loader pickup (720) — picker par job shuru ho chuka hota hai
     _lw = _yt_loader(url, 720, wait=30, max_mb=max_mb)
     if _lw and _lw.get("ok"):
