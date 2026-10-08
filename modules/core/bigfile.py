@@ -147,10 +147,33 @@ async def warm() -> bool:
         return False
 
 
+def _telethon_ok() -> bool:
+    """telethon install hai? (import KE bagair pata karo — import khud ~35 MB leta hai)"""
+    try:
+        import importlib.util
+        return importlib.util.find_spec("telethon") is not None
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
 def status() -> dict:
-    c = _client_ready()
-    return {"ready": c is not None, "logged_in": bool(c and getattr(c, "_du", False)),
-            "max_in_mb": MAX_IN_MB, "max_out_mb": MAX_OUT_MB,
+    """/health ke liye — JAAN-BOOJH ke client NAHI banata.
+
+    v80.3.1: pehle status() client banata tha (`_client_ready` se) — har health ping par.
+    /health har 3 minute chalta hai (keepalive), matlab telethon ka poora import
+    + ek client hamesha RAM me tik jaata tha — live measurement: baseline
+    286 MB → 329 MB (aur Render free = 512 MB, throttle 378 MB par shuru).
+    Ab status() sirf creds + availability dekhta hai; asli client tab banta hai
+    jab pehli badi file sach me aati hai. caps bhi ab ASLI hain (MTProto band ho
+    to 20/48 dikhega, 150 nahi) — taaki health page kabhi zyada wada na kare.
+    """
+    api_id, api_hash, token = _creds()
+    have = bool(api_id and api_hash and token) and _telethon_ok()
+    mt = have or _client is not None
+    return {"ready": mt,
+            "logged_in": bool(_client is not None and getattr(_client, "_du", False)),
+            "max_in_mb": MAX_IN_MB if mt else BOT_API_IN_MB,
+            "max_out_mb": MAX_OUT_MB if mt else BOT_API_OUT_MB,
             "note": _client_err or "ok"}
 
 

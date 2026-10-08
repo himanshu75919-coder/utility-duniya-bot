@@ -515,6 +515,25 @@ _src_bf = open(os.path.join(_ROOT, "modules", "core", "bigfile.py"), encoding="u
 check("warm-off par bhi feature nahi marta (caps creds se hi chalte hain)",
       "def cap_in_mb" in _src_bf and "def cap_out_mb" in _src_bf)
 
+
+# ---------------------------------------------------------------
+# v80.3.1: /health khud RAM na khaye (status() client na banaye)
+# ---------------------------------------------------------------
+_stsrc_all = open(os.path.join(_ROOT, "modules", "core", "bigfile.py"),
+                  encoding="utf-8").read()
+_status_src = re.search(r"def status\(\) -> dict:(.*?)(?=\ndef |\n# ---|\n@|\nclass )",
+                        _stsrc_all, re.S).group(1)
+check("status() ab _client_ready() call NAHI karta (health = 0 MB extra)",
+      "_client_ready()" not in _status_src and "_telethon_ok()" in _status_src)
+check("status() effective caps deta hai (band ho to 20/48, 150 ka wada nahi)",
+      "BOT_API_IN_MB if" in _status_src or "if mt else BOT_API_IN_MB" in _status_src)
+_before = BF._client
+_s2 = BF.status()
+check("status() ke baad bhi client lazhi banta hai (None hi rahe)",
+      _before is None and BF._client is None, str(BF._client)[:60])
+check("status() ke keys wahi hain (bot.py ka health line na tute)",
+      set(_s2) >= {"ready", "logged_in", "max_in_mb", "max_out_mb", "note"})
+
 print("\n" + "=" * 62)
 print(f"  v89 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 if FAILS:
