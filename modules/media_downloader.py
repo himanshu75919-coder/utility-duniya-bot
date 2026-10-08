@@ -53,7 +53,25 @@ FB_UA = {
     "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
 }
 
-MAX_TG_MB = 48  # Telegram Bot API upload limit ~50MB (buffer)
+# v79: Bot API ki upload hadd ~50MB hai, isliye pehle 48 par atak jaati thi.
+# MTProto (modules/core/bigfile) ready ho — yani TG_API_ID + TG_API_HASH env —
+# to 96 MB tak download karke badi file MTProto se bhej dete hain. MAX_TG_MB
+# env se dono case badal sakte hain (20…400).
+def _tg_cap_mb() -> int:
+    try:
+        _raw = (os.environ.get("MAX_TG_MB") or "").strip()
+        if _raw:
+            return max(20, min(400, int(_raw)))
+    except Exception:                                            # noqa: BLE001
+        pass
+    try:
+        from modules.core import bigfile as _BF
+        return 96 if _BF.enabled() else 48
+    except Exception:                                            # noqa: BLE001
+        return 48
+
+
+MAX_TG_MB = _tg_cap_mb()
 
 # ffmpeg detection: system ka, warna imageio-ffmpeg ka bundled binary (Render pe bhi chal jata hai)
 _FFMPEG_LOC = shutil.which("ffmpeg")
@@ -998,7 +1016,14 @@ def _ig_ytdlp(clean: str, media_cat: str):
 # =====================================================================================
 # ENGINE 3 — og:video / og:image scrape (aakhri fallback)
 # =====================================================================================
-def _og_scrape(clean: str, media_cat: str):
+def _og_scrape(clean: str, media_cat: str, allow_photo: bool = True):
+    """og:* tags se media nikaalo.
+
+    v79: `allow_photo=False` par `og:image` (post ka COVER frame) kabhi result
+    nahi banta. Pehle aisa hi hota tha: ye branch sirf ek HTML GET hai isliye
+    race me hamesha pehle jeet jaata, jabki video engines 10-25 second lete
+    hain — natija: user **reel** bhejta aur use **photo** mil jaati.
+    """
     for headers in (FB_UA, BOT_UA, DESKTOP_UA):
         try:
             r = httpio.get(clean, headers=headers, timeout=15, allow_redirects=True)
@@ -1022,6 +1047,8 @@ def _og_scrape(clean: str, media_cat: str):
                     return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
                             "bytes": r_v.content, "size_mb": _size_mb(r_v.content), "title": title,
                             "platform": "Instagram", "engine": "og:video"}
+            if not allow_photo:
+                continue        # video chahiye tha — cover frame se kaam nahi
             if og_image and og_image.get("content"):
                 r_i = httpio.get(og_image["content"], headers=DESKTOP_UA, timeout=15)
                 if r_i.status_code == 200 and len(r_i.content) > 1000:
@@ -1042,6 +1069,68 @@ def _og_scrape(clean: str, media_cat: str):
 # =====================================================================================
 # MAIN INSTAGRAM PIPELINE (purana name bhi kaam karta rahega)
 # =====================================================================================
+def _ig_code_of(url: str) -> str:
+    """Instagram post/reel/TV link se shortcode nikalta hai."""
+    m = re.search(r"instagram\.com/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", url or "")
+    return m.group(1) if m else ""
+
+
+def _ig_embed(clean: str, media_cat: str):
+    """🆕 v79 — 4th engine: public /embed/ page se ASLI video file.
+
+    Instagram ka normal page bot ke IP par 429/login-wall de deta hai, par
+    `/embed/` (website par lagane wala page) public rehta hai aur uske andar
+    `"videoUrl":"https://scontent...mp4"` hoti hai — seedhi CDN file.
+    Isse reel tab bhi aa jaati hai jab parth/yt-dlp/og teeno has jaate hain.
+    """
+    code = _ig_code_of(clean)
+    if not code:
+        return None
+    cat = "reel" if media_cat == "reel" else (media_cat or "video")
+    for path in (f"/reel/{code}/embed/captioned/", f"/p/{code}/embed/captioned/",
+                 f"/p/{code}/embed/"):
+        try:
+            r = httpio.get("https://www.instagram.com" + path, headers=DESKTOP_UA,
+                           timeout=14, allow_redirects=True)
+            if r.status_code != 200 or len(r.text or "") < 400:
+                continue
+            html = (r.text or "").replace("\\u0026", "&").replace("\\/", "/")
+            m_v = (re.search(r'"videoUrl":"(https?://[^"]+?\.mp4[^"]*)"', html)
+                   or re.search(r'"video_versions":\[\{"url":"(https?://[^"]+?)"', html)
+                   or re.search(r'"video_url":"(https?://[^"]+?\.mp4[^"]*)"', html))
+            if not m_v:
+                continue                       # photo post / sirf HLS (kaam ka nahi)
+            v_url = m_v.group(1)
+            if ".m3u8" in v_url:
+                continue                       # HLS ko sirf yt-dlp pack kar sakta hai
+            hdr = dict(DESKTOP_UA)
+            hdr["Referer"] = "https://www.instagram.com/"
+            rv = httpio.get(v_url, headers=hdr, timeout=30)
+            if rv.status_code in (200, 206) and len(rv.content) > 20000:
+                t_m = re.search(r'"title":"([^"]{0,80})"', html)
+                return {"ok": True, "type": "video", "category": cat,
+                        "bytes": rv.content, "size_mb": _size_mb(rv.content),
+                        "title": (t_m.group(1) if t_m else ""),
+                        "platform": "Instagram", "engine": "embed-mp4"}
+        except Exception:                                          # noqa: BLE001
+            continue
+    return None
+
+
+def _ig_kind_ok(res, want_video: bool) -> bool:
+    """Race ka referee (v79): category ke hisaab se hi result qabool ho.
+
+    reel/video/story ke liye `type: photo` (cover frame) KABHI jeet nahi
+    sakta — isi se "reel bhejo, photo lo" wali shikayat khatam hoti hai.
+    """
+    if not res or not res.get("ok"):
+        return False
+    t = str(res.get("type") or "").lower()
+    if want_video:
+        return t in ("video", "link")
+    return t in ("video", "photo", "carousel", "link", "images")
+
+
 def download_instagram_media(url: str) -> dict:
     clean = url.split("?")[0].rstrip("/")
     if not clean.startswith("http"):
@@ -1060,27 +1149,45 @@ def download_instagram_media(url: str) -> dict:
     #      yt-dlp + scrape) ek saath chalata hai; 3-4 users ek saath aayein to
     #      RAM 512 MB (free plan) phat jaati thi = OOM kill = "bot crash".
     hit = None
+
+    # v79: reel/video/story ke liye sirf VIDEO result qabool hota hai (referee
+    # `_ig_kind_ok`) — isse "reel bhejo, cover photo lo" wala bug khatam.
+    # 4th engine `_ig_embed` bhi juda (public /embed/ page, login wall ke paar),
+    # aur budget 22s -> 26s kiya, kyunki video engines aksar 23-25s lete the
+    # = deadline ke bahar = bekaar "fail". (User ne 33s tak progress dekha tha.)
+    want_video = (media_cat in ("reel", "video", "igtv", "story")
+                  or "/reel" in clean or "/tv/" in clean)
+
+    def _eng(fn):
+        """Engine ka result referee se guzaaro; na-qabil-e-qabool ho to None."""
+        def _g():
+            try:
+                r = fn()
+            except Exception:                                   # noqa: BLE001
+                return None
+            return r if _ig_kind_ok(r, want_video) else None
+        return _g
+
+    _fns = [_eng(lambda: _ig_parth(clean, media_cat)),
+            _eng(lambda: _ig_ytdlp(clean, media_cat)),
+            _eng(lambda: _ig_embed(clean, media_cat)),
+            _eng(lambda: _og_scrape(clean, media_cat, allow_photo=not want_video))]
+    _budget = 26.0 if want_video else 22.0
+
     try:
         from modules.core import heavy as _hg
-    except Exception:                                          # noqa: BLE001
+    except Exception:                                            # noqa: BLE001
         _hg = None
     if _hg is None:
-        hit = _race([
-            lambda: _ig_parth(clean, media_cat),
-            lambda: _ig_ytdlp(clean, media_cat),
-            lambda: _og_scrape(clean, media_cat),
-        ], timeout=22.0)
+        hit = _race(_fns, timeout=_budget)
     else:
         try:
             with _hg.gate("media"):
-                hit = _race([
-                    lambda: _ig_parth(clean, media_cat),
-                    lambda: _ig_ytdlp(clean, media_cat),
-                    lambda: _og_scrape(clean, media_cat),
-                ], timeout=22.0)
+                hit = _race(_fns, timeout=_budget)
         except _hg.HeavyBusy:
             return {"ok": False, "busy": True,
                     "error": _hg.HeavyBusy("timeout").user_msg}
+
     if hit:
         try:
             if hit.get("bytes"):

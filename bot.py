@@ -265,6 +265,7 @@ from modules.media_downloader import (
     friendly_dl_error,
 )
 from modules import media_downloader as MD      # v66: cookies + client ladder
+from modules.core import bigfile as BF          # v79: 20MB → 150MB (MTProto)
 from modules.toolkit_extras import (
     analyze_link,
     expand_url,
@@ -1349,11 +1350,10 @@ KB_BTNS = [
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
     [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
-    [f"🎁 {to_bold('REFER & EARN')}", f"👤 {to_bold('MY ACCOUNT')}"],
-    # v75.1: 📤 BULK MODE — earning tool (Excel report). Ye row jaan-boojh kar
-    # HELP/SUPPORT row se PEHLE rakhi hai (wo aakhri row rehni chahiye).
-    [f"📤 {to_bold('BULK MODE (EXCEL)')}"],
-    [f"❓ {to_bold('HELP / TUTORIAL')}", f"💬 {to_bold('SUPPORT / MADAD')}"],
+    [f"👤 {to_bold('MY ACCOUNT')}"],
+    # v79: 🎁 REFER & EARN · 📤 BULK MODE (EXCEL) · ❓ HELP / TUTORIAL — teeno
+    # tools user ki hiring par hataaye gaye (menu se). SUPPORT row aakhri hai.
+    [f"💬 {to_bold('SUPPORT / MADAD')}"],
 ]
 
 
@@ -1415,8 +1415,8 @@ BTN_MODE_MAP = {
     "TEMP MAIL (NUMBER)": "tnum",          # purana naam (compatibility)
     "TEMP MAIL NUMBER": "tnum",
     # v75.1: 📤 BULK MODE (earning tool)
-    "BULK MODE (EXCEL)": "bulk", "BULK MODE": "bulk", "BULK (EXCEL)": "bulk",
-    "BULK EXCEL": "bulk", "BULK REPORT": "bulk", "EXCEL REPORT": "bulk",
+    # v79: BULK MODE ka tool hata diya gaya — isliye ye aliases bhi hataye
+    # (varna typing se wahi tool khul jaata).
     "CHAT X-RAY": "cxray",                 # v73.0: 💬 apni chat ki fun report
     "CHAT XRAY": "cxray",
     "WHATSAPP CHAT X-RAY": "cxray",
@@ -1491,9 +1491,9 @@ BTN_MODE_MAP = {
     "ALL TOOLS (FREE)": "alltools",      # v61
     "ALL TOOLS": "alltools",
     "SAARE TOOLS": "alltools",
-    "REFER & EARN": "refer",
+    # v79: "REFER & EARN" tool hataya (menu + alias dono)
     "MY ACCOUNT": "account",
-    "HELP / TUTORIAL": "tutorial",
+    # v79: "HELP / TUTORIAL" tool hataya (menu + alias dono)
     "SUPPORT / MADAD": "support",
     "MADAD / TUTORIAL": "tutorial",
     "MADAD": "tutorial",
@@ -3513,11 +3513,18 @@ async def with_tool_timeout(coro, seconds: int = TOOL_HARD_TIMEOUT, name: str = 
 
 
 async def _progress_pinger(msg, text_fn, every: int = PROGRESS_EVERY,
-                           stop: "asyncio.Event" = None, max_pings: int = 6):
-    """Lamba kaam ke dauran har `every` second progress bhejo (aur user ko
-    dikhe ki bot zinda hai). stop.set() hone par ruk jata hai."""
+                           stop: "asyncio.Event" = None, max_pings: int = 6,
+                           edit_msg=None):
+    """Lamba kaam ke dauran user ko dikhe ki bot zinda hai.
+
+    v79: `edit_msg` diya ho to **usi ek message ko edit** karta hai — chat me
+    5-6 alag "kaam chal raha hai (10s) (16s) (22s)…" nahi bikherte (user ki
+    shikayat). Edit 2 baar fail ho (message delete ho gaya / flood-control) to
+    chup-chaap ruk jata hai, naya message bhej kar chat nahi bharta.
+    """
     t0 = time.time()
     _sent = 0
+    _fails = 0
     try:
         while (stop is not None and not stop.is_set()) and _sent < max_pings:
             try:
@@ -3529,12 +3536,42 @@ async def _progress_pinger(msg, text_fn, every: int = PROGRESS_EVERY,
                 break
             try:
                 el = int(time.time() - t0)
-                await safe_reply(msg, text_fn(el), parse_mode="HTML")
+                _txt = text_fn(el)
+                if edit_msg is not None:
+                    res = await safe_edit(edit_msg, _txt, parse_mode="HTML")
+                    if not getattr(res, "ok", True):
+                        _fails += 1
+                        if _fails >= 2:
+                            break
+                    else:
+                        _fails = 0
+                else:
+                    await safe_reply(msg, _txt, parse_mode="HTML")
                 _sent += 1
             except Exception:                                    # noqa: BLE001
                 break
     except Exception:                                            # noqa: BLE001
         pass
+
+
+async def _st_edit(st, update, text: str, *, reply_markup=None, parse_mode: str = "HTML"):
+    """v79: status card edit karo — card delete ho chuka ho TO naya bhej do.
+
+    Pehle `st.edit_text(...)` seedha call hota tha aur status message delete ho
+    jaane par `BadRequest` upar crash-shield tak pahunchta tha — user ko
+    '⚠️ Ye kaam poora nahi ho paya' dikhta, jabki jawab bilkul bheja ja sakta
+    tha. Ab kabhi exception bahar nahi jaata.
+    """
+    try:
+        await st.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
+        return True
+    except Exception:                                            # noqa: BLE001
+        try:
+            await update.message.reply_text(text, reply_markup=reply_markup,
+                                            parse_mode=parse_mode)
+        except Exception:                                        # noqa: BLE001
+            pass
+        return False
 
 
 class _StatusMsg:
@@ -7198,9 +7235,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Payment proof (pay_*) aur admin flows sabke liye khule rehte hain.
     _mode_now = str(context.user_data.get("mode") or "")
     # v59.7: madad/support sabke liye khula (VIP ho ya na ho — help chahiye to mile)
-    if norm_text in ("💬 SUPPORT / MADAD", "SUPPORT / MADAD", "❓ HELP / TUTORIAL",
-                     "HELP / TUTORIAL", "MADAD"):
-        _txt, _kb = support_card() if "SUPPORT" in norm_text else (TUTORIAL_NOTICE, tutorial_kb())
+    # v79: ❓ HELP / TUTORIAL tool hataya gaya — sirf SUPPORT/MADAD hi rehta hai
+    # (pehle is branch me tutorial card bhi jaata tha).
+    if norm_text in ("💬 SUPPORT / MADAD", "SUPPORT / MADAD", "MADAD"):
+        _txt, _kb = support_card()
         await update.message.reply_text(_txt, reply_markup=_kb, parse_mode=HTML)
         return
     if PREMIUM_ONLY and not vip_ok(uid) and not _mode_now.startswith(("pay_", "adm_")):
@@ -8134,9 +8172,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _ping_stop = asyncio.Event()
         _ping_task = asyncio.create_task(_progress_pinger(
             update.message,
-            lambda el: (f"⏳ <b>{hesc(plat)}</b> — kaam chal raha hai… ({el}s)\n"
+            lambda el: (f"⚡ <b>{hesc(plat)}</b> — kaam chal raha hai… ({el}s / max 30s)\n"
                         "🔄 <i>Bas thoda sa aur — file taiyaar ho rahi hai.</i>"),
-            every=5, stop=_ping_stop))
+            every=6, stop=_ping_stop, edit_msg=st))
         context.user_data["_ping_stop"] = _ping_stop
         # v52: YouTube link → user khud quality chunta hai (360/480/720/1080)
         if re.search(r"(youtube\.com|youtu\.be)/", raw_text):
@@ -8157,7 +8195,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             rows.append([InlineKeyboardButton("❌ Cancel", callback_data="ytq:0")])
             context.user_data["yt_url"] = raw_text
             context.user_data["mode"] = "yt_q"
-            await st.edit_text(
+            await _st_edit(st, update, 
                 f"🎞️ <b>{to_bold('YOUTUBE QUALITY CHUNO')}</b>\n"
                 "Video kon si quality me chahiye? <b>Jo dabao, wahi milegi.</b>\n"
                 "⭐ = is video ki available best quality\n"
@@ -8187,14 +8225,31 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # v68: hard timeout — koi bhi tool bot ko 40 second se zyada nahi rok sakta
         res = await with_tool_timeout(download_video_async(raw_text), 40, "video-dl")
         if res is None:
-            res = {"ok": False,
-                   "error": ("⏱️ Server ne 40 second me jawab nahi diya (link bhaari "
-                             "ya platform slow hai).\n✅ <b>Dobara try karo</b> — doosri "
-                             "baar cache se TURANT milega.\n💳 Credit nahi katta.")}
+            # v79: upar ka card kehta hai "Zyada se zyada 30 second — warna main
+            # direct link de dunga". Ab waada poora hota hai: 9 second me direct
+            # link nikaalne ki koshish, mil jaaye to wahi button de dete hain.
+            _lk = None
+            try:
+                _lk = await with_tool_timeout(
+                    asyncio.to_thread(MD._ytdlp_direct_link, raw_text), 9, "video-dl-link")
+            except Exception:                                    # noqa: BLE001
+                _lk = None
+            if _lk and _lk[0]:
+                _sz = _lk[2] or 0
+                res = {"ok": True, "type": "link", "platform": plat,
+                       "direct_url": _lk[0], "title": _lk[1] or "", "engine": "ytdlp-link",
+                       "size_mb": round(_sz / 1048576, 2) if _sz else 0,
+                       "note": ("File ban to gayi thi, par Telegram tak pahunchane me "
+                                "network slow tha — ye link browser me turant chalegi.")}
+            else:
+                res = {"ok": False,
+                       "error": ("⏱️ Server ne 40 second me jawab nahi diya (link bhaari "
+                                 "ya platform slow hai).\n✅ <b>Dobara try karo</b> — doosri "
+                                 "baar cache se TURANT milega.\n💳 Credit nahi katta.")}
 
         if not res.get("ok"):
             reason = str(res.get("error", "Could not extract the media."))
-            await st.edit_text(
+            await _st_edit(st, update, 
                 fail_msg(f"{plat.upper()} DOWNLOAD FAILED", reason)
                 + "\n\n💡 <b>What to do:</b>\n"
                   "• Check if the post is <b>public</b>\n"
@@ -8238,17 +8293,35 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 # v57: hesc — YouTube/IG title me `<`/`>` ho sakta hai
                 # ("Song <Official> Video"), warna Telegram pura message reject.
                 title_line = f"• 📝 {hesc(str(title))}\n" if title else ""
+                _vid_cap = (
+                    f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
+                    f"{title_line}{dur_line}"
+                    f"• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
+                    + (f"• 🎞️ <b>Quality:</b> {hesc(str(res.get('quality')))} (FHD)\n"
+                       if res.get("quality") else "")
+                    + f"• 🔊 <b>Audio:</b> Original ✅\n"
+                      f"• ⚙️ Engine: {engine}"
+                )
+                # v79: 48 MB se badi file Bot API bhej HI nahi sakti (Telegram ka
+                # rule). TG_API_ID/HASH se MTProto on ho to seedha 150 MB tak bhej
+                # dete hain — warna purana raasta (compress / direct link) jaisa tha.
+                if len(res["bytes"]) > 46 * 1048576 and BF.enabled():
+                    _r = await BF.mt_send(
+                        update.effective_chat.id, res["bytes"], kind="video",
+                        caption=re.sub(r"</?(?:b|i|code|s)>", "", _vid_cap),
+                        file_name=media_buf.name or "video.mp4")
+                    if _r.get("ok"):
+                        try:
+                            await st.delete()
+                        except Exception:                            # noqa: BLE001
+                            pass
+                        add_use(uid)
+                        await update.message.reply_text(spend_credit_msg(uid, "insta_dl"),
+                                                         parse_mode=HTML)
+                        return
                 _sent = await update.message.reply_video(
                     video=media_buf,
-                    caption=(
-                        f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
-                        f"{title_line}{dur_line}"
-                        f"• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
-                        + (f"• 🎞️ <b>Quality:</b> {hesc(str(res.get('quality')))} (FHD)\n"
-                           if res.get("quality") else "")
-                        + f"• 🔊 <b>Audio:</b> Original ✅\n"
-                          f"• ⚙️ Engine: {engine}"
-                    ),
+                    caption=_vid_cap,
                     parse_mode=HTML,
                     supports_streaming=True,
                 )
@@ -8285,7 +8358,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     [InlineKeyboardButton("🚀 Direct Download Link", url=res["direct_url"])],
                     [InlineKeyboardButton("🌐 Original page kholo", url=raw_text)],
                 ]
-                await st.edit_text(
+                await _st_edit(st, update, 
                     f"📥 <b>{to_bold('DOWNLOAD LINK READY')}</b>\n\n"
                     f"🎬 <b>Platform:</b> {plat}\n"
                     + (f"📝 <b>Title:</b> {hesc(str(title))}\n" if title else "")
@@ -8300,7 +8373,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
-            await st.edit_text(
+            await _st_edit(st, update, 
                 fail_msg("SEND FAILED", "Got the media but Telegram did not accept it."),
                 parse_mode=HTML)
         except Exception as e:
@@ -8309,7 +8382,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _fixed = False
             if _raw and len(_raw) > 6 * 1048576 and res.get("type") == "video":
                 try:
-                    await st.edit_text("📦 <b>Telegram took too long.</b> Size chhota karke dobara bhej raha hoon…",
+                    await _st_edit(st, update, "📦 <b>Telegram took too long.</b> Size chhota karke dobara bhej raha hoon…",
                                        parse_mode=HTML)
                     _c = await asyncio.to_thread(desi.video_compress, _raw, 16.0, ".mp4")
                     if _c.get("ok"):
@@ -8329,7 +8402,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 add_use(uid)
                 await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
-            await st.edit_text(
+            await _st_edit(st, update, 
                 fail_msg("SEND FAILED", clean_err(e))
                 + "\n\n💡 <b>What to do:</b>\n"
                   "• Tap the tool again and send the same link (2nd try usually works)\n"
@@ -10864,16 +10937,48 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kind, att = "voice", msg.voice
         if kind and att is not None:
             try:
-                if getattr(att, "file_size", 0) and att.file_size > 20 * 1024 * 1024:
+                # ---- v79: 20MB deewar → 150MB (MTProto, modules/core/bigfile.py) ----
+                # Bot API ki hadd 20MB hai; Telegram ka apna API (MTProto) 2GB tak
+                # de deta hai WAHI bot token se. TG_API_ID + TG_API_HASH env set ho
+                # to badi file disk par utarti hai (RAM nahi khata) aur tool ko
+                # milti hai; set NA ho to bilkul pehle jaisa hi behave karta hai.
+                _fsz = int(getattr(att, "file_size", 0) or 0)
+                _cap_mb = BF.cap_in_mb()
+                if _fsz and _fsz > _cap_mb * 1048576:
                     await msg.reply_text("⚠️ The file is bigger than 20MB — that is the Telegram bot limit. Send a smaller file "
-                                         "(for videos, use ✂️ TRIM first).", parse_mode=HTML)
+                                         "(for videos, use ✂️ TRIM first)."
+                                         if not BF.enabled() else
+                                         f"⚠️ File {_fsz // 1048576} MB hai — is bot ki hadd {_cap_mb} MB tak hai. "
+                                         f"Chhoti file bhejein (videos ke liye ✂️ TRIM pehle).",
+                                         parse_mode=HTML)
                     return
-                tf = await att.get_file()
-                buf = io.BytesIO()
-                await tf.download_to_memory(buf)
-                handled = await handle_new_tool_file(update, context, uid, msg, mode, kind, buf.getvalue(), mime)
-                if handled:
-                    return
+                if _fsz > 20 * 1048576:
+                    # 20MB se upar: Bot API se milegi hi nahi → MTProto se DISK par
+                    _fn = (getattr(att, "file_name", "") or "")
+                    _r = await BF.download_to_path(msg, suffix=os.path.splitext(_fn)[1])
+                    if not _r.get("ok"):
+                        await msg.reply_text("⚠️ The file is bigger than 20MB — that is the Telegram bot limit. Send a smaller file "
+                                             "(for videos, use ✂️ TRIM first).", parse_mode=HTML)
+                        return
+                    _payload = (BF.MappedFile(_r["path"], _r["size"]) if _r.get("mapped")
+                                else open(_r["path"], "rb").read())
+                    try:
+                        handled = await handle_new_tool_file(update, context, uid, msg, mode,
+                                                             kind, _payload, mime)
+                    finally:
+                        try:
+                            _payload.unlink() if hasattr(_payload, "unlink") else os.remove(_r["path"])
+                        except Exception:                                    # noqa: BLE001
+                            pass
+                    if handled:
+                        return
+                else:
+                    tf = await att.get_file()
+                    buf = io.BytesIO()
+                    await tf.download_to_memory(buf)
+                    handled = await handle_new_tool_file(update, context, uid, msg, mode, kind, buf.getvalue(), mime)
+                    if handled:
+                        return
             except Exception as e:
                 await msg.reply_text(fail_msg("FILE ERROR", str(e)[:150]), parse_mode=HTML)
                 return
@@ -11282,7 +11387,16 @@ def _vault_health_html() -> str:
             from modules.core.vault import premium_floor_report
             floor = premium_floor_report(vault_db_path())
         lb = vault.last_backup or {}
-        out = ["<p style='font-family:monospace'>--- v60 FORTRESS ---</p>",
+        try:
+            _bf = BF.status()
+            _bfl = (f"bigfile: MTProto {'ON' if _bf.get('logged_in') else 'ready'} "
+                    f"| in ≤{_bf.get('max_in_mb')}MB out ≤{_bf.get('max_out_mb')}MB "
+                    f"| bot-api caps: in {BF.BOT_API_IN_MB}MB / out {BF.BOT_API_OUT_MB}MB"
+                    + (f" | note: {_bf.get('note')}" if not _bf.get('ready') else ""))
+        except Exception as _bfe:                                    # noqa: BLE001
+            _bfl = f"bigfile: (unavailable: {str(_bfe)[:40]})"
+        out = [f"<p style='font-family:monospace'>{_bfl}</p>",
+               "<p style='font-family:monospace'>--- v60 FORTRESS ---</p>",
                f"<p style='font-family:monospace'>db: {vault_db_path()} "
                f"| VIP users: {floor.get('total_premium', 0)} "
                f"(lifetime {floor.get('lifetime', 0)} + active {floor.get('active', 0)})</p>",
@@ -11702,7 +11816,6 @@ def main():
     app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(CommandHandler(["refresh", "newmenu"], cmd_refresh))
     app.add_handler(CommandHandler("help", cmd_tutorial))
-    app.add_handler(CommandHandler(["tutorial", "madad", "guide"], cmd_tutorial))
     app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
     app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
     app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
@@ -11714,7 +11827,6 @@ def main():
     app.add_handler(CommandHandler(["support", "helpme", "owner", "contact"], cmd_support))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))
-    app.add_handler(CommandHandler("refer", cmd_refer))
     app.add_handler(CommandHandler("premium", cmd_premium))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler(["sys", "system", "health"], cmd_sys))
@@ -11738,7 +11850,6 @@ def main():
     # v75 — 🧠 PRO ENGINE commands
     app.add_handler(CommandHandler(["history", "recent", "myrecent"], cmd_history))
     app.add_handler(CommandHandler(["smart", "autodetect", "auto"], cmd_smart))
-    app.add_handler(CommandHandler(["bulk", "bulkexcel", "report"], cmd_bulk))
     app.add_handler(CommandHandler(["toolstats", "analytics", "toolreport"], cmd_toolstats))
 
     # Specific Tool Commands

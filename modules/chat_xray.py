@@ -17,13 +17,16 @@ nahi hoti. Report user ko hi wapas jati hai.
 """
 
 import io
+import os
 import re
 import zipfile
 from collections import Counter, defaultdict
 
 # ---------------------------------------------------------------- limits
 MAX_LINES = 300_000            # itne line se zyada = itna hi padhenge (speed)
-MAX_BYTES = 12 * 1024 * 1024   # 12 MB se badi file = saaf error
+# v79: 12 MB tha — 66 MB ka WhatsApp export (without media) namumkin lagta tha.
+# Ab file DISK se stream hoti hai, isliye cap badhana RAM ke liye khatra nahi.
+MAX_BYTES = int(os.environ.get("CHAT_XRAY_MAX_BYTES", "") or (45 * 1048576))
 
 # ---------------------------------------------------------------- regexes
 # Android: "12/10/25, 9:41 pm - Rahul: Hi bhai"
@@ -175,13 +178,50 @@ def _pretty(iso: str) -> str:
 #  FILE → TEXT
 # ======================================================================
 
-def extract_text(data: bytes, filename: str = "") -> tuple:
-    """(.txt ya .zip se chat text nikalo). Returns (text, error)."""
+def _head_from_path(path: str, filename: str, limit: int) -> tuple:
+    """Disk par padi (.txt/.zip) file se SIRF pehle `limit` bytes — streaming.
+
+    v79: 66 MB (aur usse bade) WhatsApp export handle karne ke liye. Poora
+    file RAM me dale bina sirf zaroorit hissa padha jaata hai, isliye Render
+    ke 512 MB par bhi OOM nahi hota (OOM hi hamara purana crash tha).
+    """
     fn = (filename or "").lower()
-    if len(data or b"") > MAX_BYTES:
-        return "", "File bahut badi hai (12 MB se kam bhejein) — media ke bina export karein."
-    raw = data or b""
-    if fn.endswith(".zip") or raw[:2] == b"PK":
+    try:
+        if fn.endswith(".zip"):
+            import zipfile as _zf
+            with _zf.ZipFile(path) as z:
+                cands = [n for n in z.namelist()
+                         if n.lower().endswith(".txt") and not n.startswith("__MACOSX")]
+                if not cands:
+                    return b"", "Is .zip me koi chat .txt nahi mili — 'Without media' wala export bhejein."
+                cands.sort(key=lambda n: z.getinfo(n).file_size, reverse=True)
+                with z.open(cands[0]) as fh:
+                    return fh.read(limit), ""
+        with open(path, "rb") as fh:
+            return fh.read(limit), ""
+    except Exception as e:                                        # noqa: BLE001
+        return b"", f"File padhi nahi ja saki ({type(e).__name__})."
+
+
+def extract_text(data, filename: str = "") -> tuple:
+    """(.txt ya .zip se chat text nikalo). Returns (text, error).
+
+    `data` bytes ho ya `bigfile.MappedFile` (disk par file) — dono chalte hain.
+    """
+    fn = (filename or "").lower()
+    _path = getattr(data, "path", "") or ""
+    _from_disk = False
+    if _path:
+        _from_disk = True
+        raw, err = _head_from_path(_path, filename, MAX_BYTES)
+        if err:
+            return "", err
+    elif len(data or b"") > MAX_BYTES:
+        return "", (f"File bahut badi hai ({len(data) // 1048576} MB) — "
+                    f"{MAX_BYTES // 1048576} MB tak ki file isi tarah padhi jaati hai.")
+    else:
+        raw = data or b""
+    if not _from_disk and (fn.endswith(".zip") or raw[:2] == b"PK"):
         try:
             zf = zipfile.ZipFile(io.BytesIO(raw))
             cands = [n for n in zf.namelist()

@@ -141,55 +141,21 @@ Koi sawal? /support par message karo ya @Supermannn_x.
 # ======================================================================
 REPO_SLUG = os.getenv("TUTORIAL_REPO", "himanshu75919-coder/utility-duniya-bot")
 # jsDelivr CDN (fast + Telegram ko pasand) — fallback: GitHub raw
-VIDEO_BASE = os.getenv(
-    "TUTORIAL_VIDEO_BASE",
+VIDEO_BASE = "" or os.getenv(
+    "TUTORIAL_VIDEO_BASE_DISABLED",
     f"https://cdn.jsdelivr.net/gh/{REPO_SLUG}@main/tutorial_videos",
 ).rstrip("/")
-VIDEO_BASE_FALLBACK = os.getenv(
-    "TUTORIAL_VIDEO_BASE_FALLBACK",
+VIDEO_BASE_FALLBACK = "" or os.getenv(
+    "TUTORIAL_VIDEO_BASE_FALLBACK_DISABLED",
     f"https://raw.githubusercontent.com/{REPO_SLUG}/main/tutorial_videos",
 ).rstrip("/")
 
 # bot ke tool/action → video file ka naam
-TUTORIAL_VIDEO_KEYS = {
-    "terabox": "terabox",
-    "insta_dl": "video_dl",
-    "cloner": "cloner",
-    "cloner_private_help": "cloner",
-    "pp_stamp": "pp_stamp",
-    "print_sheet": "print_sheet",
-    "doc_compress": "doc_compress",
-    "pdf": "pdf",
-    "shot": "shot",
-    "shot_full": "shot",
-    "rto": "rto",
-    "numinfo": "numinfo",
-    "ifsc": "ifsc",
-    "pin": "pin",
-    "idfind": "idfind",
-    "ip": "ip",
-    "qr": "qr",
-    "qr_wifi": "qr",
-    "qr_vcard": "qr",
-    "short": "short",
-    "linkcheck": "linkcheck",
-    "appfind": "appfind",
-    "sarkari": "sarkari",
-    "premium": "premium",
-    "vip": "premium",
-    "refer": "refer",
-    "account": "account",
-    "vnum": "vnum",
-    "tutorial": "tutorial",
-    "help": "tutorial",
-    "video_dl": "video_dl",
-    # ---- v38 naye tools (abhi closest video; apne video v39 me banenge) ----
-    "bankpdf": "doc_compress",
-    "kagaz": "pdf",
-    "mediastudio": "video_dl",
-    # ---- v40/v41 live API tools (closest video; apna video banega) ----
-    "imei": "numinfo",
-}
+# v79: 🚫 SAARE TUTORIAL VIDEOS DELETE — user ki hiring par.
+#  • tutorial_videos/*.mp4 repo se `git rm` ho chuke hain (GitHub + Render dono se)
+#  • ye map jaan-boojh kar KHALI hai -> has_video() hamesha False, video_urls() []
+#  • isliye bot kisi bhi tool ke saath video nahi bhejega, chahe env set ho
+TUTORIAL_VIDEO_KEYS: dict = {}
 
 # video ke caption me tool ki jhalak (video title)
 VIDEO_TITLES = {
@@ -208,22 +174,28 @@ VIDEO_TITLES = {
 }
 
 
+# v79 — 🔴 TUTORIAL VIDEOS POORE BOT SE HATA diye gaye (user ki hiring):
+#   1) tutorial_videos/*.mp4 — repo se `git rm` (GitHub + Render deploy se delete)
+#   2) VIDEOS_REMOVED = True -> video_urls()/tutorial_video_url() hamesha khaali
+#   3) TUTORIAL_VIDEO_KEYS = {} -> has_video() hamesha False (aur bot ke saare
+#      call sites has_video() se gated hain, isliye video kabhi nahi bheja jaayega)
+VIDEOS_REMOVED = True
+
+
 def video_key(action: str) -> str:
     return TUTORIAL_VIDEO_KEYS.get(action, action)
 
 
 def tutorial_video_url(action: str) -> str:
-    return f"{VIDEO_BASE}/{video_key(action)}.mp4"
+    return ""   # v79: videos deleted
 
 
 def tutorial_video_url_fallback(action: str) -> str:
-    return f"{VIDEO_BASE_FALLBACK}/{video_key(action)}.mp4"
+    return ""   # v79: videos deleted
 
 
 def video_urls(action: str) -> list:
-    """[primary CDN, fallback raw] — pehla jo chale wahi bhejenge."""
-    p, fb = tutorial_video_url(action), tutorial_video_url_fallback(action)
-    return [p] if p == fb else [p, fb]
+    return []   # v79: videos deleted
 
 
 def has_video(action: str) -> bool:

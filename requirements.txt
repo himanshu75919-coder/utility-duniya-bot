@@ -60,3 +60,8 @@ parth-dl>=1.2
 
 # --- ffmpeg binary (bundled; Render par system ffmpeg nahi hota) ---
 imageio-ffmpeg>=0.5,<1
+
+# --- v79: 20MB/50MB Bot API hadd se upar (150MB tak) — modules/core/bigfile.py
+#     Sirf tab use hota hai jab TG_API_ID + TG_API_HASH env set ho;
+#     na ho to bot bilkul pehle jaisa chalta hai.
+telethon>=1.36,<2

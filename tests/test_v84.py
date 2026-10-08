@@ -248,35 +248,60 @@ check("result card free user ko upsell karta hai",
 
 
 # ======================================================================
-section("6) 🔌 bot.py WIRING")
+section("6) 🚫 v79: 3 TOOLS HATE — BULK MODE / REFER & EARN / HELP-TUTORIAL")
 # ======================================================================
 with open(os.path.join(_ROOT, "bot.py"), encoding="utf-8") as fh:
     SRC = fh.read()
 
-check("bulk_mode import hua", "from modules import bulk_mode as BM" in SRC)
-check("menu me BULK MODE button hai", "BULK MODE (EXCEL)" in SRC)
-check("BTN_MODE_MAP me mapping hai", '"BULK MODE (EXCEL)": "bulk"' in SRC)
-check("action 'bulk' par intro card aata hai", "BM.bulk_intro_text(" in SRC)
-check("mode bulk_wait handler hai", 'if mode == "bulk_wait":' in SRC)
-check("confirm callback (bulk_go) hai", 'data == "bulk_go"' in SRC)
-check("cancel callback (bulk_cancel) hai", 'data == "bulk_cancel"' in SRC)
-check("Excel bhejne ke liye send_document hai", "send_document(" in SRC)
-check("/bulk command register hai",
-      'CommandHandler(["bulk", "bulkexcel", "report"], cmd_bulk)' in SRC)
-check("cmd_bulk function hai", "async def cmd_bulk(" in SRC)
-check("progress message update hota hai", "safe_edit(" in SRC and "_on_prog" in SRC)
-check("BULK row HELP/SUPPORT se pehle hai (aakhri row wahi rahe)",
-      SRC.index("BULK MODE (EXCEL)") < SRC.index("HELP / TUTORIAL")) if \
-    "HELP / TUTORIAL" in SRC else check("BULK row position check", True)
-
-# keyboard sanity
+# --- keyboard: teeno buttons gayab, SUPPORT aakhri row par akela ---
 _labels = [B.unbold(x).upper() for r in B.KB_BTNS for x in r]
-check("keyboard me BULK MODE ek hi baar hai",
-      sum(1 for l in _labels if "BULK MODE" in l) == 1)
-check("aakhri row (HELP/SUPPORT) waise hi hai",
-      any("SUPPORT / MADAD" in x for x in [B.unbold(y) for y in B.KB_BTNS[-1]]))
-check("BULK ka action map me hai",
-      B.BTN_MODE_MAP.get("BULK MODE (EXCEL)") == "bulk")
+for gone in ("BULK MODE", "REFER & EARN", "HELP / TUTORIAL"):
+    check(f"keyboard me '{gone}' NAHI hai", not any(gone in l for l in _labels),
+          str([l for l in _labels if gone in l][:2]))
+check("MY ACCOUNT button zinda hai (REFER wali row se hataya, delete nahi kiya)",
+      any("MY ACCOUNT" in l for l in _labels))
+check("SUPPORT / MADAD aakhri row par hai",
+      "SUPPORT / MADAD" in B.unbold(B.KB_BTNS[-1][0]).upper())
+check("aakhri row me ab HELP/TUTORIAL saath me NAHI",
+      len(B.KB_BTNS[-1]) == 1)
+
+# --- text aliases (typing se tool na khule) ---
+for alias in ("BULK MODE (EXCEL)", "BULK MODE", "BULK EXCEL", "BULK REPORT",
+              "EXCEL REPORT", "REFER & EARN", "HELP / TUTORIAL"):
+    check(f"BTN_MODE_MAP se '{alias}' hataya", alias not in B.BTN_MODE_MAP)
+check("BTN_MODE_MAP me SUPPORT ab bhi hai", B.BTN_MODE_MAP.get("SUPPORT / MADAD") == "support")
+
+# --- dead commands register NAHI hone chahiye ---
+for cmd in ('CommandHandler(["bulk", "bulkexcel", "report"]',
+            'CommandHandler("refer"',
+            'CommandHandler(["tutorial", "madad", "guide"]'):
+    check(f"command unregister: {cmd[:34]}…", cmd not in SRC)
+check("cmd_bulk function code me thi (logic nahi badla, sirf wiring hati)",
+      "async def cmd_bulk(" in SRC)
+
+# --- SUPPORT branch me se tutorial card ka rasta band ---
+check("SUPPORT branch ab sirf support_card() bhejta hai",
+      "_txt, _kb = support_card()" in SRC)
+check("SUPPORT branch me TUTORIAL_NOTICE ka use nahi raha",
+      'if "SUPPORT" in norm_text else (TUTORIAL_NOTICE, tutorial_kb())' not in SRC)
+
+# --- tutorial VIDEOS: repo + code se permanent delete ---
+check("tutorial_videos/ folder repo me nahi hai",
+      not os.path.isdir(os.path.join(_ROOT, "tutorial_videos")))
+check("koi .mp4 tracked nahi (git ls-files)",
+      ".mp4" not in __import__("subprocess").run(
+          ["git", "-C", _ROOT, "ls-files"], capture_output=True, text=True).stdout)
+from modules import tutorial_hub as TH                                  # noqa: E402
+check("tutorial_hub.VIDEOS_REMOVED flag on", TH.VIDEOS_REMOVED is True)
+check("has_video() har action par False",
+      not any(TH.has_video(a) for a in ("video_dl", "qr", "terabox", "cloner", "refer")))
+check("video_urls() khaali", TH.video_urls("qr") == [] and TH.video_urls("video_dl") == [])
+check("tutorial_video_url() khaali",
+      TH.tutorial_video_url("qr") == "" and TH.tutorial_video_url_fallback("qr") == "")
+check("TUTORIAL_VIDEO_KEYS khali map (naye videos bhi auto-off)",
+      TH.TUTORIAL_VIDEO_KEYS == {})
+check("bulk_mode engine abhi bhi unit-testable hai (sirf tool hata, code nahi)",
+      callable(getattr(BM, "bulk_intro_text", None)))
 
 # RULE #1 NO-LINK
 check("RULE #1: bulk module me document me koi link nahi",
@@ -368,8 +393,12 @@ async def _flow():
 
 try:
     _intro, _mode, _prev, _kind, _ents, _ctx2 = asyncio.run(_flow())
-    check("e2e: menu button par intro card aata hai", "BULK MODE" in _intro)
-    check("e2e: menu se mode bulk_wait set hota hai", _mode == "bulk_wait", f"-> {_mode}")
+    # v79: tool hata diya gaya — "📤 BULK MODE (EXCEL)" type karne par ab
+    # intake khulna NA chahiye (engine direct drive se niche test hota hai).
+    check("e2e: BULK MODE type karne par ab intake NAHI khulta (tool hataya)",
+          _mode != "bulk_wait", f"-> mode={_mode}")
+    check("e2e: bulk card ka koi jhootha promise nahi gaya user ko",
+          "list de" not in _intro and "BULK MODE" not in _intro, f"-> {_intro[:70]}")
     check("e2e: list paste par preview card aata hai",
           "list pahchan li" in _prev or "pahchan" in _prev, f"-> {_prev[:80]}")
     check("e2e: kind detect hoke save hui", _kind == "ifsc", f"-> {_kind}")

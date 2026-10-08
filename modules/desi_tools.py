@@ -842,7 +842,7 @@ def audio_cut(data: bytes, start: str, end: str = "", fmt: str = "mp3") -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp("." + fmt), _tmp("." + fmt)
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         args = ["-i", pin, "-ss", str(start)]
         if end:
             args += ["-to", str(end)]
@@ -858,6 +858,23 @@ def audio_cut(data: bytes, start: str, end: str = "", fmt: str = "mp3") -> dict:
                 os.remove(p)
             except Exception:
                 pass
+
+
+def _write_media(path: str, data) -> int:
+    """Media input ko temp file me utaro. Badi file (MappedFile) RAM se guzarti
+    hi nahi — copy ho jati hai disk se disk (v79, 150MB support ke liye)."""
+    _p = getattr(data, "path", "") or ""
+    if _p:
+        try:
+            import shutil
+            shutil.copyfile(_p, path)
+            return os.path.getsize(path)
+        except Exception:                                       # noqa: BLE001
+            pass
+    b = _as_bytes(data)
+    with open(path, "wb") as fh:
+        fh.write(b)
+    return len(b)
 
 
 def _as_bytes(data) -> bytes:
@@ -891,7 +908,7 @@ def eff_8d(data: bytes) -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         filt = ("apulsator=hz=0.09,"
                 "aecho=0.8:0.88:60:0.4,"
                 "aformat=channel_layouts=stereo")
@@ -910,7 +927,7 @@ def bass_boost(data: bytes, gain_db: int = 8) -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         filt = f"bass=g={gain_db},loudnorm=I=-16:TP=-1.5:LRA=11"
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=900)
         return _out(cp, pout, {"effect": f"Bass +{gain_db}dB"})
@@ -928,7 +945,7 @@ def make_karaoke(data: bytes) -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         filt = ("pan=stereo|c0=c0-0.9*c1|c1=c1-0.9*c0,"
                 "highpass=f=120,alimiter=limit=0.95")
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=900)
@@ -961,7 +978,7 @@ def voice_change(data: bytes, preset: str) -> dict:
         return {"ok": False, "error": "preset not understood"}
     pin, pout = _tmp(".mp3"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         lbl, filt = VOICE_PRESETS[preset]
         cp = _ff(["-i", pin, "-af", filt, "-codec:a", "libmp3lame", "-q:a", "3", pout], timeout=900)
         return _out(cp, pout, {"effect": lbl})
@@ -982,7 +999,7 @@ def video_trim(data: bytes, start: str, end: str, ext: str = ".mp4") -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         cp = _ff(["-ss", str(start), "-to", str(end), "-i", pin,
                   "-vf", "scale='min(1280,iw)':-2",
                   "-c:v", "libx264", "-preset", "ultrafast", "-crf", "26", "-maxrate", "1800k", "-bufsize", "3600k",
@@ -1002,7 +1019,7 @@ def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         dur = ffprobe_duration(pin) or 30.0
         if dur > max_seconds:
             return {"ok": False, "too_long": True, "duration": round(dur, 1),
@@ -1037,7 +1054,7 @@ def video_to_mp3(data: bytes, ext: str = ".mp4") -> dict:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp3")
     try:
-        open(pin, "wb").write(_as_bytes(data))
+        _write_media(pin, data)
         cp = _ff(["-i", pin, "-vn", "-codec:a", "libmp3lame", "-q:a", "2", pout], timeout=1200)
         return _out(cp, pout, {"duration": round(ffprobe_duration(pout), 1)})
     finally:
@@ -1065,8 +1082,8 @@ def make_status_video(photo_bytes: bytes, audio_bytes: bytes, text: str = "",
     p_out = _tmp(".mp4")
     p_canvas = _tmp(".png")
     try:
-        open(p_photo, "wb").write(_as_bytes(photo_bytes))
-        open(p_audio, "wb").write(_as_bytes(audio_bytes))
+        _write_media(p_photo, photo_bytes)
+        _write_media(p_audio, audio_bytes)
         dur = min(max(ffprobe_duration(p_audio) or seconds, 3.0), max(seconds, 3.0))
 
         # ---- canvas 1080x1920 banao: photo upar, neeche text ----
