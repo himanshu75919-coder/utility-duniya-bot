@@ -166,3 +166,25 @@ python3 -m pytest tests/ -q   # privacy tests
 3. **Legal line:** sirf public/sarkari data ✅ · kisi ki niji jaankari ❌
    (bot khud kahin se personal record nahi uthata — Number Info me data
    sirf aapki apni API se aata hai).
+
+---
+
+## ⚠️ v80.5 — @BotFather se TOKEN ROTATE karne se PEHLE ye 1 kaam karo
+
+Bot ka data backup (`vault`) **aapke BOT_TOKEN se bani key** se encrypt hota hai.
+Token ghumate hi wo key badal jaati hai → **purane saare backups kholne ke layak
+nahi rehte** (aaj 8 Oct ko yahi hua: aapne revoke kiya, aur `vault-backup` branch
+ke backups `failures=1` par chale gaye). Isliye:
+
+1. Purana token copy karo (revoke se PEHLE),
+2. Ye ek command chalao (ya mujhe de do, main kar dunga):
+   `python3 -c "import hashlib;t='<PURANA_TOKEN>';print('k-'+hashlib.sha256(('ud-vault::'+t).encode()).hexdigest())"`
+3. Jo `k-…` se shuru hone wala 66-character result aaye, use Render → Environment me
+   **`VAULT_KEY`** naam se daalo → Save.
+4. Ab token jitna chaaho ghumao — backups hamesha khulenge. ✅ (Aaj maine ye kar
+   diya hai, isliye aapke purane backups wapas padhe ja sakte hain.)
+
+**Kaise pata chale theek hai ya nahi:** bot ka `/health` page, vault line:
+
+- `… key=env` → **safe** ✅ (key token se independent hai)
+- `… key=BOT_TOKEN ⚠️ VAULT_KEY set karo …` → **khatra** (token ghumao ge to data ka backup bekaar)

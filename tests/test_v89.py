@@ -534,6 +534,28 @@ check("status() ke baad bhi client lazhi banta hai (None hi rahe)",
 check("status() ke keys wahi hain (bot.py ka health line na tute)",
       set(_s2) >= {"ready", "logged_in", "max_in_mb", "max_out_mb", "note"})
 
+
+# ---------------------------------------------------------------
+# v80.5: 🛡️ vault key ka source dikhe (token rotate = data khatra tha)
+# ---------------------------------------------------------------
+_vault_src = open(os.path.join(_ROOT, "modules", "core", "vault.py"), encoding="utf-8").read()
+check("vault.key_source() maujood hai", "def key_source" in _vault_src)
+_saved_vk = os.environ.get("VAULT_KEY")
+os.environ["VAULT_KEY"] = "test-key-123"
+_ks_env = B.vault.key_source()
+if _saved_vk is None:
+    os.environ.pop("VAULT_KEY", None)
+else:
+    os.environ["VAULT_KEY"] = _saved_vk
+check("VAULT_KEY set ho to source 'env' (token-independent = rotation safe)",
+      _ks_env == "env", _ks_env)
+check("VAULT_KEY na ho to 'BOT_TOKEN' (hi aaj ki bimari thi)",
+      B.vault.key_source() == "BOT_TOKEN")
+check("restore fail hone par karan + ilaaja report me likha aaye",
+      "VAULT_KEY set karo" in _vault_src and "key_source()" in _vault_src)
+check("/health ki vault line par key= dikhe (aap khud dekh sako)",
+      "key={_vk}" in _bsrc and "VAULT_KEY set karo" in _bsrc)
+
 print("\n" + "=" * 62)
 print(f"  v89 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 if FAILS:

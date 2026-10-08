@@ -603,6 +603,17 @@ class Vault:
         base = (os.environ.get("BOT_TOKEN") or "").strip()
         return "k-" + hashlib.sha256(("ud-vault::" + (base or "no-token")).encode()).hexdigest()
 
+    def key_source(self) -> str:
+        """Vault ki encryption key KAHAN se aa rahi hai (diagnostic).
+
+        8 Oct 2026 ko user ne BotFather se token revoke kiya — aur key `BOT_TOKEN`
+        se derive hoti thi, isliye `vault-backup` branch ke saare purane backups
+        decrypt hona band ho gaye (restore bola "koi valid backup nahi mila",
+        /health par `failures=1`). Render env me `VAULT_KEY` set karne par key
+        token se independent ho jaati hai — token ghumao, data bacha rahega.
+        """
+        return "env" if (os.environ.get("VAULT_KEY") or "").strip() else "BOT_TOKEN"
+
     def gh_token(self) -> str:
         return (os.environ.get("GITHUB_BACKUP_TOKEN")
                 or os.environ.get("VAULT_GITHUB_TOKEN")
@@ -1181,6 +1192,12 @@ class Vault:
 
             if not best:
                 out["why"] = "koi valid backup nahi mila (ya sab blocked hue)"
+                if self.key_source() == "BOT_TOKEN":
+                    # sabse common asli wajah: BOT_TOKEN rotate ho gaya (key usse banti thi)
+                    out["why"] += (" — ⚠️ vault ki key BOT_TOKEN se banti hai; token rotate "
+                                   "hone par purane backups decrypt NAHI honge. Ilaja: Render "
+                                   "env me VAULT_KEY set karo (purane token se bana derived "
+                                   "key = wapas padh jaoge), ya /vault se naya baseline bana lo.")
                 self.stats["failures"] += 1
                 self.last_restore = out
                 return out

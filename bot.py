@@ -11334,6 +11334,15 @@ def _vault_health_html() -> str:
                     + (f" | note: {_bf.get('note')}" if not _bf.get('ready') else ""))
         except Exception as _bfe:                                    # noqa: BLE001
             _bfl = f"bigfile: (unavailable: {str(_bfe)[:40]})"
+        # v80.5: vault ki key kahan se — token-derived ho to token rotation data kha
+        # sakta hai, isliye ye health par dikhna chahiye (aur warning bhi).
+        try:
+            _vk = vault.key_source()
+            _vk_note = "" if _vk == "env" else (
+                " ⚠️ VAULT_KEY set karo — BotFather se token rotate hote hi purane "
+                "vault backups padhe nahi ja payenge (key token se banti hai)")
+        except Exception:                                            # noqa: BLE001
+            _vk, _vk_note = "?", ""
         out = [f"<p style='font-family:monospace'>{_bfl}</p>",
                "<p style='font-family:monospace'>--- v60 FORTRESS ---</p>",
                f"<p style='font-family:monospace'>db: {vault_db_path()} "
@@ -11345,7 +11354,8 @@ def _vault_health_html() -> str:
                f"interval={vault.interval_minutes()}m "
                f"| last_backup={lb.get('at') or 'abhi nahi'} "
                f"| backups={vault.stats.get('backups', 0)} "
-               f"failures={vault.stats.get('failures', 0)}</p>",
+               f"failures={vault.stats.get('failures', 0)} "
+               f"key={_vk}{_vk_note}</p>",
                f"<p style='font-family:monospace'>crash-shield: caught="
                f"{g.get('handled', 0)} (handler {g.get('handler', 0)} / task "
                f"{g.get('task', 0)} / thread {g.get('thread', 0)}) "
