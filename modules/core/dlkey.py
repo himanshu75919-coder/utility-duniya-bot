@@ -2,6 +2,12 @@
 """
 v84 — ⚡ DOWNLOAD CACHE KEY (instant repeat ka dimaag)
 ======================================================
+v85 badlaav: Instagram key se `img_index` HATA diya — kyunki v85 me carousel
+ka img_index wala link aane par bhi POORI ALBUM jaati hai (v82 wala \"sirf
+N-wan item\" behaviour user ki shikayat par hata diya gaya). Ab same post ke
+saare img_index wale links ek hi key par = cache kabhi fragment nahi hota.
+(Purani img_index wali keys ek baar miss hongi, phir sab instant.)
+
 Telegram ka file_id cache tabhi sahi kaam karta hai jab "same video" ki
 pehchaan sahi ho. Pehle key = poora URL (lowercase) tha:
   • ?igsh= / ?si= / ?fbclid= jaise tracking params se alag key ban jaati thi,
@@ -10,7 +16,7 @@ pehchaan sahi ho. Pehle key = poora URL (lowercase) tha:
     ka farq mit jaata tha (chhota lekin real wrong-video risk).
 
 Ab:
-  • Instagram  → shortcode (+ img_index agar diya ho, carousel slides ke liye)
+  • Instagram  → shortcode (img_index se farq NAHI — poori album ek hi key)
   • YouTube    → video ID (watch / youtu.be / shorts / embed / live)
   • TikTok     → video ID
   • Facebook   → video ID (watch / reel / page videos — sab ek hi namespace)
@@ -25,6 +31,31 @@ ek cache-miss deti hai (galat video nahi).
 import hashlib
 import re
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+
+# v85: key banane se pehle link ki gandagi (&amp; / markdown / space) saaf ho.
+# Import fail ho to bhi key banegi (fallback) — bot kabhi nahi rukta.
+try:
+    from modules.core.urlclean import clean_link as _UC_CLEAN
+except Exception:  # noqa: BLE001
+    _UC_CLEAN = None
+
+
+def _pre(text: str) -> str:
+    try:
+        if _UC_CLEAN is not None:
+            _c = _UC_CLEAN(text)
+            if _c:
+                return _c
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if text is None:
+            return ""
+        if isinstance(text, bytes):
+            return text.decode("utf-8", "ignore")
+        return str(text)
+    except Exception:  # noqa: BLE001
+        return ""
 
 __all__ = ["dl_cache_key", "canonical_url_id", "strip_tracking_params", "first_url"]
 
@@ -50,11 +81,11 @@ _PATTERNS = (
 
 def first_url(text: str) -> str:
     """Text me pehla http(s) link. Na mile to trimmed text hi."""
-    s = (text or "").strip()
+    s = _pre(text).strip()
     m = _URL_RX.search(s)
     if not m:
         return s
-    return m.group(0).rstrip(".,;:!)")
+    return m.group(0).rstrip(".,;:!)]}>\"'")
 
 
 def _query_map(url: str) -> dict:
@@ -72,10 +103,7 @@ def canonical_url_id(text: str):
         if not m:
             continue
         cid = m.group(1)
-        if ns == "ig":
-            idx = _query_map(url).get("img_index", "")
-            if idx.isdigit():
-                cid = f"{cid}:{int(idx)}"
+        # v85: img_index key me NAHI — same post = same key (poori album jaati hai)
         return f"{ns}:{cid}"
     return None
 

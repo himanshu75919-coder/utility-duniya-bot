@@ -5,7 +5,8 @@ v84 SELFTEST — ⚡ DOWNLOAD CACHE KEY (instant repeat)
 ====================================================
 Check karta hai:
   1) Same video ke alag share-links (tracking params) ek hi cache key par
-  2) Instagram img_index / YouTube quality tag alag keys dete hain
+  2) v85: Instagram img_index se farq NAHI (poori album ek hi key) /
+     YouTube quality tag alag keys dete hain
   3) Case-sensitive IDs: alag ID kabhi same key nahi
   4) Unknown links: sirf utm_/fbclid/gclid hatte hain, baaki params safe
   5) Collision safety (random IDs par koi takraav nahi)
@@ -70,8 +71,8 @@ def main():
     print("2) Alag content → alag key")
     print("=" * 62)
     ig_img2 = "https://www.instagram.com/p/DeJgDvDIFg2/?img_index=2"
-    ok("Instagram: img_index=2 ≠ img_index=3 (carousel slide)", K(ig_a) != K(ig_img2))
-    ok("Instagram: img_index nahi diya ≠ img_index=3", K("https://www.instagram.com/p/DeJgDvDIFg2/") != K(ig_a))
+    ok("v85: img_index=2 == img_index=3 (poori album ek hi key)", K(ig_a) == K(ig_img2))
+    ok("v85: img_index nahi diya == img_index=3 (same post)", K("https://www.instagram.com/p/DeJgDvDIFg2/") == K(ig_a))
     ok("YouTube: quality tag alag ⇒ alag key", K(yt_a, "q360") != K(yt_a, "q720"))
     ok("YouTube: same tag ⇒ same key", K(yt_a, "q360") == K(yt_b, "q360"))
     ok("Instagram: case alag ⇒ alag key (ID case-sensitive)",
@@ -133,7 +134,7 @@ def main():
     ok("set (tracked) → get (doosra tracking) = file_id", B.dl_fid_get(ig_b) == "FILE_ID_V84_A")
     ok("get ek alag post par khaali (galat hit nahi)",
        B.dl_fid_get("https://www.instagram.com/p/AAAAAAAAAAA/") == "")
-    ok("get alag img_index par khaali", B.dl_fid_get(ig_img2) == "")
+    ok("v85: get alag img_index par BHI file_id (same post)", B.dl_fid_get(ig_img2) == "FILE_ID_V84_A")
     B.dl_fid_forget(ig_a)
     ok("forget ke baad khaali", B.dl_fid_get(ig_b) == "")
 

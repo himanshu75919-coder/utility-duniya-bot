@@ -239,8 +239,10 @@ check("_ig_embed naya 4th engine maujood hai", callable(getattr(MD, "_ig_embed",
 _src_dl = inspect.getsource(MD.download_instagram_media)
 for eng in ("_ig_parth", "_ig_ytdlp", "_ig_embed", "_og_scrape"):
     check(f"pipeline me engine {eng}", eng in _src_dl)
-check("reel/video ka budget 26s (pehle 22s = aapka 33s wait fail)",
-      "26.0 if want_video else 22.0" in _src_dl)
+check("v85: reel/video 26s + photo 24s (album engine ke liye 22→24)",
+      "26.0 if want_video else 24.0" in _src_dl)
+check("v85: _ig_embed_album 5th engine (photo posts par race me)",
+      callable(getattr(MD, "_ig_embed_album", None)) and "_ig_embed_album" in _src_dl)
 check("want_video flag category + URL dono se banta hai",
       'media_cat in ("reel", "video", "igtv", "story")' in _src_dl and '"/reel" in clean' in _src_dl)
 check("cache ab bhi laga hai (2nd try TURANT)", '_mem_get(clean, "ig")' in _src_dl)

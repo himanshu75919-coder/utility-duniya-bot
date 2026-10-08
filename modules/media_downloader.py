@@ -30,8 +30,32 @@ import threading
 
 import requests
 from modules.core import httpio   # v72.0: shared engine (speed + auto-retry)
+# v85: link sanitizer — &amp; / markdown / fbclid wale gande links andar na aayein
+try:
+    from modules.core import urlclean as _UC
+except Exception:  # noqa: BLE001
+    _UC = None
 from PIL import Image
 from bs4 import BeautifulSoup
+
+
+def _clean_incoming(url: str) -> str:
+    """Engine ke andar aane wala link saaf karo (fail ho to original)."""
+    try:
+        if _UC is not None:
+            _c = _UC.clean_link(url)
+            if _c:
+                return _c
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if url is None:
+            return ""
+        if isinstance(url, bytes):
+            return url.decode("utf-8", "ignore").strip()
+        return str(url).strip()
+    except Exception:  # noqa: BLE001
+        return ""
 
 try:
     import parth_dl
@@ -95,11 +119,19 @@ SUPPORTED_SITES = (
 # HELPERS
 # =====================================================================================
 def is_instagram_url(url: str) -> bool:
+    try:
+        url = _clean_incoming(url) or url   # v85: markdown/gandagi me bhi pehchano
+    except Exception:  # noqa: BLE001
+        pass
     u = (url or "").lower()
     return "instagram.com" in u or "instagr.am" in u
 
 
 def is_supported_video_url(url: str) -> bool:
+    try:
+        url = _clean_incoming(url) or url   # v85: markdown/gandagi me bhi pehchano
+    except Exception:  # noqa: BLE001
+        pass
     u = (url or "").lower()
     return any(s in u for s in SUPPORTED_SITES)
 
@@ -125,6 +157,13 @@ def classify_instagram_url(url: str) -> str:
     """Classifies Instagram URL into 'reel', 'story', or 'post'"""
     if not isinstance(url, str):                       # v78: None/list par crash hota tha
         url = "" if url is None else str(url)
+    try:
+        if _UC is not None:                            # v85: &amp; wale links bhi classify hon
+            _c = _UC.clean_link(url)
+            if _c:
+                url = _c
+    except Exception:  # noqa: BLE001
+        pass
     u = url.lower().split("?")[0]
     if "/reel/" in u or "/reels/" in u or "/tv/" in u:
         return "reel"
@@ -1071,7 +1110,16 @@ def _og_scrape(clean: str, media_cat: str, allow_photo: bool = True):
 # =====================================================================================
 def _ig_code_of(url: str) -> str:
     """Instagram post/reel/TV link se shortcode nikalta hai."""
-    m = re.search(r"instagram\.com/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", url or "")
+    try:
+        if _UC is not None:                            # v85: ganda link saaf karke dekho
+            _c = _UC.clean_link(url)
+            if _c:
+                url = _c
+    except Exception:  # noqa: BLE001
+        pass
+    # v85: instagr.am short links (share sheet se aate hain) bhi chalenge
+    m = (re.search(r"instagram\.com/(?:[^/?#]+/)?(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", url or "")
+         or re.search(r"instagr\.am/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", url or ""))
     return m.group(1) if m else ""
 
 
@@ -1117,6 +1165,93 @@ def _ig_embed(clean: str, media_cat: str):
     return None
 
 
+def _jpeg_fit(raw: bytes, max_px: int = 2160, quality: int = 90):
+    """Photo ko Telegram-safe JPEG banao (badi photo = OOM + 10MB photo limit).
+
+    Returns bytes ya None. Kabhi exception nahi.
+    """
+    try:
+        if not raw or len(raw) < 200:
+            return None
+        im = Image.open(io.BytesIO(raw)).convert("RGB")
+        try:
+            w, h = im.size
+            if max(w, h) > max_px:
+                im.thumbnail((max_px, max_px), Image.LANCZOS)
+        except Exception:  # noqa: BLE001
+            pass
+        buf = io.BytesIO()
+        im.save(buf, format="JPEG", quality=quality)
+        out = buf.getvalue()
+        # ab bhi 9MB se bada? quality ghatao (Telegram photo limit ~10MB)
+        if len(out) > 9 * 1024 * 1024:
+            buf = io.BytesIO()
+            im.save(buf, format="JPEG", quality=75)
+            out = buf.getvalue()
+        return out if out and len(out) > 200 else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _ig_embed_album(clean: str, media_cat: str):
+    """🆕 v85 — 5th engine: carousel ki SAARE photos (/embed/ page se).
+
+    Masla: kabhi parth/yt-dlp carousel ko \"single photo\" samajh lete hain
+    (user ko 6-7 me se 1 photo milti hai). /embed/ page ke andar carousel ke
+    saare `display_url` / `image_versions2` hote hain — unhe ikattha karke
+    poori album bana dete hain. 2+ alag photos milein tabhi carousel.
+    """
+    code = _ig_code_of(clean)
+    if not code:
+        return None
+    for path in (f"/p/{code}/embed/captioned/", f"/p/{code}/embed/",
+                 f"/reel/{code}/embed/captioned/"):
+        try:
+            r = httpio.get("https://www.instagram.com" + path, headers=DESKTOP_UA,
+                           timeout=14, allow_redirects=True)
+            if r.status_code != 200 or len(r.text or "") < 400:
+                continue
+            html = (r.text or "").replace("\\u0026", "&").replace("\\/", "/")
+            # display_url pehle (GraphQL style), phir scontent jpg collect
+            urls = []
+            for pat in (r'"display_url":"(https?://[^"]+?)"',
+                        r'"url":"(https?://[^"]*?scontent[^"]*?\\.(?:jpg|jpeg|png)[^"]*?)"'):
+                try:
+                    urls += re.findall(pat, html)
+                except Exception:  # noqa: BLE001
+                    pass
+            seen, items = set(), []
+            for u in urls:
+                try:
+                    u = u.replace("\\u0026", "&")
+                    # thumbnail/profile chhoti files chhodo — sirf asli photos
+                    if any(bad in u.lower() for bad in ("profile_pic", "150x150", "s150x", "t51.2885-19")):
+                        continue
+                    key = re.sub(r"[?&].*$", "", u)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    ri = httpio.get(u, headers=DESKTOP_UA, timeout=12)
+                    if ri.status_code != 200 or len(ri.content or b"") < 2000:
+                        continue
+                    jb = _jpeg_fit(ri.content)
+                    if jb:
+                        items.append({"type": "photo", "bytes": jb})
+                    if len(items) >= 10:
+                        break
+                except Exception:  # noqa: BLE001
+                    continue
+            if len(items) >= 2:
+                t_m = re.search(r'"title":"([^"]{0,80})"', html)
+                return {"ok": True, "type": "carousel", "category": media_cat or "post",
+                        "bytes": None, "title": (t_m.group(1) if t_m else ""),
+                        "items": items, "count": len(items),
+                        "platform": "Instagram", "engine": "embed-album"}
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
 def _ig_kind_ok(res, want_video: bool) -> bool:
     """Race ka referee (v79): category ke hisaab se hi result qabool ho.
 
@@ -1132,6 +1267,15 @@ def _ig_kind_ok(res, want_video: bool) -> bool:
 
 
 def download_instagram_media(url: str) -> dict:
+    # v85: ganda link (&amp;/markdown/fbclid) pehle saaf — engines ko canonical post URL
+    url = _clean_incoming(url)
+    try:
+        if _UC is not None:
+            _ic = _UC.insta_clean(url)
+            if _ic:
+                url = _ic
+    except Exception:  # noqa: BLE001
+        pass
     clean = url.split("?")[0].rstrip("/")
     if not clean.startswith("http"):
         clean = "https://" + clean.lstrip("/")
@@ -1172,7 +1316,10 @@ def download_instagram_media(url: str) -> dict:
             _eng(lambda: _ig_ytdlp(clean, media_cat)),
             _eng(lambda: _ig_embed(clean, media_cat)),
             _eng(lambda: _og_scrape(clean, media_cat, allow_photo=not want_video))]
-    _budget = 26.0 if want_video else 22.0
+    # v85: photo post par 5th engine — poori carousel album (6-7 photos = sab aayein)
+    if not want_video:
+        _fns.append(_eng(lambda: _ig_embed_album(clean, media_cat)))
+    _budget = 26.0 if want_video else 24.0
 
     try:
         from modules.core import heavy as _hg
@@ -1187,6 +1334,17 @@ def download_instagram_media(url: str) -> dict:
         except _hg.HeavyBusy:
             return {"ok": False, "busy": True,
                     "error": _hg.HeavyBusy("timeout").user_msg}
+
+    # v85: race me \"single photo\" jeet gaya par /p/ post carousel ho sakta hai
+    # (6-7 photos me se 1 mili = user ki shikayat) — album engine se ek baar
+    # aur dekho; 2+ milein to wahi bhejo.
+    if hit and not want_video and hit.get("type") == "photo" and media_cat == "post":
+        try:
+            _alb = _ig_embed_album(clean, media_cat)
+            if _alb and _alb.get("ok") and len(_alb.get("items") or []) >= 2:
+                hit = _alb
+        except Exception:  # noqa: BLE001
+            pass
 
     if hit:
         try:
@@ -1213,7 +1371,7 @@ def download_instagram_media(url: str) -> dict:
 # UNIVERSAL DOWNLOADER (Instagram + YouTube + FB + X + TikTok + ...)
 # =====================================================================================
 def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
-    url = (url or "").strip()
+    url = _clean_incoming(url)   # v85: &amp;/markdown/fbclid saaf
     # v47: YouTube ke liye hub ka naya /youtube-download (hub v2.2 — proxy link IP-lock free)
     if re.search(r"(youtube\.com|youtu\.be)/", url):
         # v68: hub ko sirf 6 second — jawab na aaye to tez local engine chalta hai

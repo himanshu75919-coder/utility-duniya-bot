@@ -28,6 +28,31 @@ from urllib.parse import quote, unquote
 # v55: raw requests -> core.net (shared pool + mandatory timeout + retry + size cap)
 from modules.core.net import http_get, http_post, pooled_session
 
+# v85: link sanitizer — &amp; / markdown / fbclid wale gande links andar na aayein
+try:
+    from modules.core import urlclean as _UC
+except Exception:  # noqa: BLE001
+    _UC = None
+
+
+def _clean_incoming(url: str) -> str:
+    """Engine ke andar aane wala link saaf karo (fail ho to original)."""
+    try:
+        if _UC is not None:
+            _c = _UC.clean_link(url)
+            if _c:
+                return _c
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        if url is None:
+            return ""
+        if isinstance(url, bytes):
+            return url.decode("utf-8", "ignore").strip()
+        return str(url).strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
 UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept-Language": "en-US,en;q=0.9",
@@ -57,6 +82,10 @@ TERABOX_WEB_FALLBACKS = [
 # DETECTORS
 # =====================================================================================
 def is_terabox_url(url: str) -> bool:
+    try:
+        url = _clean_incoming(url) or url   # v85: markdown/gandagi me bhi pehchano
+    except Exception:  # noqa: BLE001
+        pass
     u = (url or "").lower()
     return any(d in u for d in TERABOX_DOMAINS)
 
@@ -73,10 +102,18 @@ def _extract_surl(url: str):
     """Terabox share link se surl (short url id) nikalta hai."""
     url = url if isinstance(url, str) else ("" if url is None else str(url))   # v78
     url = url.strip()
+    try:
+        if _UC is not None:   # v85: &amp;/markdown/fbclid saaf, phir surl nikalo
+            _s = _UC.tera_surl(url)
+            if _s:
+                return _s
+    except Exception:  # noqa: BLE001
+        pass
     m = re.search(r"/s/1?([A-Za-z0-9_\-]+)", url)
     if m:
         return "1" + m.group(1) if not m.group(0).startswith("/s/1") else m.group(1)
-    m = re.search(r"[?&]surl=([A-Za-z0-9_\-]+)", url)
+    # v85: `shorturl=` variant bhi (kuch share links me yahi hota hai)
+    m = re.search(r"[?&](?:surl|shorturl)=([A-Za-z0-9_\-]+)", url)
     if m:
         return m.group(1)
     return None
@@ -221,8 +258,21 @@ _TB_INFO_STASH: dict = {}      # surl -> file info (dlink na ho to bhi naam/size
 def _tb_page_tokens(session, surl: str):
     """Share page se (jsToken, logid) nikaalo. Dono me se koi bhi None ho sakta hai."""
     page = f"https://www.terabox.com/sharing/link?surl={surl}"
-    r = session.get(page, headers=UA, timeout=20, allow_redirects=True)
-    html = unquote(r.text or "")
+    # v85: canonical sharing page (1024tera/wap links bhi yahi khulenge) +
+    # desktop fail ho to mobile UA se retry
+    html = ""
+    for _ua in (UA, MOBILE_UA):
+        try:
+            r = session.get(page, headers=_ua, timeout=20, allow_redirects=True)
+            _code = getattr(r, "status_code", 200)
+            _txt = getattr(r, "text", "") or ""
+            if _code == 200 and _txt.strip():   # v85: koi length check nahi (purana behaviour)
+                html = unquote(_txt)
+                break
+        except Exception:  # noqa: BLE001
+            continue
+    if not html:
+        return None, None
     js = None
     m = re.search(r'jsToken[^"\'<>]{0,60}?fn\(\s*["\']([0-9A-Fa-f]{16,})["\']', html)
     if not m:
@@ -230,7 +280,20 @@ def _tb_page_tokens(session, surl: str):
              or re.search(r'jsToken\s*=\s*["\']([^"\']{8,})["\']', html))
     if m:
         js = m.group(1)
-    lg = re.search(r"logid=([0-9]{6,})", html) or re.search(r'"logid"\s*:\s*"?([0-9]{6,})', html)
+    if not js:   # v85: 2026 ke naye page layouts ke extra patterns
+        for _pat in (r'js[nN]Token["\'\s:=]+([0-9A-Fa-f]{16,64})',
+                     r'token["\'\s:=]+([0-9a-f]{32,64})',
+                     r'yunData\.MYBDSTOKEN\s*=\s*["\']([^"\']{8,})["\']'):
+            try:
+                _m2 = re.search(_pat, html)
+                if _m2:
+                    js = _m2.group(1)
+                    break
+            except Exception:  # noqa: BLE001
+                continue
+    lg = (re.search(r"logid=([0-9]{6,})", html)
+          or re.search(r'"logid"\s*:\s*"?([0-9]{6,})', html)
+          or re.search(r'dplogid["\'\s:=]+([0-9]{6,})', html))   # v85
     return js, (lg.group(1) if lg else None)
 
 
@@ -492,6 +555,7 @@ def _tb_hub(url):
 
 
 def resolve_terabox(url: str) -> dict:
+    url = _clean_incoming(url)   # v85: &amp;/markdown/fbclid saaf
     # v82: sabse pehle token-based guest listing (fast). Phir hub / cookie / purane workers.
     engines = [
         ("Guest Listing", _tb_guest_list),           # v82: jsToken flow (sabse fast)
@@ -669,7 +733,7 @@ def resolve_gdrive_direct(url: str) -> dict:
 # DISPATCHER (jaisa pehle tha — bot isi ko call karta hai)
 # =====================================================================================
 def resolve_cloud_url(url: str) -> dict:
-    url = (url or "").strip()
+    url = _clean_incoming(url)   # v85: &amp;/markdown/fbclid saaf
     if is_terabox_url(url):
         return resolve_terabox(url)
     elif is_mediafire_url(url):

@@ -87,6 +87,12 @@ def _heavy_health_line() -> str:
 # v75 — 🧠 PRO ENGINE: saare tools ka universal advanced layer
 #       (smart detect + provider race + result history + tool analytics)
 from modules.core import proengine as pro
+# v85 — 🔗 LINK SANITIZER: &amp;/markdown/fbclid wale gande links downloaders
+#       tak saaf pahunchen (fail-link + crash-button ka permanent ilaaj)
+try:
+    from modules.core import urlclean as _UC
+except Exception:  # noqa: BLE001
+    _UC = None
 # v81.0 — 🔐 FORCE-JOIN WALL (user ki hiring: "Force join gate banao")
 from modules.core import joinwall as JW
 # v75.1 — 📤 BULK MODE (EXCEL): earning tool (list -> poora Excel report)
@@ -476,7 +482,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v84.0 ULTRA-PRO — ⚡ SMART INSTANT-REPEAT KEY (tracking-proof, case-safe) — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX (carousel ki SAARE photos, img_index wala link bhi) + 🔗 LINK SANITIZER (&amp;/markdown/fbclid-proof) + 🛡️ FORTRESS-II (safe buttons + album fallback + photo caps) — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -975,6 +981,37 @@ def _parse_img_index(text: str):
         return None
     n = int(m.group(1))
     return n if n >= 1 else None
+
+
+def _clean_link_in(text: str) -> str:
+    """v85: user ke bheje link ki gandagi (&amp; / markdown / aas-paas ka text) saaf karo."""
+    try:
+        if _UC is not None:
+            _c = _UC.clean_link(text)
+            if _c:
+                return _c
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        return (text or "").strip()
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _safe_btn_url(url: str):
+    """v85: InlineKeyboardButton(url=...) ke liye valid URL ya None (galat URL = crash)."""
+    try:
+        if _UC is not None:
+            return _UC.safe_button_url(url)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        u = (url or "").strip()
+        if u.startswith("http://") or u.startswith("https://"):
+            return u[:1000]
+    except Exception:  # noqa: BLE001
+        pass
+    return None
 
 
 def inr(amount, decimals: int = 0) -> str:
@@ -8093,6 +8130,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         try:
             # v82: ye pehle SYNC call tha — 6 engines ke timeouts me poora bot ruk jaata tha.
             #      Ab thread me chalta hai + hard timeout; error ho to bhi user ko saaf jawab.
+            # v85: link ki safai resolve_cloud_url ke andar hoti hai (&amp;/markdown/fbclid).
             res = await with_tool_timeout(asyncio.to_thread(resolve_cloud_url, raw_text), 75, "terabox")
         except Exception as _tbe:                              # noqa: BLE001
             log.warning("terabox resolve error: %s", str(_tbe)[:120])
@@ -8111,7 +8149,12 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"📂 <b>{len(files)} file(s) found:</b>\n" + "\n".join(lines) +
                     "\n\n👇 Neeche buttons se koi bhi file download karo:"
                 )
-                rows = [[InlineKeyboardButton(f"⬇️ {str(f.get('name'))[:32]}", url=f["dlink"])] for f in files[:5]]
+                # v85: dlink galat/khaali ho to button NA banao (button crash = poora handler fail)
+                rows = []
+                for f in files[:5]:
+                    _du = _safe_btn_url(f.get("dlink") or "")
+                    if _du:
+                        rows.append([InlineKeyboardButton(f"⬇️ {str(f.get('name'))[:32]}", url=_du)])
             else:
                 cap = (
                     f"⚡ <b>{to_bold(str(res.get('provider', 'Cloud Direct')))}</b>\n\n"
@@ -8121,17 +8164,26 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 if res.get("note"):
                     cap += f"ℹ️ {hesc(str(res['note']))}\n"
                 cap += f"\n🔗 <b>High-Speed Link:</b>\n<code>{res.get('direct_url')}</code>"
-                rows = [[InlineKeyboardButton("🚀 Download / Stream", url=res.get("direct_url"))]]
-                if res.get("stream_url") and res.get("stream_url") != res.get("direct_url"):
-                    rows[0].append(InlineKeyboardButton("▶️ Web Player", url=res["stream_url"]))
-            await st.edit_text(spend_credit_msg(uid, "terabox") + "\n" + cap, reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+                rows = []
+                _du0 = _safe_btn_url(res.get("direct_url") or "")
+                if _du0:
+                    rows.append([InlineKeyboardButton("🚀 Download / Stream", url=_du0)])
+                _su0 = _safe_btn_url(res.get("stream_url") or "")
+                if _su0 and _su0 != _du0 and rows:
+                    rows[0].append(InlineKeyboardButton("▶️ Web Player", url=_su0))
+            await st.edit_text(spend_credit_msg(uid, "terabox") + "\n" + cap,
+                               reply_markup=InlineKeyboardMarkup(rows) if rows else None,
+                               parse_mode=HTML)
         else:
             cap = (
                 f"⚠️ <b>{to_bold('DIRECT LINK NOT FOUND')}</b>\n\n"
                 f"{hesc(str(res.get('error', 'Could not resolve the cloud link.')))}\n\n"
             )
-            _tb_rows = [[InlineKeyboardButton(_lbl[:60], url=_u)]
-                        for _lbl, _u in (res.get("fallback_links") or [])[:5]]
+            _tb_rows = []   # v85: har button URL validate (galat URL = crash)
+            for _lbl, _u in (res.get("fallback_links") or [])[:5]:
+                _fu = _safe_btn_url(_u or "")
+                if _fu:
+                    _tb_rows.append([InlineKeyboardButton(str(_lbl)[:60], url=_fu)])
             if res.get("surl"):
                 _tb_rows.append([InlineKeyboardButton(
                     "🌐 Share page kholo",
@@ -8278,32 +8330,66 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _delivered = False          # v82: media pehle ja chuka? to baad ka error "SEND FAILED" nahi dikhega
         try:
             mtype = res.get("type")
-            # v82: Instagram link me ?img_index=N → carousel ka N-wan item hi bhejo
+            # v85: FULL-ALBUM — img_index wala link ho to bhi POORI album jaati hai.
+            # (v82 me sirf N-wan item jaata tha = "6-7 photos me se 1 mili" shikayat.)
             _img_idx = _parse_img_index(raw_text)
-            if (mtype == "carousel" and res.get("items") and _img_idx
-                    and _img_idx <= len(res["items"])):
-                _it = res["items"][_img_idx - 1]
-                _bts = _it.get("bytes") or b""
-                res = {**res, "type": _it.get("type", "photo"), "bytes": _bts,
-                       "size_mb": round(len(_bts) / 1048576, 2), "items": None}
-                mtype = res["type"]
+            _album_note = (f" • slide {_img_idx} ka link tha" if _img_idx else "")
             engine = hesc(str(res.get("engine", "")))
             title = hesc(str(res.get("title") or ""))[:60]
 
             # 1) Album / Carousel (2-10 items ek saath)
             if mtype == "carousel" and res.get("items"):
-                items = res["items"][:10]
+                # v85: khaali/kharab items nikalo + total 45MB cap (OOM + Telegram limit safety)
+                items = [it for it in (res["items"] or [])[:10]
+                         if isinstance(it, dict) and (it.get("bytes") or b"")]
+                _tot, _fit = 0, []
+                for it in items:
+                    _sz = len(it.get("bytes") or b"")
+                    if _tot + _sz > 45 * 1048576 and _fit:
+                        break
+                    _tot += _sz
+                    _fit.append(it)
+                items = _fit or items[:1]
+                if not items:
+                    raise ValueError("album items khaali (download adhura)")
                 media_group = []
                 for idx, item in enumerate(items):
                     m_buf = io.BytesIO(item["bytes"])
-                    cap = f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}" if idx == 0 else ""
-                    if item["type"] == "video":
+                    _cap0 = (f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}"
+                             f"{_album_note}")[:900]   # v85: caption 1024 limit guard
+                    cap = _cap0 if idx == 0 else ""
+                    if item.get("type") == "video":
                         m_buf.name = f"media_{idx}.mp4"
                         media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML, supports_streaming=True))
                     else:
                         m_buf.name = f"media_{idx}.jpg"
                         media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
-                await update.message.reply_media_group(media=media_group)
+                try:
+                    await update.message.reply_media_group(media=media_group)
+                except Exception as _ag:
+                    # v85: group fail ho to ek-ek karke bhejo (user khaali haath na jaye)
+                    log.warning("album group fail, one-by-one bhej raha: %s", str(_ag)[:100])
+                    _sent_n = 0
+                    for idx2, item in enumerate(items):
+                        try:
+                            _b2 = io.BytesIO(item["bytes"])
+                            _c2 = (f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}"
+                                   f"{_album_note} ({idx2 + 1}/{len(items)})")[:900] if idx2 == 0 else ""
+                            if item.get("type") == "video":
+                                _b2.name = f"media_{idx2}.mp4"
+                                await update.message.reply_video(video=_b2, caption=_c2 or None,
+                                                                 parse_mode=HTML, supports_streaming=True)
+                            else:
+                                _b2.name = f"media_{idx2}.jpg"
+                                if _c2:
+                                    await update.message.reply_photo(photo=_b2, caption=_c2, parse_mode=HTML)
+                                else:
+                                    await update.message.reply_photo(photo=_b2)
+                            _sent_n += 1
+                        except Exception:  # noqa: BLE001
+                            continue
+                    if not _sent_n:
+                        raise
                 _delivered = True
                 await st.delete()
                 add_use(uid)
@@ -8383,10 +8469,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # 4) Bada file (48MB+): direct link dete hain — kaam rukta nahi
             if mtype == "link" and res.get("direct_url"):
                 mb = res.get("size_mb") or 0
-                rows = [
-                    [InlineKeyboardButton("🚀 Direct Download Link", url=res["direct_url"])],
-                    [InlineKeyboardButton("🌐 Original page kholo", url=raw_text)],
-                ]
+                # v85: dono URLs validate (galat URL = button crash = handler fail)
+                rows = []
+                _dl_u = _safe_btn_url(res.get("direct_url") or "")
+                if _dl_u:
+                    rows.append([InlineKeyboardButton("🚀 Direct Download Link", url=_dl_u)])
+                _orig_u = _safe_btn_url(_clean_link_in(raw_text) or raw_text)
+                if _orig_u:
+                    rows.append([InlineKeyboardButton("🌐 Original page kholo", url=_orig_u)])
+                if not rows:   # dono links bekaar — text me link de do, crash nahi
+                    rows = None
                 await _st_edit(st, update, 
                     f"📥 <b>{to_bold('DOWNLOAD LINK READY')}</b>\n\n"
                     f"🎬 <b>Platform:</b> {plat}\n"
@@ -8395,7 +8487,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     + f"⚙️ Engine: {engine}\n\n"
                     + hesc(str(res.get("note") or ""))
                     + "\n\n👇 Download karne ke liye neeche button par tap karo:",
-                    reply_markup=InlineKeyboardMarkup(rows),
+                    reply_markup=InlineKeyboardMarkup(rows) if rows else None,
                     parse_mode=HTML,
                 )
                 add_use(uid)
@@ -11131,8 +11223,27 @@ async def _post_init(app: Application):
             _ex = _ctx.get("exception")
             if _ex is None:
                 return          # v68: khaali context = asli error nahi (log na bharo)
-            log.warning("🛡️ background task error (bot chalta rahega): %s: %s",
-                        type(_ex).__name__, str(_ex)[:200])
+            # v85: source bhi log karo (task/future ka naam + message) — v84 tak
+            # "background task error" ka exact source pakka nahi tha, ab hoga.
+            _src = ""
+            try:
+                _f = _ctx.get("future") or _ctx.get("task")
+                if _f is not None:
+                    _src = f" [{type(_f).__name__}:{getattr(_f, 'get_name', lambda: '')() or ''}]"
+                _msg = str(_ctx.get("message") or "")
+                if _msg and _msg not in str(_ex)[:200]:
+                    _src += f" ({_msg[:80]})"
+            except Exception:  # noqa: BLE001
+                pass
+            log.warning("🛡️ background task error%s (bot chalta rahega): %s: %s",
+                        _src, type(_ex).__name__, str(_ex)[:200])
+            try:
+                import traceback as _tb
+                log.debug("background task traceback: %s",
+                          "".join(_tb.format_exception(
+                              type(_ex), _ex, _ex.__traceback__))[-1500:])
+            except Exception:  # noqa: BLE001
+                pass
         _loop.set_exception_handler(_loop_err)
         # v60: heartbeat — hang watchdog ko pata chale ki loop zinda hai
         from modules.core.guard import start_heartbeat_task

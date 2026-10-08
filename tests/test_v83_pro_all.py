@@ -223,8 +223,8 @@ def main():
     print("=" * 62)
     print("5) Version v83 par hai")
     print("=" * 62)
-    ok("BOT_VERSION v84 se shuru hota hai (v83 history bhi)",
-       B.BOT_VERSION.startswith("v84") and "v83.0" in B.BOT_VERSION, B.BOT_VERSION[:20])
+    ok("BOT_VERSION v85 se shuru hota hai (v84 + v83 history bhi)",
+       B.BOT_VERSION.startswith("v85") and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION, B.BOT_VERSION[:20])
     ok("BOT_VERSION me guard words (v77/FREE4ALL/SPEED) abhi bhi hain",
        "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION and "SPEED" in B.BOT_VERSION)
 
