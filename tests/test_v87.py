@@ -32,6 +32,7 @@ Aaj ke 4 kaam ke test (sab OFFLINE, koi network/API nahi chahiye):
 """
 import asyncio
 import os
+import re
 import sys
 import threading
 import time
@@ -520,8 +521,9 @@ check("BOT_VERSION me FREE4ALL guard word hai (suite check karta hai)",
       "FREE4ALL" in BOT.BOT_VERSION)
 check("BOT_VERSION me NO-GYAAN + SPEED guard words hain",
       "NO-GYAAN" in BOT.BOT_VERSION and "SPEED" in BOT.BOT_VERSION)
-check("BOT_VERSION v85 par bump hua (v84 + v83 + v77 history ab bhi version me hain)",
-      BOT.BOT_VERSION.startswith("v85") and "v84.0" in BOT.BOT_VERSION and "v83.0" in BOT.BOT_VERSION and "v77" in BOT.BOT_VERSION,
+_vm87 = re.match(r"v(\d+)", BOT.BOT_VERSION)          # v93: exact prefix ki jagah >= 85
+check("BOT_VERSION v85+ par bump hua (v84 + v83 + v77 history ab bhi version me hain)",
+      bool(_vm87) and int(_vm87.group(1)) >= 85 and "v84.0" in BOT.BOT_VERSION and "v83.0" in BOT.BOT_VERSION and "v77" in BOT.BOT_VERSION,
       BOT.BOT_VERSION[:12])
 check("ALL_FREE default on hai (users ke liye sab tools free)", BOT.ALL_FREE is True)
 check("requirements.txt me bare (unpinned) deps nahi",

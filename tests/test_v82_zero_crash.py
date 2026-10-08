@@ -262,8 +262,12 @@ check("C10 sab fail par ok=False", _res.get("ok") is False)
 check("C11 error me file ka naam + size", "clip.mp4" in _res.get("error", "") and "MB" in _res.get("error", ""))
 check("C12 fallback links + share page surl", len(_res.get("fallback_links") or []) >= 1
       and _res.get("surl") == "YfyQ2DSJWSE8mbuw3QMxbA")
-check("C13 purana headline text bana raha",
-      "Direct link nahi mila" in _res.get("error", ""))
+# v93: headline wording badla — ab jhooth nahi bolta. Jaanch me pata chala listing
+# chalti hai, sirf DOWNLOAD step CAPTCHA ("need verify_v2") se lock hai.
+check("C13 error headline clear hai (v93 wording)",
+      "Direct download link nahi mila" in _res.get("error", ""), _res.get("error", "")[:80])
+check("C13b v93 report card bhi laut-ta hai",
+      "clip.mp4" in str(_res.get("report") or ""), str(_res.get("report"))[:80])
 
 # ---------------------------------------------------------------- F. TikTok photo + prompts
 check("F1 TikTok photo fallback media_downloader me hai",
