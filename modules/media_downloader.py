@@ -1031,19 +1031,25 @@ def _ig_ytdlp(clean: str, media_cat: str):
         if entries and len(entries) > 1:
             items = []
             for e in entries[:20]:   # v86: IG carousel max 20 (pehle 10)
-                u = e.get("url") or e.get("webpage_url")
-                if not u:
-                    continue
-                # v86: per-item 15MB cap (20 items x 48MB = OOM pakka tha)
-                data, _meta = _ytdlp_download_bytes(u, max_mb=15)
-                if not data:
-                    continue
+                # v95: pehle KIND dekho — photo entry ko video-format download
+                # se mat khincho ("No video formats found" aata tha = photo skip)
                 is_vid = (e.get("vcodec") not in (None, "none")) or (e.get("ext") in ("mp4", "mov", "webm"))
                 if is_vid:
+                    u = e.get("url") or e.get("webpage_url")
+                    if not u:
+                        continue
+                    # v86: per-item 15MB cap (20 items x 48MB = OOM pakka tha)
+                    data, _meta = _ytdlp_download_bytes(u, max_mb=15)
+                    if not data:
+                        continue
                     items.append({"type": "video", "bytes": data})
                 else:
-                    _jb3 = _jpeg_fit(data)   # v86: size-capped JPEG
-                    items.append({"type": "photo", "bytes": _jb3 if _jb3 else data})
+                    _raw3 = _ytdlp_direct_image_bytes(e)   # v95: seedha CDN (yt-dlp photo par fail hota hai)
+                    if not _raw3:
+                        continue
+                    _jb3 = _jpeg_fit(_raw3)   # v86: size-capped JPEG
+                    if _jb3:
+                        items.append({"type": "photo", "bytes": _jb3})
             if items:
                 return {"ok": True, "type": "carousel", "category": media_cat,
                         "title": info.get("title") or "", "items": items, "count": len(items),
@@ -1051,6 +1057,12 @@ def _ig_ytdlp(clean: str, media_cat: str):
             return None
 
         data, info2 = _ytdlp_download_bytes(clean, max_mb=MAX_TG_MB)
+        if not data or len(data) <= 1000:
+            # v95: photo post par video-format download fail ("No video formats
+            # found") — info me jo seedha CDN/format URL hai wahi pakad lo
+            _raw1 = _ytdlp_direct_image_bytes(info)
+            if _raw1 and len(_raw1) > 1000:
+                data, info2 = _raw1, (info2 or info)
         if data and len(data) > 1000:
             is_vid = bool(info2 and (info2.get("vcodec") not in (None, "none")))
             if is_vid:
@@ -1158,7 +1170,7 @@ def _ig_embed(clean: str, media_cat: str):
     for path in (f"/reel/{code}/embed/captioned/", f"/p/{code}/embed/captioned/",
                  f"/p/{code}/embed/"):
         try:
-            r = httpio.get("https://www.instagram.com" + path, headers=DESKTOP_UA,
+            r = httpio.get("https://www.instagram.com" + path, headers=FB_UA,  # v95: crawler UA = data page
                            timeout=14, allow_redirects=True)
             if r.status_code != 200 or len(r.text or "") < 400:
                 continue
@@ -1213,62 +1225,196 @@ def _jpeg_fit(raw: bytes, max_px: int = 2160, quality: int = 90):
         return None
 
 
-def _ig_embed_album(clean: str, media_cat: str):
-    """🆕 v85 — 5th engine: carousel ki SAARE photos (/embed/ page se).
 
-    Masla: kabhi parth/yt-dlp carousel ko \"single photo\" samajh lete hain
-    (user ko 6-7 me se 1 photo milti hai). /embed/ page ke andar carousel ke
-    saare `display_url` / `image_versions2` hote hain — unhe ikattha karke
-    poori album bana dete hain. 2+ alag photos milein tabhi carousel.
+def _deep_unescape(s: str, rounds: int = 4) -> str:
+    """v95: embed HTML triple-escaped JSON hota hai (`\\\"src\\\"`) — stable hone tak kholo."""
+    if not isinstance(s, str):
+        return ""
+    try:
+        out = s or ""
+        for _ in range(max(1, int(rounds))):
+            new = (out.replace("\\u0026", "&").replace("\\/", "/")
+                      .replace('\\"', '"').replace("\\\\", "\\"))
+            if new == out:
+                break
+            out = new
+        return out
+    except Exception:  # noqa: BLE001
+        return s or ""
+
+
+def _ig_album_candidates(html: str):
+    """v95: embed HTML se carousel photo URLs — PURE function (network nahi).
+
+    Returns: [url, ...] carousel-order me, deduped, best-quality per photo.
+    - NAYA format (2026): `display_resources:[{src,config_width}...]` — har
+      photo ke 3-4 size hote hain, sabse bada (1080) uthate hain.
+    - PURANA format: `display_url` / `image_versions2` candidates / <img>.
+    """
+    found = []  # (width, url) — width 0 = unknown (purana pattern)
+    if not isinstance(html, str):
+        return []
+    try:
+        h = _deep_unescape(html or "")
+    except Exception:  # noqa: BLE001
+        return []
+    if not h or len(h) < 400:
+        return []
+    # carousel ho to SIRF sidecar-children window scan karo — window ke baahar
+    # ke display_resources related-posts/profile ke hote hain (galat photos!).
+    _scan = h
+    _sc_at = h.find('"edge_sidecar_to_children"')
+    if _sc_at != -1:
+        _scan = h[_sc_at:_sc_at + 100000]
+    # (1) display_resources blocks — har block = 1 photo, max width lo
+    try:
+        for _bm in re.finditer(r'"display_resources"\s*:\s*\[(.*?)\]', _scan, re.DOTALL):
+            _blk = _bm.group(1)[:8000]
+            _pairs = re.findall(r'"src"\s*:\s*"(https?://[^"]+?)"\s*,\s*"config_width"\s*:\s*(\d+)', _blk)
+            _pairs += [(_u2, _w2) for (_w2, _u2) in
+                       re.findall(r'"config_width"\s*:\s*(\d+)[^}]{0,400}?"src"\s*:\s*"(https?://[^"]+?)"', _blk)]
+            _best = None
+            for (_u, _w) in _pairs:
+                try:
+                    _w = int(_w)
+                except Exception:  # noqa: BLE001
+                    _w = 0
+                if _best is None or _w > _best[0]:
+                    _best = (_w, _u)
+            if _best and _best[1]:
+                found.append(_best)
+    except Exception:  # noqa: BLE001
+        pass
+    # blocks mile to baaki patterns bhi window me (related-thumbs na ghuse);
+    # na mile to poora page (purana format / single photo)
+    _rest = _scan if found else h
+    # (2) purana GraphQL display_url
+    try:
+        for _u in re.findall(r'"display_url"\s*:\s*"(https?://[^"]+?)"',_rest):
+            found.append((0, _u))
+    except Exception:  # noqa: BLE001
+        pass
+    # (3) image_versions2 candidates (v85 ka pattern toot gaya tha: `\\.` kabhi
+    #     match nahi hota tha kyunki `\/` pehle hi `/` ban chuka hota hai)
+    try:
+        for _u in re.findall(r'"url"\s*:\s*"(https?://[^"]*?scontent[^"]*?\.(?:jpg|jpeg|png)[^"]*?)"',_rest):
+            found.append((0, _u))
+    except Exception:  # noqa: BLE001
+        pass
+    # (4) seedha <img> tags (captioned embed cover render karta hai)
+    try:
+        for _u in re.findall(r'<img[^>]+src="(https?://[^"]*?scontent[^"]+?)"',_rest):
+            found.append((0, _u))
+    except Exception:  # noqa: BLE001
+        pass
+    # filter + dedupe (filename key — alag size ka URL same photo hota hai)
+    best = {}
+    for (_w, _u) in found:
+        try:
+            if not _u or " " in _u:
+                continue
+            _lu = _u.lower()
+            if any(_b in _lu for _b in ("profile_pic", "150x150", "s150x", "t51.2885-19")):
+                continue
+            if 0 < _w < 240:
+                continue      # chhoti thumbnail — asli post photo 640+
+            _key = re.sub(r"[?#].*$", "", _u.rsplit("/", 1)[-1]) or re.sub(r"[?#].*$", "", _u)
+            if _key not in best or _w > best[_key][0]:
+                best[_key] = (_w, _u)
+        except Exception:  # noqa: BLE001
+            continue
+    return [_u for (_w, _u) in best.values()]
+
+
+def _ytdlp_direct_image_bytes(info):
+    """v95: yt-dlp info se seedha CDN bytes (photo entries ke liye).
+
+    Photo entry ko `_ytdlp_download_bytes` (VIDEO format string) se khincho to
+    `No video formats found` aata hai — isliye formats/thumbnails ka URL seedha
+    httpio se uthate hain. Kuch na mile to None (caller agla engine try kare).
+    """
+    try:
+        if not isinstance(info, dict):
+            return None
+        _cands = []
+        if info.get("url"):
+            _cands.append(info["url"])
+        try:
+            for _f in (info.get("formats") or [])[-3:]:
+                if isinstance(_f, dict) and _f.get("url"):
+                    _cands.append(_f["url"])
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            for _t in (info.get("thumbnails") or [])[-2:]:
+                if isinstance(_t, dict) and _t.get("url"):
+                    _cands.append(_t["url"])
+        except Exception:  # noqa: BLE001
+            pass
+        for _u in _cands:
+            try:
+                if not _u or not str(_u).startswith("http"):
+                    continue
+                _r = httpio.get(str(_u), headers=DESKTOP_UA, timeout=12)
+                if _r.status_code == 200 and len(_r.content or b"") > 1000:
+                    return _r.content
+            except Exception:  # noqa: BLE001
+                continue
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
+def _ig_embed_album(clean: str, media_cat: str):
+    """v85 engine, v95 FIX: carousel ki SAARE photos (/embed/ page se).
+
+    v95: Instagram ne embed HTML badal diya — `display_url` GAYAB, ab har photo
+    `display_resources:[{src,config_width}...]` (triple-escaped JSON) me hai.
+    Isi wajah se 10-photo carousel par 1 photo milti thi (og:image thumbnail).
+    Ab `_ig_album_candidates` naya + purana dono format padhta hai.
     """
     code = _ig_code_of(clean)
     if not code:
         return None
     for path in (f"/p/{code}/embed/captioned/", f"/p/{code}/embed/",
                  f"/reel/{code}/embed/captioned/"):
-        try:
-            r = httpio.get("https://www.instagram.com" + path, headers=DESKTOP_UA,
-                           timeout=14, allow_redirects=True)
-            if r.status_code != 200 or len(r.text or "") < 400:
-                continue
-            html = (r.text or "").replace("\\u0026", "&").replace("\\/", "/")
-            # display_url pehle (GraphQL style), phir scontent jpg collect
-            urls = []
-            for pat in (r'"display_url":"(https?://[^"]+?)"',
-                        r'"url":"(https?://[^"]*?scontent[^"]*?\\.(?:jpg|jpeg|png)[^"]*?)"'):
-                try:
-                    urls += re.findall(pat, html)
-                except Exception:  # noqa: BLE001
-                    pass
-            seen, items = set(), []
-            for u in urls:
-                try:
-                    u = u.replace("\\u0026", "&")
-                    # thumbnail/profile chhoti files chhodo — sirf asli photos
-                    if any(bad in u.lower() for bad in ("profile_pic", "150x150", "s150x", "t51.2885-19")):
-                        continue
-                    key = re.sub(r"[?&].*$", "", u)
-                    if key in seen:
-                        continue
-                    seen.add(key)
-                    ri = httpio.get(u, headers=DESKTOP_UA, timeout=12)
-                    if ri.status_code != 200 or len(ri.content or b"") < 2000:
-                        continue
-                    jb = _jpeg_fit(ri.content)
-                    if jb:
-                        items.append({"type": "photo", "bytes": jb})
-                    if len(items) >= 20:   # v86: IG carousel max 20
-                        break
-                except Exception:  # noqa: BLE001
+        for _ua in (FB_UA, DESKTOP_UA):   # v95: 2 UAs (datacenter IP par 429 se bachao)
+            try:
+                r = httpio.get("https://www.instagram.com" + path, headers=_ua,
+                               timeout=14, allow_redirects=True)
+                if r.status_code != 200 or len(r.text or "") < 400:
                     continue
-            if len(items) >= 2:
-                t_m = re.search(r'"title":"([^"]{0,80})"', html)
-                return {"ok": True, "type": "carousel", "category": media_cat or "post",
-                        "bytes": None, "title": (t_m.group(1) if t_m else ""),
-                        "items": items, "count": len(items),
-                        "platform": "Instagram", "engine": "embed-album"}
-        except Exception:  # noqa: BLE001
-            continue
+                urls = _ig_album_candidates(r.text or "")
+                if not urls:
+                    continue
+                items = []
+                for u in urls[:20]:
+                    try:
+                        ri = httpio.get(u, headers=DESKTOP_UA, timeout=10)
+                        if ri.status_code != 200 or len(ri.content or b"") < 2000:
+                            continue
+                        jb = _jpeg_fit(ri.content)
+                        if jb:
+                            items.append({"type": "photo", "bytes": jb})
+                        if len(items) >= 20:
+                            break
+                    except Exception:  # noqa: BLE001
+                        continue
+                if len(items) >= 2:
+                    _h2 = _deep_unescape(r.text or "")[:20000]
+                    t_m = re.search(r'"title"\s*:\s*"([^"]{0,80})"', _h2)
+                    return {"ok": True, "type": "carousel", "category": media_cat or "post",
+                            "bytes": None, "title": (t_m.group(1) if t_m else ""),
+                            "items": items, "count": len(items),
+                            "platform": "Instagram", "engine": "embed-album"}
+                if len(items) == 1:
+                    # v95: 1 bhi mile to bekaar nahi — single photo hi sahi
+                    return {"ok": True, "type": "photo", "category": media_cat or "post",
+                            "title": "", "bytes": items[0]["bytes"],
+                            "size_mb": _size_mb(items[0]["bytes"]),
+                            "platform": "Instagram", "engine": "embed-album-1"}
+            except Exception:  # noqa: BLE001
+                continue
     return None
 
 

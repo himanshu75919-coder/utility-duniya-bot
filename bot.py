@@ -27,6 +27,7 @@ import threading
 import tempfile
 from datetime import date, datetime, timezone   # v75: timezone (smart-detect message)
 from html import escape as hesc
+import html  # v95: caption &quot;/&amp; fix (unescape)
 from urllib.parse import quote
 
 try:
@@ -484,7 +485,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v94.0 MERGED-PRO — v93 (10+ album chunk + Terabox file report + HTML safety net) + v86 (Insta-mega 20-photo + story/profile/share + QR Scanner + crash-sweep-II) | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v95.0 IG-CAROUSEL-FIX — 📸 poori carousel (naya display_resources format + direct photo CDN) + caption-entity fix | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -8501,7 +8502,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _img_idx = _parse_img_index(raw_text)
             _album_note = (f" • slide {_img_idx} ka link tha" if _img_idx else "")
             engine = hesc(str(res.get("engine", "")))
-            title = hesc(str(res.get("title") or ""))[:60]
+            title = html.unescape(html.unescape(str(res.get("title") or "")))[:60]  # v95: &quot; fix (hesc usage par hota hai)
 
             # 1) Album / Carousel — v94 MERGED: v86 intake (20-item + junk filter) + v93 45MB cap/note + chunk send
             if mtype == "carousel" and res.get("items"):
