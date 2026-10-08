@@ -83,3 +83,10 @@ bigfile: MTProto ON | in ≤150MB out ≤150MB | bot-api caps: in 20MB / out 48M
 `MTProto ON` ka matlab bot ne **boot par hi** Telegram ke apne API se login kar liya (v80.2 ka warm-up) — yaani pehle user ko 5-8 second ka handshake wait nahi milega. 20 MB ki deewar ab **150 MB** hai (2000 tak `MAX_FILE_MB` se badhani ja sakti hai, par Render ke 512 MB RAM par 150 safe hai).
 
 Verify kiya gaya: 26 MB ki file MTProto se upload + user chat me send (Bot API iski ijaazat nahi deta tha). **Aapki baari:** koi 30-100 MB ki video bhej ke dekho — "bigger than 20MB" wala message ab nahi aana chahiye.
+
+## v80.2 ka naya knob
+
+| knob | default | kaam |
+|---|---|---|
+| `BIGFILE_WARM` | `on` | boot par hi MTProto login (pehle user ko 5-8s bachta hai, par ~60 MB extra RAM). **`off`** kar do agar RAM tight lage (Render free = 512 MB) — tab bhi 150 MB chalega, bas pehli badi file par 5-8 second extra lagenge |
+

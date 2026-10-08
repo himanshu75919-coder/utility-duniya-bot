@@ -509,6 +509,11 @@ check("_post_init BF.warm() ko BACKGROUND task me daalta hai (startup block nahi
       "asyncio.create_task(BF.warm())" in _post_wn and _post_wn.count("BF.warm()") == 1)
 check("warm call bhi try/except me hai (boot kabhi na ruke)",
       "except Exception as _we" in _post_w)
+check("warm-up BIGFILE_WARM knob se off ho sakta hai (memory trade-off user ke haath)",
+      '_env_bool("BIGFILE_WARM", True)' in _post_w and "warm-up OFF" in _post_w)
+_src_bf = open(os.path.join(_ROOT, "modules", "core", "bigfile.py"), encoding="utf-8").read()
+check("warm-off par bhi feature nahi marta (caps creds se hi chalte hain)",
+      "def cap_in_mb" in _src_bf and "def cap_out_mb" in _src_bf)
 
 print("\n" + "=" * 62)
 print(f"  v89 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
