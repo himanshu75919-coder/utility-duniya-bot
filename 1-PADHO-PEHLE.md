@@ -188,3 +188,57 @@ ke backups `failures=1` par chale gaye). Isliye:
 
 - `… key=env` → **safe** ✅ (key token se independent hai)
 - `… key=BOT_TOKEN ⚠️ VAULT_KEY set karo …` → **khatra** (token ghumao ge to data ka backup bekaar)
+
+---
+
+## 🔐 v81 — FORCE-JOIN WALL (pehle channel join, phir bot)
+
+Aapki hiring: "Force join gate banao". Ab bot ka har tool khulne se pehle user ko
+`@CypherGrid` join karna padega — **ek baar**. DM me wall aata hai:
+
+```
+🔐 Pehle ek chhota sa kaam
+──────────────────────
+Neeche wala channel join karo — roz yahan naye tools, free updates aur offers aate hain.
+📌 Ek baar join = uske baad bot hamesha khula (dubara kuch nahi).
+👉 Channel: ToolVault 🔥
+[ 🔗 Channel join karo ]        ← channel khulta hai
+[ ✅ Join ho gaya — check karo ] ← bot turant verify karke menu de deta hai
+```
+
+**Kaun nahi dega wall:** aap (`ADMIN_ID`), `ADMINS` me likhe log, aur
+`FORCE_JOIN_EXEMPT` ke ids. **Group chats me wall nahi** (sirf DM) — isliye kisi
+group me bot bekaar ka "join karo" nahi bhejega.
+
+### Settings (Render → Environment me var daalo, bot khud padh leta hai)
+
+| Var | Default | Kaam |
+|-----|---------|------|
+| `FORCE_CHANNEL` | `-1004331054356` | Channel — `@username` ya `-100…` id. **Khaali = wall band** |
+| `FORCE_CHANNEL_LINK` | `https://t.me/CypherGrid` | Join ka button. Khaali ho to `@username` se khud bana leta hai (id-mode me khali rehta hai — galat channel par na le jaye) |
+| `FORCE_JOIN` | `auto` | `off` = **turant band** (1 var se kill switch), `on` = jab bhi channel set ho |
+| `FORCE_JOIN_GROUPS` | `off` | `on` karo to groups me bhi gate |
+| `FORCE_JOIN_EXEMPT` | — | Extra ids, comma se (test karne ke liye) |
+| `FORCE_JOIN_OK_HOURS` | `12` | Kitni ghante baad dobara verify (zyada = tez bot) |
+
+### Do baatein jo pata honi chahiye
+
+1. **Bot channel ka ADMIN hona chahiye** — warna member list padh hi nahi sakta.
+   Aaj verify kiya: `ToolVault 🔥` me bot admin hai ✅ (`admins: 2 | bot admin? True`).
+2. **Wall KABHI jail nahi ban-ta (fail-open).** Channel id galat ho, Telegram timeout
+   de de, bot ko kick kar diya jaye — user ko tool **milta rahega** (ek galat block =
+   hamesha ka khoya user, ye humne choose nahi kiya). Aap `/health` me dekh sakte ho:
+
+   `join-wall: ON | ch=@CypherGrid | ok-cache=412 | allowed=4010 blocked=95 joins=88 errors=0 (fail-open)`
+
+   - `blocked` = kitne log wall par ruke, `joins` = kitne wall ke baad channel me ghusé
+     (aapka asli ROI isi se napta hai), `errors` = Telegram query fail hue (fail-open bacha liye).
+
+**Speed:** "haan" ka jawab 12 ghante cache hota hai → cached check **8.8 µs** (Telegram
+ko koi call nahi). Pehli baar ka API call live measure: **~330 ms**, aur wall ka asli
+send **~440 ms**. Yaani user ko extra ~0.4 second lagta hai sirf pehli baar.
+
+**Aur kya nahi badla:** koi purana prompt/menu/copy nahi chheda. Gate `/start`,
+callback aur text ke *aage* baithta hai — tools ka andar ka koi text change nahi hua.
+Referral credit wall se **pehle** capture hota hai (user wall par atke bhi referrer ka
+count na kho).

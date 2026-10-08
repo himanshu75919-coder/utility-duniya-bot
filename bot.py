@@ -87,6 +87,8 @@ def _heavy_health_line() -> str:
 # v75 — 🧠 PRO ENGINE: saare tools ka universal advanced layer
 #       (smart detect + provider race + result history + tool analytics)
 from modules.core import proengine as pro
+# v81.0 — 🔐 FORCE-JOIN WALL (user ki hiring: "Force join gate banao")
+from modules.core import joinwall as JW
 # v75.1 — 📤 BULK MODE (EXCEL): earning tool (list -> poora Excel report)
 from modules import bulk_mode as BM
 from modules.core.safesend import (
@@ -2298,6 +2300,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         pass
         except Exception:
             pass
+
+    # v81.0: 🔐 FORCE-JOIN WALL — referral handle karne ke BAAD, welcome se PEHLE.
+    # (Referral pehle isliye ki wall ke baad user wapas na aaye to referrer ka
+    # credit na kho — ye behaviour v52 se aisa hi chal raha hai.)
+    if not await JW.gate(update, context):
+        return
 
     global _WELCOME_FID
     # v52 speed: cache file_id use karo (CDN serve = instant, no re-upload)
@@ -11344,6 +11352,7 @@ def _vault_health_html() -> str:
         except Exception:                                            # noqa: BLE001
             _vk, _vk_note = "?", ""
         out = [f"<p style='font-family:monospace'>{_bfl}</p>",
+               f"<p style='font-family:monospace'>{JW.health_line()}</p>",
                "<p style='font-family:monospace'>--- v60 FORTRESS ---</p>",
                f"<p style='font-family:monospace'>db: {vault_db_path()} "
                f"| VIP users: {floor.get('total_premium', 0)} "
@@ -11554,6 +11563,9 @@ def _force_webhook_after_conflict(app) -> bool:
 
 async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """on_text ka wrapper — har tool run ka hisaab rakhta hai."""
+    # v81.0: 🔐 wall bina join ke text se tool khola ja sake, ye hole bhi band
+    if not await JW.gate(update, context):
+        return
     t0 = time.perf_counter()
     ok_done = True
     try:
@@ -11578,6 +11590,23 @@ async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def _on_cb_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """on_cb ka wrapper — callback wale tools ka bhi hisaab."""
+    # v81.0: 🔐 JOIN WALL — pehle wall ka apna button (warna check-karo khud block
+    # ho jaata), phir gate. Gate pass hone ke baad hi koi tool chalega.
+    _cb = getattr(update, "callback_query", None)
+    if _cb is not None and str(getattr(_cb, "data", "") or "").startswith("fj:"):
+        if await JW.handle_check(update, context):
+            # join ho gaya → ab usi ka asli menu (wahi copy/keyboard jo /start deta hai)
+            try:
+                _uid = int(update.effective_user.id)
+                if not context.user_data.get("_fj_menu"):
+                    context.user_data["_fj_menu"] = True
+                    await _cb.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(_uid),
+                                                 parse_mode=HTML)
+            except Exception:
+                pass
+        return
+    if not await JW.gate(update, context):
+        return
     t0 = time.perf_counter()
     ok_done = True
     try:
