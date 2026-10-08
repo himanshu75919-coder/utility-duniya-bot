@@ -132,6 +132,21 @@ async def _started():
         return None
 
 
+async def warm() -> bool:
+    """Boot par hi MTProto session khol lo. Kabhi exception nahi fenkta.
+
+    v80.2: pehle login tab hota tha jab pehla user badi file bhejta tha — yaani
+    us ek user ko 5-8 second extra lagta tha (Telegram se handshake + auth). Ab
+    bot chalu hote hi ye handshake ho jaata hai, aur /health par `MTProto ON`
+    dikhne lagta hai — yaani "bade-file path chalu hai" aap khud dekh sakte ho.
+    """
+    try:
+        return (await _started()) is not None
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("🐘 bigfile warm skip: %s", str(e)[:100])
+        return False
+
+
 def status() -> dict:
     c = _client_ready()
     return {"ready": c is not None, "logged_in": bool(c and getattr(c, "_du", False)),

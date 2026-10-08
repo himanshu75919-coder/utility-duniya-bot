@@ -475,6 +475,41 @@ _src_pr = open(os.path.join(_ROOT, "modules", "core", "proengine.py"), encoding=
 check("core/proengine.py me bhi raw int(os.environ...) nahi",
       'int(os.environ.get("PRO_' not in _src_pr)
 
+
+# ---------------------------------------------------------------
+# v80.2: 🐘 MTProto WARM-UP — boot par handshake, /health par ON
+# ---------------------------------------------------------------
+import asyncio as _aio_w                                        # noqa: E402
+import inspect as _insp_w                                       # noqa: E402
+check("bigfile.warm() maujood + async hai",
+      hasattr(BF, "warm") and _insp_w.iscoroutinefunction(BF.warm))
+_wsrc = _insp_w.getsource(BF.warm)
+check("warm() asli login (_started) ko call karta hai", "await _started()" in _wsrc)
+check("warm() kabhi exception nahi fenkta (try/except se lipta)",
+      "except Exception" in _wsrc and "return False" in _wsrc)
+
+
+def _warm_without_creds():
+    """Creds na hone par warm() False deta hai — na crash, na hang."""
+    _orig_ready, _orig_client = BF._client_ready, BF._client
+    BF._client, BF._client_ready = None, (lambda: None)
+    try:
+        return _aio_w.run(BF.warm())
+    finally:
+        BF._client_ready, BF._client = _orig_ready, _orig_client
+
+
+check("creds na ho to warm() False (safe deploy ab bhi intact)",
+      _warm_without_creds() is False)
+_post_w = _bsrc.split("async def _post_init")[1].split("\nasync def ")[0] \
+    if "async def _post_init" in _bsrc else ""
+# comment lines hata ke ginte hain — varna hamari hi explanation comment count me aa jaati
+_post_wn = re.sub(r"(?m)^\s*#.*$", "", _post_w)
+check("_post_init BF.warm() ko BACKGROUND task me daalta hai (startup block nahi)",
+      "asyncio.create_task(BF.warm())" in _post_wn and _post_wn.count("BF.warm()") == 1)
+check("warm call bhi try/except me hai (boot kabhi na ruke)",
+      "except Exception as _we" in _post_w)
+
 print("\n" + "=" * 62)
 print(f"  v89 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")
 if FAILS:

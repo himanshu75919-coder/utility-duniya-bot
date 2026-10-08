@@ -11092,6 +11092,15 @@ async def _post_init(app: Application):
     await app.bot.set_my_commands(commands)
     log.info("Commands set ho gaye ✅")
 
+    # v80.2: 🐘 MTProto (bade-file) ka handshake boot par hi — taaki pehle user ko
+    # 5-8 second ka login wait na mile, aur /health par `MTProto ON` dikhe (proof).
+    # Creds na ho to BF.warm() chup-chaap False deta hai. Background task hai,
+    # isliye startup block nahi hota aur crash bhi nahi ho sakta.
+    try:
+        asyncio.create_task(BF.warm())
+    except Exception as _we:                                     # noqa: BLE001
+        log.warning("bigfile warmup skip: %s", str(_we)[:120])
+
 
 # ---------------- v49.7 KEEPALIVE PINGER (hub ko ping -> dono 24/7 jaagte hain) ----------------
 # Render free plan 15 min inactivity par service sula deta hai. Bot aur hub ab ek dusre ko
