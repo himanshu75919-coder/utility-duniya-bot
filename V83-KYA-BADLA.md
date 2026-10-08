@@ -13,7 +13,7 @@ aur abhi kya limitation hai. Har tool ka detail table: `TOOLS-AUDIT-V83.md`.
 
 ### (a) YouTube quality picker khatam ho jaata tha
 **Asli karan:** YouTube link bhejne par "link mil gaya" status message par ek
-progress ticker chalu hota tha (har 6 second me message edit). Quality choose karne
+progress ticker chalu hota tha (har 5 second me message edit, zyada se zyada 6 baar). Quality choose karne
 wala card usi message par dikhta tha, par ticker wahi message baar-baar overwrite
 karta tha — quality buttons gayab ho sakte the.
 **Fix:** handler khatam hote hi ticker band ho jaata hai (`_on_text_pro` / `_on_cb_pro`
@@ -31,8 +31,8 @@ message ko edit karne ki koshish → "Message to edit not found" log).
 
 ### (d) Galat / khaali button data se crash-jaisa error
 Kuch purane buttons me ID khaali hoti thi (jaise `admpay_view:`), to handler `int('')`
-par atak jaata tha. Global error handler bot ko zinda rakhta tha, lekin user ko kuch
-nahi milta tha.
+par atak jaata tha. Global error handler bot ko zinda rakhta tha, lekin user ko sirf generic
+"Chhota sa ghatna ho gaya" message milta tha — saaf reason nahi.
 **Fix:** ab user ko saaf message milta hai:
 > ❌ Ye button purana ya adhoora ho gaya. Menu se tool dobara kholo — phir kaam karega.
 
