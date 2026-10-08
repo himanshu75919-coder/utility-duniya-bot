@@ -476,7 +476,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -5375,7 +5375,14 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.message.reply_text(VIP_WALL_TEXT, reply_markup=vip_wall_kb(), parse_mode=HTML)
         return
 
-    if data == "back_home":
+    # v83: "📋 Saare tools ki list" button (free mode) — pehle koi handler nahi tha (dead button)
+    if data == "alltools":
+        await context.bot.send_message(update.effective_chat.id, all_tools_text(),
+                                       reply_markup=free_mode_kb() if ALL_FREE else None,
+                                       parse_mode=HTML)
+        return
+    # v83: "🔙 Menu" (help/tutorial keyboard) — pehle koi handler nahi tha; back_home jaisa hi
+    if data in ("back_home", "menu"):
         await safe_edit(q.message, WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
         return
 
@@ -11075,6 +11082,13 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
     if "message text is empty" in str(err).lower():
         log.info("v82: khaali message skip (user ko error nahi): %s", str(err)[:80])
         return
+    # v83: benign Telegram errors — message pehle hi delete/purana ho gaya (bot ka bug nahi)
+    _es = str(err).lower()
+    if any(_s in _es for _s in ("message to edit not found", "message is not modified",
+                                 "message to delete not found", "query is too old",
+                                 "message can't be edited", "message can't be deleted")):
+        log.info("v83: benign Telegram error skip: %s", str(err)[:80])
+        return
     log.error("Exception handling update: %s", err)
     # v50: user bhi jaane ki koi chhota ghatna hua — chup-chaap na mile
     try:
@@ -11753,6 +11767,28 @@ def _mem_relief(tag: str = "") -> None:
         log.debug("mem relief skip: %s", str(e)[:80])
 
 
+def _cb_data_short(update) -> str:
+    """v83: log ke liye callback data ka chhota tukda (crash-free)."""
+    try:
+        return str(getattr(getattr(update, "callback_query", None), "data", "") or "")[:40]
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
+async def _cb_stale_reply(update, context) -> None:
+    """v83: callback me galti (purana/adhoora button) → user ko chhota saaf jawab, crash nahi."""
+    try:
+        _chat = getattr(update, "effective_chat", None)
+        if _chat is not None:
+            await context.bot.send_message(
+                _chat.id,
+                "❌ <b>Ye button purana ya adhoora ho gaya.</b>\n"
+                "Menu se tool dobara kholo — phir kaam karega.",
+                parse_mode=HTML)
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
 async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """on_text ka wrapper — har tool run ka hisaab rakhta hai."""
     # v81.0: 🔐 wall bina join ke text se tool khola ja sake, ye hole bhi band
@@ -11768,6 +11804,8 @@ async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ok_done = False
         raise
     finally:
+        # v83: progress ticker handler ke saath hi band — warna quality picker/keyboard ko overwrite karta tha
+        _stop_ping(context)
         try:
             tool = context.user_data.pop("_pro_tool", None)
             _mkey = context.user_data.pop("_pro_mode", None) or tool
@@ -11807,10 +11845,16 @@ async def _on_cb_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.pop("_pro_tool", None)
         context.user_data.pop("_pro_mode", None)
         await on_cb(update, context)
+    except (ValueError, IndexError) as _bad:
+        # v83: khaali/galat callback ID (jaise "admpay_view:") → crash nahi, user ko saaf jawab
+        ok_done = False
+        log.warning("v83: callback data galat/purana (%s): %s", _cb_data_short(update), str(_bad)[:120])
+        await _cb_stale_reply(update, context)
     except Exception:
         ok_done = False
         raise
     finally:
+        _stop_ping(context)      # v83: progress ticker band (quality picker / result ke baad bhi na chale)
         try:
             tool = context.user_data.pop("_pro_tool", None)
             _mkey = context.user_data.pop("_pro_mode", None) or tool
