@@ -57,11 +57,11 @@ Bot ka version label ab **v83.0** hai (`/health` par bhi). Purane guard words
   - 81 command names (/start, /menu, /help, /vnum, /terabox, ...) user aur admin dono se → 154 case OK, 0 crash. (4 wrapper commands ko unke text-button se test kiya.)
   - 17 typed inputs (links, IFSC, IMEI, PAN, GST, vehicle, random text, 5000-char text) → 0 crash.
 - **Live downloader test (sandbox ka real internet):**
-  - Instagram (aapka exact link) → photo mil gayi ✔
+  - Instagram (aapke jaisa link, `img_index=3` wala post) → photo mil gayi ✔
   - TikTok → video ✔
   - Facebook → video ✔
   - YouTube → quality picker ✔ → 360p video ✔
-  - Terabox (aapka exact wap link) → file ka naam + size + web buttons ✔ (direct link cookie ke bina nahi milta — neeche dekho)
+  - Terabox (aapke jaisa wap link) → file ka naam + size + web buttons ✔ (direct link cookie ke bina nahi milta — neeche dekho)
 - **Existing test suite:** 41 test files — sab pass (0 FAIL).
 - **Naya test:** `tests/test_v83_pro_all.py` — 12 checks, sab pass.
 - **Boot test:** bot start hota hai, self-check OK; dummy token par sirf expected `InvalidToken` aata hai.
