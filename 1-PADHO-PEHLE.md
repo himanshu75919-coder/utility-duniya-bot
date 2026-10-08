@@ -288,3 +288,53 @@ man liya jaata hai, delivery ka usse koi taluk nahi). Isiliye bug chupa raha.
 - **Bot chup lage to ye 1 check:** `https://utility-duniya-bot.onrender.com/health` kholo →
   `delivery:` line dekho. `pending` bada ho ya `⚠️` ho to webhook/wakt ki dikkat;
   `✅ updates pahunch rahe hain` ho to bot theek (aapka message pahunch gaya hai).
+
+## 🩸 v81.2 — "bots working nhi kar rha" (doosri baar): delivery theek thi, bimari RAM thi
+
+### Maapne par kya nikla (andaaza nahi — /health ke live aakde)
+
+| Cheez | Number | Matlab |
+|---|---|---|
+| `update-gate total` | 2 → **9** (mere 3 synthetic updates daalne par) | aapke **4–6 messages pahunch chuke the** aur process bhi hue — bot kaanā nahi, **slow** tha |
+| memory (boot → 5 min) | 333 MB → **406 MB** | 512 MB free-limit ka 79% |
+| `gc_runs` | 0 → 1 → 2 → 3 (watchdog chala) | par **406 MB par hi atka raha, 0 MB na gira** |
+| `caches` | **0/1792** entries | cache khaali tha → yaani kachra nahi, **live objects** pakde hue hain |
+| `heavy-gate` | `throttle 378/435MB`, `allowed 2 → 1` | 406 MB > 378 MB isliye **hamesha throttled** → doosra user aate hi "busy"/khamoshi |
+| `busy-rejects`, `crashes` | 0, 0 | webhook/mode ki koi galti nahi thi |
+
+Ek test maine khud bhi kiya: 220k chhote dicts bana kar `gc.collect()` → **131 MB foran wapas**,
+`malloc_trim()` se **0 MB** extra. Yaani "allocator pages nahi lautata" wali theory **jhoothi nikli** —
+aapki bot ki RAM sach me **kisi live object** ne pakdi hui hai. Isliye maine "memory fix ho gayi"
+bolne se inkaar kiya aur **leak ka naam nikaalne ka tareeka** lagaya.
+
+### Is version me 3 cheezein
+
+1. **`malloc_trim` (glibc pages lautana)** — `free_memory()` me joda. Is environment me iska
+   faayda 0 MB maapa gaya, isliye ise "fix" nahi keh raha; ye sirf ek sasta extra round hai
+   (fragmented systems par thoda milta hai). Kabhi crash nahi karta (libc na mile to `-1`).
+2. **Planned clean restart** (`MEM_RESTART_MB`, default **0 = off**): RAM `hard` (450 MB) cross kare
+   aur safai ke baad bhi na gire, **aur koi kaam chal hi na raha ho** (`is_idle()` — heavy gate ka
+   `in_flight`/`queue_now` + update gate ka `parallel`/`waiting_chat_lock` sab zero) → tab
+   `os._exit(1)` se Render dobara utha leta hai (fresh ~330 MB). Faida: **512 MB par OOM-kill
+   beech-kaam** nahi hoga, aur bot hamesha-throttled zombie nahi banega. Restart 15 min se kam
+   umar par kabhi nahi (`MEM_RESTART_UPTIME_S`).
+3. **`leak-hunt` (tracemalloc, opt-in)**: `MEM_TRACE=on` → `/health` par ek line
+   `leak-hunt: +12.4 MB RSS in 174s | module.py:line +6.1MB , …` — **yaani naam kaun sa file/line
+   RAM kha rahi hai**. `MEM_TRACE_SECONDS` (default 180s) ke baad **apne aap band**, taaki 512 MB
+   free instance par overhead zinda na rahe. Off par is file ka koi kharcha nahi.
+
+### Naya `/health` ka memory line (ab sab kuch dikhega)
+
+```
+memory: 406 MB (peak 406 MB) | gc_runs=3 | loop_lag=7.1s | beats=25 | trim=3/2 last_freed=0.0MB | restart_at=0MB restarts=0
+```
+
+### Aapke liye niyam
+
+- `MEM_TRACE=on` **sirf 15–20 minute ke liye** chalu karo (tab jab tool chala rahe ho) → `/health`
+  kholo → `leak-hunt:` line mujhe bhej do → main us **file:line** ko theek karunga. Phir `MEM_TRACE`
+  hata dena (overhead ke liye nahi — wo auto-off ho jaata hai, par report bhi gayab ho jaati hai).
+- `MEM_RESTART_MB=470` rakhunga: 470 MB par khamosh maut se pehle saaf restart behtar hai.
+  Aap chaaho to `0` karke band kar sakte ho (tab bot 512 MB wale OOM tak chalta rahega).
+- **Reminder:** `WEBHOOK_URL` sirf base URL. Bot "dead" lage to pehle `delivery:` line, phir `memory:`
+  line dekho — `allowed 1` + `400+ MB` ka matlab RAM, `pending>5` ka matlab webhook.

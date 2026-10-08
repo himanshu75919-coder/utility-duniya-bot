@@ -119,6 +119,11 @@ def guard_stats() -> dict:
             "recent": list(_crash["recent"][-8:]),
             "mem_mb": _mem_state["last_mb"], "mem_peak_mb": _mem_state["peak_mb"],
             "gc_runs": _mem_state["gc_runs"], "aggressive": _mem_state["aggressive"],
+            "restarts": int(_mem_state.get("restarts", 0)),
+            "restart_at_mb": float(os.environ.get("MEM_RESTART_MB") or 0),
+            "trim_runs": int(_mem_state.get("trim_runs", 0)),
+            "trim_released": int(_mem_state.get("trim_released", 0)),
+            "last_freed_mb": float(_mem_state.get("last_freed_mb", 0.0)),
             "heart_lag": HEART["lag"], "beats": HEART["beats"],
             "heart_last_gap": HEART.get("last_gap", 0.0),
             "heart_worst_gap": HEART.get("worst_gap", 0.0),
@@ -455,30 +460,107 @@ def register_gc_trigger(fn: Callable) -> None:
         pass
 
 
+def malloc_trim() -> int:
+    """glibc se freed pages OS ko wapas lene maango. 1=kuch chhoda, 0=chhoota nahi,
+    -1=is system par support nahi (Windows/macOS/pure allocators).
+
+    Kyun zaroori tha: 8 Oct ko /health ne dikhaya —
+        gc_runs=3  par  memory=406 MB (ek bhi MB nahi gira),  caches: 0/1792
+    Yaani safai TEEN baar chali, cache khaali tha, phir bhi RSS nahi hila. Kaaran:
+    CPython/glibc freed memory ko process ke andar hi rok leta hai (high-water
+    mark), OS ko wapas nahi karta. Isliye RAM hamesha 378 MB (throttle line) ke
+    upar chipki rehti thi aur heavy-gate hamesha "allowed=1" par throttled —
+    doosra user aate hi bot "kaam hi nahi kar raha" lagta tha.
+    """
+    try:
+        import ctypes                                              # noqa: PLC0415
+        last_err = None
+        for name in ("libc.so.6", "libc.so", None):
+            try:
+                lib = ctypes.CDLL(name) if name else ctypes.CDLL(None)
+                fn = lib.malloc_trim
+            except Exception as e:                                 # noqa: BLE001
+                last_err = e
+                continue
+            fn.argtypes = [ctypes.c_size_t, ctypes.c_int]
+            fn.restype = ctypes.c_int
+            try:
+                return int(fn(0, 0))
+            except Exception as e:                                 # noqa: BLE001
+                last_err = e
+                break
+        log.debug("malloc_trim unavailable (%s)", str(last_err)[:70])
+    except Exception as e:                                         # noqa: BLE001
+        log.debug("malloc_trim import fail: %s", str(e)[:70])
+    return -1
+
+
+IDLE_CHECKS: list = []
+
+
+def register_idle_check(fn: Callable) -> None:
+    """Memory-pressure restart se PEHLE ye poochhte hain: koi kaam chal raha hai?"
+
+    Bot apne gates (heavy/update) se 'idle' ka jawaab deta hai — taaki restart
+    kabhi adhoore kaam ke beech na ho.
+    """
+    try:
+        if callable(fn) and fn not in IDLE_CHECKS:
+            IDLE_CHECKS.append(fn)
+    except Exception:                                          # noqa: BLE001
+        pass
+
+
+def is_idle() -> bool:
+    """Ek bhi inkaar mile to False. Koi check registered na ho to bhi False —
+
+    confirm na ho to bot ko haath nahi lagate.
+    """
+    if not IDLE_CHECKS:
+        return False
+    for fn in list(IDLE_CHECKS):
+        try:
+            if not bool(fn()):
+                return False
+        except Exception:                                      # noqa: BLE001
+            return False
+    return True
+
 def free_memory(aggressive: bool = False) -> dict:
-    """Memory saaf karo — cache khali + garbage collect."""
+    """Memory saaf karo — cache khali + garbage collect + (Linux) malloc_trim."""
     freed = 0.0
     before = mem_mb()
     for fn in list(GC_TRIGGERS):
         try:
             fn()
-        except Exception:                                        # noqa: BLE001
+        except Exception:                                          # noqa: BLE001
             pass
     try:
         gc.collect()
         if aggressive:
             gc.collect(2)
             gc.collect()
-    except Exception:                                            # noqa: BLE001
+    except Exception:                                              # noqa: BLE001
         pass
+    trimmed = malloc_trim() if aggressive or before > 200 else -1
+    if aggressive:
+        # trim ke baad ek baar aur — pages chhootne me ek round aksar kaafi nahi hota
+        try:
+            gc.collect()
+        except Exception:                                          # noqa: BLE001
+            pass
+        malloc_trim()
     after = mem_mb()
     freed = max(0.0, before - after)
     with _LOCK:
         _mem_state["gc_runs"] += 1
+        _mem_state["trim_runs"] = int(_mem_state.get("trim_runs", 0)) + (1 if trimmed >= 0 else 0)
+        _mem_state["trim_released"] = int(_mem_state.get("trim_released", 0)) + (1 if trimmed == 1 else 0)
+        _mem_state["last_freed_mb"] = round(freed, 1)
         if aggressive:
             _mem_state["aggressive"] += 1
     return {"before_mb": round(before, 1), "after_mb": round(after, 1),
-            "freed_mb": round(freed, 1)}
+            "freed_mb": round(freed, 1), "trim": trimmed}
 
 
 def start_memory_watchdog(limit_mb: float = 0.0, interval: float = 60.0) -> None:
@@ -510,6 +592,32 @@ def start_memory_watchdog(limit_mb: float = 0.0, interval: float = 60.0) -> None
                         _mem_state["warns"] += 1
                     log.warning("💀 MEMORY HIGH %.0f MB (limit %.0f) — aggressive safai: "
                                 "%.0f -> %.0f MB", m, limit_mb, r["before_mb"], r["after_mb"])
+                    # Safai ke baad bhi RAM nahi giri = memory kachra nahi, LIVE objects
+                    # me hai (8 Oct: gc_runs=3 par 0 MB hila). Aise me 512 MB par OOM-kill
+                    # ka intezaar = user ka chalta kaam bhi jaata hai aur bot kuch minute
+                    # 'zombie' (throttled) rehta hai. Isliye planned clean restart — par
+                    # sirf tab jab koi kaam chal hi na raha ho (is_idle()).
+                    try:
+                        rat = float(os.environ.get("MEM_RESTART_MB") or 0)
+                        min_up = float(os.environ.get("MEM_RESTART_UPTIME_S") or 900)
+                        up = time.time() - _START
+                        if (rat > 0 and m >= rat and up >= min_up
+                                and r["after_mb"] >= rat * 0.985 and is_idle()):
+                            with _LOCK:
+                                _mem_state["restarts"] = int(_mem_state.get("restarts", 0)) + 1
+                            log.critical("🔁 MEMORY %.0f MB → safai ke baad bhi %.0f MB (leak,",
+                                         "kachra nahi) | koi kaam nahi chal raha — CLEAN restart "
+                                         "(fresh ~330 MB > throttled zombie)", m, r["after_mb"])
+                            try:
+                                sys.stdout.flush()
+                                sys.stderr.flush()
+                            except Exception:                    # noqa: BLE001
+                                pass
+                            os._exit(1)                          # Render dobara utha lega
+                    except SystemExit:
+                        raise
+                    except Exception as e:                       # noqa: BLE001
+                        log.debug("mem restart check: %s", str(e)[:80])
                 elif m >= soft:
                     free_memory(aggressive=False)
                     log.info("🧹 Memory %.0f MB (limit %.0f) — cache saaf kiya", m, limit_mb)

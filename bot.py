@@ -11422,7 +11422,12 @@ def _vault_health_html() -> str:
                f"| fatal={g.get('fatal', 0)}</p>",
                f"<p style='font-family:monospace'>memory: {mem_mb():.0f} MB "
                f"(peak {g.get('mem_peak_mb', 0):.0f} MB) | gc_runs={g.get('gc_runs', 0)} "
-               f"| loop_lag={g.get('heart_lag', 0)}s | beats={g.get('beats', 0)}</p>",
+               f"| loop_lag={g.get('heart_lag', 0)}s | beats={g.get('beats', 0)}"
+               f" | trim={g.get('trim_runs', 0)}/{g.get('trim_released', 0)}"
+               f" last_freed={g.get('last_freed_mb', 0)}MB"
+               f" | restart_at={g.get('restart_at_mb', 0):.0f}MB"
+               f" restarts={g.get('restarts', 0)}</p>",
+               f"{_leak_hunt_line()}",
                f"<p style='font-family:monospace'>{hesc(_heavy_health_line())}</p>",
                f"<p style='font-family:monospace'>{hesc(_ug.health_line())}</p>",
                f"<p style='font-family:monospace'>loop: avg gap "
@@ -11613,6 +11618,59 @@ def _force_webhook_after_conflict(app) -> bool:
 #  Isse KUCH BHI tool ka andar ka code nahi badla (aapke prompts bhi safe).
 # =====================================================================
 
+def _leak_hunt_line() -> str:
+    """/health par tracemalloc ki line (MEM_TRACE=on par). Off ho to khaali."""
+    try:
+        from modules.core import memtrace as _mt
+        rep = _mt.report()
+        return (f"<p style='font-family:monospace'>{hesc(rep)}</p>" if rep else "")
+    except Exception:                                              # noqa: BLE001
+        return ""
+
+
+def _bot_idle() -> bool:
+    """Memory-pressure restart ka green signal: abhi koi kaam chal hi nahi raha."""
+    try:
+        h = _heavy.stats() or {}
+        u = _ug.stats() or {}
+        busy = (int(h.get("in_flight") or 0) + int(h.get("queue_now") or 0)
+                + int(u.get("parallel") or 0) + int(u.get("waiting_chat_lock") or 0))
+        return busy == 0
+    except Exception:                                              # noqa: BLE001
+        return False
+
+
+def _memtrace_boot() -> None:
+    """MEM_TRACE=on ho to tracemalloc chalu (MEM_TRACE_SECONDS baad apne aap band)."""
+    try:
+        from modules.core import memtrace as _mt
+        if _mt.maybe_start_from_env():
+            log.info("🩸 leak-hunt ON (MEM_TRACE) — /health par 'leak-hunt:' line dikhegi")
+    except Exception as e:                                         # noqa: BLE001
+        log.debug("memtrace skip: %s", str(e)[:80])
+
+def _mem_relief(tag: str = "") -> None:
+    """Bhaari kaam ke baad RAM foran wapas lao (OS ko pages lautao).
+
+    Kyun: guard ka watchdog har 60 second chalta hai — 4 tool ek minute me chal gaye
+    to RSS 378 MB (throttle line) ke upar chipak jaata tha, gate "allowed=1" par
+    aa jaata, aur agla user "bot dead" samajh leta. free_memory() ab malloc_trim
+    bhi karta hai, isliye RSS sach me girta hai (pehle gc_runs=3 par bhi 0 MB gira
+    tha — 8 Oct ko yahi napa tha).
+    """
+    try:
+        from modules.core.guard import free_memory as _fm, mem_mb as _mm
+        soft = float(os.environ.get("MEM_RELIEF_MB") or 340)
+        m = _mm()
+        if m >= soft:
+            r = _fm(aggressive=m >= soft + 60)
+            if r.get("freed_mb", 0) >= 1:
+                log.info("🧹 mem-relief%s: %.0f → %.0f MB (trim=%s)", (" " + tag) if tag else "",
+                         r["before_mb"], r["after_mb"], r.get("trim"))
+    except Exception as e:                                          # noqa: BLE001
+        log.debug("mem relief skip: %s", str(e)[:80])
+
+
 async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """on_text ka wrapper — har tool run ka hisaab rakhta hai."""
     # v81.0: 🔐 wall bina join ke text se tool khola ja sake, ye hole bhi band
@@ -11636,6 +11694,8 @@ async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _ms = int((time.perf_counter() - t0) * 1000)
                 pro.record_result(_uid, str(_mkey), title=str(tool),
                                   ok=ok_done, ms=_ms)
+            if tool:
+                _mem_relief("text:" + str(tool)[:18])
         except Exception:                                        # noqa: BLE001
             pass
 
@@ -11677,6 +11737,7 @@ async def _on_cb_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _ms = int((time.perf_counter() - t0) * 1000)
                 pro.record_result(_uid, str(_mkey), title=str(tool),
                                   ok=ok_done, ms=_ms)
+                _mem_relief("cb:" + str(tool)[:18])
         except Exception:                                        # noqa: BLE001
             pass
 
@@ -11761,6 +11822,12 @@ def main():
         start_memory_watchdog()      # 💀 Render free 512MB — OOM kill se bachao
     except Exception as _e:                                      # noqa: BLE001
         log.warning("memory watchdog skip: %s", str(_e)[:100])
+    try:
+        from modules.core.guard import register_idle_check as _ric
+        _ric(_bot_idle)
+    except Exception:
+        pass
+    _memtrace_boot()
     try:
         start_hang_watchdog()        # 🧟 chup-chaap maut (hung loop) se bachao
     except Exception as _e:                                      # noqa: BLE001
