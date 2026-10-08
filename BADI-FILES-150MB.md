@@ -88,5 +88,6 @@ Verify kiya gaya: 26 MB ki file MTProto se upload + user chat me send (Bot API i
 
 | knob | default | kaam |
 |---|---|---|
-| `BIGFILE_WARM` | `on` | boot par hi MTProto login (pehle user ko 5-8s bachta hai, par ~60 MB extra RAM). **`off`** kar do agar RAM tight lage (Render free = 512 MB) — tab bhi 150 MB chalega, bas pehli badi file par 5-8 second extra lagenge |
+| `BIGFILE_WARM` | **`off` (aapke Render env me)** | boot par hi MTProto login (pehle user ko 5-8s bachta hai, par ~60 MB extra RAM). **`off`** kar do agar RAM tight lage (Render free = 512 MB) — tab bhi 150 MB chalega, bas pehli badi file par 5-8 second extra lagenge |
 
+> **Aapke instance par kyun `off` rakha hai:** live /health me dekha — warm ON karne se bot ka baseline RAM 286 MB se **358 MB** ho gayi, aur memory-throttle 378 MB par shuru hota hai (Render free = 512 MB). Yaani bheed me users ko jaldi "busy" milta. `off` par baseline ~290 MB rehti hai aur **150 MB ka raasta waisa hi chalta hai** — bas deploy ke baad *pehli* badi file par 5-8 second ka login lagta hai (uske baad process bhar session zinda rehta hai). Agar Render plan badlo (Starter/Standard, 2 GB) to `BIGFILE_WARM=on` kar dena — phir `/health` par hamesha `MTProto ON` dikhega.
