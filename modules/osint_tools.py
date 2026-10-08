@@ -393,6 +393,7 @@ def search_by_area_name(area: str) -> dict:
 
     v50: suffix-stripping + score-based ranking + honest "approximate" flag.
     """
+    area = area if isinstance(area, str) else ("" if area is None else str(area))  # v86: junk-proof
     q = re.sub(r"[^A-Za-z\s.]", "", area or "").strip()
     if len(q) < 3:
         return {"ok": False, "error": "Kam se kam 3 letter ka area name bhejo (jaise: <code>Patna GPO</code>, <code>Gaya</code>)"}

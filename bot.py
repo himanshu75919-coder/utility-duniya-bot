@@ -325,6 +325,7 @@ from modules.general_tools import (
     wifi_qr_data,
     app_lookup,
     make_branded_qr,
+    qr_scan_bytes,   # v86: 📷 QR SCANNER (naya tool)
 )
 from modules.payguard import (
     MAX_BAD_TRIES,
@@ -420,6 +421,7 @@ TOOL_RATE_LIMITS = {
     "linkcheck":   (10, 60,  "Link Check"),
     "short":       (10, 60,  "URL Shortener"),
     "appfind":     (15, 60,  "App Finder"),
+    "qr_scan":     (15, 60,  "QR Scanner"),          # v86: naya tool (photo → QR text)
     # document tools (local CPU)
     "pp_stamp":    (10, 120, "Passport Photo"),
     "print_sheet": (10, 120, "8-in-1 Print Sheet"),
@@ -482,7 +484,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX (carousel ki SAARE photos, img_index wala link bhi) + 🔗 LINK SANITIZER (&amp;/markdown/fbclid-proof) + 🛡️ FORTRESS-II (safe buttons + album fallback + photo caps) — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v86.0 ULTRA-PRO — 📸 INSTA-MEGA (20-photo carousel + story/highlight + profile-pic HD) + 📷 QR SCANNER (naya tool) + 🛡️ CRASH-SWEEP-II (48 tools fuzz-tested) — v85.0 FULL-ALBUM + LINK SANITIZER — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -818,7 +820,8 @@ def all_tools_text() -> str:
             {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}
             | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP",
                "💬 Chat X-Ray — apni WhatsApp chat ki fun report (FREE)",
-               "📋 Result Check — BSEB result (roll code + roll number) se"}))
+               "📋 Result Check — BSEB result (roll code + roll number) se",
+               "📷 QR Scanner — QR photo bhejo, text/link pao (FREE)"}))
     _dl = dl_tools_text()
     return (
         "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
@@ -1012,6 +1015,38 @@ def _safe_btn_url(url: str):
     except Exception:  # noqa: BLE001
         pass
     return None
+
+
+def _album_chunks(items: list, per: int = 10, total_cap: int = 60 * 1048576) -> list:
+    """v86: carousel items → 10-10 ke groups (Telegram media-group limit) + total cap.
+
+    IG carousel me 20 tak items hote hain; Telegram ek group me 10 leta hai.
+    Isliye 20-photo album = 2 groups. Khaali items filter + total 60MB cap
+    (OOM safety). Kabhi exception nahi — hamesha list.
+    """
+    try:
+        clean = [it for it in (items or [])[:20]
+                 if isinstance(it, dict) and (it.get("bytes") or b"")]
+    except Exception:  # noqa: BLE001
+        return []
+    fit, tot = [], 0
+    for it in clean:
+        try:
+            sz = len(it.get("bytes") or b"")
+        except Exception:  # noqa: BLE001
+            continue
+        if tot + sz > total_cap and fit:
+            break
+        tot += sz
+        fit.append(it)
+    fit = fit or clean[:1]
+    if not fit:
+        return []
+    try:
+        per = max(1, min(10, int(per)))
+    except Exception:  # noqa: BLE001
+        per = 10
+    return [fit[i:i + per] for i in range(0, len(fit), per)]
 
 
 def inr(amount, decimals: int = 0) -> str:
@@ -1400,6 +1435,7 @@ KB_BTNS = [
     [f"📋 {to_bold('RESULT CHECK')}"],         # v73.1: BSEB result — roll code + roll number se
     [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
     [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
+    [f"📷 {to_bold('QR SCANNER')}"],   # v86: QR wali photo bhejo → text/link pao
     [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
@@ -1510,6 +1546,9 @@ BTN_MODE_MAP = {
     "GAADI KA RECORD": "vahan",
     "PINCODE INFO": "pin",
     "QR CODE": "qr",
+    "QR SCANNER": "qr_scan",       # v86: naya tool (photo → QR text)
+    "QR SCAN": "qr_scan",
+    "SCAN QR": "qr_scan",
     "URL SHORT": "short",
     "LINK CHECK": "linkcheck",
     "APP FINDER": "appfind",
@@ -1836,6 +1875,13 @@ PROMPT_DATA = {
         "ex": [('https://t.me/telegram', 'koi bhi link ya text')],
         "tip": 'Link, text, number — kuch bhi bhejo, QR ban jayega',
         "foot": 'Branded QR · scan karte hi khul jaye',
+    },
+    "qr_scan": {   # v86: 📷 QR SCANNER (naya tool — purane prompts untouched)
+        "head": "📷 QR SCANNER",
+        "ask": "QR code wali photo bhejein:",
+        "ex": [('(QR wali photo bhejein) — text/link nikal aayega', 'UPI QR / link QR / text QR')],
+        "tip": 'QR code ki saaf photo bhejo — andar ka text ya link mil jayega',
+        "foot": 'Link · text — sab scan hota hai',
     },
     "short": {
         "head": "🔗 URL SHORTENER · 6 ENGINES",
@@ -8337,59 +8383,57 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             engine = hesc(str(res.get("engine", "")))
             title = hesc(str(res.get("title") or ""))[:60]
 
-            # 1) Album / Carousel (2-10 items ek saath)
+            # 1) Album / Carousel (2-20 items — 10-10 ke groups me)
             if mtype == "carousel" and res.get("items"):
-                # v85: khaali/kharab items nikalo + total 45MB cap (OOM + Telegram limit safety)
-                items = [it for it in (res["items"] or [])[:10]
-                         if isinstance(it, dict) and (it.get("bytes") or b"")]
-                _tot, _fit = 0, []
-                for it in items:
-                    _sz = len(it.get("bytes") or b"")
-                    if _tot + _sz > 45 * 1048576 and _fit:
-                        break
-                    _tot += _sz
-                    _fit.append(it)
-                items = _fit or items[:1]
-                if not items:
+                # v86: 20-photo album = 2 media groups (Telegram ek group me 10 leta hai)
+                _chunks = _album_chunks(res["items"])
+                if not _chunks:
                     raise ValueError("album items khaali (download adhura)")
-                media_group = []
-                for idx, item in enumerate(items):
-                    m_buf = io.BytesIO(item["bytes"])
-                    _cap0 = (f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}"
-                             f"{_album_note}")[:900]   # v85: caption 1024 limit guard
-                    cap = _cap0 if idx == 0 else ""
-                    if item.get("type") == "video":
-                        m_buf.name = f"media_{idx}.mp4"
-                        media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML, supports_streaming=True))
-                    else:
-                        m_buf.name = f"media_{idx}.jpg"
-                        media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
-                try:
-                    await update.message.reply_media_group(media=media_group)
-                except Exception as _ag:
-                    # v85: group fail ho to ek-ek karke bhejo (user khaali haath na jaye)
-                    log.warning("album group fail, one-by-one bhej raha: %s", str(_ag)[:100])
-                    _sent_n = 0
-                    for idx2, item in enumerate(items):
-                        try:
-                            _b2 = io.BytesIO(item["bytes"])
-                            _c2 = (f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}"
-                                   f"{_album_note} ({idx2 + 1}/{len(items)})")[:900] if idx2 == 0 else ""
-                            if item.get("type") == "video":
-                                _b2.name = f"media_{idx2}.mp4"
-                                await update.message.reply_video(video=_b2, caption=_c2 or None,
-                                                                 parse_mode=HTML, supports_streaming=True)
-                            else:
-                                _b2.name = f"media_{idx2}.jpg"
-                                if _c2:
-                                    await update.message.reply_photo(photo=_b2, caption=_c2, parse_mode=HTML)
+                _total_n = sum(len(c) for c in _chunks)
+                _sent_groups = 0
+                for _gi, items in enumerate(_chunks):
+                    _part = f" (Part {_gi + 1}/{len(_chunks)})" if len(_chunks) > 1 else ""
+                    media_group = []
+                    for idx, item in enumerate(items):
+                        m_buf = io.BytesIO(item["bytes"])
+                        _cap0 = (f"📸 <b>{to_bold('ALBUM')}</b> • {_total_n} items • {plat}"
+                                 f"{_album_note}{_part}")[:900]   # v85: caption 1024 limit guard
+                        cap = _cap0 if idx == 0 else ""
+                        if item.get("type") == "video":
+                            m_buf.name = f"media_{_gi}_{idx}.mp4"
+                            media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML, supports_streaming=True))
+                        else:
+                            m_buf.name = f"media_{_gi}_{idx}.jpg"
+                            media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
+                    try:
+                        await update.message.reply_media_group(media=media_group)
+                        _sent_groups += 1
+                    except Exception as _ag:
+                        # v85: group fail ho to ek-ek karke bhejo (user khaali haath na jaye)
+                        log.warning("album group fail, one-by-one bhej raha: %s", str(_ag)[:100])
+                        _sent_n = 0
+                        for idx2, item in enumerate(items):
+                            try:
+                                _b2 = io.BytesIO(item["bytes"])
+                                _c2 = (f"📸 <b>{to_bold('ALBUM')}</b> • {_total_n} items • {plat}"
+                                       f"{_album_note}{_part} ({idx2 + 1}/{len(items)})")[:900] if idx2 == 0 else ""
+                                if item.get("type") == "video":
+                                    _b2.name = f"media_{_gi}_{idx2}.mp4"
+                                    await update.message.reply_video(video=_b2, caption=_c2 or None,
+                                                                     parse_mode=HTML, supports_streaming=True)
                                 else:
-                                    await update.message.reply_photo(photo=_b2)
-                            _sent_n += 1
-                        except Exception:  # noqa: BLE001
-                            continue
-                    if not _sent_n:
-                        raise
+                                    _b2.name = f"media_{_gi}_{idx2}.jpg"
+                                    if _c2:
+                                        await update.message.reply_photo(photo=_b2, caption=_c2, parse_mode=HTML)
+                                    else:
+                                        await update.message.reply_photo(photo=_b2)
+                                _sent_n += 1
+                            except Exception:  # noqa: BLE001
+                                continue
+                        if _sent_n:
+                            _sent_groups += 1
+                if not _sent_groups:
+                    raise ValueError("album bheja nahi ja saka (Telegram reject)")
                 _delivered = True
                 await st.delete()
                 add_use(uid)
@@ -9253,6 +9297,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
+    if mode == "qr_scan":
+        # v86: 📷 QR SCANNER — text aaya (photo chahiye thi) → photo maango, mode rakho
+        await update.message.reply_text(
+            "📷 <b>QR wali PHOTO bhejo</b> (text nahi) — photo me jo QR hoga uska text/link nikal dunga 👆",
+            parse_mode=HTML)
+        return
+
     if mode == "qr":
         # v53.0: branded QR (logo + colors + telemetry) aur credit SIRF success par.
         # Color syntax: `<text> | #RRGGBB | #RRGGBB`  (2nd=foreground, 3rd=background)
@@ -9939,13 +9990,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             extra = ""
             if clean and clean != raw_text:
                 extra = f"\n\n🧹 <b>Tracking-free original:</b>\n<code>{hesc(str(clean))}</code>"
-            rows = [[InlineKeyboardButton(f"🔗 {name}", url=u)] for name, u in links]
+            # v86: short links bhi validate (provider ka ajeeb jawab = crash tha)
+            rows = []
+            for name, u in links:
+                _slu = _safe_btn_url(u or "")
+                if _slu:
+                    rows.append([InlineKeyboardButton(f"🔗 {name}", url=_slu)])
             await st.edit_text(
                 spend_credit_msg(uid, "short") + "\n"
                 + pcard_title("🔗", "SHORT LINKS READY") + "\n"
                 + body + extra + "\n"
                 + pcard_foot(ms=_ms, source=f"{len(links)} shortener provider"),
-                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+                reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
         else:
             await st.edit_text(
                 pcard_title("⚠️", "SHORT LINK NAHI BANA") + "\n"
@@ -9989,7 +10045,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     "Aise link par OTP / password / UPI PIN <b>kabhi na dalo</b>.")
         kb_rows = []
         if chk.get("final_url"):
-            kb_rows.append([InlineKeyboardButton("🌐 Final link kholo", url=chk["final_url"])])
+            _fu2 = _safe_btn_url(chk.get("final_url") or "")   # v86: galat URL = crash
+            if _fu2:
+                kb_rows.append([InlineKeyboardButton("🌐 Final link kholo", url=_fu2)])
         await st.edit_text(spend_credit_msg(uid, "linkcheck") + "\n" + cap,
                            reply_markup=InlineKeyboardMarkup(kb_rows) if kb_rows else None,
                            parse_mode=HTML)
@@ -10015,8 +10073,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not app_data.get("found"):
             # app mili hi nahi → credit NAHI katta (user ko kuch mila hi nahi)
             tel_note("appfind", False, _ms, error="not found")
-            kb_stores = [[InlineKeyboardButton(f"{s['name']}", url=s["url"])]
-                         for s in (app_data.get("stores") or [])]
+            kb_stores = []   # v86: store URLs validate (scrape ka ajeeb URL = crash tha)
+            for s in (app_data.get("stores") or []):
+                _stu = _safe_btn_url(s.get("url") or "")
+                if _stu:
+                    kb_stores.append([InlineKeyboardButton(f"{s.get('name', 'Store')}", url=_stu)])
             kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
             await update.message.reply_text(
                 str(app_data.get("error") or "App nahi mili.")
@@ -10061,20 +10122,26 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         L.append("👇 <b>Store me kholo:</b>")
 
         # buttons: pehle top app ke direct links, phir search links
+        # v86: sab URLs validate (scrape/API ka ajeeb URL = crash tha)
         kb_stores = []
         _top = apps[0] if apps else {}
         if _top.get("store") == "play" and _top.get("package"):
-            kb_stores.append([InlineKeyboardButton(
-                "📱 Play Store par kholo (direct)", url=_top.get("url") or
-                f"https://play.google.com/store/apps/details?id={_top['package']}")])
+            _pu = _safe_btn_url(_top.get("url") or
+                                f"https://play.google.com/store/apps/details?id={_top['package']}")
+            if _pu:
+                kb_stores.append([InlineKeyboardButton("📱 Play Store par kholo (direct)", url=_pu)])
         elif _top.get("store") == "appstore" and _top.get("url"):
-            kb_stores.append([InlineKeyboardButton("🍎 App Store par kholo (direct)",
-                                                   url=_top["url"])])
+            _au = _safe_btn_url(_top.get("url") or "")
+            if _au:
+                kb_stores.append([InlineKeyboardButton("🍎 App Store par kholo (direct)", url=_au)])
         if _top.get("fdroid_url"):
-            kb_stores.append([InlineKeyboardButton("🟢 F-Droid par kholo (open source)",
-                                                   url=_top["fdroid_url"])])
+            _fu3 = _safe_btn_url(_top.get("fdroid_url") or "")
+            if _fu3:
+                kb_stores.append([InlineKeyboardButton("🟢 F-Droid par kholo (open source)", url=_fu3)])
         for s in (app_data.get("stores") or [])[:6]:
-            kb_stores.append([InlineKeyboardButton(f"🔎 {s['name']} — search", url=s["url"])])
+            _ssu = _safe_btn_url(s.get("url") or "")
+            if _ssu:
+                kb_stores.append([InlineKeyboardButton(f"🔎 {s.get('name', 'Store')} — search", url=_ssu)])
         kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
 
         await _reply_nonempty(update.message, spend_credit_msg(uid, "appfind") + "\n" + "\n".join(L)[:3600],
@@ -10962,6 +11029,40 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📸 {len(pages)} photos received (marksheet/certificate). Send more or choose the size 👇\n\n"
             "💡 <b>Size guide:</b> government portals usually ask for 100-300 KB.",
             reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+        return
+
+    # v86: 📷 QR SCANNER — photo aayi → QR decode karo
+    if mode == "qr_scan":
+        try:
+            photo_file = await update.message.photo[-1].get_file()
+            buf = io.BytesIO()
+            await photo_file.download_to_memory(buf)
+            _qr_bytes = buf.getvalue()
+        except Exception:  # noqa: BLE001
+            _qr_bytes = b""
+        if not _qr_bytes:
+            await safe_reply(update.message,
+                             "⚠️ Photo padhi nahi ja saki. Dobara bhejein.", parse_mode=HTML)
+            return
+        st = await update.message.reply_text("📷 QR scan ho raha hai…")
+        res = await asyncio.to_thread(qr_scan_bytes, _qr_bytes)
+        if res.get("ok"):
+            _txt = str(res.get("text") or "")
+            _kind = "🔗 <b>Link mila!</b>" if res.get("kind") == "url" else "📝 <b>Text mila!</b>"
+            cap = (spend_credit_msg(uid, "qr_scan") + "\n" +
+                   f"📷 <b>{to_bold('QR SCAN RESULT')}</b>\n\n{_kind}\n<code>{hesc(_txt[:1500])}</code>")
+            _kb = None
+            if res.get("kind") == "url":
+                _su = _safe_btn_url(_txt)
+                if _su:
+                    _kb = InlineKeyboardMarkup([[InlineKeyboardButton("🌐 Link kholo", url=_su)]])
+            await _st_edit(st, update, cap, reply_markup=_kb, parse_mode=HTML)
+            add_use(uid)
+        else:
+            await _st_edit(st, update,
+                           f"⚠️ <b>{to_bold('QR NAHI MILA')}</b>\n\n{safe_html_err(str(res.get('error') or 'QR code nahi mila')[:200])}\n\n"
+                           "💡 QR seedha, paas se, saaf roshni me photo bhejo.",
+                           parse_mode=HTML)
         return
 
 

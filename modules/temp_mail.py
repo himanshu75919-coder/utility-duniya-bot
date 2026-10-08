@@ -355,6 +355,8 @@ def clean_body(html: str = "", text: str = "", limit: int = _MAX_BODY) -> str:
     OTP ke liye zaroori hissa upar hota hai; footer/legal text hata dete hain
     taaki user ko code dhoondhne me dikkat na ho.
     """
+    html = html if isinstance(html, str) else ""  # v86: junk-proof (int/bytes par crash tha)
+    text = text if isinstance(text, str) else ("" if text is None else str(text))
     raw = str(text or "").strip()
     if not raw and html:
         try:

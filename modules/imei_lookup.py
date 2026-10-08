@@ -1049,6 +1049,8 @@ def _sec_icon(title: str) -> str:
 
 def render_caption(res: dict, max_len: int = 1000) -> str:
     """Photo ke saath chhota caption (Telegram limit 1024 — isliye chhota)."""
+    if not isinstance(res, dict):  # v86: junk-proof (None/str par crash tha)
+        return ""
     lines = [f"📲 <b>{_hesc(device_title(res))}</b>"]
     if res.get("brand"):
         lines.append(f"🏷️ <b>Brand:</b> {_hesc(str(res['brand']))}")

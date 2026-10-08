@@ -105,8 +105,8 @@ def main():
        '_it = res["items"][_img_idx - 1]' not in BOT_SRC, "slicing abhi bhi hai!")
     ok("bot.py: FULL-ALBUM note maujood", "FULL-ALBUM" in BOT_SRC and "_album_note" in BOT_SRC)
     ok("bot.py: album one-by-one fallback maujood", "one-by-one" in BOT_SRC)
-    ok("bot.py: album 45MB cap + khaali-item filter",
-       "45 * 1048576" in BOT_SRC and "album items khaali" in BOT_SRC)
+    ok("v86: album helper (_album_chunks) + 60MB cap + khaali-item filter",
+       "_album_chunks(" in BOT_SRC and "60 * 1048576" in BOT_SRC and "album items khaali" in BOT_SRC)
     ok("bot.py: caption 1024-guard ([:900])", "[:900]" in BOT_SRC)
     ok("_parse_img_index abhi bhi parse karta hai (caption note ke liye)",
        B._parse_img_index(IG_FAIL_1) == 3 and B._parse_img_index("https://instagram.com/p/X/") is None)
@@ -147,7 +147,7 @@ def main():
     print("=" * 62)
     print("D) FORTRESS-II — crash-proof wiring")
     print("=" * 62)
-    ok("version v85 + history (v84/v83/v77)", B.BOT_VERSION.startswith("v85") and "v84.0" in B.BOT_VERSION
+    ok("v86: version v86 + history (v85/v84/v83/v77)", B.BOT_VERSION.startswith("v86") and "v85.0" in B.BOT_VERSION and "v84.0" in B.BOT_VERSION
        and "v83.0" in B.BOT_VERSION and "v77" in B.BOT_VERSION, B.BOT_VERSION[:16])
     ok("guard words (FREE4ALL/SPEED/NO-GYAAN)", "FREE4ALL" in B.BOT_VERSION and "SPEED" in B.BOT_VERSION
        and "NO-GYAAN" in B.BOT_VERSION)
@@ -166,7 +166,7 @@ def main():
     print("=" * 62)
     try:
         _pd = B.PROMPT_DATA
-        ok("PROMPT_DATA 42 tools (kuch juda/ghata nahi)", len(_pd) == 42, f"count={len(_pd)}")
+        ok("PROMPT_DATA 43 tools (42 + QR Scanner)", len(_pd) == 43, f"count={len(_pd)}")
         ok("terabox head intact", _pd.get("terabox", {}).get("head") == "⚡ TERABOX / CLOUD ENGINE")
         ok("insta_dl head intact",
            _pd.get("insta_dl", {}).get("head") == "📥 VIDEO DOWNLOAD (Insta / YouTube / Facebook / TikTok)")

@@ -243,8 +243,9 @@ check("v85: reel/video 26s + photo 24s (album engine ke liye 22→24)",
       "26.0 if want_video else 24.0" in _src_dl)
 check("v85: _ig_embed_album 5th engine (photo posts par race me)",
       callable(getattr(MD, "_ig_embed_album", None)) and "_ig_embed_album" in _src_dl)
-check("want_video flag category + URL dono se banta hai",
-      'media_cat in ("reel", "video", "igtv", "story")' in _src_dl and '"/reel" in clean' in _src_dl)
+check("v86: want_video me story NAHI (photo-story bhi chalegi)",
+      'media_cat in ("reel", "video", "igtv")' in _src_dl and '"/reel" in clean' in _src_dl
+      and '("reel", "video", "igtv", "story")' not in _src_dl)
 check("cache ab bhi laga hai (2nd try TURANT)", '_mem_get(clean, "ig")' in _src_dl)
 check("MAX_TG_MB ab dynamic hai (MTProto on = 96MB tak download)",
       "MAX_TG_MB = _tg_cap_mb()" in inspect.getsource(MD))

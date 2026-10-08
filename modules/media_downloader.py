@@ -137,6 +137,12 @@ def is_supported_video_url(url: str) -> bool:
 
 
 def platform_name(url: str) -> str:
+    try:
+        url = _clean_incoming(url) or ""   # v86: junk-proof (int/bytes par crash tha)
+    except Exception:  # noqa: BLE001
+        pass
+    if not isinstance(url, str):
+        return "Social Media"
     u = (url or "").lower()
     table = [
         ("instagram.com", "Instagram"), ("instagr.am", "Instagram"),
@@ -154,7 +160,7 @@ def platform_name(url: str) -> str:
 
 
 def classify_instagram_url(url: str) -> str:
-    """Classifies Instagram URL into 'reel', 'story', or 'post'"""
+    """Classifies Instagram URL into 'reel', 'story', 'highlight', 'profile' or 'post'"""
     if not isinstance(url, str):                       # v78: None/list par crash hota tha
         url = "" if url is None else str(url)
     try:
@@ -167,11 +173,36 @@ def classify_instagram_url(url: str) -> str:
     u = url.lower().split("?")[0]
     if "/reel/" in u or "/reels/" in u or "/tv/" in u:
         return "reel"
-    if "/stories/" in u:
+    if "/stories/" in u or "/s/" in u or "/highlight/" in u:   # v86: share/highlight bhi story
         return "story"
     if "/p/" in u:
         return "post"
+    if _ig_profile_user(url):                          # v86: /username → profile photo
+        return "profile"
     return "general"
+
+
+# v86: ye paths profile NAHI hain (Instagram ke system pages)
+_IG_RESERVED = frozenset({
+    "p", "reel", "reels", "tv", "stories", "s", "highlight", "explore",
+    "accounts", "direct", "about", "developer", "embed", "directory",
+    "web", "graphql", "api", "static", "support", "help", "terms",
+})
+
+
+def _ig_profile_user(url: str):
+    """instagram.com/<username> ho to username, warna ''. (v86: profile-pic feature)"""
+    try:
+        m = re.search(r"instagr(?:am\.com|am?\.am)/([A-Za-z0-9._]{1,30})(?:[/?#]|$)", url or "",
+                      re.IGNORECASE)
+        if not m:
+            return ""
+        _u = m.group(1).strip().strip(".").lower()
+        if not _u or _u in _IG_RESERVED or _u.startswith(("http", "www.")):
+            return ""
+        return m.group(1).strip().strip(".")
+    except Exception:  # noqa: BLE001
+        return ""
 
 
 def _call_capped(fn, timeout: float, *a, **kw):
@@ -324,36 +355,29 @@ def _ig_parth(clean: str, media_cat: str):
         if m_type == "carousel" or len(info.get("images", []) or []) > 1 or len(info.get("entries", []) or []) > 1:
             items = []
             entries = info.get("entries", []) or []
-            for entry in entries[:10]:
+            for entry in entries[:20]:   # v86: IG carousel max 20 (pehle 10)
                 e_kind = entry.get("kind", "")
                 e_formats = entry.get("formats", [])
                 if e_kind == "video" and e_formats:
                     r_v = httpio.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=15)
-                    if r_v.status_code == 200 and len(r_v.content) > 1000:
+                    # v86: 15MB se bada item skip (20 items x bada video = OOM)
+                    if r_v.status_code == 200 and 1000 < len(r_v.content or b"") <= 15 * 1048576:
                         items.append({"type": "video", "bytes": r_v.content})
                 elif e_formats:
                     r_img = httpio.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=12)
                     if r_img.status_code == 200:
-                        try:
-                            im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
-                            buf = io.BytesIO()
-                            im.save(buf, format="JPEG", quality=95)
-                            items.append({"type": "photo", "bytes": buf.getvalue()})
-                        except Exception:
-                            pass
+                        _jb = _jpeg_fit(r_img.content)   # v86: size-capped JPEG
+                        if _jb:
+                            items.append({"type": "photo", "bytes": _jb})
             if not items and info.get("images"):
-                for img_obj in info.get("images", [])[:10]:
+                for img_obj in info.get("images", [])[:20]:   # v86: 20 tak
                     u = img_obj.get("url")
                     if u:
                         r_img = httpio.get(u, headers=DESKTOP_UA, timeout=12)
                         if r_img.status_code == 200:
-                            try:
-                                im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
-                                buf = io.BytesIO()
-                                im.save(buf, format="JPEG", quality=95)
-                                items.append({"type": "photo", "bytes": buf.getvalue()})
-                            except Exception:
-                                pass
+                            _jb2 = _jpeg_fit(r_img.content)   # v86: size-capped JPEG
+                            if _jb2:
+                                items.append({"type": "photo", "bytes": _jb2})
             if items:
                 return {"ok": True, "type": "carousel", "category": media_cat, "title": title,
                         "items": items, "count": len(items), "platform": "Instagram", "engine": "parth-dl"}
@@ -1006,24 +1030,20 @@ def _ig_ytdlp(clean: str, media_cat: str):
         # Instagram carousel / multi-media post
         if entries and len(entries) > 1:
             items = []
-            for e in entries[:10]:
+            for e in entries[:20]:   # v86: IG carousel max 20 (pehle 10)
                 u = e.get("url") or e.get("webpage_url")
                 if not u:
                     continue
-                data, _meta = _ytdlp_download_bytes(u, max_mb=MAX_TG_MB)
+                # v86: per-item 15MB cap (20 items x 48MB = OOM pakka tha)
+                data, _meta = _ytdlp_download_bytes(u, max_mb=15)
                 if not data:
                     continue
                 is_vid = (e.get("vcodec") not in (None, "none")) or (e.get("ext") in ("mp4", "mov", "webm"))
                 if is_vid:
                     items.append({"type": "video", "bytes": data})
                 else:
-                    try:
-                        im = Image.open(io.BytesIO(data)).convert("RGB")
-                        buf = io.BytesIO()
-                        im.save(buf, format="JPEG", quality=95)
-                        items.append({"type": "photo", "bytes": buf.getvalue()})
-                    except Exception:
-                        items.append({"type": "photo", "bytes": data})
+                    _jb3 = _jpeg_fit(data)   # v86: size-capped JPEG
+                    items.append({"type": "photo", "bytes": _jb3 if _jb3 else data})
             if items:
                 return {"ok": True, "type": "carousel", "category": media_cat,
                         "title": info.get("title") or "", "items": items, "count": len(items),
@@ -1237,7 +1257,7 @@ def _ig_embed_album(clean: str, media_cat: str):
                     jb = _jpeg_fit(ri.content)
                     if jb:
                         items.append({"type": "photo", "bytes": jb})
-                    if len(items) >= 10:
+                    if len(items) >= 20:   # v86: IG carousel max 20
                         break
                 except Exception:  # noqa: BLE001
                     continue
@@ -1247,6 +1267,52 @@ def _ig_embed_album(clean: str, media_cat: str):
                         "bytes": None, "title": (t_m.group(1) if t_m else ""),
                         "items": items, "count": len(items),
                         "platform": "Instagram", "engine": "embed-album"}
+        except Exception:  # noqa: BLE001
+            continue
+    return None
+
+
+def _ig_profile_pic(clean: str, username: str = ""):
+    """🆕 v86 — 6th engine: public profile ki HD photo (`profile_pic_url_hd`).
+
+    instagram.com/<username> bhejo → profile photo (1080px HD, public page ke
+    andar embedded hoti hai — login nahi chahiye). Private/deleted par None.
+    """
+    user = username or _ig_profile_user(clean)
+    if not user:
+        return None
+    for headers in (DESKTOP_UA, FB_UA, BOT_UA):
+        try:
+            r = httpio.get(f"https://www.instagram.com/{user}/", headers=headers,
+                           timeout=14, allow_redirects=True)
+            if r.status_code != 200 or len(r.text or "") < 500:
+                continue
+            html = (r.text or "").replace("\\u0026", "&").replace("\\/", "/")
+            m = (re.search(r'"profile_pic_url_hd"\s*:\s*"(https?://[^"]+?)"', html)
+                 or re.search(r'"profile_pic_url"\s*:\s*"(https?://[^"]+?)"', html))
+            if not m:
+                # fallback: og:image (profile page ka cover = chhoti profile pic)
+                try:
+                    soup = BeautifulSoup(r.text, "html.parser")
+                    _og = soup.find("meta", {"property": "og:image"})
+                    _url = _og.get("content", "") if _og else ""
+                except Exception:  # noqa: BLE001
+                    _url = ""
+                if not _url:
+                    continue
+            else:
+                _url = m.group(1)
+            ri = httpio.get(_url, headers=DESKTOP_UA, timeout=15)
+            if ri.status_code != 200 or len(ri.content or b"") < 2000:
+                continue
+            jb = _jpeg_fit(ri.content)
+            if not jb:
+                continue
+            _nm = re.search(r'"full_name"\s*:\s*"([^"]{0,60})"', html)
+            return {"ok": True, "type": "photo", "category": "profile",
+                    "title": f"@{user}" + (f" ({_nm.group(1)})" if _nm else ""),
+                    "bytes": jb, "size_mb": _size_mb(jb),
+                    "platform": "Instagram", "engine": "profile-hd"}
         except Exception:  # noqa: BLE001
             continue
     return None
@@ -1280,6 +1346,15 @@ def download_instagram_media(url: str) -> dict:
     if not clean.startswith("http"):
         clean = "https://" + clean.lstrip("/")
     media_cat = classify_instagram_url(clean)
+    # v86: PROFILE link (/username) → HD profile photo (login nahi chahiye)
+    if media_cat == "profile":
+        _pp = _ig_profile_pic(clean)
+        if _pp and _pp.get("ok"):
+            return _pp
+        _pu = _ig_profile_user(clean) or "ye"
+        return {"ok": False, "category": "profile",
+                "error": (f"@{_pu} ki profile photo nahi mili — account private/deleted ho "
+                          "sakta hai, ya username me spelling mistake. Public profile ka sahi link bhejo.")}
     # v74.3: cache check (RAM → DISK) — dobara link par turant
     _mc = _mem_get(clean, "ig") or disk_get(clean, "ig")
     if _mc:
@@ -1299,7 +1374,9 @@ def download_instagram_media(url: str) -> dict:
     # 4th engine `_ig_embed` bhi juda (public /embed/ page, login wall ke paar),
     # aur budget 22s -> 26s kiya, kyunki video engines aksar 23-25s lete the
     # = deadline ke bahar = bekaar "fail". (User ne 33s tak progress dekha tha.)
-    want_video = (media_cat in ("reel", "video", "igtv", "story")
+    # v86: "story" want_video se HATA — photo-story bhi hoti hai! (Pehle photo wali
+    # story referee se reject ho jaati thi = "story download fail" ki ek wajah.)
+    want_video = (media_cat in ("reel", "video", "igtv")
                   or "/reel" in clean or "/tv/" in clean)
 
     def _eng(fn):
@@ -1358,7 +1435,9 @@ def download_instagram_media(url: str) -> dict:
 
     if media_cat == "story":
         return {"ok": False, "category": "story",
-                "error": "Instagram Story sirf 24 ghante rehti hai. Expire ho gayi ya private story bina login nahi milti."}
+                "error": ("Instagram Story nahi mili. 3 wajah ho sakti hain: (1) Story 24 ghante "
+                          "me expire ho gayi, (2) account private hai, (3) Instagram ne bina-login "
+                          "story block kar di. Reel/photo post ka link bhejo — wo pakka chalega.")}
     if media_cat == "reel":
         return {"ok": False, "category": "reel",
                 "error": ("Instagram ne ye Reel block kar di (rate-limit/login wall). 30-60 second baad dobara try karo, ya doosra link bhejo."

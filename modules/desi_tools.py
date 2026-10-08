@@ -1015,6 +1015,8 @@ def video_trim(data: bytes, start: str, end: str, ext: str = ".mp4") -> dict:
 
 def video_compress(data: bytes, target_mb: float = 18.0, ext: str = ".mp4", max_seconds: float = 150.0) -> dict:
     """Video ko target size ke andar laao (CRF iterate — size pakka target ke andar)."""
+    if not isinstance(data, (bytes, bytearray)) or len(data) < 1000:  # v86: junk-proof
+        return {"ok": False, "error": "Video data khaali/kharab hai — dobara bhejo."}
     if not HAS_FFMPEG:
         return {"ok": False, "error": "ffmpeg not found"}
     pin, pout = _tmp(ext if ext in _VIDEO_EXT_OK else ".mp4"), _tmp(".mp4")

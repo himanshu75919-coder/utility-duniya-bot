@@ -792,3 +792,60 @@ def app_lookup(name: str, use_cache: bool = True,
                             fail_ttl=_FAIL_TTL,
                             is_failure=lambda v: not v.get("ok") or not v.get("found"))
     return val
+
+
+# =====================================================================================
+# 📷 QR SCANNER (v86 — NAYA TOOL: photo bhejo → QR ka text/link nikalo)
+# =====================================================================================
+_GOQR_URL = "https://api.qrserver.com/v1/read-qr-code/"
+
+
+def qr_scan_bytes(img_bytes: bytes, timeout: int = 25) -> dict:
+    """QR/barcode wali photo se text nikalo (goqr.me free API — koi key nahi).
+
+    Returns {ok: True, text, kind: 'url'|'text'} ya {ok: False, error}.
+    Kabhi raise nahi karta — junk par saaf error dict.
+    """
+    try:
+        if not isinstance(img_bytes, (bytes, bytearray)) or len(img_bytes) < 500:
+            return {"ok": False, "error": "Photo khaali/kharab hai — QR wali saaf photo bhejo."}
+        if len(img_bytes) > 6 * 1048576:
+            return {"ok": False, "error": "Photo 6MB se badi hai — chhoti/saaf photo bhejo."}
+        # JPEG normalize (API har format nahi leti; PNG/WebP → JPEG)
+        try:
+            _im = Image.open(io.BytesIO(bytes(img_bytes))).convert("RGB")
+            _w, _h = _im.size
+            if max(_w, _h) > 1600:
+                _im.thumbnail((1600, 1600), Image.LANCZOS)
+            _buf = io.BytesIO()
+            _im.save(_buf, format="JPEG", quality=92)
+            _up = _buf.getvalue()
+        except Exception:  # noqa: BLE001
+            _up = bytes(img_bytes)
+        from modules.core.net import pooled_session as _ps
+        s = _ps()
+        r = s.post(_GOQR_URL, files={"file": ("qr.jpg", _up, "image/jpeg")},
+                   timeout=timeout)
+        if r.status_code != 200:
+            return {"ok": False, "error": f"Scan server busy hai (HTTP {r.status_code}) — 1 min baad try karo."}
+        try:
+            j = r.json()
+        except Exception:  # noqa: BLE001
+            return {"ok": False, "error": "Scan server se ajeeb jawab — 1 min baad try karo."}
+        try:
+            _sym = (j[0].get("symbol") or [{}])[0]
+        except Exception:  # noqa: BLE001
+            _sym = {}
+        _data = (_sym.get("data") or "").strip()
+        _err = _sym.get("error") or ""
+        if _data:
+            _low = _data.lower()
+            _kind = "url" if _low.startswith(("http://", "https://", "www.")) else "text"
+            if _kind == "url" and _low.startswith("www."):
+                _data = "https://" + _data
+            return {"ok": True, "text": _data[:2000], "kind": _kind}
+        if _err:
+            return {"ok": False, "error": "Is photo me QR code saaf nahi dikha — paas se saaf photo bhejo."}
+        return {"ok": False, "error": "QR nahi mila — QR wali photo seedhi aur saaf bhejo."}
+    except Exception as e:  # noqa: BLE001
+        return {"ok": False, "error": f"Scan nahi ho paya ({str(e)[:80]}) — dobara try karo."}
