@@ -52,6 +52,9 @@ Lekin yaad rakhne ki pehchaan poora link tha, aur do problem thi:
 - Purana instant-repeat test (`test_v68.py`): 51 PASS.
 - Poora test suite: 42 files, sab PASS (0 FAIL).
 - Pyflakes: 0 undefined names.
+- **End-to-end (sandbox, mock Telegram):** same TikTok video ke do alag tracking links.
+  Pehli baar: normal download + cache save. Doosri baar (`sender_device=pc&igsh=...` wala link):
+  caption "⚡ INSTANT — ye video pehle hi download ho chuki thi (0.1 second)" aaya ✔.
 
 Note: pehle se cache hui videos ek baar dobara download hongi (purani key format badal gaya).
 Uske baad fir se instant chalega.
