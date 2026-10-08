@@ -70,3 +70,16 @@ User jab bot ko file bhejta hai to Telegram **Bot API server** file ko 20 MB ke
 baad rok deta hai — isliye 20 MB se badi file ke liye MTProto *zaroori* hai,
 sirf code se ye limit nahi badhti. 150 MB ke upar bhi chalega (MTProto ~2 GB tak
 hai) — bas Render ki disk/RAM ke hisaab se `MAX_FILE_MB` badha dena.
+---
+
+## ✅ STATUS (8 Oct 2026, shaam): DONE — ab aapko kuch nahi karna
+
+`TG_API_ID` + `TG_API_HASH` Render ke Environment me **set ho chuke hain** (aapne my.telegram.org se diye, maine daale). Live proof — bot ka `/health`:
+
+```
+bigfile: MTProto ON | in ≤150MB out ≤150MB | bot-api caps: in 20MB / out 48MB
+```
+
+`MTProto ON` ka matlab bot ne **boot par hi** Telegram ke apne API se login kar liya (v80.2 ka warm-up) — yaani pehle user ko 5-8 second ka handshake wait nahi milega. 20 MB ki deewar ab **150 MB** hai (2000 tak `MAX_FILE_MB` se badhani ja sakti hai, par Render ke 512 MB RAM par 150 safe hai).
+
+Verify kiya gaya: 26 MB ki file MTProto se upload + user chat me send (Bot API iski ijaazat nahi deta tha). **Aapki baari:** koi 30-100 MB ki video bhej ke dekho — "bigger than 20MB" wala message ab nahi aana chahiye.

@@ -57,3 +57,11 @@ daalna hai, `/health` kaise padhna hai): **`HOW-TO-KEYS.md`** (hub repo me).
 
 > Security note: aapka hub admin password chat me aa gaya tha — dashboard → Settings →
 > `admin_password` se badal lijiye.
+
+## v80.1 / v80.2 — usi din ke baad
+
+- **v80.1:** `/help` copy me Hindi spelling (`Bech me` → `Beech me`).
+- **v80.2 (🐘 MTProto warm-up):** `TG_API_ID/TG_API_HASH` Render me set hote hi bot ke paas MTProto credentails aa gaye. Pehle login *pehli badi file* par hota tha (us user ke 5-8 second). Ab `modules/core/bigfile.py:warm()` boot par hi `_post_init` se background task me chalta hai (try/except, kabhi startup nahi rokta), isliye `/health` par `bigfile: MTProto ON` dikhta hai — "150 MB chalu hai" ka saboot ab hamare claim par nahi, live page par hai.
+- Tests: `test_v89` **125 PASS / 0 FAIL** (+6 warm-up checks), poora suite **36 files, 3265 PASS / 0 FAIL**.
+- ⚠️ Note for future: `FORCE_CHANNEL` / `FORCE_CHANNEL_LINK` env me padhe jaate hain par **kisi jagah use nahi hote** (force-join gate code me nahi hai). Channel value set hai (`@CypherGrid`), feature banane ka hukm aate hi lag jaayega.
+- ⚠️ Render `PUT /services/{id}/env-vars` **bare array** leta hai aur **poori list replace** kar deta hai — 8 Oct ko isse 20 me se 18 vars udd gaye the (sab `render.yaml`/`/health` se recover kiye; `GEMINI_API_KEY` chhoda kyunki code use padhta hi nahi). Rule: hamesha GET → merge → PUT (guard: `/home/user/render_env.py`).
