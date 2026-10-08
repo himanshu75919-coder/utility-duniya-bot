@@ -11142,6 +11142,30 @@ _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 _WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not set",
                  "decision": "abhi decide nahi hua", "why": "-"}
 
+# v59.10: "bot sach me jawab de raha hai?" — aakhri update kab aaya (user ki
+# sabse badi confusion: purana screenshot dekh kar lagta hai bot band hai).
+_UPDATE_STATE = {"n": 0, "last_ts": 0.0, "last_at": None}
+# v59.11: polling -> webhook switch ke waqt keepalive server ka port khaali karna
+# padta hai (warna PTB webhook usi port par bind nahi kar payega).
+_KEEPALIVE_SERVER = {"srv": None}
+
+# v54.1: /health par **git commit SHA** bhi dikhao.
+# Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
+# commit chal raha hai (version same rehne par bhi code alag ho sakta hai). Render
+# khud RENDER_GIT_COMMIT / RENDER_GIT_BRANCH env inject karta hai.
+_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "").strip()[:7]
+_GIT_BRANCH = (os.environ.get("RENDER_GIT_BRANCH") or "").strip()
+if not _GIT_COMMIT:
+    try:  # local dev fallback (Render par ye branch chalega hi nahi)
+        import subprocess as _sp
+        _GIT_COMMIT = _sp.run(["git", "rev-parse", "--short=7", "HEAD"],
+                              capture_output=True, text=True, timeout=3,
+                              cwd=os.path.dirname(os.path.abspath(__file__))
+                              ).stdout.strip()[:7]
+    except Exception:                                            # noqa: BLE001
+        _GIT_COMMIT = ""
+_START_TS = time.time()
+
 # v81.1 — 🔌 "Telegram ne URL maan liya" se kaam nahi chalta: updates pahunch rahe
 # hain ya Telegram ke paas phans rahe hain, wahi asli nishani hai. Ye cache + watchdog
 # /health par saccha haal dikhate hain aur phansa hua webhook khud theek karte hain.

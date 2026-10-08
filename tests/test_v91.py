@@ -18,11 +18,9 @@ Ye file 4 cheezein lock karti hai:
   D. watchdog ab *registered* URL se tulna karta hai (apne galat URL se nahi) + health
      line jhooth nahi bol sakti
 """
-import asyncio
 import os
 import re
 import sys
-import types
 import urllib.error
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -177,16 +175,6 @@ check("sirf last_error ho (404) → repair chahiye",
                                         "last_error_message": "bad webhook"})) is True)
 
 
-def _raises(err):
-    def f(req, timeout=None):
-        raise err
-    old = _patch_urlopen(f)
-    try:
-        return RH.webhook_delivery_state(TOK)
-    finally:
-        urllib_request_restore(old)
-
-
 net = _with(raises=urllib.error.URLError("timed out"), fn=lambda: RH.webhook_delivery_state(TOK))
 check("network fail ho to bhi dict hi lautata hai (kabhi raise nahi)",
       isinstance(net, dict) and net.get("ok") is False and "URLError" in net.get("err", ""))
@@ -284,7 +272,6 @@ check("naya code Hindi comment me incident samjhata hai (bhagwan na 'simplify' k
       "36" in RH_SRC and "double" in RH_SRC.lower())
 
 # ================================================== F. health line ka behaviour (asli code)
-import importlib                                                                # noqa: E402
 os.environ["WEBHOOK_URL"] = f"{BASE}/webhook/{SEC}"       # wahi purani galti, jaan-boojh ke
 try:
     import bot as B
@@ -302,11 +289,42 @@ if have_bot:
     check("…aur isse banne wala final URL sahi ek-path wala",
           _full2.lower().count("/webhook") == 1 and _full2 == f"{BASE}/webhook/{SEC}")
 
+    def _renders():
+        """Asli guard: /health page render hota hai ya nahi.
+
+        52 module-level line galti se delete ho gayi thi (_UPDATE_STATE, _GIT_BRANCH,
+        _START_TS, _KEEPALIVE_SERVER) — syntax sahi tha, isliye ast.parse khush raha,
+        par health_html() NameError se marta tha aur /health fallback JSON de raha tha.
+        """
+        try:
+            h = str(B.health_html())
+        except Exception:                                          # noqa: BLE001
+            return False
+        return all(x in h for x in ("<p", "commit:", "delivery:", "up:", "branch:"))
+
     def _fake_state(d):
         def f(token, timeout=6.0):
             return dict(d)
         return f
 
+    check("REGRESSION GUARD: health page sach me render hota hai (khaali JSON nahi)",
+          _renders())
+    for _g in ("_UPDATE_STATE", "_KEEPALIVE_SERVER", "_GIT_COMMIT", "_GIT_BRANCH",
+               "_START_TS", "_WH_STATE", "_WEBHOOK_DIAG"):
+        check(f"bot.py ka module-level global {_g} maujood hai", hasattr(B, _g))
+    check("…_UPDATE_STATE ka shape wahi hai (health + _track_update ispar chalta hai)",
+          set(B._UPDATE_STATE) == {"n", "last_ts", "last_at"}, str(B._UPDATE_STATE))
+    _saved_ts = B._START_TS
+    try:
+        del B._START_TS                       # wahi galti, jaan-boojh ke dobara
+        _teeth = not _renders()
+    except Exception:
+        _teeth = True
+    finally:
+        B._START_TS = _saved_ts
+    check("guard me daant hai: _START_TS hataate hi health_html marta hai "
+          "(yaani ye check sach me pakadta hai, rubber-stamp nahi)", _teeth)
+    check("…aur wapas karte hi phir se chalta hai", _renders())
     _orig = B.webhook_delivery_state
     try:
         B.webhook_delivery_state = _fake_state(
