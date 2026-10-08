@@ -238,12 +238,9 @@ from modules.desi_tools import (
 )
 from modules.tutorial_hub import (
 
-    has_video,
     publish_tutorial,
     strip_tutorial_lines,
 
-    video_caption,
-    video_urls,
 )
 from modules.channel_cloner import (
 
@@ -755,9 +752,8 @@ VIP_WALL_TEXT = (
     "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
     "• ♾️ <b>Sab kuch unlimited</b> — koi credit, koi limit nahi\n"
     "• ⚡ <b>Sabse fast</b> support + pehle naye tools\n\n"
-    "📌 <b>Jaise:</b> ek baar VIP lo → poora bot khul jata hai, koi rok nahi.\n\n"
-    "🎁 <i>Free VIP chahiye? %d dost ko bulao (/refer).</i>"
-) % REFER_NEED
+    "📌 <b>Jaise:</b> ek baar VIP lo → poora bot khul jata hai, koi rok nahi."
+)
 
 
 def vip_wall_kb() -> InlineKeyboardMarkup:
@@ -858,8 +854,8 @@ VIP_FREE_CB_EXACT = {
     "back_home", "cancel", "open_vip_menu", "mypay_list", "open_refer_menu",
     "pay_utr_help", "premium_plans", "menu_home", "home", "start",
 }
-VIP_FREE_CB_PREFIX = ("buy_plan_", "toolvid:", "adm", "admin", "ugrant:", "urevoke:", "uban:",
-                      "rpay:", "apay:", "askpay:", "vid:", "refer",
+VIP_FREE_CB_PREFIX = ("buy_plan_", "adm", "admin", "ugrant:", "urevoke:", "uban:",
+                      "rpay:", "apay:", "askpay:", "refer",
                       "tnum",     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
                       "bsebr", "cbse_info", "rc_")   # v74.0: RESULT CHECK wizard — FREE
 
@@ -2019,7 +2015,7 @@ TUTORIAL_TEXT = (
     "──────────────────────\n"
     "⌨️ <b>Commands:</b> /start /menu /help /cancel\n"
     "\n"
-    "💬 <b>Atak gaye?</b> Har tool ke neeche 🎬 Tutorial Video button hai. Tool band karne ke liye <b>/cancel</b> dabao."
+    "💬 <b>Atak gaye?</b> Tool band karne ke liye <b>/cancel</b> dabao, ya neeche <b>📩 Support</b> button se seedha pooch lo."
 )
 
 # ============================================================
@@ -2046,47 +2042,6 @@ def tutorial_url() -> str:
     return TUTORIAL_FALLBACK_URL
 
 
-async def send_tool_video(bot_obj, chat_id, key: str, answer_cb=None):
-    """Tool ka tutorial video bhejta hai (CDN → raw → document → link fallback)."""
-    if not has_video(key):
-        if answer_cb:
-            await answer_cb("Is tool ka video jald aa raha hai!", True)
-        return False
-    urls = video_urls(key)
-    sent = False
-    for u in urls:
-        try:
-            await bot_obj.send_video(
-                chat_id=chat_id, video=u, caption=video_caption(key), parse_mode=HTML,
-                supports_streaming=True,
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🔁 Watch Again", callback_data=f"toolvid:{key}")],
-                ]),
-            )
-            sent = True
-            break
-        except Exception:
-            continue
-    if not sent:
-        for u in urls:
-            try:
-                await bot_obj.send_document(chat_id=chat_id, document=u, caption=video_caption(key), parse_mode=HTML)
-                sent = True
-                break
-            except Exception:
-                continue
-    if not sent:
-        try:
-            await bot_obj.send_message(
-                chat_id=chat_id,
-                text=("⚠️ Video send nahi ho paya. Aap yahan se dekh sakte ho:\n"
-                      f'🎬 <a href="{urls[0]}">Tutorial Video (30 sec)</a>'),
-                parse_mode=HTML)
-        except Exception:
-            pass
-    return sent
-
-
 def tutorial_kb():
     """MADAD / TUTORIAL ka keyboard.
 
@@ -2100,38 +2055,28 @@ def tutorial_kb():
     ])
 
 
-def tutorial_footer() -> str:
-    """Bot me text tutorial nahi — isliye footer khaali."""
-    return ""
-
-
-def tutorial_link_line() -> str:
-    return ""
-
-
-# MADAD / TUTORIAL — sirf 🎬 video, koi text tutorial nahi
-TUTORIAL_NOTICE = (
-        "❓ <b>MADAD / TUTORIAL</b>\n"
+# MADAD — bot chalane ka chhota sa tarika (koi video/tutorial nahi hai)
+HELP_NOTICE = (
+        "❓ <b>MADAD</b>\n"
         "──────────────────────\n"
-        "Har tool ke saath <b>🎬 30 second ka video</b> hai.\n"
-        "📌 Jaise: 📥 Video Downloader kholo → neeche 🎬 button dabao → video dekh lo\n\n"
-        "👇 Ya yahan se seedha tool ka video kholo:"
+        "📌 <b>/menu</b> kholo → tool dabao → jo bola jaye wo bhejo. Bas.\n"
+        "🛑 Bech me tool band karna ho to <b>/cancel</b> dabao.\n\n"
+        "👇 Koi bhi dikkat ho to seedha support ko message karo:"
     )
 
 
-def tool_tutorial_kb(action: str):
-    """Tool ke neeche 🎬 video tutorial + 📩 Support button (v59.7).
+def tool_support_kb(action: str = ""):
+    """Har tool ke neeche sirf 📩 Support button (v80).
 
-    v59.7: ab HAR tool me ye keyboard aata hai — user kabhi bhi ek tap me
-    owner se baat kar sakta hai (tap → @Supermannn_x ki chat khulti hai).
+    Pehle yahan ek 30-second ka tutorial-video button bhi hota tha — saare
+    tutorial videos (aur uska callback) user ki hiring par poori tarah delete
+    ho chuke hain, isliye ab sirf Support button hai. `action` argument isliye
+    rakha hai taaki saare call sites same rahein.
     """
-    rows = []
-    if has_video(action):
-        rows.append([InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU",
-                                          callback_data=f"toolvid:{action}")])
-    rows.append([InlineKeyboardButton(f"📩 Support — seedha message karo {SUPPORT_USERNAME}",
-                                      url=SUPPORT_URL)])
-    return InlineKeyboardMarkup(rows)
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(f"📩 Support — seedha message karo {SUPPORT_USERNAME}",
+                              url=SUPPORT_URL)],
+    ])
 
 
 # Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
@@ -2434,7 +2379,6 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "💎 <b>AB SAARE tools PREMIUM hain</b> — 1 use = 1 credit\n"
         "🎁 <b>Naye user ko 25 free credits</b> (ek baar ke) — unke baad VIP lo\n"
         "👑 <b>VIP = POORA bot UNLIMITED</b> (koi credit nahi, koi limit nahi)\n\n"
-        f"🎁 <i>VIP free chahiye? {REFER_NEED} dost ko share karo (/refer) — ya /premium se lo.</i>"
     )
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 VIP lo / upgrade karo", callback_data="open_vip_menu")],
@@ -2703,7 +2647,7 @@ async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def cmd_tutorial(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
+    await update.message.reply_text(HELP_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
 
 
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -5397,14 +5341,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await cmd_vips(_Wrap(q), context)
         return
 
-    # ---------- 🎬 TOOL KA TUTORIAL VIDEO (har tool ka apna video) ----------
-    if data.startswith("toolvid:"):
-        key = data.split(":", 1)[1]
-        if has_video(key):
-            await q.answer("🎬 Tutorial video bhej raha hoon (30 sec)...")
-        await send_tool_video(context.bot, q.message.chat.id, key, answer_cb=q.answer)
-        return
-
     # Virtual Numbers Funnel
     if data in ("vnum_open", "vnum_back"):
         await q.message.edit_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(), parse_mode=HTML)
@@ -5991,7 +5927,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _u_in = get_user(uid, q.from_user.first_name)
         # v58: tool start par credits line NAHI (user ka order)
         await q.message.reply_text(tool_prompt("imei"),
-                                   reply_markup=tool_tutorial_kb("imei"), parse_mode=HTML)
+                                   reply_markup=tool_support_kb("imei"), parse_mode=HTML)
         return
 
     if data.startswith("admpay_view:"):
@@ -6271,14 +6207,11 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "cloner_guide":
         await q.message.reply_text(
-
             "🔄 <b>AUTO FORWARD (CLONER) — 3 STEP</b>\n"
             "──────────────────────\n"
             "1️⃣ <b>SOURCE</b> set karo (jis channel se post copy hogi)\n"
             "2️⃣ <b>TARGET</b> set karo (jis channel me post jayegi — bot wahan admin ho)\n"
-            "3️⃣ <b>FULL AUTO ON</b> karo — bas, posts khud copy hone lagengi\n"
-            "\n"
-            "🎬 Neeche video dekho — 30 second me poora tarika:",
+            "3️⃣ <b>FULL AUTO ON</b> karo — bas, posts khud copy hone lagengi\n",
             reply_markup=InlineKeyboardMarkup([
                 # v79: 🎬 tutorial video button hataya (videos bot se delete ho chuke)
                 [InlineKeyboardButton("🚀 Setup shuru karo", callback_data="cloner_setup")],
@@ -6418,7 +6351,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return
         # v58: tool start par credits line NAHI (user ka order)
-        await q.message.reply_text(tool_prompt(data), reply_markup=tool_tutorial_kb(data), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt(data), reply_markup=tool_support_kb(data), parse_mode=HTML)
         return
 
     if data == "kagaz_menu":
@@ -6782,16 +6715,16 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if data == "qr_wifi":
         context.user_data["mode"] = "qr_wifi"
-        await q.message.reply_text(tool_prompt("qr_wifi"), reply_markup=tool_tutorial_kb("qr_wifi"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_wifi"), reply_markup=tool_support_kb("qr_wifi"), parse_mode=HTML)
         return
     if data == "qr_vcard":
         context.user_data["mode"] = "qr_vcard"
-        await q.message.reply_text(tool_prompt("qr_vcard"), reply_markup=tool_tutorial_kb("qr_vcard"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr_vcard"), reply_markup=tool_support_kb("qr_vcard"), parse_mode=HTML)
         return
 
     if data == "qr_text":
         context.user_data["mode"] = "qr"
-        await q.message.reply_text(tool_prompt("qr"), reply_markup=tool_tutorial_kb("qr"), parse_mode=HTML)
+        await q.message.reply_text(tool_prompt("qr"), reply_markup=tool_support_kb("qr"), parse_mode=HTML)
         return
 
     # Document compress: size + grayscale + GO
@@ -7589,7 +7522,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
         if action in ("tutorial", "help"):
-            await update.message.reply_text(TUTORIAL_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
+            await update.message.reply_text(HELP_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
             return
         if action == "support":
             # v59.7: menu ka "💬 SUPPORT / MADAD" button — ek tap me owner se baat
@@ -7628,7 +7561,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             # v58: NA credits line, NA "/cancel" wali line — seedha tool prompt
             await update.message.reply_text(tool_prompt(action),
-                                            reply_markup=tool_tutorial_kb(action), parse_mode=HTML)
+                                            reply_markup=tool_support_kb(action), parse_mode=HTML)
             return
 
     # Check Active Working Modes
@@ -9985,7 +9918,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if _mode_now and _mode_now in PROMPTS:
         await update.message.reply_text(
             "🤔 <b>Samajh nahi aaya</b> — lagta hai ye input is tool ke liye nahi tha.\n\n"
-            + tool_prompt(_mode_now), reply_markup=tool_tutorial_kb(_mode_now), parse_mode=HTML)
+            + tool_prompt(_mode_now), reply_markup=tool_support_kb(_mode_now), parse_mode=HTML)
         return
     if _mode_now:
         _name = {"pp_stamp_text": "📸 PASSPORT PHOTO", "pp_stamp": "📸 PASSPORT PHOTO",
@@ -11854,7 +11787,7 @@ def main():
 
     async def _cmd_terabox(u, c):
         if await vip_gate(u):
-            await u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_tutorial_kb("terabox"), parse_mode=HTML)
+            await u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_support_kb("terabox"), parse_mode=HTML)
 
     async def _cmd_cloner(u, c):
         if await vip_gate(u):
