@@ -2060,7 +2060,7 @@ HELP_NOTICE = (
         "❓ <b>MADAD</b>\n"
         "──────────────────────\n"
         "📌 <b>/menu</b> kholo → tool dabao → jo bola jaye wo bhejo. Bas.\n"
-        "🛑 Bech me tool band karna ho to <b>/cancel</b> dabao.\n\n"
+        "🛑 Beech me tool band karna ho to <b>/cancel</b> dabao.\n\n"
         "👇 Koi bhi dikkat ho to seedha support ko message karo:"
     )
 
