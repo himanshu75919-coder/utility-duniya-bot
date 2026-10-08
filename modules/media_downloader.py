@@ -1666,7 +1666,9 @@ def _tt_tikwm(url: str, max_mb: int = MAX_TG_MB):
             dur = 0
         # (1) photo slideshow — images[] (yt-dlp ye support hi nahi karta)
         imgs = d.get("images") or []
-        if imgs and not d.get("play"):
+        # v97: photo-post par PHOTOS jeettin hain (play to auto-slideshow hai) —
+        # user ne photo link bheja = saari photos (IG carousel jaisa)
+        if imgs:
             items = []
             for iu in imgs[:10]:
                 try:
@@ -1748,6 +1750,179 @@ def _fb_native(url: str, max_mb: int = MAX_TG_MB):
 
 
 # =====================================================================================
+# v97: YOUTUBE COOKIELESS ENGINE (loader.to job + poll + download)
+# =====================================================================================
+# YouTube datacenter IP par "Sign in to confirm you're not a bot" deta hai (cookies
+# ke bina yt-dlp mar jaata hai). loader.to ka ajax endpoint bina-login 360/720/1080p
+# mp4 bana deta hai: job start → progress poll → savenow CDN link → download.
+# Same IP se generate + download = captcha nahi aata (hub ke link doosre IP se
+# khincho to captcha aata tha — isi liye hub path mara hua tha).
+_LOADER_UA = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                             "AppleWebKit/537.36 (KHTML, like Gecko) "
+                             "Chrome/120.0 Safari/537.36"),
+              "Referer": "https://loader.to/"}
+_LOADER_JOBS = {}
+_LOADER_LOCK = threading.Lock()
+
+
+def _lkey(url: str) -> str:
+    """YouTube URL → video id (cache/job key). Non-YT → ''."""
+    try:
+        u = str(url or "")
+        m = (re.search(r"[?&]v=([A-Za-z0-9_-]{6,20})", u)
+             or re.search(r"youtu\.be/([A-Za-z0-9_-]{6,20})", u)
+             or re.search(r"/(?:shorts|embed|live|v)/([A-Za-z0-9_-]{6,20})", u))
+        return m.group(1) if m else ""
+    except Exception:  # noqa: BLE001
+        return ""
+
+
+def _loader_height(h) -> int:
+    """Maangi height → loader format (360/480/720/1080)."""
+    try:
+        h = int(h)
+    except Exception:  # noqa: BLE001
+        return 360
+    if h >= 1080:
+        return 1080
+    if h >= 720:
+        return 720
+    if h >= 480:
+        return 480
+    return 360
+
+
+def _loader_start(url: str, height: int):
+    """loader.to job start → progress_url ya None (fast-fail)."""
+    try:
+        if not _lkey(url):
+            return None
+        import urllib.parse as _up
+        api = ("https://loader.to/ajax/download.php?format=%d&url=%s"
+               % (_loader_height(height), _up.quote(str(url).strip(), safe="")))
+        r = httpio.get(api, headers=_LOADER_UA, timeout=25)
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        if not isinstance(j, dict):
+            return None
+        purl = j.get("progress_url") or ""
+        return purl if isinstance(purl, str) and purl.startswith("http") else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _loader_poll_once(purl: str):
+    """Ek poll → (done, download_url, title, format_echo)."""
+    r = httpio.get(purl, headers=_LOADER_UA, timeout=25)
+    j = r.json()
+    if not isinstance(j, dict):
+        return False, "", "", ""
+    dl = j.get("download_url") or ""
+    done = (j.get("success") == 1) or bool(dl)
+    return done, (dl if isinstance(dl, str) else ""), str(j.get("title") or ""), str(j.get("format") or "")
+
+
+def _loader_run(url: str, height: int, wait: float):
+    """gen + poll loop (max ~wait sec) → (download_url, title, format)."""
+    purl = _loader_start(url, height)
+    if not purl:
+        return None, "", ""
+    end = time.time() + max(6.0, float(wait or 0))
+    title, fmt, errs = "", "", 0
+    while time.time() < end:
+        time.sleep(5)
+        try:
+            done, dl, title, fmt = _loader_poll_once(purl)
+        except Exception:  # noqa: BLE001
+            errs += 1
+            if errs >= 3:
+                break
+            continue
+        errs = 0
+        if done:
+            return (dl or None), title, fmt
+    return None, title, fmt
+
+
+def _loader_cache_put(key, state, dl="", title="", fmt=""):
+    try:
+        with _LOADER_LOCK:
+            _LOADER_JOBS[key] = (state, dl, time.time(), title, fmt)
+            if len(_LOADER_JOBS) > 50:   # Fortress: cache kabhi unlimited nahi
+                for _k in sorted(_LOADER_JOBS, key=lambda x: _LOADER_JOBS[x][2])[:15]:
+                    _LOADER_JOBS.pop(_k, None)
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def yt_loader_prewarm(url: str, height: int = 720) -> bool:
+    """Picker dikhte hi background job (non-blocking) — tap par turant pickup."""
+    try:
+        vid = _lkey(url)
+        if not vid:
+            return False
+        key = (vid, _loader_height(height))
+        with _LOADER_LOCK:
+            st = _LOADER_JOBS.get(key)
+            if st and time.time() - st[2] < 1500:
+                return True
+        _loader_cache_put(key, "run")
+
+        def _job():
+            try:
+                dl, title, fmt = _loader_run(url, _loader_height(height), 150)
+                _loader_cache_put(key, ("done" if dl else "fail"), dl or "", title, fmt)
+            except Exception:  # noqa: BLE001
+                _loader_cache_put(key, "fail")
+        threading.Thread(target=_job, daemon=True).start()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _yt_loader(url: str, height: int = 360, wait: float = 30, max_mb: int = MAX_TG_MB):
+    """Warm job pickup, warna inline run. Returns video-dict ya None."""
+    try:
+        vid = _lkey(url)
+        if not vid:
+            return None
+        h = _loader_height(height)
+        key = (vid, h)
+        with _LOADER_LOCK:
+            st = _LOADER_JOBS.get(key)
+        dl, title, fmt = "", "", ""
+        if st and st[0] == "done" and time.time() - st[2] < 1500 and st[1]:
+            dl, title, fmt = st[1], st[3], st[4]
+        elif st and st[0] == "run" and time.time() - st[2] < 1500:
+            end = time.time() + max(6.0, float(wait or 0))
+            while time.time() < end:
+                time.sleep(4)
+                with _LOADER_LOCK:
+                    st2 = _LOADER_JOBS.get(key)
+                if not st2:
+                    break
+                if st2[0] == "done" and st2[1]:
+                    dl, title, fmt = st2[1], st2[3], st2[4]
+                    break
+                if st2[0] == "fail":
+                    break
+        else:
+            dl, title, fmt = _loader_run(url, h, wait)
+        if not dl:
+            return None
+        data = _http_get_capped(dl, max_mb, headers=_LOADER_UA, timeout=60, want="video")
+        if not data:
+            return None
+        return {"ok": True, "type": "video", "platform": "YouTube", "title": title or "",
+                "bytes": data, "size_mb": _size_mb(data),
+                "quality": ((fmt + "p") if fmt.isdigit() else (fmt or f"{h}p")),
+                "engine": "loader.to"}
+    except Exception:  # noqa: BLE001
+        return None
+
+
+# =====================================================================================
 # UNIVERSAL DOWNLOADER (Instagram + YouTube + FB + X + TikTok + ...)
 # =====================================================================================
 def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
@@ -1758,6 +1933,13 @@ def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
         _hres = _call_capped(_hub_youtube_download, 6, url, max_mb) or {"ok": False}
         if _hres.get("ok"):
             return _hres
+        # v97: cookieless loader (hub thanda/mara ho tab bhi YT chale)
+        try:
+            _lres = _yt_loader(url, 720, wait=30, max_mb=max_mb)
+        except Exception:  # noqa: BLE001
+            _lres = None
+        if _lres and _lres.get("ok"):
+            return _lres
 
     # --- Instagram: 3-engine chain ---
     if is_instagram_url(url):
@@ -2177,11 +2359,29 @@ def _yt_quality_download_raw(url: str, height: int, max_mb: int = MAX_TG_MB) -> 
     warna hub 1080p + bot-side ffmpeg downscale. Result contract = _hub_youtube_download."""
     h = int(height)
     if h >= 1080:
+        # v97: cookieless 1080 pehle (shorts par ~20s); fail → hub → 720
+        _l10 = _yt_loader(url, 1080, wait=30, max_mb=max_mb)
+        if _l10 and _l10.get("ok"):
+            return _l10
         # v68: hub ko 12 second — warna seedha tez engine (720p quality)
         _hd = _call_capped(_hub_youtube_download, 12, url, max_mb)
         if _hd and _hd.get("ok"):
             return _hd
         h = 720
+    # v97: prewarmed loader pickup (720) — picker par job shuru ho chuka hota hai
+    _lw = _yt_loader(url, 720, wait=30, max_mb=max_mb)
+    if _lw and _lw.get("ok"):
+        if h >= 720:
+            return _lw
+        _ds97 = downscale_video(_lw["bytes"], h, max_mb)
+        if _ds97.get("ok"):
+            _lw["bytes"] = _ds97["bytes"]
+            _lw["size_mb"] = _ds97["size_mb"]
+            _lw["quality"] = f"{h}p"
+            _lw["engine"] = (_lw.get("engine") or "loader.to") + f" → {h}p"
+            return _lw
+        _lw["note_quality"] = "chhoti quality convert nahi ho payi — original HD bheja hai"
+        return _lw
     # 1) Direct local download (kaam karta hai jab YouTube IP allow kare)
     data, info = yt_download_at_height(url, h, max_mb)
     if data and len(data) > 1000:
