@@ -211,38 +211,99 @@ def _tb_surl_api(url):
 # =====================================================================================
 # LAYER 2 — GUEST share/list (bina cookie: infolist milti hai)
 # =====================================================================================
+# =====================================================================================
+# v82: TERABOX 2026 TOKEN FLOW — share page se jsToken + logid (bina jsToken ke
+#      share/list ab errno 105 / khaali list deta hai). Live test me errno 0 mila ✅
+# =====================================================================================
+_TB_INFO_STASH: dict = {}      # surl -> file info (dlink na ho to bhi naam/size dikhane ke liye)
+
+
+def _tb_page_tokens(session, surl: str):
+    """Share page se (jsToken, logid) nikaalo. Dono me se koi bhi None ho sakta hai."""
+    page = f"https://www.terabox.com/sharing/link?surl={surl}"
+    r = session.get(page, headers=UA, timeout=20, allow_redirects=True)
+    html = unquote(r.text or "")
+    js = None
+    m = re.search(r'jsToken[^"\'<>]{0,60}?fn\(\s*["\']([0-9A-Fa-f]{16,})["\']', html)
+    if not m:
+        m = (re.search(r'"jsToken"\s*:\s*"([^"]{8,})"', html)
+             or re.search(r'jsToken\s*=\s*["\']([^"\']{8,})["\']', html))
+    if m:
+        js = m.group(1)
+    lg = re.search(r"logid=([0-9]{6,})", html) or re.search(r'"logid"\s*:\s*"?([0-9]{6,})', html)
+    return js, (lg.group(1) if lg else None)
+
+
+def _tb_share_list(session, surl: str, js_token, logid, dir_path: str = "/") -> dict:
+    """Terabox share/list (root ya folder). Hamesha dict lautata hai (kabhi exception nahi)."""
+    page = f"https://www.terabox.com/sharing/link?surl={surl}"
+    params = {"app_id": "250528", "web": "1", "channel": "dubox", "clienttype": "0",
+              "shorturl": surl, "root": "1" if dir_path == "/" else "0",
+              "page": "1", "num": "100", "order": "time", "desc": "1", "dir": dir_path}
+    if js_token:
+        params["jsToken"] = js_token
+    if logid:
+        params["dplogid"] = logid
+    r = session.get("https://www.terabox.com/share/list", params=params,
+                    headers={**UA, "Referer": page, "X-Requested-With": "XMLHttpRequest"},
+                    timeout=25)
+    txt = (r.text or "").lstrip()
+    return r.json() if txt.startswith("{") else {}
+
+
+def _tb_walk_list(session, surl: str, js_token, logid, items, depth: int = 0) -> list:
+    """Folder ho to andar jhaankte hain (max 2 level, max 30 file)."""
+    out: list = []
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        if str(it.get("isdir")) == "1" and depth < 2 and len(out) < 30:
+            try:
+                j = _tb_share_list(session, surl, js_token, logid, it.get("path") or "/")
+                if j.get("errno") == 0:
+                    out += _tb_walk_list(session, surl, js_token, logid, j.get("list") or [], depth + 1)
+            except Exception:                                    # noqa: BLE001
+                pass
+        else:
+            out.append(it)
+    return out[:30]
+
+
+def _tb_info_only(items) -> list:
+    """dlink na ho to bhi file ka naam + size (info card ke liye)."""
+    info = []
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        nm = it.get("server_filename") or it.get("filename")
+        if not nm:
+            continue
+        try:
+            sz = int(it.get("size") or 0)
+        except Exception:                                        # noqa: BLE001
+            sz = 0
+        info.append({"name": str(nm)[:120], "size": _size_h(sz) if sz else "N/A", "size_bytes": sz})
+    return info
+
+
 def _tb_guest_list(url):
-    """Bina cookie Terabox share/list — kuch public shares par chalti hai."""
+    """v82: bina cookie — jsToken se share/list. dlink mile to direct, warna sirf file info."""
     surl = _extract_surl(url)
     if not surl:
         return None, None
     try:
         s = pooled_session()
-        page = f"https://www.terabox.com/sharing/link?surl={surl}"
-        s.get(page, headers=UA, timeout=15)
-        r = s.get("https://www.terabox.com/share/list",
-                  params={"app_id": "250528", "web": "1", "shorturl": surl, "root": "1"},
-                  headers={**UA, "Referer": page}, timeout=20)
-        if r.status_code == 200 and r.text.strip().startswith("{"):
-            j = r.json()
-            if j.get("errno") == 0 and j.get("list"):
-                files = _norm_files(j["list"])
-                # Folder ho (isdir=1) to ek level andar bhi jhaankte hain
-                if files and any(x.get("isdir") for x in j["list"]):
-                    folder = next((x for x in j["list"] if x.get("isdir")), None)
-                    if folder:
-                        r2 = s.get("https://www.terabox.com/share/list",
-                                   params={"app_id": "250528", "web": "1", "shorturl": surl,
-                                           "root": "1", "dir": folder.get("path", "/")},
-                                   headers={**UA, "Referer": page}, timeout=20)
-                        if r2.status_code == 200 and r2.text.strip().startswith("{"):
-                            j2 = r2.json()
-                            more = _norm_files((j2.get("list") or [])[:30])
-                            if more:
-                                files = more
-                if files:
-                    return files, "Terabox Guest Listing"
-    except Exception:
+        js, lg = _tb_page_tokens(s, surl)
+        j = _tb_share_list(s, surl, js, lg, "/")
+        if j.get("errno") != 0 or not j.get("list"):
+            return None, None
+        items = _tb_walk_list(s, surl, js, lg, j["list"])
+        files = _norm_files(items)
+        if files:
+            return files, "Terabox Guest Listing"
+        if items:
+            _TB_INFO_STASH[surl] = _tb_info_only(items)
+    except Exception:                                            # noqa: BLE001
         pass
     return None, None
 
@@ -260,7 +321,7 @@ def _tb_cookie_value():
     return raw
 
 
-def _tb_ndus(url):
+def _tb_ndus_legacy(url):
     """Apne (throwaway) Terabox account ke ndus cookie se signed dlink nikalta hai."""
     ndus = _tb_cookie_value()
     if not ndus:
@@ -323,6 +384,34 @@ def _tb_ndus(url):
     except Exception:
         pass
     return None, None
+
+
+# =====================================================================================
+# v82: NDUS (cookie) — ab modern token flow se signed dlink; purana HTML tarika fallback
+# =====================================================================================
+def _tb_ndus(url):
+    """TERABOX_COOKIE (ndus) ke saath — jsToken + share/list = dlink (2026 flow)."""
+    ndus = _tb_cookie_value()
+    if not ndus:
+        return None, None
+    surl = _extract_surl(url)
+    if not surl:
+        return None, None
+    try:
+        s = pooled_session()
+        s.cookies.set("ndus", ndus, domain=".terabox.com")
+        js, lg = _tb_page_tokens(s, surl)
+        j = _tb_share_list(s, surl, js, lg, "/")
+        if j.get("errno") == 0 and j.get("list"):
+            items = _tb_walk_list(s, surl, js, lg, j["list"])
+            files = _norm_files(items)
+            if files:
+                return files, "Terabox Cookie (Direct)"
+            if items:
+                _TB_INFO_STASH[surl] = _tb_info_only(items)
+    except Exception:                                            # noqa: BLE001
+        pass
+    return _tb_ndus_legacy(url)
 
 
 # =====================================================================================
@@ -403,21 +492,22 @@ def _tb_hub(url):
 
 
 def resolve_terabox(url: str) -> dict:
+    # v82: sabse pehle token-based guest listing (fast). Phir hub / cookie / purane workers.
     engines = [
-        ("API Hub", _tb_hub),                       # v45: user ka hub pehle
+        ("Guest Listing", _tb_guest_list),           # v82: jsToken flow (sabse fast)
+        ("API Hub", _tb_hub),                        # v45: user ka hub
+        ("Cookie Mode (NDUS)", _tb_ndus),            # v82: cookie ho to direct dlink
         ("Public Worker (Robin)", _tb_robin),
         ("Public Worker (HNN)", _tb_hnn),
         ("Public Worker (QTCloud)", _tb_qtcloud),
         ("Public API (surl)", _tb_surl_api),
-        ("Guest Listing", _tb_guest_list),
-        ("Cookie Mode (NDUS)", _tb_ndus),
         ("Custom Provider", _tb_custom_provider),
     ]
     tried = []
     for name, fn in engines:
         try:
             files, engine = fn(url)
-        except Exception as e:
+        except Exception as e:                                   # noqa: BLE001
             tried.append(f"{name}: {type(e).__name__}")
             continue
         tried.append(f"{name}: {'OK' if files else 'no'}")
@@ -436,17 +526,26 @@ def resolve_terabox(url: str) -> dict:
                 "total_files": len(files),
             }
 
-    # Sab fail — kabhi bhi user ko khali haath nahi bhejte: fallback card
+    # Sab fail — kabhi bhi user ko khali haath nahi bhejte: info + web fallback card
     surl = _extract_surl(url)
-    hint = ("Direct link ke liye TERABOX_COOKIE (ndus) set karo — wo hamesha chalta hai. Ya neeche web downloader use karo."
-            "Or use the web downloader below.")
+    info = _TB_INFO_STASH.get(surl) if surl else None
+    err = "Direct link nahi mila (Terabox ne 2026 me public API band kar di)."
+    if info:
+        f0 = info[0]
+        more = f" (+{len(info) - 1} aur)" if len(info) > 1 else ""
+        err += (f"\n📄 File mili: {f0['name']} — {f0['size']}{more}\n"
+                "Direct download abhi nahi nikala ja saka — neeche web downloader try karo "
+                "ya Terabox app me link kholo.")
+    hint = ("Direct link ke liye TERABOX_COOKIE (ndus) set karo — wo hamesha chalta hai. "
+            "Ya neeche web downloader use karo.")
     return {
         "ok": False,
         "provider": "Terabox",
-        "error": "Direct link nahi mila (Terabox ne 2026 me public API band kar di).",
+        "error": err,
         "hint": hint,
         "fallback_links": TERABOX_WEB_FALLBACKS,
         "surl": surl,
+        "file_info": info or [],
         "tried": tried,
     }
 

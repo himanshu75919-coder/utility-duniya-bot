@@ -520,7 +520,8 @@ check("BOT_VERSION me FREE4ALL guard word hai (suite check karta hai)",
       "FREE4ALL" in BOT.BOT_VERSION)
 check("BOT_VERSION me NO-GYAAN + SPEED guard words hain",
       "NO-GYAAN" in BOT.BOT_VERSION and "SPEED" in BOT.BOT_VERSION)
-check("BOT_VERSION v77 par bump hua", BOT.BOT_VERSION.startswith("v77"), BOT.BOT_VERSION[:12])
+check("BOT_VERSION v82 par bump hua (v77 wale guard words ab bhi version me hain)",
+      BOT.BOT_VERSION.startswith("v82") and "v77" in BOT.BOT_VERSION, BOT.BOT_VERSION[:12])
 check("ALL_FREE default on hai (users ke liye sab tools free)", BOT.ALL_FREE is True)
 check("requirements.txt me bare (unpinned) deps nahi",
       all((">=" in l or "#" in l or not l.strip())

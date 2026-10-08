@@ -499,7 +499,7 @@ _CLIENT_LOCK = threading.Lock()
 _DL_MEM = {}                         # url-key -> (bytes, meta, ts)
 _DL_MEM_ORDER = []                   # LRU order (key list)
 _DL_MEM_BYTES = 0
-_DL_MEM_MAX_BYTES = 100 * 1024 * 1024      # 100 MB tak rakho
+_DL_MEM_MAX_BYTES = 20 * 1024 * 1024       # v82: 20 MB (512 MB RAM plan ka OOM fix; bada file disk cache sambhalta hai)
 _DL_MEM_TTL = 2 * 3600                     # 2 ghante
 _DL_MEM_LOCK = threading.Lock()
 
@@ -558,7 +558,7 @@ def _mem_put(url: str, data, meta, tag: str = "") -> None:
     """Cache me daalo (100 MB se upar kuch nahi — RAM safe)."""
     global _DL_MEM_BYTES
     try:
-        if not data or len(data) > 40 * 1024 * 1024:
+        if not data or len(data) > 12 * 1024 * 1024:     # v82: RAM me sirf chhoti files
             return
         k = _mem_key(url, tag)
         with _DL_MEM_LOCK:
@@ -1251,6 +1251,11 @@ def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
                 "engine": "yt-dlp (fast)"}
 
     info = _ytdlp_info(url)
+    # v82: TikTok PHOTO/slideshow post — yt-dlp ye support nahi karta; og:image se photo bhejo
+    if not info and "tiktok.com" in url.lower() and "/photo/" in url.lower():
+        _ph = _og_scrape(url, "photo", allow_photo=True)
+        if _ph and _ph.get("ok") and _ph.get("bytes"):
+            return _ph
     if not info:
         return {"ok": False, "error": friendly_dl_error(
             "yt-dlp ye link handle nahi kar paya")}

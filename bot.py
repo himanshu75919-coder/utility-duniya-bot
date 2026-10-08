@@ -476,7 +476,9 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
+BOT_VERSION = ("v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+               "Instagram img_index + saaf self-restart + RAM safety | "
+               "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
                "ab baaki 40 ko line me nahi khada karta; Telegram ke duplicate retry "
                "drop) + 🔗 LINK CHECK PRO (obfuscated IP, homoglyph, typosquat, RTL, "
@@ -955,6 +957,24 @@ def spend_credit_msg(uid: int, action: str = "") -> str:
     return f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>"
 
 
+
+
+async def _reply_nonempty(msg, text, **kw):
+    """v82: khaali text par Telegram 'Message text is empty' error deta tha — aur media bhej
+    dene ke BAAD bhi user ko galat 'SEND FAILED' dikhta tha (free mode me credit note khaali
+    hota hai). Ab khaali ho to chup-chaap skip; warna normal reply."""
+    if text is None or not str(text).strip():
+        return None
+    return await msg.reply_text(text, **kw)
+
+
+def _parse_img_index(text: str):
+    """v82: Instagram link me ?img_index=N (carousel ka N-wan item). Nahi mila to None."""
+    m = re.search(r"[?&]img_index=(\d{1,3})", str(text or ""))
+    if not m:
+        return None
+    n = int(m.group(1))
+    return n if n >= 1 else None
 
 
 def inr(amount, decimals: int = 0) -> str:
@@ -2776,6 +2796,38 @@ def _startup_selfcheck() -> bool:
     return ok
 
 
+def _hard_restart(reason: str, delay: float = 3.0, extra_env: dict = None) -> None:
+    """v82: process ko SAAF restart karo — naya event loop, naya Application, koi leak nahi.
+    os.execv se PID same rehta hai (Render ko crash/naya deploy jaisa nahi lagta).
+    Fail ho to chup-chaap return — process isi state me chalta rahega."""
+    try:
+        _now = time.time()
+        _last = float(os.environ.get("UDB_LAST_RESTART") or 0)
+        _n = int(os.environ.get("UDB_RESTARTS") or 0) + 1
+        if _now - _last < 120:                           # bahut jaldi-jaldi ho raha ho to thoda ruko
+            delay = max(delay, 60.0)
+        if os.path.basename(sys.argv[0] if sys.argv else "") != "bot.py":
+            # v82: sirf `python bot.py` (Render) par process replace karo; tests/import me nahi
+            log.warning("🔁 restart skip (bot.py se nahi chal raha): %s", reason)
+            return
+        log.warning("🔁 HARD RESTART #%s: %s (%.0fs baad)", _n, reason, delay)
+        for _h in logging.getLogger().handlers:
+            try:
+                _h.flush()
+            except Exception:                            # noqa: BLE001
+                pass
+        sys.stdout.flush()
+        sys.stderr.flush()
+        time.sleep(delay)
+        _env = dict(os.environ)
+        _env.update({"UDB_RESTARTS": str(_n), "UDB_LAST_RESTART": str(time.time())})
+        if extra_env:
+            _env.update({k: str(v) for k, v in extra_env.items()})
+        os.execve(sys.executable, [sys.executable, os.path.abspath(__file__)], _env)
+    except Exception as _e:                              # noqa: BLE001
+        log.error("hard restart fail (%s) — isi process me chalta rahega", str(_e)[:120])
+
+
 def _supervise() -> None:
     """main() ko chalao; crash ho to KHUD restart karo (Render ko 502 na mile)."""
     _tries, _fast = 0, []
@@ -2805,6 +2857,7 @@ def _supervise() -> None:
             _wait = 60 if len(_fast) >= 8 else 5
             log.warning("🔁 SELF-HEAL: %ss baad khud restart kar raha hoon (try #%s)",
                         _wait, _tries + 1)
+            _hard_restart(f"crash {type(e).__name__}", delay=_wait)   # v82: saaf process restart
             time.sleep(_wait)
 
 
@@ -5917,7 +5970,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text("🔎 <b>Checking this IMEI again…</b>", parse_mode=HTML)
         res_ii = await asyncio.to_thread(fetch_imei_details, imei, False)
         if res_ii.get("ok"):
-            await q.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
+            await _reply_nonempty(q.message, spend_credit_msg(uid, "imei"), parse_mode=HTML)
             if res_ii.get("photo") and not str(res_ii["photo"]).lower().endswith(".gif"):
                 try:
                     await q.message.reply_photo(photo=res_ii["photo"],
@@ -6587,7 +6640,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                              f"(0.1 second)"))
                 await st.delete()
                 add_use(uid)
-                await q.message.reply_text(spend_credit_msg(uid, "insta_dl"),
+                await _reply_nonempty(q.message, spend_credit_msg(uid, "insta_dl"),
                                            parse_mode=HTML)
                 return
             except Exception:                                    # noqa: BLE001
@@ -6612,7 +6665,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + (res.get("note") or ""),
                 parse_mode=HTML)
             add_use(uid)
-            await q.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+            await _reply_nonempty(q.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
             return
         if res.get("type") != "video" or not res.get("bytes"):
             await st.edit_text(fail_msg("VIDEO READY NAHI HUI", "Dobara try karo (link public hai kya?)"),
@@ -6643,7 +6696,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         await st.delete()
         add_use(uid)
-        await q.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+        await _reply_nonempty(q.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
         return
 
     if data.startswith("mvoicepk:"):
@@ -6852,7 +6905,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         save_cloner_config(uid, auto_status="on")
         if credits_left(_u_c, uid) < 999999:
-            await q.message.reply_text(spend_credit_msg(uid, "cloner").replace("1 credit used", "FULL AUTO ON — 1 credit used"),
+            await _reply_nonempty(q.message, spend_credit_msg(uid, "cloner").replace("1 credit used", "FULL AUTO ON — 1 credit used"),
                                        parse_mode=HTML)
         await q.message.reply_text(
             "🤖 <b>FULL AUTO CLONE ON! 🟢</b>\n\n"
@@ -6915,7 +6968,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return
         if credits_left(_u_m, uid) < 999999:
-            await q.message.reply_text(spend_credit_msg(uid, "cloner").replace("1 credit used", "Fast Forward ON — 1 credit used"),
+            await _reply_nonempty(q.message, spend_credit_msg(uid, "cloner").replace("1 credit used", "Fast Forward ON — 1 credit used"),
                                        parse_mode=HTML)
         context.user_data["mode"] = "cloning_active"
         await q.message.reply_text("🚀 <b>Fast Auto-Forward chalu!</b>\n\nAb kisi bhi channel se 10-15 post/video forward karo, ya media seedha bhejo — bot sab kuch 1-2 second me aapke target channel me daal dega!\n\nRokne ke liye /cancel dabao.", parse_mode=HTML)
@@ -8025,7 +8078,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "terabox":
         st = await update.message.reply_text("⚡ Resolving the cloud link (6 engines)...")
-        res = resolve_cloud_url(raw_text)
+        try:
+            # v82: ye pehle SYNC call tha — 6 engines ke timeouts me poora bot ruk jaata tha.
+            #      Ab thread me chalta hai + hard timeout; error ho to bhi user ko saaf jawab.
+            res = await with_tool_timeout(asyncio.to_thread(resolve_cloud_url, raw_text), 75, "terabox")
+        except Exception as _tbe:                              # noqa: BLE001
+            log.warning("terabox resolve error: %s", str(_tbe)[:120])
+            res = None
+        if not res:
+            res = {"ok": False, "error": "⏱️ Server ne 75 second me jawab nahi diya — dobara try karo (credit nahi katta)."}
 
         if res.get("ok"):
             files = res.get("files") or []
@@ -8057,7 +8118,14 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"⚠️ <b>{to_bold('DIRECT LINK NOT FOUND')}</b>\n\n"
                 f"{hesc(str(res.get('error', 'Could not resolve the cloud link.')))}\n\n"
             )
-            await st.edit_text(cap.strip(), parse_mode=HTML)
+            _tb_rows = [[InlineKeyboardButton(_lbl[:60], url=_u)]
+                        for _lbl, _u in (res.get("fallback_links") or [])[:5]]
+            if res.get("surl"):
+                _tb_rows.append([InlineKeyboardButton(
+                    "🌐 Share page kholo",
+                    url=f"https://www.terabox.com/sharing/link?surl={res['surl']}")])
+            await st.edit_text(cap.strip(), parse_mode=HTML,
+                               reply_markup=InlineKeyboardMarkup(_tb_rows) if _tb_rows else None)
         add_use(uid)
         return
 
@@ -8151,7 +8219,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     _ev.set()
                 add_use(uid)
                 await st.delete()
-                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"),
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"),
                                                 parse_mode=HTML)
                 return
             except Exception:                                    # noqa: BLE001
@@ -8195,8 +8263,18 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
+        _delivered = False          # v82: media pehle ja chuka? to baad ka error "SEND FAILED" nahi dikhega
         try:
             mtype = res.get("type")
+            # v82: Instagram link me ?img_index=N → carousel ka N-wan item hi bhejo
+            _img_idx = _parse_img_index(raw_text)
+            if (mtype == "carousel" and res.get("items") and _img_idx
+                    and _img_idx <= len(res["items"])):
+                _it = res["items"][_img_idx - 1]
+                _bts = _it.get("bytes") or b""
+                res = {**res, "type": _it.get("type", "photo"), "bytes": _bts,
+                       "size_mb": round(len(_bts) / 1048576, 2), "items": None}
+                mtype = res["type"]
             engine = hesc(str(res.get("engine", "")))
             title = hesc(str(res.get("title") or ""))[:60]
 
@@ -8214,9 +8292,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         m_buf.name = f"media_{idx}.jpg"
                         media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
                 await update.message.reply_media_group(media=media_group)
+                _delivered = True
                 await st.delete()
                 add_use(uid)
-                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             # 2) Single Video
@@ -8246,12 +8325,13 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         caption=re.sub(r"</?(?:b|i|code|s)>", "", _vid_cap),
                         file_name=media_buf.name or "video.mp4")
                     if _r.get("ok"):
+                        _delivered = True
                         try:
                             await st.delete()
                         except Exception:                            # noqa: BLE001
                             pass
                         add_use(uid)
-                        await update.message.reply_text(spend_credit_msg(uid, "insta_dl"),
+                        await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"),
                                                          parse_mode=HTML)
                         return
                 _sent = await update.message.reply_video(
@@ -8260,6 +8340,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode=HTML,
                     supports_streaming=True,
                 )
+                _delivered = True
                 # v68: agli baar ke liye file_id yaad rakho (0.1 second delivery)
                 try:
                     dl_fid_set(raw_text, _sent.video.file_id)
@@ -8267,7 +8348,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 await st.delete()
                 add_use(uid)
-                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             # 3) Single Photo
@@ -8281,9 +8362,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                              + f"• 📊 {res.get('size_mb')} MB"),
                     parse_mode=HTML,
                 )
+                _delivered = True
                 await st.delete()
                 add_use(uid)
-                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             # 4) Bada file (48MB+): direct link dete hain — kaam rukta nahi
@@ -8305,13 +8387,16 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode=HTML,
                 )
                 add_use(uid)
-                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
 
             await _st_edit(st, update, 
                 fail_msg("SEND FAILED", "Got the media but Telegram did not accept it."),
                 parse_mode=HTML)
         except Exception as e:
+            if _delivered:          # v82: media pehle hi user tak pahunch chuka — galat 'SEND FAILED' nahi
+                log.warning("v82: media delivered; baad ka step fail (ignored): %s", str(e)[:120])
+                return
             # v44: bade video par Telegram timeout → compressed version se dobara koshish
             _raw = res.get("bytes") or b""
             _fixed = False
@@ -8335,7 +8420,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if _fixed:
                 await st.delete()
                 add_use(uid)
-                await update.message.reply_text(spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return
             await _st_edit(st, update, 
                 fail_msg("SEND FAILED", clean_err(e))
@@ -8354,8 +8439,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             st = res.get("stats") or {}
             pr = res.get("profile") or {}
             tel_note("bgmi", True, _ms, credit=True)
-            await update.message.reply_text(
-                spend_credit_msg(uid, "bgmi") + "\n" +
+            await _reply_nonempty(update.message, spend_credit_msg(uid, "bgmi") + "\n" +
                 pcard_title("🎮", "BGMI PLAYER CARD") + "\n"
                 f"🎯 <b>{hesc(str(pr.get('name') or '—'))}</b>\n"
                 + pcard_sep() + "\n"
@@ -8596,8 +8680,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                          "password": res.get("password", ""),
                                          "created": time.time()}
         context.user_data["tm_seen"] = []
-        await update.message.reply_text(
-            spend_credit_msg(uid, "tempmail") + "\n" +
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "tempmail") + "\n" +
             f"📧 <b>{to_bold('TEMP MAIL TAYAR')}</b>\n"
             "──────────────────────\n"
             f"📮 <b>Aapka ek-baar email:</b>\n"
@@ -8710,7 +8793,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "✅ <b>Koi credit nahi kata.</b> Dobara try karo.", parse_mode=HTML)
             add_use(uid)
             return
-        await update.message.reply_text(spend_credit_msg(uid, "imei"), parse_mode=HTML)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "imei"), parse_mode=HTML)
         try:
             buf_spec = io.BytesIO(imei_specs_json(res_i))
             buf_spec.name = imei_specs_filename(res_i)  # device search me bhi kaam karta hai
@@ -8855,8 +8938,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             _ported_line, _src_line, _ms)
 
         tel_note("numinfo", True, _ms, credit=True)
-        await update.message.reply_text(
-            spend_credit_msg(uid, "numinfo") + "\n" + card, parse_mode=HTML)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "numinfo") + "\n" + card, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -8893,8 +8975,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                           "bhejo (2 line, free). Neeche plate ka sarkari matlab dikh raha hai.")
         _card_v = vahan_card(_vres if _vres.get("ok") else {}, _off, note=_vnote)
         tel_note("vahan", True, _msv, credit=True)
-        await update.message.reply_text(
-            spend_credit_msg(uid, "vahan") + "\n" + _card_v, parse_mode=HTML)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "vahan") + "\n" + _card_v, parse_mode=HTML)
         add_use(uid)
         return
 
@@ -8912,8 +8993,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if w_res.get("ok"):
             w_res["latency_ms"] = w_res.get("latency_ms") or _msw
             tel_note("osint_whois", True, _msw, credit=True)
-            await update.message.reply_text(
-                spend_credit_msg(uid, "osint_whois") + "\n" + whois_card(w_res),
+            await _reply_nonempty(update.message, spend_credit_msg(uid, "osint_whois") + "\n" + whois_card(w_res),
                 parse_mode=HTML)
         else:
             tel_note("osint_whois", False, _msw, error=str(w_res.get("error"))[:90])
@@ -8951,8 +9031,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         _h_res["ms"] = _h_res.get("ms") or _msh
         tel_note("uhunt", True, _msh, credit=True)
-        await update.message.reply_text(
-            spend_credit_msg(uid, "uhunt") + "\n" + uhunt_card(_h_res), parse_mode=HTML)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "uhunt") + "\n" + uhunt_card(_h_res), parse_mode=HTML)
         add_use(uid)
         return
 
@@ -8989,7 +9068,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 + pcard_foot(ms=_ms, source="official bank registry (Razorpay IFSC)",
                              cached=bool(i_res.get("cached")))
             )
-            await update.message.reply_text(spend_credit_msg(uid, "ifsc") + "\n" + card,
+            await _reply_nonempty(update.message, spend_credit_msg(uid, "ifsc") + "\n" + card,
                                             reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
         else:
             await update.message.reply_text(f"❌ {i_res.get('error')}", parse_mode=HTML)
@@ -9031,7 +9110,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     + "\n" + pcard_foot(ms=_ms, source="India Post official data",
                                          cached=bool(p_res.get("cached")))
                 )
-                await update.message.reply_text(spend_credit_msg(uid, "pin") + "\n" + card,
+                await _reply_nonempty(update.message, spend_credit_msg(uid, "pin") + "\n" + card,
                                                 reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
             else:
                 await update.message.reply_text(f"❌ {p_res.get('error')}", parse_mode=HTML)
@@ -9250,7 +9329,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    "Upar ka data GSTIN ke format ka analysis hai (state, PAN, holder type, checksum).\n")
                 + f"<i>Source: {hesc(str(res.get('source')))}</i>")
         await st.edit_text(card, parse_mode=HTML)
-        await update.message.reply_text(spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
         context.user_data.pop("mode", None)
         add_use(uid)
         return
@@ -9289,7 +9368,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                    if not rows else "")
                 + f"<i>Source: {hesc(str(res.get('source')))}</i>")
         await st.edit_text(card, parse_mode=HTML)
-        await update.message.reply_text(spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
         context.user_data.pop("mode", None)
         add_use(uid)
         return
@@ -9894,8 +9973,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             kb_stores.append([InlineKeyboardButton(f"🔎 {s['name']} — search", url=s["url"])])
         kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
 
-        await update.message.reply_text(
-            spend_credit_msg(uid, "appfind") + "\n" + "\n".join(L)[:3600],
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "appfind") + "\n" + "\n".join(L)[:3600],
             reply_markup=InlineKeyboardMarkup(kb_stores), parse_mode=HTML)
         add_use(uid)
         return
@@ -9951,7 +10029,7 @@ async def deliver_statement(update, context, uid, res):
     await update.message.reply_document(
         document=res["csv"], filename=f"statement_{datetime.now().strftime('%d-%m-%Y')}.csv",
         caption=statement_summary_text(res), parse_mode=HTML)
-    await update.message.reply_text(spend_credit_msg(uid, "bankpdf"), parse_mode=HTML)
+    await _reply_nonempty(update.message, spend_credit_msg(uid, "bankpdf"), parse_mode=HTML)
     context.user_data.pop("mode", None)
     context.user_data.pop("bankpdf_bytes", None)
     add_use(uid)
@@ -10993,6 +11071,10 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
                 "to Render me check karo ki koi doosra purana service same token "
                 "par nahi chal raha.")
         return
+    # v82: khaali text wala error (free-mode credit note) — user ko koi galat error nahi dikhana
+    if "message text is empty" in str(err).lower():
+        log.info("v82: khaali message skip (user ko error nahi): %s", str(err)[:80])
+        return
     log.error("Exception handling update: %s", err)
     # v50: user bhi jaane ki koi chhota ghatna hua — chup-chaap na mile
     try:
@@ -11858,6 +11940,8 @@ def main():
                                 ("set ✅ (base only)" if "/webhook" not in _wu_raw.lower()
                                  else "set — usme /webhook/… path bhi tha, strip kar diya"))
     _WEBHOOK_DIAG["ext_env"] = "set" if os.environ.get("RENDER_EXTERNAL_URL") else "not set"
+    if os.environ.get("UDB_FORCE_POLLING") == "1":      # v82: webhook fail ke baad saaf restart → polling
+        WEBHOOK_URL = ""
     _wh_ok, _wh_why = (False, "polling mode (WEBHOOK_MODE=off ya koi URL nahi)")
     if WEBHOOK_URL:
         _wh_ok, _wh_why = webhook_url_usable(WEBHOOK_URL)
@@ -12062,6 +12146,11 @@ def main():
             # v49.4: webhook fail (DNS/Telegram error) — bot band NAHI hoga, polling par switch
             log.error("Webhook fail ho gaya (%s: %s) — ab POLLING par switch kar raha hoon",
                       type(e).__name__, str(e)[:200])
+            # v82: PEHLE ka bug: event loop run_webhook ne band kar diya tha, usi me polling
+            #      chalane se "Event loop is closed" aata tha. Ab saaf process restart (polling mode).
+            if os.environ.get("UDB_FORCE_POLLING") != "1":
+                _hard_restart(f"webhook fail ({type(e).__name__}) → polling", delay=3.0,
+                              extra_env={"UDB_FORCE_POLLING": "1"})
             try:
                 app.bot.delete_webhook(drop_pending_updates=True)
             except Exception:                                   # noqa: BLE001
@@ -12083,6 +12172,7 @@ def main():
     #         -> Render restart -> user ko lagta tha "bot crash ho gaya".
     #  Ab   : Conflict aaye to bas intezaar (backoff), chalta rahega.
     _try = 0
+    _bad_streak = [0]              # v82: lagataar non-conflict fail → saaf restart
     while True:
         _try += 1
         try:
@@ -12094,6 +12184,11 @@ def main():
         except Exception as e:                                  # noqa: BLE001
             _msg = str(e).lower()
             log.error("Polling band hui (%s: %s)", type(e).__name__, str(e)[:200])
+            if "conflict" not in _msg:
+                _bad_streak[0] += 1
+                if _bad_streak[0] >= 3:
+                    _hard_restart(f"polling fail x3 ({type(e).__name__})", delay=5.0)
+                    _bad_streak[0] = 0
             if "conflict" in _msg:
                 # purana instance band hone ka intezaar — webhook try bhi karo
                 if _force_webhook_after_conflict(app):
