@@ -147,7 +147,8 @@ def main():
     print("=" * 62)
     print("D) FORTRESS-II — crash-proof wiring")
     print("=" * 62)
-    ok("v86: version v86 + history (v85/v84/v83/v77)", B.BOT_VERSION.startswith("v86") and "v85.0" in B.BOT_VERSION and "v84.0" in B.BOT_VERSION
+    _vm = re.match(r"v(\d+)", B.BOT_VERSION)          # v93: exact prefix ki jagah >= 85
+    ok("version v85+ + history (v84/v83/v77)", bool(_vm) and int(_vm.group(1)) >= 85 and "v84.0" in B.BOT_VERSION
        and "v83.0" in B.BOT_VERSION and "v77" in B.BOT_VERSION, B.BOT_VERSION[:16])
     ok("guard words (FREE4ALL/SPEED/NO-GYAAN)", "FREE4ALL" in B.BOT_VERSION and "SPEED" in B.BOT_VERSION
        and "NO-GYAAN" in B.BOT_VERSION)

@@ -15,6 +15,7 @@ Chalane ka tarika:
 """
 import asyncio
 import os
+import re
 import sys
 import tempfile
 
@@ -223,8 +224,11 @@ def main():
     print("=" * 62)
     print("5) Version v83 par hai")
     print("=" * 62)
-    ok("BOT_VERSION v86 se shuru hota hai (v85 + v84 + v83 history bhi)",
-       B.BOT_VERSION.startswith("v86") and "v85.0" in B.BOT_VERSION and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION, B.BOT_VERSION[:20])
+    # v93: exact "v85" prefix hata diya — har bump par toot jaata tha.
+    # Intent wahi: version >= 85 ho aur purani history version string me bachi rahe.
+    _vm = re.match(r"v(\d+)", B.BOT_VERSION)
+    ok("BOT_VERSION v85+ par hai (v84 + v83 history bhi)",
+       bool(_vm) and int(_vm.group(1)) >= 85 and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION, B.BOT_VERSION[:20])
     ok("BOT_VERSION me guard words (v77/FREE4ALL/SPEED) abhi bhi hain",
        "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION and "SPEED" in B.BOT_VERSION)
 

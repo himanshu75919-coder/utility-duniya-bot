@@ -16,6 +16,7 @@ Chalane ka tarika:
     python3 tests/test_v86_instamega.py
 """
 import os
+import re
 import sys
 import tempfile
 
@@ -162,8 +163,10 @@ def main():
     print("=" * 62)
     print("D) REGRESSION — version + purane locks")
     print("=" * 62)
-    ok("version v86 + history", B.BOT_VERSION.startswith("v86") and "v85.0" in B.BOT_VERSION
-       and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION, B.BOT_VERSION[:16])
+    _vm86 = re.match(r"v(\d+)", B.BOT_VERSION)   # v94 merge: v93-style >= 85 (exact prefix toot jaata tha)
+    ok("version v85+ (merged v94) + history", bool(_vm86) and int(_vm86.group(1)) >= 85 and "v85.0" in B.BOT_VERSION
+       and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION,
+       B.BOT_VERSION[:16])
     ok("PREMIUM_TOOLS 37 intact (qr_scan alag, cxray-pattern)",
        len(B.PREMIUM_TOOLS) == 37 and "qr_scan" not in B.PREMIUM_TOOLS, f"count={len(B.PREMIUM_TOOLS)}")
     ok("PROMPT_DATA 43 (42 + qr_scan naya)", len(B.PROMPT_DATA) == 43, f"count={len(B.PROMPT_DATA)}")

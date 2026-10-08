@@ -229,7 +229,7 @@ from modules.cyber_studio import (
     make_printable_sheet,
     make_stamped_passport,
 )
-from modules.cloud_tools import resolve_cloud_url
+from modules.cloud_tools import resolve_cloud_url, tb_fetch_thumb
 from modules import desi_tools as desi
 from modules.desi_tools import (
     KAGAZ_FIELDS,
@@ -484,7 +484,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v86.0 ULTRA-PRO — 📸 INSTA-MEGA (20-photo carousel + story/highlight + profile-pic HD) + 📷 QR SCANNER (naya tool) + 🛡️ CRASH-SWEEP-II (48 tools fuzz-tested) — v85.0 FULL-ALBUM + LINK SANITIZER — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v94.0 MERGED-PRO — v93 (10+ album chunk + Terabox file report + HTML safety net) + v86 (Insta-mega 20-photo + story/profile/share + QR Scanner + crash-sweep-II) | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -502,6 +502,25 @@ logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=lo
 logging.getLogger("httpx").setLevel(logging.WARNING)
 logging.getLogger("httpcore").setLevel(logging.WARNING)
 log = logging.getLogger("utility-super-bot")
+
+# =====================================================================
+#  v93 — 🧯 HTML SAFETY NET (import time par hi ON)
+# ---------------------------------------------------------------------
+# bot.py me ~500 jagah parse_mode=HTML ke saath direct send/edit hota hai.
+# Text me zara si HTML gadbad (engine ke title me `<`, adhoora tag, user ke
+# naam me `&`) → Telegram poora message REJECT kar deta hai:
+#     BadRequest: Can't parse entities: can't find end tag 'b'
+# Kaam ho chuka hota hai, jawab taiyaar hota hai — par jaata nahi. User ko
+# "⚠️ Chhota sa ghatna ho gaya!" dikhta hai, yaani "bot crash ho gaya".
+# Ab wahi message repair karke (na ho to plain text) dobara chala jaata hai.
+# Ek jagah lagta hai, poore bot ko cover karta hai. Idempotent hai.
+# =====================================================================
+try:
+    from modules.core.htmlnet import patch_bot_html_safety
+    patch_bot_html_safety()
+except Exception as _hn_e:                                      # noqa: BLE001
+    # Net na lag paaye to bhi bot pehle jaisa chalega — ye sirf extra bachav hai
+    logging.getLogger("ud.htmlnet").warning("HTML safety net skip: %s", str(_hn_e)[:120])
 
 
 # =====================================================================
@@ -984,6 +1003,66 @@ def _parse_img_index(text: str):
         return None
     n = int(m.group(1))
     return n if n >= 1 else None
+
+
+# =====================================================================================
+# v93 — 📸 ALBUM / CAROUSEL HELPERS
+# =====================================================================================
+ALBUM_CHUNK = 10          # Telegram ek media_group me max 10 media allow karta hai
+
+
+def clean_album_items(items) -> list:
+    """Album items me se khaali/ghatiya entries hatao — bina crash ke.
+
+    Koi engine `{"type":"photo"}` bina bytes ke bhej de, ya list me None/string
+    aa jaaye, to pehle `item["bytes"]` par KeyError/TypeError se poora handler
+    mar jaata tha (user ko "SEND FAILED"). Ab wo item chup-chaap skip hota hai.
+    """
+    out = []
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        b = it.get("bytes")
+        if not b:
+            continue
+        out.append({"type": str(it.get("type") or "photo").lower(), "bytes": b})
+    return out
+
+
+def build_album_chunks(items, cap_head: str = "", chunk_size: int = ALBUM_CHUNK) -> list:
+    """Album ko Telegram-safe chunks me todo: [[InputMedia, ...10], [...10], ...]
+
+    * 12-photo wala post pehle `items[:10]` se 2 photo CHUP-CHAAP kho deta tha.
+    * Caption sirf pehle chunk ke pehle media par (Telegram ka rule).
+    * 10 se zyada ho to har chunk ke pehle media par "position / total" caption.
+    """
+    good = clean_album_items(items)
+    if not good:
+        return []
+    total = len(good)
+    cs = max(1, int(chunk_size or ALBUM_CHUNK))
+    chunks = []
+    for start in range(0, total, cs):
+        piece = good[start:start + cs]
+        group = []
+        for n, item in enumerate(piece):
+            pos = start + n + 1                       # album me asli position (1-based)
+            if start == 0 and n == 0:
+                cap = cap_head                        # pehla media = full caption
+            elif total > cs and n == 0:
+                cap = f"📸 <b>ALBUM</b> • {pos}-{min(start + len(piece), total)} / {total}"
+            else:
+                cap = ""
+            buf = io.BytesIO(item["bytes"])
+            if item["type"] == "video":
+                buf.name = f"media_{pos}.mp4"
+                group.append(InputMediaVideo(media=buf, caption=cap, parse_mode=HTML,
+                                             supports_streaming=True))
+            else:
+                buf.name = f"media_{pos}.jpg"
+                group.append(InputMediaPhoto(media=buf, caption=cap, parse_mode=HTML))
+        chunks.append(group)
+    return chunks
 
 
 def _clean_link_in(text: str) -> str:
@@ -8221,10 +8300,20 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                reply_markup=InlineKeyboardMarkup(rows) if rows else None,
                                parse_mode=HTML)
         else:
+            # v93 — PEHLE: ek adhuri line ("📄 File mili: x.mp4 — 42.75 MB") aur 5
+            #       mar-chuke web downloader buttons. User ko lagta tha tool toota hai.
+            # AB  : poora FILE REPORT card — har file ka naam, size, type, video ki
+            #       length + resolution, total size, aur thumbnail photo. Listing
+            #       hamesha chalti hai; sirf download-link step Terabox ne lock kiya hai.
+            _report = str(res.get("report") or "")
             cap = (
-                f"⚠️ <b>{to_bold('DIRECT LINK NOT FOUND')}</b>\n\n"
+                f"⚠️ <b>{to_bold('DOWNLOAD LINK LOCKED')}</b>\n\n"
                 f"{hesc(str(res.get('error', 'Could not resolve the cloud link.')))}\n\n"
             )
+            if _report:
+                cap += _report + "\n\n"
+            if res.get("hint"):
+                cap += f"💡 {hesc(str(res['hint']))}\n\n"
             _tb_rows = []   # v85: har button URL validate (galat URL = crash)
             for _lbl, _u in (res.get("fallback_links") or [])[:5]:
                 _fu = _safe_btn_url(_u or "")
@@ -8234,8 +8323,39 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 _tb_rows.append([InlineKeyboardButton(
                     "🌐 Share page kholo",
                     url=f"https://www.terabox.com/sharing/link?surl={res['surl']}")])
-            await st.edit_text(cap.strip(), parse_mode=HTML,
-                               reply_markup=InlineKeyboardMarkup(_tb_rows) if _tb_rows else None)
+            _kb = InlineKeyboardMarkup(_tb_rows) if _tb_rows else None
+            # Telegram ek caption me 1024 character hi allow karta hai — lamba report
+            # ho to photo alag + text alag, warna saath. Kabhi "message too long" crash nahi.
+            _thumb_b = None
+            if res.get("thumb"):
+                try:
+                    _thumb_b = await asyncio.to_thread(tb_fetch_thumb, res["thumb"])
+                except Exception:                                # noqa: BLE001
+                    _thumb_b = None
+            try:
+                if _thumb_b:
+                    _tb = io.BytesIO(_thumb_b)
+                    _tb.name = "terabox_preview.jpg"
+                    if len(cap) <= 900:
+                        await update.message.reply_photo(photo=_tb, caption=cap,
+                                                         parse_mode=HTML, reply_markup=_kb)
+                    else:
+                        await update.message.reply_photo(photo=_tb, parse_mode=HTML)
+                        await update.message.reply_text(cap[:4000], parse_mode=HTML,
+                                                        reply_markup=_kb)
+                elif len(cap) <= 4000:
+                    await st.edit_text(cap.strip(), parse_mode=HTML, reply_markup=_kb)
+                else:
+                    await st.edit_text(cap[:3900].strip() + "\n…", parse_mode=HTML,
+                                       reply_markup=_kb)
+            except Exception as _tbe2:                           # noqa: BLE001
+                # Caption/HTML me kuch bhi atke to chhota saaf jawab — user khali na jaaye
+                log.warning("terabox card fail (%s) — plain bhej raha hoon", type(_tbe2).__name__)
+                try:
+                    await st.edit_text("⚠️ Download link nahi mila — share page kholo.",
+                                       reply_markup=_kb)
+                except Exception:                                # noqa: BLE001
+                    pass
         add_use(uid)
         return
 
@@ -8383,59 +8503,93 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             engine = hesc(str(res.get("engine", "")))
             title = hesc(str(res.get("title") or ""))[:60]
 
-            # 1) Album / Carousel (2-20 items — 10-10 ke groups me)
+            # 1) Album / Carousel — v94 MERGED: v86 intake (20-item + junk filter) + v93 45MB cap/note + chunk send
             if mtype == "carousel" and res.get("items"):
-                # v86: 20-photo album = 2 media groups (Telegram ek group me 10 leta hai)
-                _chunks = _album_chunks(res["items"])
-                if not _chunks:
+                # v86: 20-item intake + junk filter + 60MB pre-cap (helper unit-tested)
+                _intake = [it for _ch in _album_chunks(res["items"]) for it in _ch]
+                # v85: khaali/kharab items nikalo + total 45MB cap (OOM + Telegram limit safety)
+                # v93: `[:10]` hata diya — 12-photo wale post ke 2 photo chup-chaap
+                #      gayab ho jaate the. Ab Telegram ki 10-media hadd ko chunk se
+                #      handle karte hain (neeche), aur 45MB cap ab chup-chaap nahi:
+                #      jo chhoota uska note caption me jaata hai.
+                _all = [it for it in (_intake or [])
+                        if isinstance(it, dict) and (it.get("bytes") or b"")]
+                _n_total_items = len(_all)
+                items = _all
+                _tot, _fit = 0, []
+                for it in items:
+                    _sz = len(it.get("bytes") or b"")
+                    if _tot + _sz > 45 * 1048576 and _fit:
+                        break
+                    _tot += _sz
+                    _fit.append(it)
+                items = _fit or items[:1]
+                if not items:
                     raise ValueError("album items khaali (download adhura)")
-                _total_n = sum(len(c) for c in _chunks)
-                _sent_groups = 0
-                for _gi, items in enumerate(_chunks):
-                    _part = f" (Part {_gi + 1}/{len(_chunks)})" if len(_chunks) > 1 else ""
+                # v93: agar 45MB cap ne kuch roka ho to user ko BATAO (chup-chaap nahi)
+                if len(items) < _n_total_items:
+                    _album_note = (_album_note + f" • ⚠️ {_n_total_items - len(items)} item"
+                                                 f" size-limit se chhoote")[:160]
+                # v93: Telegram ek media_group me 10 media allow karta hai — usse zyada
+                #      ho to chunk banao. (v85 `[:10]` se kaat deta tha = photo gayab.)
+                _cap0 = (f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}"
+                         f"{_album_note}")[:900]   # v85: caption 1024 limit guard
+                _sent_n = 0
+                _chunks = [items[_s:_s + ALBUM_CHUNK] for _s in range(0, len(items), ALBUM_CHUNK)]
+                for _gi, _part in enumerate(_chunks):
+                    _start = _gi * ALBUM_CHUNK
+                    _n_parts = len(_chunks)
                     media_group = []
-                    for idx, item in enumerate(items):
+                    for _n, item in enumerate(_part):
+                        _pos = _start + _n + 1                 # album me asli position
                         m_buf = io.BytesIO(item["bytes"])
-                        _cap0 = (f"📸 <b>{to_bold('ALBUM')}</b> • {_total_n} items • {plat}"
-                                 f"{_album_note}{_part}")[:900]   # v85: caption 1024 limit guard
-                        cap = _cap0 if idx == 0 else ""
-                        if item.get("type") == "video":
-                            m_buf.name = f"media_{_gi}_{idx}.mp4"
-                            media_group.append(InputMediaVideo(media=m_buf, caption=cap, parse_mode=HTML, supports_streaming=True))
+                        if _start == 0 and _n == 0:
+                            cap = _cap0
+                        elif _n == 0 and _n_parts > 1:
+                            cap = (f"📸 <b>{to_bold('ALBUM')}</b> • "
+                                   f"Part {_gi + 1}/{len(_chunks)}")[:900]
                         else:
-                            m_buf.name = f"media_{_gi}_{idx}.jpg"
+                            cap = ""
+                        if item.get("type") == "video":
+                            m_buf.name = f"media_{_pos}.mp4"
+                            media_group.append(InputMediaVideo(media=m_buf, caption=cap,
+                                                               parse_mode=HTML, supports_streaming=True))
+                        else:
+                            m_buf.name = f"media_{_pos}.jpg"
                             media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
                     try:
                         await update.message.reply_media_group(media=media_group)
-                        _sent_groups += 1
+                        _sent_n += len(media_group)
+                        continue
                     except Exception as _ag:
                         # v85: group fail ho to ek-ek karke bhejo (user khaali haath na jaye)
                         log.warning("album group fail, one-by-one bhej raha: %s", str(_ag)[:100])
-                        _sent_n = 0
-                        for idx2, item in enumerate(items):
-                            try:
-                                _b2 = io.BytesIO(item["bytes"])
-                                _c2 = (f"📸 <b>{to_bold('ALBUM')}</b> • {_total_n} items • {plat}"
-                                       f"{_album_note}{_part} ({idx2 + 1}/{len(items)})")[:900] if idx2 == 0 else ""
-                                if item.get("type") == "video":
-                                    _b2.name = f"media_{_gi}_{idx2}.mp4"
-                                    await update.message.reply_video(video=_b2, caption=_c2 or None,
-                                                                     parse_mode=HTML, supports_streaming=True)
+                    for _n, item in enumerate(_part):
+                        _pos = _start + _n + 1
+                        try:
+                            _b2 = io.BytesIO(item["bytes"])
+                            _c2 = (_cap0 if (_start == 0 and _n == 0)
+                                   else f"📸 <b>{to_bold('ALBUM')}</b> • {_pos}/{len(items)}")[:900]
+                            if item.get("type") == "video":
+                                _b2.name = f"media_{_pos}.mp4"
+                                await update.message.reply_video(video=_b2, caption=_c2 or None,
+                                                                 parse_mode=HTML, supports_streaming=True)
+                            else:
+                                _b2.name = f"media_{_pos}.jpg"
+                                if _c2:
+                                    await update.message.reply_photo(photo=_b2, caption=_c2, parse_mode=HTML)
                                 else:
-                                    _b2.name = f"media_{_gi}_{idx2}.jpg"
-                                    if _c2:
-                                        await update.message.reply_photo(photo=_b2, caption=_c2, parse_mode=HTML)
-                                    else:
-                                        await update.message.reply_photo(photo=_b2)
-                                _sent_n += 1
-                            except Exception:  # noqa: BLE001
-                                continue
-                        if _sent_n:
-                            _sent_groups += 1
-                if not _sent_groups:
-                    raise ValueError("album bheja nahi ja saka (Telegram reject)")
+                                    await update.message.reply_photo(photo=_b2)
+                            _sent_n += 1
+                        except Exception:  # noqa: BLE001
+                            continue
+                if not _sent_n:
+                    raise ValueError("album ka koi bhi item Telegram par nahi ja saka")
                 _delivered = True
-                await st.delete()
+                try:
+                    await st.delete()
+                except Exception:  # noqa: BLE001
+                    pass
                 add_use(uid)
                 await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
                 return

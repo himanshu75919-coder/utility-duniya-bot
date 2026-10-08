@@ -22,7 +22,8 @@ import base64
 import json
 import os
 import re
-from html import unescape
+import time
+from html import escape as hesc, unescape
 from urllib.parse import quote, unquote
 
 # v55: raw requests -> core.net (shared pool + mandatory timeout + retry + size cap)
@@ -332,21 +333,148 @@ def _tb_walk_list(session, surl: str, js_token, logid, items, depth: int = 0) ->
     return out[:30]
 
 
+def _fmt_dur(sec):
+    """291 -> '4m 51s' | 3725 -> '1h 02m 05s'. Galat input par '' (crash kabhi nahi)."""
+    try:
+        s = int(float(sec or 0))
+    except Exception:                                            # noqa: BLE001
+        return ""
+    if s <= 0:
+        return ""
+    h, rem = divmod(s, 3600)
+    m, sec2 = divmod(rem, 60)
+    if h:
+        return f"{h}h {m:02d}m {sec2:02d}s"
+    if m:
+        return f"{m}m {sec2:02d}s"
+    return f"{sec2}s"
+
+
+# File category (Terabox ki 'category' field + extension) -> icon + label.
+_KIND_BY_EXT = (
+    (("mp4", "mkv", "mov", "webm", "avi", "m4v", "3gp", "flv", "ts"), "🎬", "Video"),
+    (("mp3", "m4a", "wav", "flac", "aac", "ogg", "opus"), "🎵", "Audio"),
+    (("jpg", "jpeg", "png", "webp", "gif", "bmp", "heic"), "🖼️", "Image"),
+    (("pdf",), "📕", "PDF"),
+    (("zip", "rar", "7z", "tar", "gz", "bz2"), "🗜️", "Archive"),
+    (("apk",), "📦", "APK"),
+    (("doc", "docx", "txt", "rtf", "odt"), "📄", "Document"),
+    (("xls", "xlsx", "csv"), "📊", "Sheet"),
+    (("ppt", "pptx"), "📽️", "Slides"),
+    (("epub", "mobi"), "📚", "eBook"),
+)
+
+
+def _kind_of(name: str, category=None) -> tuple:
+    """(icon, label) — extension se, warna Terabox category se, warna 'File'."""
+    ext = str(name or "").rsplit(".", 1)[-1].lower() if "." in str(name or "") else ""
+    for exts, icon, label in _KIND_BY_EXT:
+        if ext in exts:
+            return icon, label
+    if str(category) == "1":
+        return "🎬", "Video"
+    if str(category) == "3":
+        return "🎵", "Audio"
+    if str(category) == "6":
+        return "📦", "File"
+    return "📄", "File"
+
+
+def _tb_thumb_url(it):
+    """Terabox ke 'thumbs' dict me se sabse bada usable thumbnail URL."""
+    t = (it or {}).get("thumbs")
+    if isinstance(t, str):
+        return t
+    if not isinstance(t, dict):
+        return ""
+    return (t.get("url3") or t.get("url2") or t.get("url1") or t.get("icon") or "")
+
+
 def _tb_info_only(items) -> list:
-    """dlink na ho to bhi file ka naam + size (info card ke liye)."""
+    """dlink na ho to bhi file ka poora byora (naam, size, type, video length,
+    resolution, thumbnail, date). v93: pehle sirf naam+size jaata tha aur user ko
+    'DIRECT LINK NOT FOUND' ke neeche ek adhuri si line dikhti thi."""
     info = []
     for it in items or []:
         if not isinstance(it, dict):
             continue
-        nm = it.get("server_filename") or it.get("filename")
+        nm = it.get("server_filename") or it.get("filename") or it.get("file_name")
         if not nm:
             continue
         try:
             sz = int(it.get("size") or 0)
         except Exception:                                        # noqa: BLE001
             sz = 0
-        info.append({"name": str(nm)[:120], "size": _size_h(sz) if sz else "N/A", "size_bytes": sz})
+        try:
+            _mt = int(it.get("server_mtime") or it.get("local_mtime") or 0)
+        except Exception:                                        # noqa: BLE001
+            _mt = 0
+        _icon, _label = _kind_of(nm, it.get("category"))
+        info.append({
+            "name": str(nm)[:120],
+            "size": _size_h(sz) if sz else "N/A",
+            "size_bytes": sz,
+            "icon": _icon,
+            "kind": _label,
+            "duration": _fmt_dur(it.get("duration")),
+            "width": it.get("width") or 0,
+            "height": it.get("height") or 0,
+            "thumb": _tb_thumb_url(it),
+            "fs_id": str(it.get("fs_id") or ""),
+            "md5": str(it.get("md5") or "")[:40],
+            "modified": (time.strftime("%d %b %Y", time.localtime(_mt)) if _mt else ""),
+        })
     return info
+
+
+def tb_file_report(info, title: str = "", limit: int = 15) -> str:
+    """v93 — Terabox share ka PREMIUM file report (HTML, Telegram-safe).
+
+    dlink na milne par bhi user ko kuch ASLI cheez milti hai: har file ka naam,
+    size, type, video ki length + resolution, aur total size. Ye pehle ek adhuri
+    line thi ("📄 File mili: x.mp4 — 42.75 MB") jisme folder ke baaki file gayab.
+    """
+    rows = [r for r in (info or []) if isinstance(r, dict) and r.get("name")]
+    if not rows:
+        return ""
+    total_bytes = sum(int(r.get("size_bytes") or 0) for r in rows)
+    _vids = sum(1 for r in rows if r.get("kind") == "Video")
+    out = [f"📂 <b>{len(rows)} file{'s' if len(rows) != 1 else ''}</b>"
+           + (f" • {_size_h(total_bytes)} total" if total_bytes else "")
+           + (f" • 🎬 {_vids} video" if _vids else "")]
+    for i, r in enumerate(rows[:limit], 1):
+        line = (f"\n<b>{i}.</b> {r.get('icon') or '📄'} <b>{hesc(str(r['name'])[:60])}</b>"
+                f"\n    📊 {hesc(str(r.get('size') or 'N/A'))}"
+                f" • {hesc(str(r.get('kind') or 'File'))}")
+        if r.get("duration"):
+            line += f" • ⏱️ {r['duration']}"
+        if r.get("width") and r.get("height"):
+            line += f" • 📐 {int(r['width'])}×{int(r['height'])}"
+        if r.get("modified"):
+            line += f"\n    🗓️ {hesc(str(r['modified']))}"
+        out.append(line)
+    if len(rows) > limit:
+        out.append(f"\n<i>…aur {len(rows) - limit} file(s) — poora list share page par.</i>")
+    return "\n".join(out)
+
+
+def tb_fetch_thumb(url, max_bytes: int = 400000):
+    """Thumbnail ka JPEG bytes (bot photo bhej sake). Fail par None — crash kabhi nahi."""
+    if not url or not str(url).startswith("http"):
+        return None
+    try:
+        r = http_get(str(url), headers={**UA, "Referer": "https://www.terabox.com/"},
+                     timeout=12)
+        if r.status_code != 200:
+            return None
+        b = r.content or b""
+        if len(b) < 200 or len(b) > max_bytes:
+            return None
+        if b[:3] != b"\xff\xd8\xff" and not b[:8].startswith(b"\x89PNG"):
+            return None
+        return b
+    except Exception:                                            # noqa: BLE001
+        return None
 
 
 def _tb_guest_list(url):
@@ -593,15 +721,17 @@ def resolve_terabox(url: str) -> dict:
     # Sab fail — kabhi bhi user ko khali haath nahi bhejte: info + web fallback card
     surl = _extract_surl(url)
     info = _TB_INFO_STASH.get(surl) if surl else None
-    err = "Direct link nahi mila (Terabox ne 2026 me public API band kar di)."
+    report = tb_file_report(info)
+    err = "Direct download link nahi mila — Terabox ne 2026 me bina-login download " \
+          "par CAPTCHA (`need verify_v2`) laga di hai."
     if info:
         f0 = info[0]
         more = f" (+{len(info) - 1} aur)" if len(info) > 1 else ""
-        err += (f"\n📄 File mili: {f0['name']} — {f0['size']}{more}\n"
-                "Direct download abhi nahi nikala ja saka — neeche web downloader try karo "
-                "ya Terabox app me link kholo.")
-    hint = ("Direct link ke liye TERABOX_COOKIE (ndus) set karo — wo hamesha chalta hai. "
-            "Ya neeche web downloader use karo.")
+        err += (f"\n📄 File{'s' if len(info) > 1 else ''} MILI: {f0['name']} — {f0['size']}{more}\n"
+                "Listing 100% sahi hai; sirf download-link step Terabox ne lock kiya hua hai. "
+                "Neeche web downloader try karo ya Terabox app me link kholo.")
+    hint = ("Direct link hamesha chahiye to TERABOX_COOKIE (ndus) env set karo — "
+            "cookie wale raaste par CAPTCHA nahi aata. Ya neeche web downloader use karo.")
     return {
         "ok": False,
         "provider": "Terabox",
@@ -610,6 +740,8 @@ def resolve_terabox(url: str) -> dict:
         "fallback_links": TERABOX_WEB_FALLBACKS,
         "surl": surl,
         "file_info": info or [],
+        "report": report,          # v93: premium HTML file-list card (bot isko dikhata hai)
+        "thumb": next((r.get("thumb") for r in (info or []) if r.get("thumb")), ""),
         "tried": tried,
     }
 
