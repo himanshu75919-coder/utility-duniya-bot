@@ -476,7 +476,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v84.0 ULTRA-PRO — ⚡ SMART INSTANT-REPEAT KEY (tracking-proof, case-safe) — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -3820,9 +3820,14 @@ async def on_doc_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ----------------------------------------------------------------------
 
 def dl_fid_key(url: str, tag: str = "") -> str:
-    import hashlib as _h
-    _raw = (str(tag) + "|" + (url or "").strip().lower())[:400]
-    return "dlfid:" + _h.sha1(_raw.encode("utf-8", "ignore")).hexdigest()[:24]
+    # v84: ⚡ smart key — tracking params se farq nahi, ID case-sensitive (modules/core/dlkey.py)
+    try:
+        from modules.core.dlkey import dl_cache_key
+        return dl_cache_key(url, tag)
+    except Exception:                                            # noqa: BLE001
+        import hashlib as _h                                     # fallback: purana logic
+        _raw = (str(tag) + "|" + (url or "").strip().lower())[:400]
+        return "dlfid:" + _h.sha1(_raw.encode("utf-8", "ignore")).hexdigest()[:24]
 
 
 def dl_fid_get(url: str, tag: str = "") -> str:
