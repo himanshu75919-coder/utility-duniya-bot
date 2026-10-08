@@ -1592,6 +1592,161 @@ def download_instagram_media(url: str) -> dict:
             "error": "Media nahi nikal paya — dekho post public hai kya (private/age-restrict post nahi chalti)."}
 
 
+def _http_get_capped(url: str, max_mb: int, headers=None, timeout: int = 40,
+                     want: str = "video"):
+    """v96: URL se bytes (size cap + content-type guard). Fail → None (kabhi exception nahi)."""
+    try:
+        cap = int(max_mb) * 1048576
+        if not url or not str(url).startswith("http") or cap <= 0:
+            return None
+        r = httpio.get(str(url), headers=headers or DESKTOP_UA, timeout=timeout, stream=True)
+        try:
+            if r.status_code != 200:
+                return None
+            try:
+                ct = str(r.headers.get("content-type") or "").lower()
+            except Exception:  # noqa: BLE001
+                ct = ""
+            if "text/html" in ct:
+                return None
+            if want == "video" and ct and ("video" not in ct) and ("octet-stream" not in ct):
+                return None
+            if want == "image" and ct and ("image" not in ct) and ("octet-stream" not in ct):
+                return None
+            data = b""
+            for chunk in r.iter_content(262144):
+                if chunk:
+                    data += chunk
+                if len(data) > cap:
+                    return None
+            return data if len(data) > 1000 else None
+        finally:
+            try:
+                r.close()
+            except Exception:  # noqa: BLE001
+                pass
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _tt_tikwm(url: str, max_mb: int = MAX_TG_MB):
+    """v96: TikTok via tikwm keyless API — video (no-watermark) + photo slideshow.
+
+    yt-dlp TikTok par aksar block hota hai (datacenter IP); tikwm ka API seedha
+    CDN mp4 deta hai. Fail → None (caller yt-dlp fallback chalata hai).
+    """
+    try:
+        import urllib.parse as _up
+        if not url or "tiktok.com" not in str(url).lower():
+            return None
+        api = "https://www.tikwm.com/api/?url=" + _up.quote(str(url).strip(), safe="")
+        r = httpio.get(api, timeout=25)
+        if r.status_code != 200:
+            return None
+        try:
+            j = r.json()
+        except Exception:  # noqa: BLE001
+            return None
+        if not isinstance(j, dict) or j.get("code") != 0:
+            return None
+        d = j.get("data") or {}
+        if not isinstance(d, dict):
+            return None
+        title = str(d.get("title") or "")
+        if not title:
+            try:
+                au = d.get("author") or {}
+                if isinstance(au, dict) and au.get("nickname"):
+                    title = "@" + str(au.get("nickname"))
+            except Exception:  # noqa: BLE001
+                pass
+        try:
+            dur = int(d.get("duration") or 0)
+        except Exception:  # noqa: BLE001
+            dur = 0
+        # (1) photo slideshow — images[] (yt-dlp ye support hi nahi karta)
+        imgs = d.get("images") or []
+        if imgs and not d.get("play"):
+            items = []
+            for iu in imgs[:10]:
+                try:
+                    raw = _http_get_capped(iu, 15, timeout=20, want="image")
+                    if not raw:
+                        continue
+                    jb = _jpeg_fit(raw)
+                    if jb:
+                        items.append({"type": "photo", "bytes": jb})
+                except Exception:  # noqa: BLE001
+                    continue
+            if len(items) >= 2:
+                return {"ok": True, "type": "carousel", "platform": "TikTok", "title": title,
+                        "items": items, "count": len(items), "engine": "tikwm-photo"}
+            if len(items) == 1:
+                return {"ok": True, "type": "photo", "platform": "TikTok", "title": title,
+                        "bytes": items[0]["bytes"], "size_mb": _size_mb(items[0]["bytes"]),
+                        "engine": "tikwm-photo"}
+            return None
+        # (2) video — best-that-fits (HD bada ho to chhota try karo)
+        for key in ("hdplay", "play", "wmplay"):
+            vu = d.get(key)
+            if not vu or not str(vu).startswith("http"):
+                continue
+            data = _http_get_capped(vu, max_mb,
+                                    headers={"User-Agent": "Mozilla/5.0",
+                                             "Referer": "https://www.tiktok.com/"},
+                                    timeout=60, want="video")
+            if data:
+                return {"ok": True, "type": "video", "platform": "TikTok", "title": title,
+                        "bytes": data, "size_mb": _size_mb(data), "duration": dur,
+                        "quality": ("HD" if key == "hdplay"
+                                    else ("no-watermark" if key == "play" else "watermark")),
+                        "engine": "tikwm"}
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _fb_native(url: str, max_mb: int = MAX_TG_MB):
+    """v96: Facebook public video — page ke browser_native_hd/sd_url = seedha mp4.
+
+    fbcdn links login-free hote hain (oe= expiry ke saath). Reel/watch/share sab
+    chalte hain (redirect follow hota hai). Fail → None (yt-dlp fallback).
+    """
+    try:
+        u = str(url or "").strip()
+        lu = u.lower()
+        if ("facebook.com" not in lu and "fb.watch" not in lu) or len(u) < 20:
+            return None
+        r = httpio.get(u, headers=DESKTOP_UA, timeout=25, allow_redirects=True)
+        if r.status_code != 200 or len(r.text or "") < 5000:
+            return None
+        h = (r.text or "").replace("\\u0026", "&").replace("\\/", "/")
+        vu = ""
+        for pat in (r'"browser_native_hd_url"\s*:\s*"(https?://[^"]+)"',
+                    r'"browser_native_sd_url"\s*:\s*"(https?://[^"]+)"'):
+            m = re.search(pat, h)
+            if m:
+                vu = m.group(1)
+                break
+        if not vu:
+            return None
+        data = _http_get_capped(vu, max_mb, timeout=60, want="video")
+        if not data:
+            return None
+        title = ""
+        try:
+            import html as _h
+            tm = re.search(r'<meta property="og:title"[^>]+content="([^"]{1,120})', r.text or "")
+            if tm:
+                title = _h.unescape(_h.unescape(tm.group(1)))
+        except Exception:  # noqa: BLE001
+            pass
+        return {"ok": True, "type": "video", "platform": "Facebook", "title": title,
+                "bytes": data, "size_mb": _size_mb(data), "engine": "fb-native"}
+    except Exception:  # noqa: BLE001
+        return None
+
+
 # =====================================================================================
 # UNIVERSAL DOWNLOADER (Instagram + YouTube + FB + X + TikTok + ...)
 # =====================================================================================
@@ -1618,6 +1773,23 @@ def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
                     "reason": res.get("error", "")}
         return res
 
+    # v96: TikTok — tikwm keyless API pehle (fast + watermark-free); fail → yt-dlp neeche
+    if "tiktok.com" in url.lower():
+        try:
+            _tt = _tt_tikwm(url, max_mb)
+        except Exception:  # noqa: BLE001
+            _tt = None
+        if _tt and _tt.get("ok"):
+            return _tt
+    # v96: Facebook — native mp4 scrape pehle; fail → yt-dlp neeche
+    _lu96 = url.lower()
+    if "facebook.com" in _lu96 or "fb.watch" in _lu96:
+        try:
+            _fb = _fb_native(url, max_mb)
+        except Exception:  # noqa: BLE001
+            _fb = None
+        if _fb and _fb.get("ok"):
+            return _fb
     # --- Baaki platforms: yt-dlp ---
     if not yt_dlp:
         return {"ok": False, "error": "yt-dlp engine load nahi hua (requirements.txt install check karo)."}
@@ -1770,6 +1942,18 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
                              headers={"User-Agent": "Mozilla/5.0 (bot)",
                                       "Referer": "https://loader.to/"}, stream=True)
             if r.status_code != 200:
+                continue
+            # v96: loader backend ab captcha-HTML deta hai (video nahi) —
+            # aise link turant chhodo (pehle 52KB HTML "video" ban jaata tha)
+            try:
+                _ct96 = str(r.headers.get("content-type") or "").lower()
+            except Exception:  # noqa: BLE001
+                _ct96 = ""
+            if "text/html" in _ct96:
+                try:
+                    r.close()
+                except Exception:  # noqa: BLE001
+                    pass
                 continue
             data = b""
             too_big = False
