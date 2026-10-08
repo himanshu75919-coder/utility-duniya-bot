@@ -763,8 +763,6 @@ VIP_WALL_TEXT = (
 def vip_wall_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 VIP plan lo (💳 UPI / QR)", callback_data="open_vip_menu")],
-        [InlineKeyboardButton("🎁 Refer & Earn — free VIP", callback_data="open_refer_menu")],
-        [InlineKeyboardButton("📖 VIP me kya-kya milta hai?", callback_data="toolvid:premium")],
         [InlineKeyboardButton(f"💬 Support {SUPPORT_USERNAME}", url=SUPPORT_URL)],
     ])
 
@@ -924,9 +922,9 @@ def clean_err(text: str, limit: int = 200) -> str:
 def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 VIP lo (Unlimited)", callback_data="open_vip_menu")],
-        [InlineKeyboardButton("🎬 VIP kaise milega? (30 sec video)", callback_data="toolvid:premium")],
-        [InlineKeyboardButton("🎁 Refer karo (Free VIP)", callback_data="open_refer_menu"),
-         InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
+        # v79: 🎬 (30 sec video) button hata diya — saare tutorial videos delete ho
+        # chuke hain, aur 🎁 Refer ka tool bhi user ki hiring se hataya gaya.
+        [InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
     ])
 
 
@@ -2090,16 +2088,15 @@ async def send_tool_video(bot_obj, chat_id, key: str, answer_cb=None):
 
 
 def tutorial_kb():
-    """MADAD / TUTORIAL ka keyboard — sirf 🎬 videos (koi text tutorial nahi)."""
+    """MADAD / TUTORIAL ka keyboard.
+
+    v79: 🎬 tutorial-video wale saare buttons HAT Gaye (user ki hiring — bot me
+    ek bhi tutorial video nahi rahega). Ab sirf 📩 Support + 🔙 Menu.
+    """
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📥 Video Downloader", callback_data="toolvid:insta_dl"),
-         InlineKeyboardButton("⚡ Terabox", callback_data="toolvid:terabox")],
-        [InlineKeyboardButton("🔄 Cloner", callback_data="toolvid:cloner"),
-         InlineKeyboardButton("🏦 Bank PDF → Excel", callback_data="toolvid:bankpdf")],
-        [InlineKeyboardButton("📜 Kagaz Suite", callback_data="toolvid:kagaz"),
-         InlineKeyboardButton("⚡ Media Studio", callback_data="toolvid:mediastudio")],
-        [InlineKeyboardButton("💎 How to get VIP?", callback_data="toolvid:premium"),
-         InlineKeyboardButton("❓ How to use bot?", callback_data="toolvid:tutorial")],
+        [InlineKeyboardButton(f"📩 Support — seedha message karo {SUPPORT_USERNAME}",
+                              url=SUPPORT_URL)],
+        [InlineKeyboardButton("🔙 Menu", callback_data="menu")],
     ])
 
 
@@ -2218,7 +2215,6 @@ def kagaz_menu_kb():
          InlineKeyboardButton("🪪 PAN → GST Check", callback_data="kagaz_pan")],
         [InlineKeyboardButton("🧮 Registry ka total kharcha", callback_data="kagaz_registry"),
          InlineKeyboardButton("📐 Bigha/Kattha Converter", callback_data="kagaz_land")],
-        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:kagaz")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
     ])
 
@@ -2236,7 +2232,6 @@ def media_menu_kb():
         [InlineKeyboardButton("✂️ Video trim", callback_data="media_trim"),
          InlineKeyboardButton("🗜️ Video compress", callback_data="media_compress")],
         [InlineKeyboardButton("🗣️ Text → Hindi Voice (MP3)", callback_data="media_tts")],
-        [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:mediastudio")],
         [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
     ]
     return InlineKeyboardMarkup(rows)
@@ -2443,7 +2438,7 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💎 VIP lo / upgrade karo", callback_data="open_vip_menu")],
-        [InlineKeyboardButton("🎁 Refer link (free VIP)", callback_data="open_refer_menu")],
+        # v79: 🎁 Refer ka tool hataya (user ki hiring) — is card ka button bhi gaya
     ])
     await update.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
 
@@ -2752,8 +2747,7 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         text,
         reply_markup=InlineKeyboardMarkup(
-            list(get_premium_plans_kb().inline_keyboard) +
-            [[InlineKeyboardButton("🎬 How to get VIP? (30 sec video)", callback_data="toolvid:premium")]]),
+            list(get_premium_plans_kb().inline_keyboard)),
         parse_mode=HTML)
 
 
@@ -5750,8 +5744,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(
             "💎 Select a plan:",
             reply_markup=InlineKeyboardMarkup(
-                list(get_premium_plans_kb().inline_keyboard) +
-                [[InlineKeyboardButton("🎬 How to get VIP? (30 sec video)", callback_data="toolvid:premium")]]),
+                list(get_premium_plans_kb().inline_keyboard)),
             parse_mode=HTML)
         return
 
@@ -6287,7 +6280,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "\n"
             "🎬 Neeche video dekho — 30 second me poora tarika:",
             reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🎬 Tutorial Video (30 sec) — HIMANSHU", callback_data="toolvid:cloner")],
+                # v79: 🎬 tutorial video button hataya (videos bot se delete ho chuke)
                 [InlineKeyboardButton("🚀 Setup shuru karo", callback_data="cloner_setup")],
                 [InlineKeyboardButton("📊 Meri settings", callback_data="cloner_status")],
             ]),
@@ -7483,8 +7476,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             _bk = _biz_kind(action.replace("biz_", ""))
             await update.message.reply_text(
                 tool_prompt(_bk or action) or f"✍️ <b>{hesc(BIZ_MENU.get(action, ('', action, ''))[1])}</b>",
+                # v79: 🎬 Tutorial button hataya (tutorial videos bot se delete)
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🎬 Tutorial", callback_data=f"toolvid:{_bk or action}"),
                     InlineKeyboardButton("🏠 Home", callback_data="back_home")]]),
                 parse_mode=HTML)
             return
@@ -11157,7 +11150,8 @@ async def _post_init(app: Application):
         BotCommand("menu", "Saare tools ka menu"),
         BotCommand("premium", "Saare tools FREE — list dekho" if ALL_FREE
                    else "VIP plan lo (unlimited)"),
-        BotCommand("refer", "Dost ko bulao = free VIP"),
+        # v79: /refer ka tool hataya gaya — command list se bhi hataya (warna
+        # Telegram ke "/" menu me dabba hua command dikhta).
         BotCommand("account", "Mera account aur credits"),
         BotCommand("cancel", "Chalu kaam band karo"),
         BotCommand("refresh", "Menu / keyboard naya karo"),

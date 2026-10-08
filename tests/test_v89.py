@@ -32,6 +32,7 @@ regression-lock karti hai (sab OFFLINE — koi network/API nahi):
      paya' isiliye aata tha).
 """
 import asyncio
+import re
 import io
 import os
 import sys
@@ -268,6 +269,12 @@ for dead_cmd in ('CommandHandler("refer"', 'CommandHandler(["bulk", "bulkexcel",
     check(f"command band: {dead_cmd[:30]}…", dead_cmd not in _bsrc)
 check("/help command ab bhi registered (standard cheez, hatayi nahi)",
       'CommandHandler("help"' in _bsrc)
+_cmd_blk = _bsrc[_bsrc.index("commands = ["):_bsrc.index("await app.bot.set_my_commands")]
+for dead in ("refer", "bulk", "tutorial", "madad", "guide"):
+    check(f"Telegram ke / menu me dead command '{dead}' nahi",
+          f'BotCommand("{dead}"' not in _cmd_blk)
+check("start/menu/account/cancel/refresh commands zinda (kuch aur na tute)",
+      all(f'BotCommand("{c}"' in _cmd_blk for c in ("start", "menu", "account", "cancel", "refresh")))
 import subprocess                                            # noqa: E402
 _git = subprocess.run(["git", "-C", _ROOT, "ls-files"], capture_output=True, text=True).stdout
 check("git me koi .mp4 nahi (GitHub + Render se delete ho gaya)", ".mp4" not in _git)
@@ -278,6 +285,28 @@ check("tutorial_hub: video map khali", TH.TUTORIAL_VIDEO_KEYS == {})
 check("tutorial_hub: has_video hamesha False",
       not any(TH.has_video(a) for a in ("video_dl", "qr", "terabox", "cloner", "refer", "premium")))
 check("tutorial_hub: video_urls khaali", TH.video_urls("qr") == [] == TH.video_urls("kuch_bhi"))
+# koi ACTIVE 🎬 tutorial-video button na bache (has_video() wale guarded rows chhod ke)
+# `tool_tutorial_kb` ka row `if has_video(action):` ke andar hai -> hamesha off,
+# isliye use chhod kar baaki sab jagah scan karte hain.
+_tt = inspect.getsource(B.tool_tutorial_kb)
+_bsrc_nomenu = _bsrc.replace("def tool_tutorial_kb" + _tt.split("def tool_tutorial_kb")[1], "")
+_bsrc_nomenu = re.sub(r"def tool_tutorial_kb.*?\n    return InlineKeyboardMarkup\(rows\)\n",
+                      "", _bsrc_nomenu, flags=re.S)
+_VID_BTNS = re.findall(r'InlineKeyboardButton\("[^"]*(?:🎬[^"]*Tutorial|Tutorial Video)[^"]*"',
+                       _bsrc_nomenu)
+check("bot me koi 🎬 Tutorial button nahi bacha (VIP wall/plans/cloner/business/kagaz sab saaf)",
+      not _VID_BTNS, str(_VID_BTNS)[:110])
+check("vip_wall se 🎁 Refer ka button bhi gaya (tool hi hata hai)",
+      'open_refer_menu")]' not in _bsrc.split("def vip_wall_kb")[1].split("def ")[0])
+check("get_limit_exceeded_kb me 🎬/ rows nahi, VIP + Support bache hain",
+      "🎬 VIP kaise milega" not in _bsrc and "🎁 Refer karo (Free VIP)" not in _bsrc
+      and 'callback_data="open_vip_menu"' in _bsrc)
+check("tutorial_kb() me ab koi toolvid button nahi (dead tap nahi)",
+      "toolvid" not in inspect.getsource(B.tutorial_kb))
+check("tool_tutorial_kb() ka 🎬 row has_video se gated hai (hamesha False)",
+      "if has_video(action):" in inspect.getsource(B.tool_tutorial_kb))
+check("Telegram /menu me '🎬 Status Video' asli tool hai (tutorial nahi) — waise ka waqt nahi chheda",
+      'callback_data="media_status"' in _bsrc)
 check("publish_tutorial ab bhi import ho jaata hai (bot import na tute)",
       callable(getattr(TH, "publish_tutorial", None)))
 
