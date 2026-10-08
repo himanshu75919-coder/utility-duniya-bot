@@ -334,7 +334,28 @@ memory: 406 MB (peak 406 MB) | gc_runs=3 | loop_lag=7.1s | beats=25 | trim=3/2 l
 - `MEM_TRACE=on` **sirf 15–20 minute ke liye** chalu karo (tab jab tool chala rahe ho) → `/health`
   kholo → `leak-hunt:` line mujhe bhej do → main us **file:line** ko theek karunga. Phir `MEM_TRACE`
   hata dena (overhead ke liye nahi — wo auto-off ho jaata hai, par report bhi gayab ho jaati hai).
-- `MEM_RESTART_MB=470` rakhunga: 470 MB par khamosh maut se pehle saaf restart behtar hai.
-  Aap chaaho to `0` karke band kar sakte ho (tab bot 512 MB wale OOM tak chalta rahega).
+- `MEM_RESTART_MB=470` **live set hai**: 470 MB par khamosh maut (OOM-kill, beech-kaam) se
+  pehle saaf restart ho jayega. Band karna ho to `0`.
+- `MEM_TRACE` ab **band** kar diya (kaam ho gaya, neeche dekho) aur `MALLOC_ARENA_MAX=2`
+  bhi **hata diya** — dono ka faayda maapne par **0** nikla, isliye prod me nahi rakha.
+
+### Leak-hunt ka NATIJHA (9 Oct se pehle ka sabse bada sawaal ka jawaab)
+
+`MEM_TRACE=on` + 22 vars wale env ke saath do boots maape:
+
+| Maap | Number | Matlab |
+|---|---|---|
+| boot RSS (tracemalloc on) | **348 MB** | tracemalloc ka apna bojh ~15 MB (333 ke muqable) |
+| 10 real updates ke baad (`/start`, `/menu`, 3x IFSC network lookup, `/speed`, `/history`, `/toolstats`) | 352 → **353 MB (+1 MB)** | **per-request leak NAHI hai** — light/medium use me RAM chipakti nahi |
+| leak-hunt ki top entries | `importlib +4.9MB`, `importlib +1.5MB`, `adobe_glyphs.py +0.4MB`, `<frozen abc> +0.4MB` | sab **boot-time imports**, koi `modules/*` file nahi |
+| `update-gate total` / `crash-shield` / `busy-rejects` | 10 processed / **caught=0** / **0** | saare updates chal bhi gaye, koi crash/busy nahi |
+| `loop_lag` fresh process par | **0.6–1.4 s** (purane 19-min process par frozen 7.1 s) | lamba chalne wala process heavy job ke baad heavy-gate `allowed=1` par latch ho jaata tha |
+
+**Nishkarsh:** 406 MB "leak" nahi, **bhaari file-tool ke waqt ka working set** tha jo process ke
+andar hi reh gaya (aur watchdog ki safai use chhoo nahi sakti thi). Isliye ilaaj 2 hisaab se laga:
+(a) `malloc_trim` + har tool ke baad `_mem_relief()` — jo bhi chhoot sakta hai foran chhoote,
+(b) 470 MB par **idle-only clean restart** — jo na choote wo OOM-kill se pehle saaf ho jaye.
+Agli baar jab aap **bhaari file** (50–150 MB) chala rahe hon, tab `MEM_TRACE=on` 15 minute ke liye
+chalu karke `leak-hunt:` line bhej dena — tab asli culprit (file:line) pakda jaayega.
 - **Reminder:** `WEBHOOK_URL` sirf base URL. Bot "dead" lage to pehle `delivery:` line, phir `memory:`
   line dekho — `allowed 1` + `400+ MB` ka matlab RAM, `pending>5` ka matlab webhook.
