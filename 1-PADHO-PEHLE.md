@@ -242,3 +242,49 @@ send **~440 ms**. Yaani user ko extra ~0.4 second lagta hai sirf pehli baar.
 callback aur text ke *aage* baithta hai — tools ka andar ka koi text change nahi hua.
 Referral credit wall se **pehle** capture hota hai (user wall par atke bhi referrer ka
 count na kho).
+
+---
+
+## 🔌 v81.1 — "bot kaam nahi kar raha tha": webhook double-path (mera kiya hua bug)
+
+**8 Oct 2026 ko aapka bot 20+ minute chup raha.** Aapke message Telegram ke paas
+phanse rahe — bot tak pahunchte hi nahi. Iska **kaaran mera** tha: token rotate
+karte waqt maine Render env me `WEBHOOK_URL` ko poore path ke saath daal diya:
+
+```
+WEBHOOK_URL = https://utility-duniya-bot.onrender.com/webhook/<secret>   ← galat
+```
+
+Bot code khud `/webhook/<secret>` jodta hai, to URL ban gaya:
+
+```
+https://…onrender.com/webhook/<secret>/webhook/<secret>   → har POST = 404
+```
+
+Lakshan (ab aap khud dekh sakte ho): `getWebhookInfo` me `pending_update_count: 36`
+aur `last_error_message: "Wrong response from the webhook: 404 Not Found"` — par
+`/health` sirf itna kehta tha: *"Telegram ne URL maan liya ✅"* (setWebhook to
+man liya jaata hai, delivery ka usse koi taluk nahi). Isiliye bug chupa raha.
+
+### Theek kya kiya (4 permanent cheezein)
+
+1. **`WEBHOOK_URL` ab sirf BASE URL hai** (`https://utility-duniya-bot.onrender.com`).
+   Aur `webhook_url_from_env()` koi bhi `/webhook/…` path khud **kaat deta hai** —
+   yaani aap ya main dobara galti se path likh den, tab bhi bot chalega.
+2. **`/health` ab jhooth nahi bol sakta**: nayi line asli delivery batati hai —
+   `delivery: pending=0 | ✅ updates pahunch rahe hain` (bigde to `⚠️ URL me /webhook 2x`,
+   `pending=36`, `last_err=…404`, aur `auto-fix=N` dikhega).
+3. **Watchdog (jo pehle se tha) ka 2 asli bug band**: wo *apne hi banaye* galat URL se
+   tulna karta tha isliye "sab theek hai" bolta raha; ab Telegram par **registered** URL
+   se check hota hai. Aur `pending > 60` ka threshold tha — us din 36 phanse the to wo
+   chup raha; ab **5** se upar turant repair. Check ka gap 15 min → **3 min**.
+4. **Auto-repair**: webhook bigde to bot khud `deleteWebhook` + `setWebhook` kar leta hai,
+   bina redeploy ke. Aapko pata bhi nahi chalega.
+
+### Aapke liye niyam (2 line)
+
+- `WEBHOOK_URL` me **kabhi `/webhook/…` mat likhna** — sirf `https://utility-duniya-bot.onrender.com`
+  (khali chhod do aur bhi theek: bot Render ka apna `RENDER_EXTERNAL_URL` use kar leta hai).
+- **Bot chup lage to ye 1 check:** `https://utility-duniya-bot.onrender.com/health` kholo →
+  `delivery:` line dekho. `pending` bada ho ya `⚠️` ho to webhook/wakt ki dikkat;
+  `✅ updates pahunch rahe hain` ho to bot theek (aapka message pahunch gaya hai).

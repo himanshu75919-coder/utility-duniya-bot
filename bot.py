@@ -272,7 +272,8 @@ from modules.toolkit_extras import (
 )
 from modules import api_hub as hubapi
 from modules.render_health import (webhook_url_from_env, webhook_url_usable,
-                                   webhook_preflight)
+                                   webhook_preflight,
+                         webhook_delivery_state, webhook_needs_repair, webhook_repair)
 from modules.imei_lookup import (
     device_title as imei_title,
     fetch_imei_details,
@@ -11140,70 +11141,90 @@ _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
 # v59.9.2: webhook kyun on/off hua — /health par saaf dikhe (secret kabhi nahi).
 _WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not set",
                  "decision": "abhi decide nahi hua", "why": "-"}
-# v59.10: "bot sach me jawab de raha hai?" — aakhri update kab aaya (user ki
-# sabse badi confusion: purana screenshot dekh kar lagta hai bot band hai).
-_UPDATE_STATE = {"n": 0, "last_ts": 0.0, "last_at": None}
-# v59.11: polling -> webhook switch ke waqt keepalive server ka port khaali karna
-# padta hai (warna PTB webhook usi port par bind nahi kar payega).
-_KEEPALIVE_SERVER = {"srv": None}
 
-# v54.1: /health par **git commit SHA** bhi dikhao.
-# Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
-# commit chal raha hai (version same rehne par bhi code alag ho sakta hai). Render
-# khud RENDER_GIT_COMMIT / RENDER_GIT_BRANCH env inject karta hai.
-_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "").strip()[:7]
-_GIT_BRANCH = (os.environ.get("RENDER_GIT_BRANCH") or "").strip()
-if not _GIT_COMMIT:
-    try:  # local dev fallback (Render par ye branch chalega hi nahi)
-        import subprocess as _sp
-        _GIT_COMMIT = _sp.run(["git", "rev-parse", "--short=7", "HEAD"],
-                              capture_output=True, text=True, timeout=3,
-                              cwd=os.path.dirname(os.path.abspath(__file__))
-                              ).stdout.strip()[:7]
-    except Exception:                                            # noqa: BLE001
-        _GIT_COMMIT = ""
-_START_TS = time.time()
+# v81.1 — 🔌 "Telegram ne URL maan liya" se kaam nahi chalta: updates pahunch rahe
+# hain ya Telegram ke paas phans rahe hain, wahi asli nishani hai. Ye cache + watchdog
+# /health par saccha haal dikhate hain aur phansa hua webhook khud theek karte hain.
+_WH_STATE = {"at": 0.0, "data": {}, "fixes": 0, "last_fix": "", "checks": 0}
+_WH_TTL = 60.0
+
+
+def _webhook_delivery(force: bool = False, timeout: float = 2.0) -> dict:
+    """getWebhookInfo ka cached haal (kabhi raise nahi karta, kabhi slow nahi)."""
+    now = time.time()
+    if not force and (now - _WH_STATE["at"]) < _WH_TTL and _WH_STATE["data"]:
+        return _WH_STATE["data"]
+    try:
+        d = webhook_delivery_state(BOT_TOKEN, timeout=timeout)
+    except Exception as e:                                        # noqa: BLE001
+        d = {"ok": True, "pending": 0, "err": "", "dupes": 0, "registered": True,
+             "note": f"check fail: {type(e).__name__}"}
+    _WH_STATE["data"] = d
+    _WH_STATE["at"] = now
+    _WH_STATE["checks"] += 1
+    return d
+
+
+def _webhook_delivery_line() -> str:
+    d = _webhook_delivery()
+    if not d.get("registered"):
+        return "delivery: ❌ Telegram par webhook REGISTRED HI NAHI (update kabhi nahi aayenge)"
+    bits = [f"pending={int(d.get('pending') or 0)}"]
+    if int(d.get("dupes") or 0) > 0:
+        bits.append(f"⚠️ URL me /webhook {1 + int(d['dupes'])}x (double path = sab 404)")
+    if d.get("err"):
+        bits.append(f"last_err={str(d['err'])[:60]}")
+    bits.append("✅ updates pahunch rahe hain" if d.get("ok") else "⚠️ delivery me dikkat")
+    if _WH_STATE["fixes"]:
+        bits.append(f"auto-fix={_WH_STATE['fixes']}"
+                    + (f" ({_WH_STATE['last_fix'][:40]})" if _WH_STATE["last_fix"] else ""))
+    return "delivery: " + " | ".join(bits)
 
 
 def _webhook_watchdog(url: str, path: str) -> None:
-    """v74.4: webhook ka PERMANENT ilaaj — har 15 min khud check,
+    """v74.4 → v81.1: webhook ka PERMANENT ilaaj — har 3 min check, khud repair.
 
-    error/URL-mismatch mile to khud dobara set kar deta hai (3 retry).
+    v81.1 me iske DO asli kameel bug band kiye (8 Oct ko bot 20 minute se isiliye
+    chup raha, ye watchdog chalta hua bhi kuch nahi bola):
+      1) Ye apne *apne banaye* URL se tulna karta tha (`WEBHOOK_URL + path`). Env me
+         URL hi double (`…/webhook/x/webhook/x`) tha to watchdog ko wo "sahi" lagta
+         raha — kabhi repair nahi ki. Ab registered URL ka shape khud check hota hai
+         ('/webhook' do baar = foran theek) aur Telegram ke getWebhookInfo se asli
+         haal padha jaata hai.
+      2) `pending > 60` ka threshold tha — us din 36 update phanse the, yaani neeche,
+         to ye chup raha. Ab 5 se upar = turant repair.
+      3) 15 minute ka gap tha → ab 3 minute (ek chhota getWebhookInfo call).
     Kuch bhi galat ho, bot chup-chaap theek ho jata hai — user ko pata bhi nahi.
     """
     import time as _t
-    import urllib.request
-    import json as _json
     _full = (url or "").rstrip("/") + (path or "")
     if not _full:
         return
-    _api = f"https://api.telegram.org/bot{BOT_TOKEN}/"
     _secret = (os.environ.get("WEBHOOK_SECRET_TOKEN") or "").strip()
+    # base + path alag-alag nikaal lo (double-path wale env se bhi sahi URL banega)
+    _low = _full.lower()
+    if "/webhook" in _low:
+        _base, _pth = _full[:_low.find("/webhook")], _full[_low.find("/webhook"):]
+    else:
+        _base, _pth = _full.rstrip("/"), (path or "")
     while True:
-        _t.sleep(900)                                  # 15 min
+        _t.sleep(180)                                 # v81.1: 15 min → 3 min
         try:
-            with urllib.request.urlopen(_api + "getWebhookInfo", timeout=25) as r:
-                info = (_json.loads(r.read().decode("utf-8", "ignore")) or {}).get("result") or {}
-            need = (str(info.get("url") or "") != _full) or bool(info.get("last_error_message")) \
-                or int(info.get("pending_update_count") or 0) > 60
-            if not need:
+            d = webhook_delivery_state(BOT_TOKEN, timeout=12.0, expected=_base + _pth)
+            _WH_STATE["data"] = d
+            _WH_STATE["at"] = time.time()
+            _WH_STATE["checks"] += 1
+            need = webhook_needs_repair(d, pending_limit=5)
+            if not need and d.get("match") is not False:
                 continue
-            for _try in range(3):
-                try:
-                    body = {"url": _full, "drop_pending_updates": False}
-                    if _secret:
-                        body["secret_token"] = _secret
-                    req = urllib.request.Request(
-                        _api + "setWebhook", data=_json.dumps(body).encode(),
-                        headers={"Content-Type": "application/json"})
-                    with urllib.request.urlopen(req, timeout=25) as r2:
-                        if (_json.loads(r2.read().decode("utf-8", "ignore")) or {}).get("ok"):
-                            log.info("WEBHOOK self-heal OK — dobara set ho gaya (try %s)", _try + 1)
-                            break
-                except Exception:                      # noqa: BLE001
-                    _t.sleep(5)
-        except Exception:                              # noqa: BLE001
-            pass
+            ok, why = webhook_repair(BOT_TOKEN, _base, _pth, _secret or None)
+            _WH_STATE["fixes"] += 1
+            _WH_STATE["last_fix"] = str(why)[:80]
+            (log.info if ok else log.warning)(
+                "🔌 webhook watchdog: %s | pending=%s | err=%s",
+                why, d.get("pending"), str(d.get("err") or "-")[:60])
+        except Exception as e:                        # noqa: BLE001
+            log.debug("webhook watchdog loop: %s", e)
 
 
 # v74.4: jo boards abhi `portal` hain — inka result page har 6 ghante check hota
@@ -11295,6 +11316,12 @@ def _keepalive_pinger():
                 _KEEPALIVE_STATE.update({"last_run": time.strftime("%d-%m-%Y %H:%M"),
                                          "last_ok": False, "last_error": str(e)[:80]})
                 log.debug("keepalive ping fail: %s", e)
+        # v81.1: 🔌 delivery ka state /health ke liye fresh rakho (repair ka kaam
+        # watchdog thread karta hai; yahan sirf cache bharta hai — extra API call nahi)
+        try:
+            _webhook_delivery(timeout=2.0)
+        except Exception as e:                                    # noqa: BLE001
+            log.debug("webhook delivery cache skip: %s", e)
 
 
 async def _track_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -11438,6 +11465,7 @@ def health_html() -> str:
             f"<p style='font-family:monospace'>webhook: mode_env={_WEBHOOK_DIAG['mode_env']}"
             f" | url_env={_WEBHOOK_DIAG['url_env']} | render_url={_WEBHOOK_DIAG['ext_env']}"
             f" | decision={_WEBHOOK_DIAG['decision']} | why: {_WEBHOOK_DIAG['why']}</p>"
+            f"<p style='font-family:monospace'>{_webhook_delivery_line()}</p>"
             f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
 
 
@@ -11734,7 +11762,10 @@ def main():
     # "Bad webhook: failed to resolve host" par CRASH ho jata tha (aapka deploy fail).
     global WEBHOOK_URL
     _WEBHOOK_DIAG["mode_env"] = str(os.environ.get("WEBHOOK_MODE") or "(not set)")
-    _WEBHOOK_DIAG["url_env"] = "set" if os.environ.get("WEBHOOK_URL") else "not set"
+    _wu_raw = str(os.environ.get("WEBHOOK_URL") or "").strip()
+    _WEBHOOK_DIAG["url_env"] = ("not set" if not _wu_raw else
+                                ("set ✅ (base only)" if "/webhook" not in _wu_raw.lower()
+                                 else "set — usme /webhook/… path bhi tha, strip kar diya"))
     _WEBHOOK_DIAG["ext_env"] = "set" if os.environ.get("RENDER_EXTERNAL_URL") else "not set"
     _wh_ok, _wh_why = (False, "polling mode (WEBHOOK_MODE=off ya koi URL nahi)")
     if WEBHOOK_URL:
