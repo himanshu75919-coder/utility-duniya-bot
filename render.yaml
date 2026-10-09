@@ -187,23 +187,13 @@ services:
         sync: false            # us API ki key
       # ---------- v57: 📱 NUMBER INFO — AAPKI API (direct, hub ke bina) ----------
       # Ye lagate hi Number Info live carrier/circle data dega.
-      # Poori guide: NUMBER-INFO-API-SETUP.md
-      #   numverify   → URL=https://apilayer.net/api/validate
-      #                 KEY_PARAM=access_key   PARAM=number
-      #   abstractapi → URL=https://phonevalidation.abstractapi.com/v1/
-      #                 KEY_PARAM=api_key      PARAM=phone
-      - key: NUMINFO_PROVIDER_URL
-        sync: false            # aapki carrier API ka endpoint (khali = offline mode)
-      - key: NUMINFO_PROVIDER_KEY
-        sync: false            # us API ki key (SECRET — sirf Render me rakho)
-      - key: NUMINFO_PROVIDER_PARAM
-        value: number          # number kis param me jaata hai (abstractapi: phone)
-      - key: NUMINFO_PROVIDER_KEY_PARAM
-        value: access_key      # numverify=access_key · abstractapi=api_key
-      - key: NUMINFO_PROVIDER_AUTH
-        value: query           # query | header | bearer | none
-      - key: NUMINFO_PROVIDER_TIMEOUT
-        value: "12"            # 4-30 second
+      # Poori guide: NUMBER-INFO-API-SETUP.md (v99: tumhara number API built-in)
+      - key: MYNUM_API_URL
+        sync: false            # number API endpoint (khali = built-in default)
+      - key: MYNUM_API_KEY
+        sync: false            # number API key (SECRET — default Demo)
+      - key: MYNUM_API_TIMEOUT
+        value: "40"            # API slow hai — 10-60 second
       - key: VEHICLE_PROVIDER_AUTHORIZED
         value: "0"              # official portal links only unless provider is authorized
 

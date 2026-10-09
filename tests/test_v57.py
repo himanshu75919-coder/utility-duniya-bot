@@ -74,91 +74,77 @@ def check(name: str, cond: bool, extra: str = ""):
 
 
 # =====================================================================
-section("1) 📱 NUMINFO PROVIDER MODULE — naya, kabhi crash nahi karta")
+section("1) 📱 MYNUM API MODULE — naya, kabhi crash nahi karta")
 # =====================================================================
-import modules.numinfo_provider as NP  # noqa: E402
+# v99: purana generic provider POORA GAYA — ab user ka apna number API (built-in).
+import modules.mynum_api as NP  # noqa: E402
 
-check("numinfo_provider module import hota hai", True)
-for _fn in ("is_configured", "lookup", "status", "status_card",
-            "provider_url", "provider_key", "provider_auth", "provider_param"):
-    check(f"numinfo_provider.{_fn}() maujood hai", hasattr(NP, _fn))
+check("mynum_api module import hota hai", True)
+for _fn in ("is_configured", "lookup", "parse_payload", "status", "status_card",
+            "api_url", "api_key", "mask_aadhar"):
+    check(f"mynum_api.{_fn}() maujood hai", hasattr(NP, _fn))
 
 # config env vars padhta hai
-for _var in ("NUMINFO_PROVIDER_URL", "NUMINFO_PROVIDER_KEY",
-             "NUMINFO_PROVIDER_PARAM", "NUMINFO_PROVIDER_KEY_PARAM",
-             "NUMINFO_PROVIDER_AUTH", "NUMINFO_PROVIDER_TIMEOUT"):
+for _var in ("MYNUM_API_URL", "MYNUM_API_KEY", "MYNUM_API_TIMEOUT"):
     check(f"'{_var}' env var support hai", _var in open(
-        os.path.join(ROOT, "modules", "numinfo_provider.py"), encoding="utf-8").read())
+        os.path.join(ROOT, "modules", "mynum_api.py"), encoding="utf-8").read())
 
-# provider set na ho to crash NAHI — saaf dict
-_r = NP.lookup("9876543210")
-check("provider set na ho to crash nahi (dict milta hai)", isinstance(_r, dict))
-check("provider set na ho to not_configured=True", _r.get("not_configured") is True)
-check("provider set na ho to ok=False", _r.get("ok") is False)
-check("is_configured() False deta hai", NP.is_configured() is False)
-check("khaali number par bhi crash nahi", isinstance(NP.lookup(""), dict))
+# built-in API — hamesha configured (Demo key default)
+check("built-in API hamesha configured", NP.is_configured() is True)
+_r = NP.lookup("")
+check("khaali number par crash nahi (dict milta hai)", isinstance(_r, dict))
+check("khaali number par ok=False + Hindi wajah", _r.get("ok") is False
+      and "10-digit" in str(_r.get("error")))
+check("junk input par bhi crash nahi",
+      isinstance(NP.lookup(None), dict) and isinstance(NP.lookup(12345), dict)
+      and NP.lookup(None).get("ok") is False)
 
 # =====================================================================
-section("2) 🔀 RESPONSE PARSING — koi bhi provider shape chalta hai")
+section("2) 🔀 RESPONSE PARSING — number API ka asli shape")
 # =====================================================================
-# Har bade provider ka asli response shape test karo (offline, network nahi)
+# Asli API response shape (live-captured) — offline test, network nahi.
 
 
 def _parse(data):
-    """lookup() ka parsing hissa (network ke bina)."""
-    flat = NP._flatten(data)
-    return {
-        "operator": NP._clean_name(NP._pick(
-            flat, "carrier", "carrier_name", "carriername", "operator",
-            "operatorname", "network", "network_name", "networkname",
-            "provider", "providername")),
-        "circle": NP._clean_name(NP._pick(
-            flat, "location", "circle", "region", "state", "zone",
-            "geolocation", "area")),
-        "type": NP._nice_line_type(NP._pick(
-            flat, "linetype", "line_type", "type", "numbertype",
-            "phonetype", "carrier_type", "carriertype")),
-        "ported": NP._clean_name(NP._pick(flat, "ported", "mnp", "isported", "portability")),
-    }
+    """parse_payload seedha (network ke bina)."""
+    return NP.parse_payload(data, 0)
 
 
-_cases = [
-    ("numverify", {"valid": True, "country_name": "India", "location": "Bihar",
-                   "carrier": "Airtel", "line_type": "mobile"},
-     {"operator": "Airtel", "circle": "Bihar", "type": "📱 Mobile"}),
-    ("abstractapi", {"phone": "+919876543210", "valid": True,
-                     "country": {"name": "India", "code": "IN"},
-                     "carrier": "Jio", "type": "mobile"},
-     {"operator": "Jio", "type": "📱 Mobile"}),
-    ("veriphone", {"status": "success", "phone_valid": True, "carrier": "Vi India",
-                   "phone_type": "mobile", "country": "India"},
-     {"operator": "Vi India", "type": "📱 Mobile"}),
-    ("nested/data", {"status": "success", "data": {"network": "BSNL",
-                                                   "circle": "Bihar", "type": "landline",
-                                                   "mnp": True}},
-     {"operator": "BSNL", "circle": "Bihar", "type": "☎️ Landline"}),
-    ("twilio style", {"carrier": {"type": "mobile", "name": "Airtel"},
-                      "country_code": "IN"},
-     {"operator": "Airtel", "type": "📱 Mobile"}),
-    ("reliance", {"carrier": {"name": "Reliance Jio", "region": "MH"}, "type": "mobile"},
-     {"operator": "Reliance Jio", "circle": "MH"}),
-]
-for _lbl, _payload, _expect in _cases:
-    got = _parse(_payload)
-    ok = all(got.get(k) == v for k, v in _expect.items())
-    check(f"{_lbl} → {_expect} ", ok, f"mila={got}")
+_HIT = {"success": True, "tool": "num", "query": "9876543210",
+        "data": {"owner_name": "DEV JYOTI ROY", "father_name": "SALIL KUMAR ROY",
+                 "mobile_no": "9876543210", "alt_mobile": "9999400000",
+                 "aadhar_card_no": "886553666165", "circle": "AIRTEL DELHI",
+                 "address": "TOWER 9 NOIDA 201301",
+                 "owner_name_": "MR DEEPAK MEHTA", "circle_": "DELHI VODA"}}
+_MISS = {"success": True, "tool": "num", "query": "12345", "data": {},
+         "raw": "✖️ No result found"}
 
-# junk values (NA / null / -) khaali hone chahiye
-_junk = _parse({"carrier": "NA", "location": "null", "line_type": "-"})
-check("junk values ('NA'/'null'/'-') khaali ho jaate hain",
-      _junk == {"operator": "", "circle": "", "type": "", "ported": ""}, str(_junk))
+_p = _parse(_HIT)
+check("HIT → ok=True", _p.get("ok") is True, str(_p)[:100])
+check("HIT → name/father", (_p.get("owner") or {}).get("name") == "DEV JYOTI ROY"
+      and (_p.get("owner") or {}).get("father") == "SALIL KUMAR ROY")
+check("HIT → circle split (AIRTEL/DELHI)", _p.get("operator") == "AIRTEL"
+      and _p.get("circle") == "DELHI", f"{_p.get('operator')}/{_p.get('circle')}")
+check("HIT → Aadhaar MASK (poora kabhi nahi)",
+      (_p.get("owner") or {}).get("govt_id") == "XXXX-XXXX-6165"
+      and "886553666165" not in str(_p))
+check("HIT → records ginata hai", (_p.get("extra") or {}).get("records") == 2)
+check("HIT → source myapi", _p.get("source") == "myapi")
+_m = _parse(_MISS)
+check("MISS → ok=False + not_found", _m.get("ok") is False and _m.get("not_found") is True)
+check("MISS → Hindi wajah", "nahi mila" in str(_m.get("error")))
+_j = _parse({"success": True,
+             "data": {"owner_name": "NA", "circle": "None", "aadhar_card_no": "-"}})
+check("junk values ('NA'/'None'/'-') khaali ho jaate hain",
+      (_j.get("owner") or {}).get("name") in (None, "")
+      and _j.get("circle") == ""
+      and (_j.get("owner") or {}).get("govt_id") in (None, ""))
 
 # ---------- status card (key kabhi print na ho) ----------
 _card = NP.status_card()
 check("status_card() string deta hai", isinstance(_card, str) and len(_card) > 80)
-check("status_card me 'SET NAHI HAI' dikhta hai (abhi set nahi)",
-      "SET NAHI HAI" in _card)
-check("status_card me setup instruction hai", "NUMINFO_PROVIDER_URL" in _card)
+check("status_card me 'SET HAI' (built-in API)", "SET HAI" in _card)
+check("status_card me key ka naam hai (value nahi)", "MYNUM_API_KEY" in _card)
 check("status_card me guide ka naam hai", "NUMBER-INFO-API-SETUP.md" in _card)
 
 # =====================================================================
@@ -243,14 +229,14 @@ check("LINK CHECK: response time measure hota hai", "_ms = (time.perf_counter()"
 _ni_i = BOT_SRC.index('if mode == "numinfo":')
 _ni_j = BOT_SRC.index('if mode == "ifsc":', _ni_i)
 _ni = BOT_SRC[_ni_i:_ni_j]
-# v75 UPGRADE: pehle `asyncio.gather` tha — par gather SLOWEST source ka wait
-# karta hai (ek source dead = user 9 second wait). Ab `pro.gather_soon` hai jo
-# jo jawab time me aa gaya wahi le leta hai. SPEC waara hi hai: DONO PARALLEL
-# chalte hain (serial nahi). Isliye test dono implementations accept karta hai.
-check("NUMBER INFO: provider + hub PARALLEL chalte hain (gather_soon/gather)",
-      "gather_soon(" in _ni or "asyncio.gather(" in _ni)
-check("NUMBER INFO: dono apni jagah call hote hain",
-      "numprov.lookup" in _ni and "hub_carrier_info" in _ni)
+# v99: purane DONO API gaye (provider slot + hub) — ab sirf user ka number API,
+# single call + timeout guard (API slow ho to bot atke nahi).
+check("NUMBER INFO: apna number API single call (mynum.lookup)",
+      "mynum.lookup" in _ni)
+check("NUMBER INFO: timeout guard hai (API slow ho to atke nahi)",
+      "wait_for(" in _ni and "TimeoutError" in _ni)
+check("NUMBER INFO: purane API gaye (provider slot + hub)",
+      "numprov.lookup" not in _ni and "hub_carrier_info" not in _ni)
 check("NUMBER INFO: fallback chain hai (provider → hub → offline)",
       '"source" or "offline"' in _ni or "or \"offline\"" in _ni)
 check("NUMBER INFO: live source line dikhti hai",
@@ -271,8 +257,8 @@ check("cmd_numapi admin-only hai", "def cmd_numapi" in BOT_SRC and
       BOT_SRC[BOT_SRC.index("async def cmd_numapi"):][:400].count("is_admin") >= 1)
 check("/numapi handler registered",
       "CommandHandler([\"numapi\", \"numinfoapi\", \"numberapi\"], cmd_numapi)" in BOT_SRC)
-check("cmd_numapi status_card() use karta hai", "numprov.status_card()" in BOT_SRC)
-check("cmd_numapi live test chalta hai", "numprov.lookup" in BOT_SRC)
+check("cmd_numapi status_card() use karta hai", "mynum.status_card()" in BOT_SRC)
+check("cmd_numapi live test chalta hai", "mynum.lookup" in BOT_SRC)
 check("live test me latency dikhti hai", "Latency" in BOT_SRC)
 check("fail hone par 4-check troubleshooting dikhta hai",
       "Ye 4 cheezein check karo" in BOT_SRC)
@@ -284,7 +270,7 @@ check("fail par user ko batata hai tool band nahi hai",
 check("provider_key() sirf status me use hota hai (bool)",
       "provider_key()" not in BOT_SRC or "provider_key())\n" not in BOT_SRC)
 check("status_card key ki VALUE nahi dikhata (sirf set/not set)",
-      "set (chhupi hui)" in open(os.path.join(ROOT, "modules", "numinfo_provider.py"),
+      "set (chhupi hui)" in open(os.path.join(ROOT, "modules", "mynum_api.py"),
                                  encoding="utf-8").read())
 
 # =====================================================================
@@ -295,10 +281,9 @@ check("NUMBER-INFO-API-SETUP.md guide maujood hai",
 _g = open(os.path.join(ROOT, "NUMBER-INFO-API-SETUP.md"), encoding="utf-8").read()
 for _step in ("STEP 1", "STEP 2", "STEP 3", "STEP 4"):
     check(f"guide me {_step} hai", _step in _g)
-check("guide me numverify ke exact values hain",
-      "https://apilayer.net/api/validate" in _g and "access_key" in _g)
-check("guide me abstractapi ke exact values hain",
-      "phonevalidation.abstractapi.com" in _g and "api_key" in _g)
+check("guide me number API ka endpoint hai",
+      "bot-api" in _g and "tool=num" in _g)
+check("guide me key wali line hai", "MYNUM_API_KEY" in _g)
 check("guide me Render ka exact path hai",
       "Environment" in _g and "utility-duniya-bot" in _g)
 check("guide me safety table hai (key kisi ko na do)", "NA KARO" in _g)
@@ -306,15 +291,13 @@ check("guide me honesty section hai (naam/address nahi milta)",
       "owner" in _g.lower() and "Nahi" in _g)
 
 _y = open(os.path.join(ROOT, "render.yaml"), encoding="utf-8").read()
-for _k in ("NUMINFO_PROVIDER_URL", "NUMINFO_PROVIDER_KEY", "NUMINFO_PROVIDER_PARAM",
-           "NUMINFO_PROVIDER_KEY_PARAM", "NUMINFO_PROVIDER_AUTH",
-           "NUMINFO_PROVIDER_TIMEOUT"):
+for _k in ("MYNUM_API_URL", "MYNUM_API_KEY", "MYNUM_API_TIMEOUT"):
     check(f"render.yaml me {_k} hai", _k in _y)
 check("render.yaml me KEY sync:false hai (secret)",
-      "NUMINFO_PROVIDER_KEY\n        sync: false" in _y)
+      "MYNUM_API_KEY\n        sync: false" in _y)
 
 _e = open(os.path.join(ROOT, ".env.example"), encoding="utf-8").read()
-check(".env.example me NUMINFO_PROVIDER_URL hai", "NUMINFO_PROVIDER_URL" in _e)
+check(".env.example me MYNUM_API_KEY hai", "MYNUM_API_KEY" in _e)
 
 # =====================================================================
 section("8) 🧾 SANITY — kuch aur toota nahi")
@@ -348,7 +331,7 @@ import importlib as _il  # noqa: E402
 _ghost = []
 for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
             "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
-            "general_tools", "imei_lookup", "media_downloader", "numinfo_provider",
+            "general_tools", "imei_lookup", "media_downloader", "mynum_api",
             "osint_hub", "osint_tools", "payguard", "render_health", "sarkari_hub",
             "temp_mail", "toolkit_extras", "tutorial_hub", "vip_payment"):
     try:
@@ -428,14 +411,13 @@ check("user data (raw_text/title/clean) kisi HTML line me unescaped nahi",
 
 
 # =====================================================================
-section("10) 🔬 END-TO-END — provider config + lookup (mock HTTP, network nahi)")
+section("10) 🔬 END-TO-END — number API config + lookup (mock HTTP, network nahi)")
 # =====================================================================
 import modules.core.net as _net  # noqa: E402
 
 _orig_get = _net.http_get
 _orig_env = {k: os.environ.get(k) for k in (
-    "NUMINFO_PROVIDER_URL", "NUMINFO_PROVIDER_KEY", "NUMINFO_PROVIDER_PARAM",
-    "NUMINFO_PROVIDER_KEY_PARAM", "NUMINFO_PROVIDER_AUTH")}
+    "MYNUM_API_URL", "MYNUM_API_KEY", "MYNUM_API_TIMEOUT")}
 _calls = []
 
 
@@ -447,50 +429,58 @@ class _FakeResp:
     def json(self): return self._d
 
 
+_HIT10 = {"success": True, "tool": "num", "query": "9876543210",
+          "data": {"owner_name": "DEV JYOTI ROY", "father_name": "SALIL KUMAR ROY",
+                   "mobile_no": "9876543210", "alt_mobile": "9999400000",
+                   "aadhar_card_no": "886553666165", "circle": "AIRTEL DELHI",
+                   "address": "TOWER 9 NOIDA 201301",
+                   "owner_name_": "SECOND", "circle_": "AIRTEL DELHI"}}
+
+
 def _fake_get(url, **kw):
     _calls.append((url, kw))
-    return _FakeResp({"valid": True, "country_name": "India", "location": "Bihar",
-                      "carrier": "Airtel", "line_type": "mobile"})
+    return _FakeResp(_HIT10)
 
 
 try:
-    os.environ.update({
-        "NUMINFO_PROVIDER_URL": "https://fake.api/validate",
-        "NUMINFO_PROVIDER_KEY": "K" * 20,
-        "NUMINFO_PROVIDER_PARAM": "number",
-        "NUMINFO_PROVIDER_KEY_PARAM": "access_key",
-        "NUMINFO_PROVIDER_AUTH": "query"})
+    os.environ.update({"MYNUM_API_URL": "https://fake.num/api",
+                       "MYNUM_API_KEY": "K" * 20})
     _net.http_get = _fake_get
-    import importlib as _il2
-    NP = _il2.reload(NP)
     if getattr(NP, "_CACHE", None) is not None:
         NP._CACHE.clear()
 
-    check("config set hone par is_configured() True", NP.is_configured() is True)
+    check("built-in API configured", NP.is_configured() is True)
 
     _r = NP.lookup("9876543210")
     check("lookup() ok=True deta hai", _r.get("ok") is True, str(_r)[:120])
-    check("lookup() operator parse karta hai", _r.get("operator") == "Airtel")
-    check("lookup() circle parse karta hai", _r.get("circle") == "Bihar")
-    check("lookup() line type parse karta hai", "Mobile" in str(_r.get("type")))
-    check("lookup() source='provider' batata hai", _r.get("source") == "provider")
+    check("lookup() name parse karta hai",
+          (_r.get("owner") or {}).get("name") == "DEV JYOTI ROY")
+    check("lookup() circle split karta hai (AIRTEL/DELHI)",
+          _r.get("operator") == "AIRTEL" and _r.get("circle") == "DELHI")
+    check("lookup() Aadhaar mask karta hai",
+          (_r.get("owner") or {}).get("govt_id") == "XXXX-XXXX-6165"
+          and "886553666165" not in str(_r))
+    check("lookup() source='myapi' batata hai", _r.get("source") == "myapi")
     check("lookup() latency_ms deta hai", isinstance(_r.get("latency_ms"), int))
 
-    # number parameter me jaana chahiye + key us param me (query auth)
     _u, _kw = _calls[-1]
     _sent = dict(_kw.get("params") or {})
-    # provider APIs ko FULL international number chahiye (numverify etc.) —
-    # sirf 10 digit nahi, isliye 919876543210 jaata hai. Ye SAHI behaviour hai.
-    _num_sent = str(_sent.get("number") or "")
-    check("number sahi param me jaata hai (full international format)",
-          _num_sent.endswith("9876543210") and len(_num_sent) >= 10, str(_sent))
-    check("key NUMINFO_PROVIDER_KEY_PARAM wale param me jaati hai",
-          _sent.get("access_key") == "K" * 20, str(list(_sent)))
-    check("URL me key NAHI jaati (query param se jaati hai)", "K" * 20 not in _u, _u)
+    check("10-digit number 'term' param me jaata hai",
+          _sent.get("term") == "9876543210", str(_sent))
+    check("key 'key' param me jaati hai", _sent.get("key") == "K" * 20,
+          str(list(_sent)))
+    check("tool=num jaata hai", _sent.get("tool") == "num")
 
-    # cache: dobara call par network NAHI hona chahiye
+    # 91-prefix input bhi 10-digit ban kar jaata hai (API 91 par No-result deti hai)
+    NP._CACHE.clear()
+    _calls.clear()
+    NP.lookup("919876543210")
+    check("91-prefix strip ho jaata hai",
+          (_calls[-1][1].get("params") or {}).get("term") == "9876543210")
+
+    # cache: dobara call par network NAHI
     _n_before = len(_calls)
-    _r2 = NP.lookup("9876543210")
+    _r2 = NP.lookup("919876543210")
     check("same number dobara → cache se (network call nahi)",
           len(_calls) == _n_before, f"calls {_n_before} -> {len(_calls)}")
     check("cache se aane par cached=True", _r2.get("cached") is True)
@@ -498,30 +488,16 @@ try:
     # KEY KABHI card me nahi
     _card = NP.status_card()
     check("status_card me key ki VALUE nahi jaati", "K" * 20 not in _card)
-    check("status_card me URL dikhta hai", "fake.api" in _card)
+    check("status_card me API host dikhta hai", "fake.num" in _card)
 
-    # auth=header mode
-    os.environ["NUMINFO_PROVIDER_AUTH"] = "header"
-    NP = _il2.reload(NP)
-    if getattr(NP, "_CACHE", None) is not None:
-        NP._CACHE.clear()
-    _calls.clear()
-    NP.lookup("9876543210")
-    _h = dict((_calls[-1][1].get("headers") or {}))
-    check("AUTH=header par key header me jaati hai (params me nahi)",
-          any(v == "K" * 20 for v in _h.values()), str(list(_h)))
-    check("AUTH=header par URL/params me key nahi",
-          "K" * 20 not in str(_calls[-1][1].get("params") or {}))
-
-    # {number} placeholder mode
-    os.environ["NUMINFO_PROVIDER_URL"] = "https://fake.api/v/{number}"
-    NP = _il2.reload(NP)
-    if getattr(NP, "_CACHE", None) is not None:
-        NP._CACHE.clear()
-    _calls.clear()
-    NP.lookup("9876543210")
-    check("URL me {number} placeholder bhar jaata hai",
-          "9876543210" in _calls[-1][0] and "{number}" not in _calls[-1][0], _calls[-1][0])
+    # MISS shape
+    _net.http_get = lambda url, **kw: _FakeResp(  # noqa: E731
+        {"success": True, "data": {}, "raw": "No result"})
+    NP._CACHE.clear()
+    _rm = NP.lookup("9000000001")
+    check("record na mile to ok=False + not_found",
+          _rm.get("ok") is False and _rm.get("not_found") is True, str(_rm)[:90])
+    check("MISS par Hindi wajah", "nahi mila" in str(_rm.get("error")))
 
 finally:
     _net.http_get = _orig_get
@@ -530,7 +506,10 @@ finally:
             os.environ.pop(_k, None)
         else:
             os.environ[_k] = _v
-    NP = _il2.reload(NP)
+    try:
+        NP._CACHE.clear()
+    except Exception:                                            # noqa: BLE001
+        pass
 
 
 print("\n" + "=" * 62)

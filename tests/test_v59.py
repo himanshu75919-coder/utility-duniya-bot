@@ -63,7 +63,7 @@ def _ver_at_least(n: float) -> bool:
 BOT_SRC = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 MD_SRC = open(os.path.join(ROOT, "modules", "media_downloader.py"), encoding="utf-8").read()
 OT_SRC = open(os.path.join(ROOT, "modules", "osint_tools.py"), encoding="utf-8").read()
-NP_SRC = open(os.path.join(ROOT, "modules", "numinfo_provider.py"), encoding="utf-8").read()
+NP_SRC = open(os.path.join(ROOT, "modules", "mynum_api.py"), encoding="utf-8").read()
 
 PASS = 0
 FAIL = 0
@@ -91,7 +91,7 @@ def check(name: str, cond: bool, extra: str = ""):
 import bot
 from modules.render_health import webhook_url_from_env  # noqa: E402
 import modules.osint_tools as OT  # noqa: E402
-import modules.numinfo_provider as NP  # noqa: E402
+import modules.mynum_api as NP  # noqa: E402
 import modules.media_downloader as MD  # noqa: E402
 
 
@@ -277,8 +277,8 @@ check("card ke aakhir me brand footer (v59.7: clickable)",
       "Powered by" in bot.BRAND_LINK and "BRAND_LINK" in CARD_SRC)
 check("NUMINFO_SHOW_OWNER gate hata diya (card seedha dimaghta hai)",
       "NUMINFO_SHOW_OWNER" not in BOT_SRC)
-check("API na ho to sirf chhota setup hint (koi lecture line nahi)",
-      "NUMINFO_PROVIDER_URL" in CARD_SRC and "/numapi" in CARD_SRC)
+check("API na ho to sirf chhota test hint (koi lecture line nahi)",
+      "/numapi" in CARD_SRC and "NUMINFO_PROVIDER_URL" not in CARD_SRC)
 check("card me privacy/leaked shabd nahi",
       "leaked" not in NI.lower() and "Privacy" not in NI and "privacy" not in NI)
 check("extra address list (addresses / address_list) support hai",
@@ -292,68 +292,29 @@ check("purana '🔒 Private Setup' ad nahi (hata diya gaya tool)",
 check("TEMP MAIL card me privacy line nahi",
       "sirf isi chat me hai" not in BOT_SRC)
 
-# provider module: owner fields parse (offline, fake API response)
-_flat = NP._flatten({"name": "Sanjay Sah", "fatherName": "Ram Akwal Sah",
-                     "altMobile": "7305190526", "region": "BIHAR JIO",
-                     "govtId": "401635555849", "address": "S/O Ram Akwal Sah, ward 02"})
-check("provider owner name parse", NP._clean_name(NP._pick(_flat, "name", "ownername")) == "Sanjay Sah")
-check("provider father parse", NP._clean_name(NP._pick(_flat, "father", "fathername")) == "Ram Akwal Sah")
-check("provider alt mobile parse", NP._clean_name(NP._pick(_flat, "alt", "altmobile")) == "7305190526")
-check("provider region parse", NP._clean_name(NP._pick(_flat, "region", "state")) == "BIHAR JIO")
-check("provider govt id parse", NP._clean_name(NP._pick(_flat, "govtid", "idnumber")) == "401635555849")
-check("provider address parse", "ward 02" in NP._clean_name(NP._pick(_flat, "address")))
-check("POST support hai (NUMINFO_PROVIDER_METHOD)",
-      "NUMINFO_PROVIDER_METHOD" in NP_SRC and "def provider_method()" in NP_SRC
-      and "http_post" in NP_SRC)
-check("owner-only API bhi chalti hai (carrier data ke bina) — 'format match nahi hua' nahi",
-      "and not any(_owner.values())" in NP_SRC)
-check("owner dict me paanch field map hote hain",
-      all(f'"{_f}": _clean_name' in NP_SRC
-          for _f in ("name", "father", "alt", "region", "govt_id", "address")))
-
-# ---- LIVE: POST + sirf owner data wali API ----
-
-
-class _HPost(BaseHTTPRequestHandler):
-    def do_POST(self):                                       # noqa: N802
-        self.rfile.read(int(self.headers.get("Content-Length") or 0))
-        b = json.dumps({"name": "POST WALA NAAM", "address": "Sitamarhi, Bihar"}).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(b)))
-        self.end_headers()
-        self.wfile.write(b)
-
-    def log_message(self, *a):                               # noqa: D102
-        pass
-
-
-_srv2 = HTTPServer(("127.0.0.1", 0), _HPost)
-threading.Thread(target=_srv2.serve_forever, daemon=True).start()
-os.environ["NUMINFO_PROVIDER_URL"] = f"http://127.0.0.1:{_srv2.server_address[1]}/api"
-os.environ["NUMINFO_PROVIDER_KEY"] = "TESTKEY"
-os.environ["NUMINFO_PROVIDER_METHOD"] = "POST"
-try:
-    _r2 = NP.lookup("9876543210")
-    check("LIVE POST: ok=True (POST API chalti hai)", _r2.get("ok") is True, str(_r2)[:110])
-    check("LIVE POST: sirf naam/pata wali API se bhi owner data aaya",
-          (_r2.get("owner") or {}).get("name") == "POST WALA NAAM", str(_r2.get("owner")))
-finally:
-    _srv2.shutdown()
-    os.environ.pop("NUMINFO_PROVIDER_URL", None)
-    os.environ.pop("NUMINFO_PROVIDER_KEY", None)
-    os.environ.pop("NUMINFO_PROVIDER_METHOD", None)
-    try:
-        NP._CACHE.clear()                                    # type: ignore[attr-defined]
-    except Exception:                                        # noqa: BLE001
-        pass
+# number API module: owner fields parse (offline, asli API shape)
+_PF59 = NP.parse_payload({"success": True, "data": {
+    "owner_name": "Sanjay Sah", "father_name": "Ram Akwal Sah",
+    "mobile_no": "7857843092", "alt_mobile": "7305190526",
+    "aadhar_card_no": "401635555849", "circle": "BIHAR JIO",
+    "address": "S/O Ram Akwal Sah, ward 02"}}, 0)
+check("number API owner name parse", (_PF59.get("owner") or {}).get("name") == "Sanjay Sah")
+check("number API father parse", (_PF59.get("owner") or {}).get("father") == "Ram Akwal Sah")
+check("number API alt mobile parse", (_PF59.get("owner") or {}).get("alt") == "7305190526")
+check("number API region parse (circle split)", (_PF59.get("owner") or {}).get("region") == "BIHAR")
+check("number API govt id MASK parse", (_PF59.get("owner") or {}).get("govt_id") == "XXXX-XXXX-5849")
+check("number API address parse", "ward 02" in str((_PF59.get("owner") or {}).get("address")))
+check("API timeout env se (slow API ke liye)", "MYNUM_API_TIMEOUT" in NP_SRC)
+check("Aadhaar mask helper maujood hai", "def mask_aadhar" in NP_SRC)
+check("extra records ginata hai (owner_name_ suffix)", 'fullmatch(r"owner_name_*"' in NP_SRC)
 
 # ---- LIVE-ish: chhota fake API server, phir numprov.lookup ----
-_SAMPLE = {"data": {"name": "Sanjay Sah", "fatherName": "Ram Akwal Sah",
-                    "altMobile": "7305190526", "region": "BIHAR JIO",
-                    "govtId": "401635555849",
+_SAMPLE = {"success": True, "tool": "num", "query": "9876543210",
+           "data": {"owner_name": "Sanjay Sah", "father_name": "Ram Akwal Sah",
+                    "mobile_no": "9876543210", "alt_mobile": "7305190526",
+                    "aadhar_card_no": "401635555849", "circle": "BIHAR JIO",
                     "address": "S/O Ram Akwal Sah, ward 02, Patna",
-                    "operator": "Jio", "circle": "Bihar"}}
+                    "owner_name_": "SECOND RECORD", "circle_": "BIHAR JIO"}}
 
 
 class _H(BaseHTTPRequestHandler):
@@ -377,8 +338,8 @@ class _H(BaseHTTPRequestHandler):
 _srv = HTTPServer(("127.0.0.1", 0), _H)
 _port = _srv.server_address[1]
 threading.Thread(target=_srv.serve_forever, daemon=True).start()
-os.environ["NUMINFO_PROVIDER_URL"] = f"http://127.0.0.1:{_port}/?number={{number}}"
-os.environ["NUMINFO_PROVIDER_KEY"] = "TESTKEY"
+os.environ["MYNUM_API_URL"] = f"http://127.0.0.1:{_port}/api"
+os.environ["MYNUM_API_KEY"] = "TESTKEY"
 try:
     _lk = NP.lookup("9876543210")
     check("fake API se lookup ok=True", _lk.get("ok") is True, str(_lk)[:120])
@@ -386,15 +347,17 @@ try:
     check("live lookup me name aaya", _ow.get("name") == "Sanjay Sah", str(_ow))
     check("live lookup me father aaya", _ow.get("father") == "Ram Akwal Sah")
     check("live lookup me alt number aaya", _ow.get("alt") == "7305190526")
-    check("live lookup me region aaya", _ow.get("region") == "BIHAR JIO")
-    check("live lookup me govt id aaya", _ow.get("govt_id") == "401635555849")
+    check("live lookup me region aaya (circle split)", _ow.get("region") == "BIHAR")
+    check("live lookup me govt id MASK aaya", _ow.get("govt_id") == "XXXX-XXXX-5849")
+    check("live lookup me poora Aadhaar nahi leak", "401635555849" not in str(_lk))
     check("live lookup me address aaya", "ward 02" in str(_ow.get("address")))
-    check("live lookup me operator bhi aaya", str(_lk.get("operator") or "").lower() == "jio")
+    check("live lookup me operator bhi aaya", _lk.get("operator") == "JIO")
+    check("live lookup me records gine", (_lk.get("extra") or {}).get("records") == 2)
     check("lookup crashed nahi (dict milta hai)", isinstance(_lk, dict))
 finally:
     _srv.shutdown()
-    os.environ.pop("NUMINFO_PROVIDER_URL", None)
-    os.environ.pop("NUMINFO_PROVIDER_KEY", None)
+    os.environ.pop("MYNUM_API_URL", None)
+    os.environ.pop("MYNUM_API_KEY", None)
     try:
         NP._CACHE.clear()                                    # type: ignore[attr-defined]
     except Exception:                                        # noqa: BLE001
@@ -491,133 +454,25 @@ check("numinfo_card() renderer module-level hai (ek hi layout, do jagah use)",
       callable(getattr(bot, "numinfo_card", None)))
 check("handler bhi numinfo_card() use karta hai (duplicate layout nahi)",
       "card = numinfo_card(res, _ow, _extra" in NI)
-check("/numdemo command hai", callable(getattr(bot, "cmd_numdemo", None)))
-check("/numdemo registered hai", '["numdemo", "numinfodemo", "numpreview"], cmd_numdemo' in BOT_SRC)
-check("/numdemo admin-only hai", BOT_SRC[BOT_SRC.index("async def cmd_numdemo"):][:420].count("is_admin") >= 1)
-check("/numdemo me credit NAHI katta", "spend_credit_msg" not in
-      BOT_SRC[BOT_SRC.index("async def cmd_numdemo"):][:1500])
-check("/numdemo card SAMPLE bolta hai (asli data jaisa confusion nahi)",
-      "SAMPLE PREVIEW" in BOT_SRC and "nakli values" in BOT_SRC)
-check("demo source line bot.py me hai (🧪 DEMO SAMPLE)",
-      'if _src == "demo":' in BOT_SRC and "DEMO SAMPLE" in BOT_SRC)
-
-import modules.numinfo_provider as _NP2  # noqa: E402
-check("provider me demo_mode() hai", callable(getattr(_NP2, "demo_mode", None)))
-check("provider me demo_result() hai", callable(getattr(_NP2, "demo_result", None)))
-_d = _NP2.demo_result("9000000001")
-check("demo_result asli shape deta hai (ok/source/owner)",
-      _d.get("ok") is True and _d.get("source") == "demo" and bool(_d.get("owner")))
-check("demo data clearly SAMPLE likha hua hai (real person nahi)",
-      "SAMPLE" in str(_d.get("owner")))
-
-# LIVE: env ON → lookup demo data deta hai; OFF → not_configured
-import importlib as _il2  # noqa: E402
-_il2.reload(_NP2)
-_old_url = os.environ.pop("NUMINFO_PROVIDER_URL", None)
-_old_key = os.environ.pop("NUMINFO_PROVIDER_KEY", None)
-os.environ["NUMINFO_DEMO"] = "on"
-_il2.reload(_NP2)
-_r_demo = _NP2.lookup("9876543210")
-check("LIVE: DEMO=on par lookup sample card deta hai (ok=True, source=demo)",
-      _r_demo.get("ok") is True and _r_demo.get("source") == "demo", str(_r_demo)[:90])
-os.environ["NUMINFO_DEMO"] = "off"
-_il2.reload(_NP2)
-_r_off = _NP2.lookup("9876543210")
-check("LIVE: DEMO=off par not_configured (jhootha sample nahi)",
-      _r_off.get("not_configured") is True, str(_r_off)[:90])
-os.environ.pop("NUMINFO_DEMO", None)
-if _old_url:
-    os.environ["NUMINFO_PROVIDER_URL"] = _old_url
-if _old_key:
-    os.environ["NUMINFO_PROVIDER_KEY"] = _old_key
-_il2.reload(_NP2)
-
-# /numdemo card me saari 6 owner line + separator aate hain (renderer check)
-_demo_card = bot.numinfo_card({"international": "+91 90000 00001", "country": "India"},
-                              _NP2.demo_result().get("owner"), {}, "Jio", "Bihar",
-                              "📱 Mobile", "", "🧪 SAMPLE", 240)
-for _lbl in ("👤 <b>Name:</b>", "👨 <b>Father:</b>", "📱 <b>Phone:</b>",
-             "📱 <b>Alt:</b>", "🌐 <b>Circle:</b>", "🆔 <b>Govt ID:</b>",
-             "🏠 <b>Address:</b>"):
-    check(f"demo card me '{_lbl}' aata hai", _lbl in _demo_card)
-
 # --- 🔎 /numtest — MAPPING PREVIEW (JSON paste karo → card dikhao) ---
-check("provider.parse_payload() hai (mapping ek jagah)",
+check("mynum.parse_payload() hai (mapping ek jagah)",
       callable(getattr(NP, "parse_payload", None)))
 check("lookup() bhi wahi parse_payload use karta hai (duplicate mapping nahi)",
-      "out = parse_payload(data)" in NP_SRC)
-check("/numtest command hai", callable(getattr(bot, "cmd_numtest", None)))
-check("/numtest registered hai",
-      '["numtest", "numcheck", "numinfotest"], cmd_numtest' in BOT_SRC)
-check("/numtest admin-only hai",
-      BOT_SRC[BOT_SRC.index("async def cmd_numtest"):][:420].count("is_admin") >= 1)
-check("/numtest credit NAHI katta",
-      "spend_credit_msg" not in BOT_SRC[BOT_SRC.index("async def cmd_numtest"):][:2500])
-check("/numtest batata hai ki koi API call nahi hoti",
-      "koi API call nahi hui" in BOT_SRC or "koi API call nahi hoti" in BOT_SRC)
-
-_p = NP.parse_payload({"carrier": "Jio", "location": "Bihar", "name": "Rahul Kumar",
-                       "fatherName": "Mohan Lal", "altMobile": "9000000001",
-                       "address": "Ward 2, Sitamarhi", "govtId": "123456789012"})
-check("parse_payload: carrier JSON ko samajhta hai",
-      _p.get("ok") is True and _p.get("operator") == "Jio", str(_p)[:90])
+      "parse_payload(data" in NP_SRC)
+_p = NP.parse_payload({"success": True, "query": "9000000001", "data": {
+    "owner_name": "Rahul Kumar", "father_name": "Mohan Lal",
+    "mobile_no": "9000000001", "alt_mobile": "9000000002",
+    "aadhar_card_no": "123456789012", "circle": "JIO BIHAR",
+    "address": "Ward 2, Sitamarhi"}}, 0)
+check("parse_payload: number API JSON ko samajhta hai",
+      _p.get("ok") is True and _p.get("operator") == "JIO", str(_p)[:90])
 check("parse_payload: owner fields map hote hain",
       (_p.get("owner") or {}).get("name") == "Rahul Kumar"
       and (_p.get("owner") or {}).get("father") == "Mohan Lal")
+check("parse_payload: Aadhaar mask hota hai",
+      (_p.get("owner") or {}).get("govt_id") == "XXXX-XXXX-9012")
 check("parse_payload: galat shape par saaf error (crash nahi)",
       NP.parse_payload({"kuch": "aur"}).get("ok") is False)
-
-# LIVE: /numtest ka poora flow (mock update se)
-import asyncio as _aio  # noqa: E402
-
-
-class _TM:
-    message_id = 1
-
-    def __init__(self, t=""):
-        self.text = t
-
-    async def reply_text(self, t, **k):
-        _TM.last = t
-        return self
-
-    async def edit_text(self, t, **k):
-        _TM.last = t
-        return self
-
-
-class _TU:
-    id = int(os.environ.get("ADMIN_ID", "1"))   # test harness admin hi hai
-    first_name = "T"
-    username = "t"
-
-
-class _TUp:
-    def __init__(self, t):
-        self.message = _TM(t)
-        self.effective_user = _TU()
-        self.effective_chat = types.SimpleNamespace(id=888)
-        self.callback_query = None
-        self.effective_message = self.message
-
-
-def _run_numtest(txt):
-    _TM.last = ""
-    _aio.run(bot.cmd_numtest(_TUp(txt),
-                             types.SimpleNamespace(user_data={}, bot=None, args=None)))
-    return _TM.last
-
-
-_out = _run_numtest('/numtest {"carrier":"Jio","location":"Bihar","name":"Rahul Kumar","address":"Ward 2, Sitamarhi"}')
-check("LIVE /numtest: card bana (Name line aayi)", "👤 <b>Name:</b> Rahul Kumar" in _out)
-check("LIVE /numtest: MAPPING PREVIEW likha hai", "MAPPING PREVIEW" in _out)
-check("LIVE /numtest: operator line aayi", "🏢 <b>Operator:</b> Jio" in _out)
-_help = _run_numtest("/numtest")
-check("LIVE /numtest (bina JSON): help message aata hai, crash nahi",
-      "paste karo" in _help and "Koi API call nahi hoti" in _help)
-_bad = _run_numtest("/numtest haan bhai ye json nahi hai")
-check("LIVE /numtest (galat JSON): saaf error, crash nahi",
-      "valid JSON nahi" in _bad)
 
 # --- 💬 SUPPORT CLICKABLE (v59.7) — @Supermannn_x tap = seedha message ---
 check("OWNER_USERNAME env se aata hai (code badle bina username change)",
@@ -677,6 +532,9 @@ class _SUp:
         self.effective_chat = types.SimpleNamespace(id=888)
         self.callback_query = None
         self.effective_message = self.message
+
+
+import asyncio as _aio  # noqa: E402 (v99: /numtest mock block gaya, ye raha)
 
 
 _aio.run(bot.cmd_support(_SUp(), types.SimpleNamespace(user_data={}, bot=None, args=None)))

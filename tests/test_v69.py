@@ -57,10 +57,10 @@ print("  v69 SELFTEST — NUMBER INFO card (aapka sample) + OSINT")
 print("=" * 62)
 
 import bot                                                          # noqa: E402
-from modules import numinfo_provider as NP                           # noqa: E402
+from modules import mynum_api as NP                           # noqa: E402
 
 BOT_SRC = open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read()
-NI_SRC = open(os.path.join(_ROOT, "modules", "numinfo_provider.py"),
+NI_SRC = open(os.path.join(_ROOT, "modules", "mynum_api.py"),
               encoding="utf-8").read()
 
 # =====================================================================
@@ -116,18 +116,23 @@ _bare = bot.numinfo_card({"international": "+91 90000 00001", "country": "India"
                          {}, {}, "Jio", "Bihar", "📱 Mobile", "", "🧪 SAMPLE", 240)
 check("owner data na ho to bhi card banta hai (crash nahi)",
       "📞 <b>Number:</b>" in _bare and "💡" in _bare)
-check("API setup hint card me hai", "NUMINFO_PROVIDER_URL" in _bare
-      and "/numapi" in _bare)
+check("API test hint card me hai (purana setup text gaya)",
+      "/numapi" in _bare and "NUMINFO_PROVIDER_URL" not in _bare)
 
 # --- demo card: Phone + Alt dono dikhne chahiye ---
-_demo = NP.demo_result("9000000001")
-_demo_card = bot.numinfo_card({"international": "+91 90000 00001", "country": "India"},
-                              _demo.get("owner"), {}, "Jio", "Bihar",
-                              "📱 Mobile", "", "🧪 SAMPLE", 240)
-check("demo card: Phone line aati hai", "📱 <b>Phone:</b>" in _demo_card)
-check("demo card: Alt line aati hai", "📱 <b>Alt:</b>" in _demo_card)
-check("demo me main aur alt number alag hain (sample jaisa)",
-      _demo["owner"]["alt"] != "9000000001")
+# --- mask proof: parse → card me poora Aadhaar KABHI nahi ---
+_MP = NP.parse_payload({"success": True, "data": {
+    "owner_name": "Sanjay Sah", "father_name": "Ram Akwal Sah",
+    "mobile_no": "7857843092", "alt_mobile": "7305190526",
+    "aadhar_card_no": "401635555849", "circle": "BIHAR JIO",
+    "address": "S/O Ram Akwal Sah, ward 02, Sitamarhi"}}, 0)
+_mask_card = bot.numinfo_card({"international": "+91 78578 43092", "country": "India"},
+                              _MP.get("owner"), {}, _MP.get("operator"),
+                              _MP.get("circle"), "", "", "🟢 LIVE", 240)
+check("card me masked Govt ID aata hai", "XXXX-XXXX-5849" in _mask_card)
+check("card me poora Aadhaar KABHI nahi", "401635555849" not in _mask_card)
+check("card me Phone + Alt lines aati hain",
+      "📱 <b>Phone:</b>" in _mask_card and "📱 <b>Alt:</b>" in _mask_card)
 
 # --- ek hi layout (duplicate block nahi) ---
 check("handler me purana duplicate card block nahi (ek hi jagah se format)",

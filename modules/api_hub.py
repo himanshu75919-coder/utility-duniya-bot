@@ -596,34 +596,6 @@ def hub_insta_posts(username: str) -> dict:
     return {"ok": bool(out), "posts": out, "count": len(out)}
 
 
-def hub_carrier_info(number: str) -> dict:
-    """v49.6: hub ka num-info — carrier/HLR lookup (operator, circle, type).
-
-    Aapki hub par NUMINFO_PROVIDER_URL set ho to live carrier data aata hai;
-    warna hub local analysis deta hai.
-    """
-    digits = re.sub(r"\D", "", number or "")
-    if len(digits) == 10:
-        digits = "91" + digits
-    res = hub_try([("/num-info", {"q": digits}), ("/number-info", {"number": digits}),
-                   ("/num", {"num": digits})], timeout=40)
-    if not res.get("ok"):
-        return {"ok": False, "error": res.get("error") or "Carrier lookup nahi chala"}
-    d = res["data"] if isinstance(res.get("data"), dict) else {}
-    car = d.get("carrier") if isinstance(d.get("carrier"), dict) else d
-    out = {
-        "ok": True,
-        "source": str(d.get("source") or f"hub{res.get('endpoint')}"),
-        "operator": str(_pick(car, "operator", "carrier", "network", "operatorname", default="") or ""),
-        "circle": str(_pick(car, "circle", "region", "zone", default="") or ""),
-        "type": str(_pick(car, "type", "numbertype", "linetype", default="") or ""),
-        "ported": _pick(car, "ported", "mnp", default=""),
-        "provider_live": bool(d.get("provider")),
-    }
-    return out if (out["operator"] or out["circle"] or out["provider_live"]) else {"ok": False,
-                                                                                  "error": "Carrier data nahi mila"}
-
-
 def hub_snap_stories(username: str) -> dict:
     res = hub_try([("/snap-stories", {"username": username.lstrip("@")}),
                    ("/snap-highlights", {"username": username.lstrip("@")})], timeout=45)

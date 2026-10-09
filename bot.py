@@ -293,7 +293,7 @@ from modules.imei_lookup import (
     specs_json_bytes as imei_specs_json,
     validate_imei as imei_validate,
 )
-from modules import numinfo_provider as numprov
+from modules import mynum_api as mynum
 from modules.vehicle_tool import (
     vehicle_lookup as vahan_lookup,
     offline_parse as vahan_offline,
@@ -485,7 +485,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v98.0 REAL-HD — 🎞️ loader-1080 master + ffmpeg HD + background tap | v97.0 YT-COOKIELESS — ⬇️ loader.to engine + prewarm picker + TikTok photo-carousel win | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 REAL-HD — 🎞️ loader-1080 master + ffmpeg HD + background tap | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -2921,7 +2921,7 @@ def _startup_selfcheck() -> bool:
     import importlib as _il
     _bad = []
     for _mn in ("api_hub", "channel_cloner", "desi_tools", "general_tools", "gaming_tools",
-                "imei_lookup", "media_downloader", "numinfo_provider", "osint_hub",
+                "imei_lookup", "media_downloader", "mynum_api", "osint_hub",
                 "osint_tools", "payguard", "render_health", "sarkari_hub", "temp_mail",
                 "toolkit_extras", "tutorial_hub", "vip_payment"):
         try:
@@ -2946,7 +2946,7 @@ def _startup_selfcheck() -> bool:
     print(f"   🔑 BOT_TOKEN: {'set' if BOT_TOKEN else 'MISSING'}"
           f" | 👑 ADMIN_ID: {'set' if os.environ.get('ADMIN_ID') else 'not set'}")
     try:
-        print(f"   📱 Number Info API: {'🟢 set' if numprov.is_configured() else '⚪ not set'}"
+        print(f"   📱 Number Info API: {'🟢 set' if mynum.is_configured() else '⚪ not set'}"
               f" | 🏦 hub key: {'🟢 set' if os.environ.get('HUB_API_KEY') else '⚪ not set'}")
     except Exception:                                            # noqa: BLE001
         pass
@@ -3033,7 +3033,7 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _two_lines_gone = ("Credits: ♾️ Unlimited" not in PROMPTS.get("terabox", "")
                        and "cancel" not in PROMPTS.get("terabox", "").lower())
     _prompt_ok = "📝 <b>Examples:</b>" in PROMPTS.get("imei", "")
-    _numpanel = bool(numprov.is_configured())
+    _numpanel = bool(mynum.is_configured())
     _mode = "WEBHOOK (Conflict-free)" if webhook_url_from_env() else "POLLING"
     await update.message.reply_text(
         f"⚡ <b>{hesc(BOT_VERSION)}</b>\n"
@@ -3060,44 +3060,6 @@ async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "https://utility-duniya-bot.onrender.com/health\n"
         "<i>(v59.9: /version aur /health me ab commit + mode dono dikhte hain — "
         "pehle purana label chipka rehta tha, isliye confusion hoti thi.)</i>",
-        parse_mode=HTML)
-
-
-# ---------------- v59.5: /numdemo — Number Info ka SAMPLE card (kaisa dikhega) ----------------
-async def cmd_numdemo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/numdemo — Number Info ka card SAMPLE (dummy) data ke saath dikhao.
-
-    Isme koi asli vyakti ka data nahi hota — sirf dikhane ke liye hai ki
-    aapki API lagne par card kaisa aayega. Koi credit nahi katta.
-    """
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
-        return
-    _res = {"international": "+91 90000 00001", "national": "9000000001",
-            "type": "Mobile", "country": "India", "country_code": "+91",
-            "timezones": "Asia/Kolkata"}
-    try:
-        _demo = numprov.demo_result("9000000001")
-    except Exception:                                        # noqa: BLE001
-        _demo = {}
-    _owner = _demo.get("owner") or {
-        "name": "RAHUL KUMAR (SAMPLE)", "father": "MOHAN LAL KUMAR (SAMPLE)",
-        "alt": "9000000001", "region": "BIHAR JIO", "govt_id": "000000000000 (SAMPLE)",
-        "address": "S/O MOHAN LAL KUMAR, Ward 02, SAMPLE NAGAR, Bihar, 000000 (SAMPLE)",
-    }
-    card = numinfo_card(_res, _owner, {}, "Jio", "Bihar", "📱 Mobile", "",
-                        "🧪 <b>SAMPLE PREVIEW</b> — ye dummy data hai (asli data aapki API se aata hai)",
-                        240)
-    await update.message.reply_text(
-        "🧪 <b>NUMBER INFO — SAMPLE PREVIEW</b>\n"
-        "Ye bilkul wahi layout hai jo aapki API lagne par aayega.\n"
-        "Isme koi asli vyakti ka data <b>nahi</b> hai — sab nakli values hain.\n"
-        "──────────────────────\n"
-        + card
-        + "\n──────────────────────\n"
-        "💡 <b>Asli data ke liye:</b> Render → Environment me\n"
-        "<code>NUMINFO_PROVIDER_URL</code> + <code>NUMINFO_PROVIDER_KEY</code> "
-        "daalo → <code>/numapi</code> se check karo.",
         parse_mode=HTML)
 
 
@@ -3134,91 +3096,14 @@ async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode=HTML, reply_markup=kb)
 
 
-# ---------------- v59.6: /numtest — kisi bhi API ka sample response → card preview ----------------
-async def cmd_numtest(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/numtest <JSON> — apni API ke docs wala SAMPLE response paste karo → card dikhega.
-
-    Isse aap bina API lagaye dekh sakte ho ki aapki API ka jawab bot ke card me
-    kaise badlega. Koi API call nahi hoti, koi credit nahi katta, kuch save nahi hota.
-    """
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
-        return
-    _raw = (update.message.text or "")
-    for _pfx in ("/numtest", "/numcheck", "/numinfotest"):
-        if _raw.lower().startswith(_pfx):
-            _raw = _raw[len(_pfx):]
-            break
-    _raw = _raw.strip().strip("`")
-    if not _raw:
-        await update.message.reply_text(
-            "🧪 <b>/numtest — MAPPING PREVIEW</b>\n"
-            "──────────────────────\n"
-            "Apni API ke docs wala <b>sample JSON response</b> is command ke saath\n"
-            "paste karo → main dikha dunga ki bot ka card <b>kaisa banega</b>.\n\n"
-            "<b>Jaise:</b>\n"
-            "<code>/numtest {\"carrier\": \"Jio\", \"location\": \"Bihar\", "
-            "\"name\": \"Rahul Kumar\"}</code>\n\n"
-            "ℹ️ Koi API call nahi hoti, koi credit nahi katta, kuch save nahi hota.",
-            parse_mode=HTML)
-        return
-    try:
-        _data = json.loads(_raw)
-    except Exception:                                        # noqa: BLE001
-        await update.message.reply_text(
-            "❌ Ye valid JSON nahi hai — curly brackets <code>{ }</code> ke saath dobara bhejo.",
-            parse_mode=HTML)
-        return
-    if not isinstance(_data, dict):
-        await update.message.reply_text("❌ JSON ka top part <code>{ }</code> hona chahiye.",
-                                        parse_mode=HTML)
-        return
-    _parsed = await asyncio.to_thread(numprov.parse_payload, _data, 0)
-    if not _parsed.get("ok"):
-        await update.message.reply_text(
-            "⚠️ <b>Is response se card nahi bana.</b>\n"
-            f"📄 <b>Wajah:</b> {safe_html_err(str(_parsed.get('error') or 'unknown')[:200])}\n"
-            "──────────────────────\n"
-            "Bot in naam se fields dhoondhta hai:\n"
-            "• naam → <code>name</code> / <code>ownerName</code> / <code>subscriberName</code>\n"
-            "• pita → <code>father</code> / <code>fatherName</code> / <code>guardian</code>\n"
-            "• operator → <code>carrier</code> / <code>operator</code> / <code>network</code>\n"
-            "• circle → <code>location</code> / <code>circle</code> / <code>region</code>\n\n"
-            "Agar aapki API inme se alag naam bhejti hai — mujhe ye response bhejo, "
-            "main jaldi map kar dunga.",
-            parse_mode=HTML)
-        return
-    _owner = _parsed.get("owner") or {}
-    _digits = re.sub(r"\D", "", str(_parsed.get("number") or "")) or "9000000001"
-    _res = {"international": "+91 " + (_digits[-10:] if len(_digits) >= 10 else _digits),
-            "national": _digits[-10:], "type": _parsed.get("type") or "Mobile",
-            "country": _parsed.get("country") or "India", "country_code": "+91"}
-    _card = numinfo_card(_res, _owner, _parsed.get("extra") or {},
-                         str(_parsed.get("operator") or ""), str(_parsed.get("circle") or ""),
-                         str(_parsed.get("type") or ""), "",
-                         "🧪 <b>MAPPING PREVIEW</b> — aapke paste kiye response se "
-                         "(koi API call nahi hui)", 0)
-    await update.message.reply_text(
-        "🧪 <b>MAPPING PREVIEW</b> — aapki API ka jawab aise card me badlega:\n"
-        "──────────────────────\n"
-        + _card
-        + "\n──────────────────────\n"
-        "📌 Jo fields aapke JSON me nahi thi, unki line card me nahi aayi.\n"
-        "💡 Asli API lagane ke liye: <code>/numapi</code> dekho.",
-        parse_mode=HTML)
-
-
-# ---------------- v57: /numapi — Number Info provider status (key kabhi nahi print hoti) ----------------
+# ---------------- v99: /numapi — Number API status + live test (purana provider gaya) ----------------
 async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/numapi — admin: Number Info ki apni API lagi hai ya nahi (live test bhi)."""
+    """/numapi — admin: number API status + live test (`/numapi 9876543210`)."""
     if not is_admin(update.effective_user.id):
         await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
         return
-    card = numprov.status_card()
+    card = mynum.status_card()
     args = [a.strip() for a in (context.args or []) if a.strip()]
-    if not numprov.is_configured():
-        await update.message.reply_text(card, parse_mode=HTML)
-        return
     if not args:
         await update.message.reply_text(
             card + "\n\n🧪 <b>Live test chalao:</b> <code>/numapi 9876543210</code>",
@@ -3226,22 +3111,24 @@ async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     test_no = args[0]
     st = await update.message.reply_text(
-        f"🔎 Aapki API se <code>{hesc(test_no)}</code> test kar raha hoon…", parse_mode=HTML)
+        f"🔎 Number API se <code>{hesc(test_no)}</code> test kar raha hoon… (30-40s lag sakta hai)",
+        parse_mode=HTML)
     t0 = time.perf_counter()
-    res = await asyncio.to_thread(numprov.lookup, test_no)
+    res = await asyncio.to_thread(mynum.lookup, test_no)
     ms = int((time.perf_counter() - t0) * 1000)
     if res.get("ok"):
+        _ow = res.get("owner") or {}
         await st.edit_text(
             "✅ <b>API CHAL RAHI HAI!</b>\n"
             "──────────────────────\n"
+            f"👤 <b>Name:</b> {hesc(str(_ow.get('name') or '—'))}\n"
             f"🏢 <b>Operator:</b> {hesc(str(res.get('operator') or '—'))}\n"
             f"📍 <b>Circle:</b> {hesc(str(res.get('circle') or '—'))}\n"
-            f"🔎 <b>Line Type:</b> {hesc(str(res.get('type') or '—'))}\n"
-            f"🌍 <b>Country:</b> {hesc(str(res.get('country') or '—'))}\n"
+            f"🆔 <b>Govt ID:</b> {hesc(str(_ow.get('govt_id') or '—'))}\n"
             f"⚡ <b>Latency:</b> {ms}ms\n"
             f"🗄️ <b>Cache:</b> {'Haan (6 ghante)' if res.get('cached') else 'Nahi (fresh)'}\n"
             "──────────────────────\n"
-            "📱 Ab Number Info tool aapki API se <b>live data</b> dega. 🔥",
+            "📱 Ab Number Info tool number API se <b>live data</b> dega. 🔥",
             parse_mode=HTML)
         return
     await st.edit_text(
@@ -3250,14 +3137,13 @@ async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:220])}\n"
         "──────────────────────\n"
         "<b>Ye 4 cheezein check karo:</b>\n"
-        "1️⃣ URL poori hai? (https:// se shuru + <code>/api</code> end)\n"
-        "2️⃣ Key sahi hai? (copy-paste me space na ho)\n"
-        "3️⃣ Auth type sahi? — numverify jaisa API: <code>NUMINFO_PROVIDER_AUTH=query</code>\n"
-        "4️⃣ Param ka naam? — numverify: <code>NUMINFO_PROVIDER_PARAM=number</code>\n\n"
+        "1️⃣ Number 10-digit sahi likha?\n"
+        "2️⃣ API slow hai — 30-40 second wait karo\n"
+        "3️⃣ Key dead? — Render me <code>MYNUM_API_KEY</code> check karo\n"
+        "4️⃣ <code>/numapi</code> se dobara test karo\n\n"
         "📖 Poori guide: <code>NUMBER-INFO-API-SETUP.md</code>\n"
-        "ℹ️ <i>Tab tak Number Info purane sources se chal raha hai — band nahi hai.</i>",
+        "ℹ️ <i>Tab tak Number Info offline mode se chal raha hai — band nahi hai.</i>",
         parse_mode=HTML)
-
 
 
 # ======================================================================
@@ -5001,9 +4887,8 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
                  ported_line: str = "", src_line: str = "", ms: float = 0) -> str:
     """📱 NUMBER INFO ka **ek hi** card layout (v59.2).
 
-    Yehi layout handler aur `/numdemo` (sample preview) dono use karte hain —
-    isliye demo bilkul asli jaisa dikhta hai. Owner ki lines sirf tab aati hain
-    jab `owner` dict me wo field ho (yani jab AAPKI API wo bheje).
+    Yehi layout number API ka record card banata hai. Owner ki lines sirf
+    tab aati hain jab `owner` dict me wo field ho (yani jab API wo bheje).
     """
     res = res or {}
     owner = owner or {}
@@ -5085,9 +4970,8 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
                       or owner.get("address"))
     if not _obits or not _owner_any:
         _card.append("👤 <b>Name / Father / Phones / Region / Govt ID / Address</b> — "
-                     "ye data aapki API se aata hai.")
-        _card.append("💡 Render → Environment me <code>NUMINFO_PROVIDER_URL</code> + "
-                     "<code>NUMINFO_PROVIDER_KEY</code> daalo → <code>/numapi</code> se check karo.")
+                     "ye data number API se aata hai.")
+        _card.append("💡 Record nahi mila? Number sahi likho → <code>/numapi</code> se API test karo.")
     _card.append(BRAND_LINK)   # v59.7: clickable
     return "\n".join([_l for _l in _card if _l])
 
@@ -9303,22 +9187,22 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         #  bhi user 9 second wait karta tha — "bot atka hua" lagta tha.
         #  Ab `gather_soon`: jo jawab time ke andar aa gaya, wahi use hota hai.
         #  Slow source ko chhod diya jaata hai (fallback pehle se neeche hai).
-        _pair, _ms = await pro.gather_soon(
-            [asyncio.to_thread(numprov.lookup, raw_text),
-             asyncio.to_thread(hubapi.hub_carrier_info, raw_text)],
-            timeout=float(os.environ.get("NUMINFO_WAIT_S", "8")),
-        )
-        _prov = _pair[0] if (_pair and isinstance(_pair[0], dict)) else {}
-        _car = _pair[1] if (len(_pair) > 1 and isinstance(_pair[1], dict)) else {}
+        # v99: purane saare API gaye (provider slot + hub) — ab sirf AAPKA number API.
+        _t0 = time.perf_counter()
+        try:
+            _mres = await asyncio.wait_for(
+                asyncio.to_thread(mynum.lookup, raw_text), 55)
+        except asyncio.TimeoutError:
+            _mres = {"ok": False, "error": "API slow (55s)"}
+        except Exception:                                        # noqa: BLE001
+            _mres = {"ok": False}
+        _ms = (time.perf_counter() - _t0) * 1000
+        _prov = _mres if isinstance(_mres, dict) else {}
 
-        # live data ka best available source (provider > hub > offline)
+        # live data (number API) — na mile to offline card
         _live = {k: v for k, v in (_prov or {}).items() if v not in (None, "", False)}
-        if not _live.get("operator") and not _live.get("circle"):
-            _hub_op, _hub_cir = _car.get("operator"), _car.get("circle")
-            if _hub_op or _hub_cir:
-                _live = {"operator": _hub_op, "circle": _hub_cir,
-                         "type": _car.get("type"), "ported": _car.get("ported"),
-                         "source": "hub"}
+        if not _prov.get("ok"):
+            _live = {}
 
         _operator = str(_live.get("operator") or res["operator"])
         _circle = str(_live.get("circle") or res["circle"])
@@ -9331,17 +9215,15 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 str(res.get("country") or "").strip().lower(), "", "india"):
             _circle = "⚪ live API set nahi (sirf country pata hai)"
 
-        if _src == "demo":
-            _src_line = ("🧪 <b>DEMO SAMPLE</b> — ye dummy data hai "
-                         "(asli data ke liye apni API lagao → /numapi)")
-        elif _src == "provider":
-            _src_line = ("🟢 <b>LIVE</b> — aapki API se"
-                         + (f" ({int(_prov.get('latency_ms') or _ms)}ms)" if _prov.get("latency_ms") else "")
-                         + (f" • cache" if _prov.get("cached") else ""))
-        elif _src == "hub":
-            _src_line = "🟢 <b>LIVE</b> — hub carrier lookup se"
+        if _src == "myapi":
+            _recext = _prov.get("extra") if isinstance(_prov.get("extra"), dict) else {}
+            _recn = int(_recext.get("records") or 0)
+            _src_line = ("🟢 <b>LIVE</b> — number API se"
+                         + (f" ({int(_prov.get('latency_ms') or _ms)}ms)" if (_prov.get("latency_ms") or _ms) else "")
+                         + (" • cache" if _prov.get("cached") else "")
+                         + (f" • 📑 {_recn} records" if _recn > 1 else ""))
         else:
-            _src_line = "⚪ <b>OFFLINE</b> — phonenumbers public database se (live carrier API set nahi hai)"
+            _src_line = "⚪ <b>OFFLINE</b> — API me record nahi mila (number sahi hai?)"
 
         _ported_line = ""
         if _ported not in (None, "", False):
@@ -12542,8 +12424,6 @@ def main():
     app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["version", "ver", "v"], cmd_version))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
-    app.add_handler(CommandHandler(["numdemo", "numinfodemo", "numpreview"], cmd_numdemo))
-    app.add_handler(CommandHandler(["numtest", "numcheck", "numinfotest"], cmd_numtest))
     app.add_handler(CommandHandler(["support", "helpme", "owner", "contact"], cmd_support))
     app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
     app.add_handler(CommandHandler("account", cmd_account))

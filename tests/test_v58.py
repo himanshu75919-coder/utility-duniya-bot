@@ -284,14 +284,27 @@ check("UPI-NAAM-API-SETUP.md doc hata diya",
 
 section("6) 📱 NUMBER INFO — 👤 OWNER PANEL (aapke format me)")
 # =====================================================================
-import modules.numinfo_provider as NP  # noqa: E402
+# v99: owner data ab number API se (purana provider gaya).
+import modules.mynum_api as NP  # noqa: E402
 
-check("provider response me 'owner' dict hota hai",
-      '"owner": {k: v for k, v in _owner.items() if v}' in open(
-          os.path.join(ROOT, "modules", "numinfo_provider.py"), encoding="utf-8").read())
-for _f in ("name", "father", "alt", "region", "govt_id", "address"):
-    check(f"owner field '{_f}' parse hota hai", f'"{_f}": _clean_name' in open(
-        os.path.join(ROOT, "modules", "numinfo_provider.py"), encoding="utf-8").read())
+_FIX = {"success": True, "data": {"owner_name": "Sanjay Sah",
+                                  "father_name": "Ram Akwal Sah",
+                                  "mobile_no": "7857843092",
+                                  "alt_mobile": "7305190526",
+                                  "aadhar_card_no": "401635555849",
+                                  "circle": "BIHAR JIO",
+                                  "address": "S/O Ram Akwal Sah, ward 02"}}
+_PF = NP.parse_payload(_FIX, 0)
+check("number API response me 'owner' dict hota hai",
+      _PF.get("ok") is True and isinstance(_PF.get("owner"), dict))
+for _f, _v in (("name", "Sanjay Sah"), ("father", "Ram Akwal Sah"),
+               ("alt", "7305190526"), ("region", "BIHAR"),
+               ("govt_id", "XXXX-XXXX-5849")):
+    check(f"owner field '{_f}' parse hota hai",
+          (_PF.get("owner") or {}).get(_f) == _v)
+check("owner address parse hota hai",
+      "ward 02" in str((_PF.get("owner") or {}).get("address")))
+check("poora Aadhaar kahin leak nahi", "401635555849" not in str(_PF))
 check("card me OWNER panel rendering hai (_obits)", "_obits" in BOT_SRC)
 for _lbl in ("👤 <b>Name:", "👨 <b>Father:", "📱 <b>Phone:",
              "📱 <b>Alt:", "🌐 <b>Circle:", "🆔 <b>Govt ID:", "🏠 <b>Address:"):
@@ -302,21 +315,13 @@ check("panel sirf tab dikhta hai jab data aaye (warna fallback card)",
       "_obits" in BOT_SRC and "if _obits:" in BOT_SRC and "else:" in BOT_SRC)
 check("v59: numinfo card me koi privacy line NAHI hai",
       "aapki API</b> ke jawab me aaya hai" not in BOT_SRC and "leaked" not in BOT_SRC.lower())
-check("v59: fallback card me API setup hint aata hai (privacy lecture nahi)",
-      "NUMINFO_PROVIDER_URL" in BOT_SRC and "/numapi" in BOT_SRC)
+check("v99: fallback card me API test hint aata hai (purana setup text gaya)",
+      "NUMINFO_PROVIDER_URL" not in BOT_SRC and "/numapi" in BOT_SRC)
 
 # parse check (offline)
-_flat = NP._flatten({"name": "Sanjay Sah", "fatherName": "Ram Akwal Sah",
-                     "altMobile": "7305190526", "region": "BIHAR JIO",
-                     "govtId": "401635555849", "address": "S/O Ram Akwal Sah, ward 02"})
-check("owner name parse hota hai",
-      NP._clean_name(NP._pick(_flat, "name", "ownername")) == "Sanjay Sah")
-check("father parse hota hai",
-      NP._clean_name(NP._pick(_flat, "father", "fathername")) == "Ram Akwal Sah")
-check("govt id parse hota hai",
-      NP._clean_name(NP._pick(_flat, "govtid", "idnumber")) == "401635555849")
 check("junk 'NA' par khaali (jhootha data nahi)",
-      NP._clean_name(NP._pick(NP._flatten({"name": "NA"}), "name")) == "")
+      "NA" not in str(NP.parse_payload(
+          {"success": True, "data": {"owner_name": "NA", "circle": "None"}}, 0)))
 
 # =====================================================================
 section("7) 🧾 SANITY — kuch aur toota nahi")
@@ -349,7 +354,7 @@ import importlib as _il  # noqa: E402
 _ghost = []
 for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
             "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
-            "general_tools", "imei_lookup", "media_downloader", "numinfo_provider",
+            "general_tools", "imei_lookup", "media_downloader", "mynum_api",
             "osint_hub", "osint_tools", "payguard", "render_health", "sarkari_hub",
             "temp_mail", "toolkit_extras", "tutorial_hub", "vip_payment"):
     try:

@@ -223,7 +223,7 @@ def _one(kind: str, val: str) -> Dict[str, Any]:
             from modules.vehicle_tool import vehicle_lookup
             r = vehicle_lookup(val)
         elif kind == "mobile":
-            from modules import numinfo_provider as np
+            from modules import mynum_api as np
             r = np.lookup(val)
         elif kind == "url":
             from modules.toolkit_extras import analyze_link
