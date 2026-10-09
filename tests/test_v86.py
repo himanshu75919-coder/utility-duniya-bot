@@ -189,8 +189,8 @@ except Exception as e:
     check("janitor/bounded report", False, str(e)[:90])
 
 # --- KOI NAYA TOOL NAHI JUDA (yahi is release ka rule hai) ---
-check("❌ koi naya tool nahi juda: PREMIUM_TOOLS 37 hi hai",
-      len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
+check("❌ koi naya tool nahi juda: PREMIUM_TOOLS 29 (v102)",
+      len(bot.PREMIUM_TOOLS) == 29, str(len(bot.PREMIUM_TOOLS)))
 check("❌ koi naya tool nahi juda: BIZ_MENU 12 hi hai",
       len(bot.BIZ_MENU) == 12, str(len(bot.BIZ_MENU)))
 check("❌ koi naya tool nahi juda: BIZ_STEPS 12 hi hai",

@@ -119,7 +119,7 @@ _hub = bot._rc_pick_card(0)
 check("hub card: 'apna BOARD chuno' (1 page — koi page no. nahi)",
       "BOARD chuno" in _hub and "/6" not in _hub)
 check("hub card: BSEB par LIVE ✅ mark", "BSEB" in _hub and "LIVE" in _hub)
-check("hub card me moti line nahi", "━" not in _hub)
+check("hub card me ━ divider (v102 style)", "━" in _hub)
 _kb0 = bot._rc_pick_kb(0)
 _rows_kb = _kb0.inline_keyboard
 check("hub kb: 1 board-row + footer (nav nahi — 1 page)", len(_rows_kb) == 2, str(len(_rows_kb)))

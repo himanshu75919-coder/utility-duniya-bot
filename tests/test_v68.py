@@ -173,12 +173,12 @@ check("atka hua tool 1 second me chhod diya (bot zinda)", _r is None and _el < 3
 section("[F] 🥇 PREMIUM TOOLS SABSE UPAR + /speed")
 # =====================================================================
 _lbl = [bot.unbold(x) for x in bot.KB_BTNS[1] + bot.KB_BTNS[2]]  # v101: row0 = info tools
-check("keyboard ki pehli 2 rows me 4 downloader tools hain",
-      sum(1 for x in _lbl if x.upper().endswith(" DL")) == 4, str(_lbl))
+check("keyboard ki pehli rows me 3 downloader tools hain (v102)",
+      sum(1 for x in _lbl if x.upper().endswith(" DL")) == 3, str(_lbl))
 check("downloader tools rows 1-2 me hain (v101: info row top par)",
       "INSTA DL" in _lbl[0].upper() and "YOUTUBE DL" in _lbl[1].upper())
-check("tools zinda (v101: 15 rows, 8 hataye)",
-      len(bot.KB_BTNS) >= 15, str(len(bot.KB_BTNS)))
+check("tools zinda (v102: 12 rows, aur 4 hataye)",
+      len(bot.KB_BTNS) == 12, str(len(bot.KB_BTNS)))
 check("/speed command hai", hasattr(bot, "cmd_speed"))
 check("cache stats function hai", callable(MD.dl_cache_stats))
 check("version naya hai (v68 ya usse upar)",
@@ -188,8 +188,8 @@ check("version naya hai (v68 ya usse upar)",
 # =====================================================================
 section("[G] 🔁 KUCH PURANA TOOTA NAHI")
 # =====================================================================
-check("4 downloader tools zinda", len(bot.DL_SITES) == 4, str(list(bot.DL_SITES)))
-check("27 deleted tools wapas nahi aaye", len(bot.DL_SITES) == 4)
+check("3 downloader tools zinda (v102)", len(bot.DL_SITES) == 3, str(list(bot.DL_SITES)))
+check("27 deleted tools wapas nahi aaye", len(bot.DL_SITES) == 3)
 check("12 business tools zinda", len(bot.BIZ_MENU) >= 12)
 check("cookies ka ilaaj zinda", hasattr(bot, "cmd_cookies"))
 check("saare tools FREE", bot.ALL_FREE is True)

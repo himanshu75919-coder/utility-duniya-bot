@@ -130,7 +130,7 @@ check("v59: UPI prompt ab gayab (tool delete ho gaya)", bot.tool_prompt("upi") =
 # ---- VIDEO DOWNLOADER: 4 alag tools (v67) — har tool apna example ----
 _vd = bot.tool_prompt("insta_dl")
 for _k2, _url in (("youtube", "youtube.com"), ("instagram", "instagram.com"),
-                  ("facebook", "facebook.com"), ("tiktok", "tiktok.com")):
+                  ("tiktok", "tiktok.com")):
     _p2 = bot.tool_prompt(f"dl_{_k2}")
     check(f"DL tool '{_k2}' ka apna valid example hai", _url in _p2 and "<code>" in _p2)
 check("v67: purane 5th app ka example nahi aata",
@@ -138,8 +138,8 @@ check("v67: purane 5th app ka example nahi aata",
       str(_vd.count("https://")))
 
 # ---- saare prompts ka structure ----
-check("saare prompts v71.1 saade format me (box + ask + example)",
-      all(("┏" in v and "🔗 <b>" in v and "<code>" in v) for v in bot.PROMPTS.values() if v))
+check("saare prompts v102 saade format me (divider + ask + example)",
+      all(("━" in v and "🔗 <b>" in v and "<code>" in v) for v in bot.PROMPTS.values() if v))
 check("saare prompts me ask line hai", all("🔗 <b>" in v for v in bot.PROMPTS.values() if v))
 check("kisi prompt me tip/gyaan nahi (user ka order)",
       all("💡" not in v and "Tip:" not in v for v in bot.PROMPTS.values() if v))

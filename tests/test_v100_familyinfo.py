@@ -106,7 +106,7 @@ ok("typo turant reject (<3s = network gaya hi nahi)",
 ok("typo error Hindi + masked-hint", "12-digit" in str(_typo.get("error")))
 
 section("5) wiring: premium tool (v101: 30 tools)")
-ok("PREMIUM_TOOLS 30 (v101: 8 hataye)", len(B.PREMIUM_TOOLS) == 30, str(len(B.PREMIUM_TOOLS)))
+ok("PREMIUM_TOOLS 29 (v102: kagaz gaya)", len(B.PREMIUM_TOOLS) == 29, str(len(B.PREMIUM_TOOLS)))
 ok("familyinfo member", "familyinfo" in B.PREMIUM_TOOLS)
 ok("naam '👪 Family Info'", B.PREMIUM_TOOL_NAMES.get("familyinfo") == "👪 Family Info")
 ok("rate-limit (10,60,'Family Info')",
@@ -128,7 +128,7 @@ ok("credit-gate + spend wiring",
    and 'tel_note("familyinfo"' in BOT_SRC)
 
 section("6) prompt: 37 (36 purane + familyinfo; v101 me 7 gaye)")
-ok("PROMPT_DATA 44", len(B.PROMPT_DATA) == 37, str(len(B.PROMPT_DATA)))
+ok("PROMPT_DATA 34 (v102)", len(B.PROMPT_DATA) == 34, str(len(B.PROMPT_DATA)))
 _fe = B.PROMPT_DATA.get("familyinfo") or {}
 ok("entry head/ask/ex", _fe.get("head") == "👪 FAMILY INFO"
    and "12-digit Aadhaar" in str(_fe.get("ask")) and bool(_fe.get("ex")))
@@ -137,7 +137,7 @@ ok("rendered prompt me ask + example",
    and "401635555849" in B.tool_prompt("familyinfo"))
 ok("rendered prompt me banned words NAHI",
    not [w for w in ("cancel", "Credits:", "💡", "Tip:", "credit") if w in B.PROMPTS["familyinfo"]])
-ok("PROMPTS == PROMPT_DATA (44)", len(B.PROMPTS) == len(B.PROMPT_DATA) == 37)
+ok("PROMPTS == PROMPT_DATA (34)", len(B.PROMPTS) == len(B.PROMPT_DATA) == 34)
 ok("tutorial me FAMILY INFO line", "👪 FAMILY INFO → Aadhaar bhejo" in BOT_SRC)
 
 section("7) 🛡️ purane tools GUARD (cher-chaar nahi)")
@@ -156,13 +156,13 @@ ok("purane heads intact (imei/ifsc/qr/vahan)",
    and "IFSC" in B.PROMPT_DATA["ifsc"]["head"]
    and B.PROMPT_DATA["qr_scan"]["head"] == "📷 QR SCANNER"
    and "RC + CHALLAN" in B.PROMPT_DATA["vahan"]["head"])
-ok("36 purane keys maujood (v101: 7 prompts gaye)",
-   len([k for k in B.PROMPT_DATA if k != "familyinfo"]) == 36)
-ok("29 purane premium tools sab maujood (v101: 8 hataye)",
-   len([t for t in B.PREMIUM_TOOLS if t != "familyinfo"]) == 29)
+ok("33 purane keys maujood (v102: 3 aur gaye)",
+   len([k for k in B.PROMPT_DATA if k != "familyinfo"]) == 33)
+ok("28 purane premium tools sab maujood (v102: kagaz gaya)",
+   len([t for t in B.PREMIUM_TOOLS if t != "familyinfo"]) == 28)
 
 section("8) version history")
-ok("BOT_VERSION v101 head", B.BOT_VERSION.startswith("v101.0 MENU-CLEAN"),
+ok("BOT_VERSION v102 head", B.BOT_VERSION.startswith("v102.0 CLEAN-STYLE"),
    B.BOT_VERSION[:40])
 ok("v100 tag history me", "v100.0 FAMILY-INFO" in B.BOT_VERSION)
 ok("v99 full-tag history me", "v99.0 MYNUM-API — 📱 purane number API delete" in B.BOT_VERSION)

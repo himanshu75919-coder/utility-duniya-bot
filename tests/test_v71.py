@@ -65,7 +65,7 @@ for _k, _p in bot.PROMPTS.items():
     if not _p:
         continue
     _pl = _clean(_p)
-    check(f"'{_k}' ka prompt boxed hai (┏━┓)", _pl.startswith("┏"))
+    check(f"'{_k}' ka prompt v102 style (header + ━)", "━" in _pl and "┏" not in _pl)
     check(f"'{_k}' me EK hi example (code font)", _p.count("<code>") == 1, str(_p.count("<code>")))
     check(f"'{_k}' me dummy 'xxxxx' nahi", not any(b in _pl.lower() for b in _bad_words))
     check(f"'{_k}' me khali line ka spacing hai", "\n\n" in _p)
@@ -73,7 +73,6 @@ for _k, _p in bot.PROMPTS.items():
 # downloader examples ASLI links hain
 for _k, _url in (("instagram", "instagram.com/reel/"),
                  ("youtube", "youtube.com/watch?v="),
-                 ("facebook", "facebook.com/watch"),
                  ("tiktok", "tiktok.com/")):
     check(f"dl_{_k} ka example asli link jaisa hai ({_url})", _url in bot.DL_SITES[_k][3])
 
@@ -88,7 +87,7 @@ check("prompt ki aakhri line example hi hai",
 section("[B] 🖼️ CARDS — space, emoji, aasan shabd")
 # =====================================================================
 _t = bot.pcard_title("🏦", "TEST CARD")
-check("title box ┏━┓ frame ka hai", "┏" in _t and "┗" in _t and "┃" in _t)
+check("title v102 header + ━ frame", "<b>" in _t and "━" in _t and "┏" not in _t)
 check("title ke baad khali line aati hai", _t.endswith("\n"))
 check("separator ke aage-peeche khali line", bot.pcard_sep().startswith("\n") and bot.pcard_sep().endswith("\n"))
 check("footer se pehle khali line", bot.pcard_foot(ms=100).startswith("\n"))
@@ -214,9 +213,9 @@ check("/rcsetup command hai (step-by-step help)", callable(getattr(bot, "cmd_rcs
 # =====================================================================
 section("[D] 🔁 PURANA KUCH TOOTA NAHI")
 # =====================================================================
-check("4 downloader tools zinda", len(bot.DL_SITES) == 4)
-check("premium tools 30 (v101: 8 tools hataye)", len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
-check("keyboard rows compact (v101: 15 rows sab pairs)", len(bot.KB_BTNS) >= 15, str(len(bot.KB_BTNS)))
+check("3 downloader tools zinda (v102)", len(bot.DL_SITES) == 3)
+check("premium tools 29 (v102: kagaz gaya)", len(bot.PREMIUM_TOOLS) == 29, str(len(bot.PREMIUM_TOOLS)))
+check("keyboard rows compact (v102: 12 rows)", len(bot.KB_BTNS) == 12, str(len(bot.KB_BTNS)))
 check("info+downloader top rows (v101 order)",
       "NUMBER INFO" in bot.unbold(bot.KB_BTNS[0][0]).upper()
       and "INSTA DL" in bot.unbold(bot.KB_BTNS[1][0]).upper())
@@ -428,14 +427,14 @@ check("card me ⚠️ Note line dikhti hai (khaali card ka raaz khulta hai)",
       "⚠️ <b>Note:</b> Test wajah" in bot.vahan_card({}, o2, note="Test wajah"))
 check("Note na ho to Note line nahi aati",
       "⚠️ <b>Note:</b>" not in bot.vahan_card({}, o2))
-check("vahan card me moti line (━) bilkul nahi — sab patli",
-      "━" not in bot.vahan_card({}, o2) and "─" in bot.vahan_card({}, o2))
-check("pcard title bhi patli line ka (har tool me same look)",
-      "━" not in bot.pcard_title("🚘", "TEST") and "─" in bot.pcard_title("🚘", "TEST"))
-check("prompt boxes bhi patle ho gaye (user ki shikayat: white white)",
-      all("━" not in bot.PROMPTS[k] for k in list(bot.PROMPTS)[:40]))
-check("header box upar-neeche patli line ke saath (┏ ─ ┓)",
-      "┏" in bot.vahan_card({}, o2) and "┗" in bot.vahan_card({}, o2))
+check("vahan card me ━ divider (v102 OSINT style)",
+      "━" in bot.vahan_card({}, o2))
+check("pcard title bhi ━ divider ka (har tool me same look)",
+      "━" in bot.pcard_title("🚘", "TEST"))
+check("saare prompts me ━ header divider (v102)",
+      all("━" in bot.PROMPTS[k] for k in list(bot.PROMPTS)))
+check("header box (┏┗) v102 me gaya — plain header + ━",
+      "┏" not in bot.vahan_card({}, o2) and "━" in bot.vahan_card({}, o2))
 
 
 # =====================================================================

@@ -60,15 +60,16 @@ from modules import media_downloader as MD                           # noqa: E40
 section("[A] 📥 ALAG-ALAG DOWNLOADER TOOLS")
 # =====================================================================
 # v67: user ne 23 services delete kar di — ab sirf 4 tools (Insta/YT/FB/TikTok)
-check("4 downloader tools hain (v67)", len(bot.DL_SITES) == 4, str(len(bot.DL_SITES)))
-check("sirf approved 4 tools hain",
-      set(bot.DL_SITES) == {"instagram", "youtube", "facebook", "tiktok"},
+check("3 downloader tools hain (v102: facebook delete)", len(bot.DL_SITES) == 3, str(len(bot.DL_SITES)))
+check("sirf approved 3 tools hain (v102)",
+      set(bot.DL_SITES) == {"instagram", "youtube", "tiktok"},
       str(sorted(bot.DL_SITES)))
 for _k, _v in bot.DL_SITES.items():
     check(f"  '{_k}' ka dhaancha sahi (icon/naam/domains/example)",
           isinstance(_v, (list, tuple)) and len(_v) == 4 and _v[0] and _v[1] and _v[2] and _v[3])
-for _k in ("instagram", "youtube", "facebook", "tiktok"):
+for _k in ("instagram", "youtube", "tiktok"):
     check(f"'{_k}' popular list me hai", _k in bot.DL_POPULAR)
+check("facebook popular list se GAYA (v102)", "facebook" not in bot.DL_POPULAR)
 check("har tool ka apna prompt hai (PROMPT_DATA)",
       all(f"dl_{k}" in bot.PROMPT_DATA for k in bot.DL_SITES))
 check("prompts render bhi ho gaye (PROMPTS)",
@@ -83,7 +84,7 @@ check("rate-limit prefix 'dl' laga hai (saare ek limit me)",
       "dl" in bot.TOOL_RATE_LIMITS)
 check("purana insta_dl bhi premium hai", bot.is_premium_tool("insta_dl"))
 check("insta_dl prompt me box + valid example (tip nahi)",
-      all(x in bot.tool_prompt("insta_dl") for x in ("┏", "instagram.com"))
+      all(x in bot.tool_prompt("insta_dl") for x in ("━", "instagram.com"))
       and "💡" not in bot.tool_prompt("insta_dl"))
 check("credits ke message me asli app ka naam aata hai",
       "Instagram" in bot.get_credits_over_text("dl_instagram"))
@@ -109,8 +110,8 @@ check("purane sabhi downloader labels zinda hain (koi user atke na)",
           ("VIDEO DOWNLOAD", "DOWNLOADER", "VIDEO DOWNLOAD (34 APPS)",
            "UNIVERSAL VIDEO DOWNLOADER", "VIRAL VIDEO DOWNLOAD",
            "VIDEO DOWNLOAD (27 APPS)")))
-check("keyboard ki rows waisi hi hain (14)",
-      len(bot.KB_BTNS) >= 14, str(len(bot.KB_BTNS)))
+check("keyboard rows 12 (v102 clean)",
+      len(bot.KB_BTNS) == 12, str(len(bot.KB_BTNS)))
 check("purana insta_dl mode zinda hai (koi purana user atke na)",
       "insta_dl" in bot.PREMIUM_TOOLS)
 check("media_downloader me sirf 4 platforms bache (v67)",
@@ -157,19 +158,20 @@ check("dl_key_of galat key par khali deta hai", bot.dl_key_of("dl_nahi") == "")
 check("dl_name sahi naam deta hai", bot.dl_name("dl_youtube") == "YouTube")
 
 # =====================================================================
-section("[D] 📋 DOWNLOADER LIST — sirf 4 tools")
+section("[D] 📋 DOWNLOADER LIST — sirf 3 tools (v102)")
 # =====================================================================
 _dt = bot.dl_tools_text()
-check("list me 4 tools hain", _dt.count("Downloader") == 4, str(_dt.count("Downloader")))
-check("list me Instagram/YouTube/Facebook/TikTok hain",
-      all(x in _dt for x in ("Instagram", "YouTube", "Facebook", "TikTok")))
-check("list me sirf 4 tools (deleted 23 hata diye)",
-      sorted(bot.DL_SITES) == ["facebook", "instagram", "tiktok", "youtube"])
-check("list ka header 4 likhta hai", "4 VIDEO DOWNLOADER TOOLS" in _dt)
+check("list me 3 tools hain (v102)", _dt.count("Downloader") == 3, str(_dt.count("Downloader")))
+check("list me Instagram/YouTube/TikTok hain",
+      all(x in _dt for x in ("Instagram", "YouTube", "TikTok")))
+check("v102: Facebook list me NAHI bacha", "Facebook" not in _dt)
+check("list me sirf 3 tools (deleted 24 hata diye)",
+      sorted(bot.DL_SITES) == ["instagram", "tiktok", "youtube"])
+check("list ka header 3 likhta hai (v102)", "3 VIDEO DOWNLOADER TOOLS" in _dt)
 check("purana picker code (dl_menu_kb / DL_MENU_TEXT) delete ho gaya",
       not hasattr(bot, "dl_menu_kb") and not hasattr(bot, "DL_MENU_TEXT"))
-check("keyboard me 4 alag tools hain",
-      sum(1 for r in bot.KB_BTNS for b in r if bot.unbold(b).upper().endswith(" DL")) == 4)
+check("keyboard me 3 alag tools hain (v102)",
+      sum(1 for r in bot.KB_BTNS for b in r if bot.unbold(b).upper().endswith(" DL")) == 3)
 
 # =====================================================================
 section("[E] 🆓 FREE MODE — sabke liye khula")

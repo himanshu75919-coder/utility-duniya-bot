@@ -361,8 +361,8 @@ check("WiFi QR me security warning hai (password encode hota hai)",
 # v58.0: prompts ka NAYA format (user order) — header + ✨ ask + 📝 Examples
 check("har prompt me ask line hai (v71: 🔗)",
       all("🔗 <b>" in v for v in bot.PROMPTS.values() if v))
-check("har prompt me box + ask + example hai (v71)",
-      all(("┏" in v and "🔗 <b>" in v and "<code>" in v) for v in bot.PROMPTS.values()
+check("har prompt me divider + ask + example hai (v102)",
+      all(("━" in v and "🔗 <b>" in v and "<code>" in v) for v in bot.PROMPTS.values()
           if v))
 check("har prompt me kam se kam 1 example hai (code font me)",
       all("<code>" in v for v in bot.PROMPTS.values() if v))

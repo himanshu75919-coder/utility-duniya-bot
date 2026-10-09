@@ -233,7 +233,7 @@ check("card: bank SMS chhupa + koi warning line nahi (v74.4)",
 
 _card_fail = bot.tnum_card(_rec, {"ok": False, "error": "site slow"})
 check("card: inbox fail par saaf line (khaali card nahi)", "nahi khula" in _card_fail)
-check("card: moti line (━) kahin nahi", "━" not in _card_new + _card_wait + _card_bank)
+check("card: ━ divider hai (v102 style)", "━" in _card_new and "━" in _card_wait and "━" in _card_bank)
 
 # =====================================================================
 section("9) Bot wiring — fresh numbers (key v2) + naya flow")
@@ -247,8 +247,8 @@ check("card fresh+matched filter use karta hai",
 check("intro chhota hai — koi gyaan nahi (v74.4)", len(bot.TNUM_INTRO.splitlines()) <= 4)
 check("refresh button label update (Naya OTP check karo)",
       "Naya OTP check karo" in BOT_SRC)
-check("tool FREE hi hai (premium 37, tnum bahar)",
-      "tnum" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 30)
+check("tool FREE hi hai (premium 29, tnum bahar)",
+      "tnum" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 29)
 check("temp number ab 1 app / 3 desh (v74.3 order — WhatsApp fi/nl/us)",
       len(TN.SERVICES) == 1 and [c["cc"] for c in TN.COUNTRIES] == ["fi", "nl", "us"])
 # =====================================================================

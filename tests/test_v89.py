@@ -152,55 +152,10 @@ _r3 = asyncio.run(BF.send_via_mt(None, 1, b"x" * 100))
 check("send_via_mt off -> skip", _r3.get("ok") is False, str(_r3)[:70])
 
 # ======================================================================
-section("B. 💬 CHAT X-RAY — 66MB zip DISK se stream (RAM nahi)")
+# B) 💬 CHAT X-RAY — v102 me tool PERMANENTLY delete (test section bhi gaya)
 # ======================================================================
-from modules import chat_xray as CXR                         # noqa: E402
 
-check("MAX_BYTES 12MB se upar gaya hai", CXR.MAX_BYTES >= 20 * 1048576,
-      f"{CXR.MAX_BYTES // 1048576}MB")
-_lines = "\n".join(f"08/10/2026, 13:0{i % 9} - Rahul: message number {i} hello bro"
-                  for i in range(1, 60))
-_fd, _txtp = tempfile.mkstemp(suffix=".txt")
-with os.fdopen(_fd, "w", encoding="utf-8") as fh:
-    fh.write(_lines)
-_h, _e = CXR._head_from_path(_txtp, "chat.txt", 10 ** 6)
-check("txt head-read: pura content aaya", _e == "" and b"message number 59" in _h, str(_e)[:60])
-_h2, _ = CXR._head_from_path(_txtp, "chat.txt", 100)
-check("txt head-read LIMIT ke saath (RAM safe)", len(_h2) == 100, str(len(_h2)))
-os.remove(_txtp)
-
-# zip: _head_from_path sirf .txt member padhta hai
-_fd, _zipt = tempfile.mkstemp(suffix=".zip")
-os.close(_fd)
-with zipfile.ZipFile(_zipt, "w") as z:
-    z.writestr("_media/ignored.txt", "junk")
-    z.writestr("chat.txt", _lines)
-    z.writestr("__MACOSX/ghost.txt", "junk")
-_hz, _ez = CXR._head_from_path(_zipt, "chat.zip", 10 ** 6)
-check("zip se chat.txt nikla (media/MACOSX nahi)",
-      _ez == "" and b"message number 59" in _hz and b"junk" not in _hz, str(_ez)[:60])
-res_disk = CXR.extract_text(BF.MappedFile(_zipt, os.path.getsize(_zipt)), "chat.zip")
-check("extract_text MappedFile (.zip) se kaam karta hai",
-      res_disk[1] == "" and "Rahul" in res_disk[0], str(res_disk[1])[:60])
-res_zbytes = CXR.extract_text(open(_zipt, "rb").read(), "chat.zip")
-check("extract_text purane bytes-raaste par bhi chalta hai (non-regression)",
-      res_zbytes[1] == "" and "Rahul" in res_zbytes[0], str(res_zbytes[1])[:60])
-os.remove(_zipt)
-
-_fd, _bad = tempfile.mkstemp(suffix=".zip")
-with os.fdopen(_fd, "wb") as fh:
-    fh.write(b"not a zip at all")
-check("kharab .zip -> saaf error (crash nahi)",
-      "zip" in CXR.extract_text(b"not a zip at all", "x.zip")[1].lower(),
-      CXR.extract_text(b"not a zip at all", "x.zip")[1][:60])
-_r_big = CXR.extract_text(b"Q" * (CXR.MAX_BYTES + 10), "chat.txt")
-check("bytes mode me MAX_BYTES se badi file -> saaf message (crash nahi)",
-      _r_big[1] != "" and "MB" in _r_big[1], str(_r_big[1])[:70])
-os.remove(_bad)
-_res_analyze = CXR.analyze_file(_lines.encode(), "chat.txt")
-check("analyze_file (bytes) aaj bhi report deta hai", _res_analyze.get("ok") is True,
-      str(_res_analyze)[:70])
-
+# ======================================================================
 # ======================================================================
 section("C. 📥 INSTA — reel par photo KABHI nahi (aapka link)")
 # ======================================================================
@@ -306,9 +261,8 @@ check("video machinery bot me import bhi nahi hoti (has_video/video_urls/video_c
       not re.search(r"\b(has_video|video_urls|video_caption)\b", _bsrc_nc))
 check("send_tool_video / tool_tutorial_kb / TUTORIAL_NOTICE naam se kuch nahi raha",
       not any(k in _bsrc_nc for k in ("send_tool_video", "tool_tutorial_kb", "TUTORIAL_NOTICE")))
-check("tool_support_kb sirf 📩 Support row deta hai (koi video row nahi)",
-      len(B.tool_support_kb("qr").inline_keyboard) == 1
-      and "Support" in B.tool_support_kb("qr").inline_keyboard[0][0].text)
+check("v102: tool_support_kb None deta hai (support-nag hata diya)",
+      B.tool_support_kb("qr") is None)
 check("HELP_NOTICE me 'video' shabd nahi (jhootha waada nahi)",
       "video" not in B.HELP_NOTICE.lower() and "🎬" not in B.HELP_NOTICE)
 check("menu card copy me 'Tutorial Video button' wala waada nahi",

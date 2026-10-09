@@ -135,11 +135,10 @@ section("[E] 🎨 UI FREE — VIP bechna band, kaam ki cheez aa gayi")
 _kb_labels = [bot.unbold(b) for row in bot.KB_BTNS for b in row]
 _kb_txt = " | ".join(_kb_labels).upper()
 check("keyboard me 'VIP PREMIUM' button HATA diya", "VIP PREMIUM" not in _kb_txt)
-check("keyboard me naya 'ALL TOOLS (FREE)' button hai", "ALL TOOLS (FREE)" in _kb_txt)
-check("keyboard ke buttons ki ginti waisi hi hai (14 rows)",
-      len(bot.KB_BTNS) >= 14, str(len(bot.KB_BTNS)))
+check("v102: 'ALL TOOLS (FREE)' button DELETE (user order)", "ALL TOOLS" not in _kb_txt)
+check("keyboard 12 rows (v102 clean)", len(bot.KB_BTNS) == 12, str(len(bot.KB_BTNS)))
 check("keyboard me BUSINESS STUDIO button zinda hai", "BUSINESS STUDIO" in _kb_txt)
-check("BTN_MODE_MAP me ALL TOOLS -> alltools", bot.BTN_MODE_MAP.get("ALL TOOLS (FREE)") == "alltools")
+check("BTN_MODE_MAP me ALL TOOLS entry gayab (v102)", bot.BTN_MODE_MAP.get("ALL TOOLS (FREE)") is None)
 check("purana 'VIP PREMIUM' text bhi kaam karta hai (purane keyboard walon ke liye)",
       bot.BTN_MODE_MAP.get("VIP PREMIUM") == "premium")
 check("cmd_premium ka free branch hai", "if ALL_FREE and not is_admin(update.effective_user.id):" in BOT_SRC)
@@ -147,24 +146,15 @@ check("cmd_account ka free branch hai", "if ALL_FREE:\n        _st_f =" in BOT_S
 check("welcome me free line hai", "SAARE TOOLS 100% FREE HAIN" in BOT_SRC)
 check("/premium command ka description free hai",
       'BotCommand("premium", "Saare tools FREE' in BOT_SRC)
-check("on_text me alltools action handle hota hai", 'action == "alltools"' in BOT_SRC)
+check("on_text me alltools action NAHI bacha (v102)", 'action == "alltools"' not in BOT_SRC)
 
 # =====================================================================
-section("[F] 📋 ALL TOOLS LIST — poori list, sab FREE")
+section("[F] 📋 ALL TOOLS (FREE) — v102 me PERMANENTLY DELETE")
 # =====================================================================
-_at = bot.all_tools_text()
-check("all_tools_text() crash nahi karta", isinstance(_at, str) and len(_at) > 500, str(len(_at)))
-check("list me '10' Business Studio tools hain",
-      all(f"{i}." in _at for i in range(1, 11)))
-for _nm in ("Invoice", "Resume", "Bio-data", "Certificate", "ID Card",
-            "Visiting Card", "Letter", "UPI", "Price Label", "EMI"):
-    check(f"list me '{_nm}' hai", _nm in _at)
-check("list me '100% FREE' likha hai", "100% FREE" in _at)
-check("list me VIP/paise ki koi line nahi", "₹" not in _at and "VIP lo" not in _at)
-check("list Telegram limit (4096) me fit hai", len(_at) < 4096, str(len(_at)))
-check("free_mode_kb() me alltools button hai",
-      "alltools" in str(bot.free_mode_kb()))
-check("all_tools_text me premium tools ki list hai", "Baaki saare tools" in _at)
+# v102 USER ORDER: 📋 ALL TOOLS (FREE) list + free_mode_kb PERMANENTLY delete
+check("all_tools_text() module se hat gaya (v102)", not hasattr(bot, "all_tools_text"))
+check("free_mode_kb() module se hat gaya (v102)", not hasattr(bot, "free_mode_kb"))
+check("BOT_SRC me all_tools_text ka koi call nahi", "all_tools_text(" not in BOT_SRC)
 
 # =====================================================================
 section("[G] 🔐 DATA SAFE — kisi user ka data delete nahi hua")
@@ -229,7 +219,7 @@ except Exception as _e:
 # =====================================================================
 section("[I] 🚪 REACHABILITY — har tool ka darwaza khula hai")
 # =====================================================================
-check(f"PREMIUM_TOOLS me 38 tools hain (12 Business Studio + whois + vahan + uhunt + familyinfo)", len(bot.PREMIUM_TOOLS) == 30,
+check(f"PREMIUM_TOOLS me 29 tools hain (v102)", len(bot.PREMIUM_TOOLS) == 29,
       str(len(bot.PREMIUM_TOOLS)))
 # v64 ke baad 27 downloader prompts bhi jude (33 -> 60). Is liye ab ginti ke
 # bajaye ASLI baat check hoti hai: purane prompts DELETE hue ya nahi.
@@ -238,8 +228,8 @@ check(f"PREMIUM_TOOLS me 38 tools hain (12 Business Studio + whois + vahan + uhu
 # v101: 8 tools hataye — unke prompts list se nikaale (pp_stamp, print_sheet,
 # doc_compress, bgmi, ffuid, appfind, uhunt, sarkari).
 _OLD_PROMPTS = (
-    "insta_dl", "numinfo", "bankpdf", "kagaz", "mediastudio", "imei",
-    "terabox",
+    "insta_dl", "numinfo", "bankpdf", "mediastudio", "imei",
+    "terabox",  # v102: kagaz gaya
     "ifsc", "pin", "tempmail", "qr", "short", "linkcheck",
     "biz_invoice", "biz_resume", "biz_biodata", "biz_certificate",
     "biz_idcard", "biz_vcard", "biz_letter", "biz_upi", "biz_labels", "biz_emi",
@@ -257,8 +247,8 @@ check("TOOL_RATE_LIMITS zinda hai (spam se bachav)", len(bot.TOOL_RATE_LIMITS) >
       str(len(bot.TOOL_RATE_LIMITS)))
 check("crash shield (arm_all_handlers) zinda hai", hasattr(bot, "arm_all_handlers"))
 check("vault zinda hai", hasattr(bot, "vault"))
-check("menu keyboard me sab rows jude hue hain (>=14)",
-      len(bot.main_keyboard(admin=False).keyboard) >= 14,
+check("menu keyboard 12 rows (v102 clean)",
+      len(bot.main_keyboard(admin=False).keyboard) == 12,
       str(len(bot.main_keyboard(admin=False).keyboard)))
 check("admin keyboard me admin panel row extra hai (+1)",
       len(bot.main_keyboard(admin=True).keyboard)

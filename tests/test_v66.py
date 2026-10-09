@@ -160,13 +160,13 @@ check("16 parallel chunks zinda",
 # =====================================================================
 section("[E] 🎯 4 TOOLS = 4 ALAG TOOLS (v67: 23 services deleted)")
 # =====================================================================
-check("4 services hain (v67)", len(bot.DL_SITES) == 4, str(len(bot.DL_SITES)))
-check("sirf Insta/YouTube/Facebook/TikTok bache",
-      set(bot.DL_SITES) == {"instagram", "youtube", "facebook", "tiktok"},
+check("3 services hain (v102: facebook delete)", len(bot.DL_SITES) == 3, str(len(bot.DL_SITES)))
+check("sirf Insta/YouTube/TikTok bache",
+      set(bot.DL_SITES) == {"instagram", "youtube", "tiktok"},
       str(sorted(bot.DL_SITES)))
-check("sirf 4 dl_* prompts bache (baaki sab gaye)",
+check("sirf 3 dl_* prompts bache (baaki sab gaye)",
       sorted(k for k in bot.PROMPT_DATA if k.startswith("dl_")) ==
-      ["dl_facebook", "dl_instagram", "dl_tiktok", "dl_youtube"],
+      ["dl_instagram", "dl_tiktok", "dl_youtube"],
       str(sorted(k for k in bot.PROMPT_DATA if k.startswith("dl_"))))
 check("media_downloader me sirf 4 platform support",
       len(bot.MD.SUPPORTED_SITES) == 7, str(len(bot.MD.SUPPORTED_SITES)))
@@ -174,12 +174,12 @@ check("har service ka apna label function hai", callable(bot.dl_tool_label))
 check("labels me official emoji hain",
       bot.dl_tool_label("instagram").startswith("📸")
       and bot.dl_tool_label("youtube").startswith("▶️")
-      and bot.dl_tool_label("facebook").startswith("📘"))
+      and bot.dl_tool_label("tiktok").startswith("🎵"))
 _rows = bot.dl_kb_rows(2)
-check("4 tools 2 rows me (2-2)", len(_rows) == 2 and sum(len(r) for r in _rows) == 4,
+check("3 tools 2 rows me (2+1)", len(_rows) == 2 and sum(len(r) for r in _rows) == 3,
       f"{len(_rows)} rows")
 _flat = [b for r in bot.KB_BTNS for b in r]
-check("saare 4 tools MAIN KEYBOARD me hain",
+check("saare 3 tools MAIN KEYBOARD me hain",
       all(bot.dl_tool_label(k) in _flat for k in bot.DL_SITES),
       [k for k in bot.DL_SITES if bot.dl_tool_label(k) not in _flat][:4])
 check("27-app ka purana PICKER button keyboard me nahi hai",
@@ -195,10 +195,10 @@ check("purane labels par saaf message milta hai (dl_gone)",
       and bot.BTN_MODE_MAP.get("VIDEO DOWNLOAD (27 APPS)") == "dl_gone")
 check("'sabhi apps ek saath' button bhi hata diya",
       "dlv:any" not in BOT_SRC)
-check("ALL TOOLS list me purana 'Video Downloader' tool nahi",
-      "📥 Video Downloader" not in bot.all_tools_text())
-check("ALL TOOLS list me 4 alag tools hain",
-      len([ln for ln in bot.dl_tools_text().splitlines() if "Downloader" in ln]) == 4)
+check("ALL TOOLS list (all_tools_text) delete ho gaya (v102)",
+      not hasattr(bot, "all_tools_text"))
+check("DL list me 3 alag tools hain (v102)",
+      len([ln for ln in bot.dl_tools_text().splitlines() if "Downloader" in ln]) == 3)
 check("picker khulne ka koi rasta nahi (BTN_MODE_MAP me dlmenu nahi)",
       "dlmenu" not in set(bot.BTN_MODE_MAP.values()))
 check("har tool apne dl_<app> mode par jata hai (direct)",
@@ -212,9 +212,9 @@ check("video downloader ke andar ab koi service list nahi",
       "BADLAV — ab har app APNA ALAG TOOL hai" in BOT_SRC)
 check("har service ka premium + credit entry zinda",
       all(bot.is_premium_tool("dl_" + k) for k in bot.DL_SITES))
-check("ALL TOOLS list me 4 downloader tools hain",
+check("ALL TOOLS list me 3 downloader tools hain (v102)",
       len([ln for ln in bot.dl_tools_text().splitlines()
-           if "Downloader" in ln]) == 4)
+           if "Downloader" in ln]) == 3)
 check("purana insta_dl (any link) zinda", "insta_dl" in bot.PREMIUM_TOOLS)
 
 # =====================================================================
@@ -224,7 +224,7 @@ check("version v66+ hai", re.search(r"v(?:6[6-9]|[7-9][0-9])\.", bot.BOT_VERSION
 check("12 business tools zinda", len(bot.BIZ_MENU) >= 12)
 check("wizard zinda", len(bot.BIZ_STEPS) == 12)
 check("saare tools FREE mode ON", bot.ALL_FREE is True)
-check("prompts 37 (33 purane + 4 dl)", len(bot.PROMPT_DATA) >= 37, str(len(bot.PROMPT_DATA)))
+check("prompts 34 (v102)", len(bot.PROMPT_DATA) == 34, str(len(bot.PROMPT_DATA)))
 check("vault wahi hai (premium safe)", hasattr(V, "vault"))
 check("safe_tool_call zinda (global crash guard)", callable(bot.safe_tool_call))
 check("progress pinger zinda", callable(bot._progress_pinger))

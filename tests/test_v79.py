@@ -224,8 +224,8 @@ except Exception as e:                                            # noqa: BLE001
 # =====================================================================
 section("8) Cards — wizard ke saare screens")
 _c1 = bot.rc_exam_card()
-check("exam card: boxed title + teen exam naam",
-      _c1.startswith("┏") and "Matric" in _c1 and "Inter" in _c1 and "Special" in _c1)
+check("exam card: v102 header title + teen exam naam",
+      "━" in _c1 and "┏" not in _c1 and "Matric" in _c1 and "Inter" in _c1 and "Special" in _c1)
 _c2 = bot.rc_year_card("matric")
 check("year card: exam + saal dikhte hain", "Matric" in _c2 and "2026" in _c2 and "2023" in _c2)
 _c3 = bot.rc_ask_code_card("matric", 2026)
@@ -249,8 +249,8 @@ check("parse card: imaandar (nahi padha ja saka) + koi bahar ka link nahi",
 _c9 = bot.cbse_info_card()
 check("CBSE card: sirf outcome (koi gyaan/login/app nahi) + koi link nahi",
       ("login" not in _c9.lower()) and ("http" not in _own(_c9)) and ("Jald live" in _c9))
-check("sab card me moti line (━) nahi",
-      all("━" not in x for x in (_c1, _c2, _c3, _c4, _c5, _c6, _c7, _c8, _c9)))
+check("sab card me ━ divider hai (v102 style)",
+      all("━" in x for x in (_c1, _c2, _c3, _c4, _c5, _c6, _c7, _c8, _c9)))
 
 # =====================================================================
 section("9) Wiring + keyboards")
@@ -261,7 +261,7 @@ check("exam kb me 3 exam + CBSE", len(bot._rc_exam_kb().inline_keyboard) == 5,
       str(len(bot._rc_exam_kb().inline_keyboard)))
 check("year kb me saare saal + back",
       len(bot._rc_year_kb().inline_keyboard) == 4, str(len(bot._rc_year_kb().inline_keyboard)))
-check("FREE hai (premium 38)", "bsebr" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 30)
+check("FREE hai (premium 29)", "bsebr" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 29)
 check("rate-limit: rc (wizard step) + bsebr", bot.TOOL_RATE_LIMITS.get("rc") is not None
       and bot.TOOL_RATE_LIMITS.get("bsebr") is not None)
 check("VIP wall par khula (rc_ prefix)",

@@ -347,7 +347,6 @@ import modules.media_downloader as md                     # noqa: E402
 import modules.tutorial_hub as th                          # noqa: E402
 import modules.cloud_tools as ct                           # noqa: E402
 import modules.api_hub as ah                                # noqa: E402
-import modules.chat_xray as cx                              # noqa: E402
 import modules.captcha_bridge as cb                         # noqa: E402
 import modules.bseb_result as br                            # noqa: E402
 
@@ -375,7 +374,6 @@ _SITES = [
     ("api_hub.gstin_format_ok", lambda j: ah.gstin_format_ok(j)),
     ("api_hub.pan_format_ok", lambda j: ah.pan_format_ok(j)),
     ("desi_tools.detect_bank", lambda j: dt.detect_bank(j)),
-    ("chat_xray.parse_chat", lambda j: cx.parse_chat(j)),
     ("captcha_bridge.parse_result", lambda j: cb.parse_result(j)),
     ("bseb_result._extract_token", lambda j: br._extract_token(j)),
 ]

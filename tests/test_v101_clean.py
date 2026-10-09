@@ -55,9 +55,9 @@ check("doc_* callbacks gayi", not re.search(r'"doc_(kb_|gray|go)', BOT_SRC))
 check("uhunt_card function gayi", "def uhunt_card" not in BOT_SRC)
 
 print("\n== 2) COUNTS ==")
-check("PREMIUM_TOOLS == 30", len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
-check("PROMPT_DATA == 37", len(bot.PROMPT_DATA) == 37, str(len(bot.PROMPT_DATA)))
-check("PROMPTS == 37", len(bot.PROMPTS) == 37, str(len(bot.PROMPTS)))
+check("PREMIUM_TOOLS == 29", len(bot.PREMIUM_TOOLS) == 29, str(len(bot.PREMIUM_TOOLS)))
+check("PROMPT_DATA == 34", len(bot.PROMPT_DATA) == 34, str(len(bot.PROMPT_DATA)))
+check("PROMPTS == 34", len(bot.PROMPTS) == 34, str(len(bot.PROMPTS)))
 check("familyinfo zinda", "familyinfo" in bot.PREMIUM_TOOLS and "familyinfo" in bot.PROMPT_DATA)
 check("numinfo zinda + prompt untouched",
       'if mode == "numinfo":' in BOT_SRC
@@ -69,13 +69,13 @@ _labels = [[bot.unbold(c).upper() for c in row] for row in bot.KB_BTNS]
 _flat = [c for row in _labels for c in row]
 check("row0 = [NUMBER INFO, FAMILY INFO]", _labels[0] == ["📱 NUMBER INFO", "👪 FAMILY INFO"], str(_labels[0]))
 check("downloader rows 1-2 me", "INSTA DL" in _labels[1][0] and "YOUTUBE DL" in _labels[1][1], str(_labels[1]))
-over = [i for i, r in enumerate(_labels[:-1]) if len(r) > 2]
-check("koi row 2 se badi nahi (horizontal pairs)", not over, str(over))
+over = [i for i, r in enumerate(_labels[:-1]) if len(r) > 3]  # v102: DL row 3-wide
+check("koi row 3 se badi nahi (v102: DL row 3-wide)", not over, str(over))
 singles = [i for i, r in enumerate(_labels) if len(r) == 1 and "SUPPORT" not in r[0]]
 check("akhri (SUPPORT) ke siva koi single-row nahi", not singles, str(singles))
 for gone in ("PASSPORT", "PRINT SHEET", "DOCUMENT PDF", "SARKARI SEVA", "USERNAME HUNTER", "BGMI", "FF UID", "APP FINDER"):
     check(f"keyboard me '{gone}' nahi", all(gone not in c for c in _flat))
-check("SARKARI KAGAZ SUITE zinda (wo delete nahi hua)", any("KAGAZ" in c for c in _flat))
+check("SARKARI KAGAZ SUITE bhi gaya (v102 user order)", not any("KAGAZ" in c for c in _flat))
 check("QR CODE + QR SCANNER alag-alag zinda",
       sum(1 for c in _flat if c == "📷 QR CODE") == 1 and sum(1 for c in _flat if c == "📷 QR SCANNER") == 1)
 check("koi button duplicate nahi", len(_flat) == len(set(_flat)))
@@ -126,7 +126,7 @@ check("fetch_bytes offline behavior: galat URL → (None, reason) not crash",
       CT.fetch_bytes("http://127.0.0.1:9/x.bin", 1)[0] is None)
 
 print("\n== 6) VERSION ==")
-check("BOT_VERSION v101 head", bot.BOT_VERSION.startswith("v101.0 MENU-CLEAN"), bot.BOT_VERSION[:48])
+check("BOT_VERSION v102 head", bot.BOT_VERSION.startswith("v102.0 CLEAN-STYLE"), bot.BOT_VERSION[:48])
 check("v100/v99 history intact",
       "v100.0 FAMILY-INFO" in bot.BOT_VERSION and "v99.0 MYNUM-API" in bot.BOT_VERSION)
 check("start-text me FF/BGMI zinda nahi (gaya hua tool promote NAHI)",

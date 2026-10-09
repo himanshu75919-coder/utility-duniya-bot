@@ -160,7 +160,7 @@ ok("version v85+ (v95) + poori history",
    and "v86.0" in B.BOT_VERSION and "v85.0" in B.BOT_VERSION
    and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION
    and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION, B.BOT_VERSION[:16])
-ok("PROMPT_DATA 44 (43 purane intact + familyinfo)", len(B.PROMPT_DATA) == 37,
+ok("PROMPT_DATA 34 (v102: 3 tools ke prompt gaye)", len(B.PROMPT_DATA) == 34,
    f"count={len(B.PROMPT_DATA)}")
 ok("race me album engine + retry barkarar",
    "_ig_embed_album(clean, media_cat)" in MD_SRC and "embed-album" in MD_SRC)

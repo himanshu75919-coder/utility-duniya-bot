@@ -108,7 +108,7 @@ def main():
        any("QR SCANNER" in B.unbold(t).upper() for row in B.KB_BTNS for t in row))
     ok("on_photo qr_scan branch", 'mode == "qr_scan"' in BOT_SRC and "qr_scan_bytes" in BOT_SRC)
     ok("scan button safe (Link kholo validate)", '"🌐 Link kholo"' in BOT_SRC)
-    ok("SAARE TOOLS list me QR Scanner", "QR Scanner" in B.all_tools_text())
+    ok("v102: all_tools_text delete ho gaya", not hasattr(B, "all_tools_text"))
     # decode engine — offline junk checks (network nahi chahiye)
     for _jn, _jv in (("None", None), ("khaali", b""), ("chhota", b"xx"),
                      ("str-junk", "hello"), ("list", [])):
@@ -167,9 +167,9 @@ def main():
     ok("version v85+ (merged v94) + history", bool(_vm86) and int(_vm86.group(1)) >= 85 and "v85.0" in B.BOT_VERSION
        and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION,
        B.BOT_VERSION[:16])
-    ok("PREMIUM_TOOLS 37 intact (qr_scan alag, cxray-pattern)",
-       len(B.PREMIUM_TOOLS) == 30 and "qr_scan" not in B.PREMIUM_TOOLS, f"count={len(B.PREMIUM_TOOLS)}")
-    ok("PROMPT_DATA 44 (43 + familyinfo naya)", len(B.PROMPT_DATA) == 37, f"count={len(B.PROMPT_DATA)}")
+    ok("PREMIUM_TOOLS 29 (v102 clean)",
+       len(B.PREMIUM_TOOLS) == 29, str(len(B.PREMIUM_TOOLS)))
+    ok("PROMPT_DATA 34 (v102)", len(B.PROMPT_DATA) == 34, f"count={len(B.PROMPT_DATA)}")
     ok("purane prompts intact (spot check)",
        B.PROMPT_DATA.get("terabox", {}).get("head") == "⚡ TERABOX / CLOUD ENGINE"
        and B.PROMPT_DATA.get("qr", {}).get("head") == "📷 QR CODE MAKER"

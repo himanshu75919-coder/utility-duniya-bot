@@ -142,8 +142,8 @@ asyncio.run(_main())
 # =====================================================================
 section("[D] 📥 DOWNLOADER SERVICES — alag tools, official emoji")
 # =====================================================================
-check("4 services hain (v67)", len(bot.DL_SITES) == 4, str(len(bot.DL_SITES)))
-_OFC = {"instagram": "📸", "youtube": "▶️", "facebook": "📘", "tiktok": "🎵"}
+check("3 services hain (v102)", len(bot.DL_SITES) == 3, str(len(bot.DL_SITES)))
+_OFC = {"instagram": "📸", "youtube": "▶️", "tiktok": "🎵"}  # v102: facebook gaya
 for _k, _e in _OFC.items():
     check(f"{_k} ka official emoji {_e} laga hai", bot.DL_SITES[_k][0] == _e,
           f"mila: {bot.DL_SITES[_k][0]}")
@@ -152,15 +152,14 @@ check("har service ka apna nam hai (khaali nahi)",
 check("har service ka apna mode hai (dl_<app>)",
       all(f"dl_{k}" in bot.PROMPT_DATA for k in bot.DL_SITES))
 _dt = bot.dl_tools_text()
-check("tools list me saare 4 downloader services hain",
-      len([ln for ln in _dt.splitlines() if "Downloader" in ln]) == 4,
+check("tools list me saare 3 downloader services hain (v102)",
+      len([ln for ln in _dt.splitlines() if "Downloader" in ln]) == 3,
       str(len([ln for ln in _dt.splitlines() if "Downloader" in ln])))
-check("list me official emojis dikhte hain",
-      all(e in _dt for e in ("📸", "▶️", "📘", "🎵")))
-check("ALL TOOLS list me downloader section juda hai",
-      "4 VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)" in bot.all_tools_text())
-check("ALL TOOLS list Telegram limit me fit hai",
-      len(bot.all_tools_text()) < 4096, str(len(bot.all_tools_text())))
+check("list me official emojis dikhte hain (📘 facebook gaya)",
+      all(e in _dt for e in ("📸", "▶️", "🎵")) and "📘" not in _dt)
+# v102: 📋 ALL TOOLS (FREE) list permanent delete — ab sirf DL list zinda
+check("ALL TOOLS list (all_tools_text) delete ho gaya (v102)",
+      not hasattr(bot, "all_tools_text"))
 check("purana picker menu code delete ho gaya",
       not hasattr(bot, "DL_MENU_TEXT") and not hasattr(bot, "dl_menu_kb"))
 
@@ -227,7 +226,7 @@ check("purane labels kaam karte hain (remove-message ya sahi tool)",
       and bot.BTN_MODE_MAP.get("INSTA DOWNLOADER") == "dl_instagram")
 check("11 business tools zinda", len(bot.BIZ_MENU) >= 12, str(len(bot.BIZ_MENU)))
 check("wizard zinda", len(bot.BIZ_STEPS) == 12)
-check("keyboard rows barhe (27 naye tools jude)", len(bot.KB_BTNS) >= 14,
+check("keyboard 12 rows (v102 clean)", len(bot.KB_BTNS) == 12,
       str(len(bot.KB_BTNS)))
 import re as _r65                                                      # noqa: E402
 _V65 = float((_r65.search(r"v(\d+(?:\.\d+)?)", str(bot.BOT_VERSION)) or [0, 0])[1]

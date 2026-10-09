@@ -222,9 +222,6 @@ except ImportError:  # agar purani database.py use ho rahi ho to bot crash na ho
 from modules.cloud_tools import resolve_cloud_url, tb_fetch_thumb, fetch_bytes
 from modules import desi_tools as desi
 from modules.desi_tools import (
-    KAGAZ_FIELDS,
-    KAGAZ_MAKERS,
-
     VOICE_PRESETS,
     convert_land,
     land_text,
@@ -297,7 +294,6 @@ from modules.osint_tools import (
     lookup_whois,        # v70: 🌐 WEBSITE OWNER X-RAY (RDAP public record)
 )
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
-from modules import chat_xray as CXR                   # v73.0: 💬 WHATSAPP CHAT X-RAY (offline, free)
 from modules import bseb_result as BSEBR               # v73.1: 📋 BOARD RESULT (BSEB official API)
 from modules import boards as BRD                      # v74.5: BSEB + CBSE
 from modules import captcha_bridge as CB              # v74.6: 🔐 captcha bridge (user solve karta hai)
@@ -386,7 +382,6 @@ TOOL_RATE_LIMITS = {
     "dl":          (15, 120, "Video Downloader"),
     "terabox":     (6,  120, "Terabox Downloader"),
     "bankpdf":     (5,  180, "Bank Statement → Excel"),
-    "cxray":       (5,  300, "Chat X-Ray"),            # v73.0: apni chat ki report (FREE)
     "bsebr":       (10, 300, "Result Check (BSEB)"),   # v74.0: wizard (FREE)
     "rc":          (12, 300, "Result Check (BSEB)"),   # v74.0: rc_code/rc_roll (wizard steps)
     "media_ytmp3": (5,  120, "YouTube → MP3"),
@@ -406,7 +401,6 @@ TOOL_RATE_LIMITS = {
     "short":       (10, 60,  "URL Shortener"),
     "qr_scan":     (15, 60,  "QR Scanner"),          # v86: naya tool (photo → QR text)
     # document tools (local CPU)
-    "kagaz":       (15, 120, "Kagaz Suite"),
     # ---- v60.4: BUSINESS STUDIO (CPU-heavy file generation) ----
     "biz_invoice":     (12, 120, "Invoice / Bill"),
     "biz_resume":      (10, 120, "Resume / CV"),
@@ -464,7 +458,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts (no bold-unicode) + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted (KAGAZ · CHAT X-RAY · ALL TOOLS FREE · FACEBOOK DL) | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -547,26 +541,19 @@ log.info("🛡️ Premium auto-backup wrapper ON — har VIP grant par backup ut
 
 # ---------------- AESTHETIC BOLD UNICODE HELPER ----------------
 def to_bold(text: str) -> str:
-    """Converts standard text to Mathematical Bold Unicode (e.g. TELEGRAM -> 𝐓𝐄𝐋𝐄𝐆𝐑𝐀𝐌)"""
-    res = []
-    for c in text:
-        code = ord(c)
-        if 65 <= code <= 90:  # A-Z
-            res.append(chr(0x1D400 + (code - 65)))
-        elif 97 <= code <= 122:  # a-z
-            res.append(chr(0x1D41A + (code - 97)))
-        elif 48 <= code <= 57:  # 0-9
-            res.append(chr(0x1D7CE + (code - 48)))
-        else:
-            res.append(c)
-    return "".join(res)
+    """v102: FONT COPY (user order — OSINT Lookup style).
+
+    Pehle ye Mathematical Bold Unicode banata tha (𝐅𝐀𝐌𝐈𝐋) — ab text
+    SAADA rehta hai; asli bold Telegram ke HTML <b> se aata hai. Isi liye
+    ab har button/prompt/card OSINT bot jaisa clean plain font dikhta hai.
+    """
+    return text
+
+
 
 
 # ============================================================
-#  CREDITS SYSTEM (v37 → v51 FULL PREMIUM)
-#  • Naye user ko 25 credits — EK BAAR KE (daily reset NAHI)
-#  • v51: AB SAARE tools premium hain (1 use = 1 credit)
-#  • VIP / Owner / Admin = unlimited (credits nahi lagte)
+#  PREMIUM TOOL SET (v102: kagaz/cxray members delete ho gaye)
 # ============================================================
 PREMIUM_TOOLS = {
     "insta_dl",            # 📥 downloader ENGINE (27 alag tools isi par chalte hain)
@@ -575,7 +562,6 @@ PREMIUM_TOOLS = {
     "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
     # ---- v38 MARU-TOAD PACK (chhupe tools) ----
     "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
-    "kagaz",               # 📜 SARKARI KAGAZ SUITE
     "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
     # ---- v41 IMEI / PHONE DETAILS (live API) ----
     "imei",                # 📲 IMEI & PHONE SPEC CARD
@@ -612,7 +598,6 @@ PREMIUM_TOOL_NAMES = {
     "familyinfo": "👪 Family Info",
     "cloner": "🔄 Channel Cloner",
     "bankpdf": "🏦 Bank Statement → Excel",
-    "kagaz": "📜 Sarkari Kagaz Suite",
     "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
     "imei": "📲 IMEI / Phone Details",
     "terabox": "⚡ Terabox / Cloud Downloader",
@@ -700,7 +685,7 @@ def get_credits_over_text(action: str = "") -> str:
         "• 📥 Instagram/YouTube/Facebook/TikTok Downloader • 📱 Number Info\n"
         "• 🔄 Channel Cloner\n"
         "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
-        "• 🏦 Bank PDF→Excel • 📜 Kagaz Suite • ⚡ Media Studio\n"
+        "• 🏦 Bank PDF→Excel • ⚡ Media Studio\n"
         "• 📲 IMEI • 📦 App Finder • aur saare tools\n"
         "• 💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
         "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n"
@@ -746,7 +731,7 @@ VIP_WALL_TEXT = (
     "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
     "• 📱 Number Info + 📲 IMEI full spec-sheet + 🏦 IFSC Info\n"
     "• 🔄 Channel Cloner (auto-forward) + 📡 TG Public Info\n"
-    "• 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
+    "• 🏦 Bank PDF → Excel · ⚡ Media Studio\n"
     "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
     "• ♾️ <b>Sab kuch unlimited</b> — koi credit, koi limit nahi\n"
     "• ⚡ <b>Sabse fast</b> support + pehle naye tools\n\n"
@@ -767,20 +752,15 @@ FREE_MODE_TEXT = (
     "──────────────────────\n"
     "Koi VIP nahi, koi credits nahi, koi limit nahi.\n"
     "Aap seedha menu se <b>koi bhi tool</b> dabao — turant chalega. ✅\n\n"
-    "📥 Video Downloader · 📱 Number Info · 📲 IMEI Details\n"
-    "📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
-    "🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
+    "📥 Video Downloader · 📱 Number Info · 👪 Family Info\n"
+    "📲 IMEI Details · 🔍 Link Check · 🚗 RC + Challan\n"
+    "🏦 Bank PDF → Excel · ⚡ Media Studio\n"
     "💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
     "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n\n"
     "💡 <i>Naya tool chahiye? Batao — free me add kar dunga.</i>"
 )
 
 
-def free_mode_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📋 Saare tools ki list", callback_data="alltools")],
-        [InlineKeyboardButton("💬 Support / Madad", url=SUPPORT_URL)],
-    ])
 
 
 def dl_tools_text() -> str:
@@ -793,32 +773,6 @@ def dl_tools_text() -> str:
             + "\n".join(_rows))
 
 
-def all_tools_text() -> str:
-    """v61: poore bot ke saare tools ki list — sab FREE."""
-    _biz = "\n".join(
-        f"   {k}. {v[0]} {hesc(v[1])} — {hesc(v[2])}"
-        for k, v in enumerate(BIZ_MENU.values(), 1) if v and len(v) >= 3)
-    # v66.1: purana "📥 Video Downloader" (ek tool me sab apps) HATA diya —
-    #        uski jagah upar 27 alag tools ki list aa gayi hai.
-    _pv = "\n".join(
-        f"   • {hesc(x)}" for x in sorted(
-            {v for _k, v in PREMIUM_TOOL_NAMES.items() if _k != "insta_dl"}
-            | {"📞 Temp Mail (Number) — 100% FREE temp number + OTP",
-               "💬 Chat X-Ray — apni WhatsApp chat ki fun report (FREE)",
-               "📋 Result Check — BSEB result (roll code + roll number) se",
-               "📷 QR Scanner — QR photo bhejo, text/link pao (FREE)"}))
-    _dl = dl_tools_text()
-    return (
-        "📋 <b>SAARE TOOLS — 100% FREE</b>\n"
-        "──────────────────────\n"
-        "<b>💼 Business Studio (photo + PDF, print-ready):</b>\n"
-        f"{_biz}\n\n"
-        f"{_dl}\n\n"
-        "<b>⚡ Baaki saare tools:</b>\n"
-        f"{_pv}\n\n"
-        "✅ Kisi bhi tool ke liye <b>VIP / credits ki zaroorat NAHI</b>.\n"
-        "👉 Neeche keyboard se seedha tool ka naam dabao."
-    )
 
 
 def vip_ok(uid: int) -> bool:
@@ -1464,31 +1418,40 @@ async def send_tnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
-    # v101: ❌ 8 tools user ke order par POORE hataaye (PASSPORT PHOTO, 8-IN-1 PRINT
-    #     SHEET, DOCUMENT PDF COMPRESS, SARKARI SEVA PORTALS, USERNAME HUNTER,
-    #     BGMI UID, FF UID, APP FINDER) — code + buttons + prompts sab gaye.
-    # v101: 📐 saari rows ab 2-2 buttons wali (horizontal, ek manner me) —
-    #     adhuri rows jod di.
+    # v102: ❌ 4 aur tools permanent delete (user order): 📜 SARKARI KAGAZ
+    #     SUITE · 💬 CHAT X-RAY · 📋 ALL TOOLS (FREE) · 📘 FACEBOOK DL —
+    #     buttons, prompts, handlers, modules sab repo se gaye.
     [f"🔄 {to_bold('CHANNEL CLONER')}", f"🚗 {to_bold('RC + CHALLAN')}"],
     [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}", f"📮 {to_bold('PINCODE INFO')}"],
     [f"🏦 {to_bold('IFSC INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
-    [f"📞 {to_bold('TEMP NUMBER')}", f"💬 {to_bold('CHAT X-RAY')}"],
-    [f"📋 {to_bold('RESULT CHECK')}", f"📷 {to_bold('QR CODE')}"],
-    [f"📷 {to_bold('QR SCANNER')}", f"🔗 {to_bold('URL SHORT')}"],
-    [f"🔍 {to_bold('LINK CHECK')}", f"📲 {to_bold('IMEI / PHONE DETAILS')}"],
-    [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
-    [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
+    [f"📞 {to_bold('TEMP NUMBER')}", f"📋 {to_bold('RESULT CHECK')}"],
+    [f"📷 {to_bold('QR CODE')}", f"📷 {to_bold('QR SCANNER')}"],
+    [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
+    [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💼 {to_bold('BUSINESS STUDIO')}"],
+    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🏦 {to_bold('BANK STATEMENT → EXCEL')}"],
     [f"💎 {to_bold('VIP PREMIUM')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"💬 {to_bold('SUPPORT / MADAD')}"],
 ]
 
 
-# v61: FREE mode me "💎 VIP PREMIUM" button ki jagah kaam ki cheez
+# v102: 📋 ALL TOOLS (FREE) button hata diya — FREE mode me VIP cell ki jagah
+# ab 👤 MY ACCOUNT baithta hai aur dobara wala duplicate cell hat jaata hai.
 if ALL_FREE:
     for _row_v in KB_BTNS:
         for _i_v, _lab_v in enumerate(_row_v):
             if "VIP PREMIUM" in unbold(_lab_v).upper():
-                _row_v[_i_v] = f"\U0001F4CB {to_bold('ALL TOOLS (FREE)')}"
+                _row_v[_i_v] = f"\U0001F464 {to_bold('MY ACCOUNT')}"
+    _seen_ac = False
+    for _row_v in KB_BTNS:
+        _keep_ac = []
+        for _lab_v in _row_v:
+            if "MY ACCOUNT" in unbold(_lab_v).upper():
+                if _seen_ac:
+                    continue
+                _seen_ac = True
+            _keep_ac.append(_lab_v)
+        _row_v[:] = _keep_ac
+    KB_BTNS[:] = [r for r in KB_BTNS if r]
 
 
 def main_keyboard(admin: bool = False):
@@ -1535,10 +1498,6 @@ BTN_MODE_MAP = {
     # v75.1: 📤 BULK MODE (earning tool)
     # v79: BULK MODE ka tool hata diya gaya — isliye ye aliases bhi hataye
     # (varna typing se wahi tool khul jaata).
-    "CHAT X-RAY": "cxray",                 # v73.0: 💬 apni chat ki fun report
-    "CHAT XRAY": "cxray",
-    "WHATSAPP CHAT X-RAY": "cxray",
-    "CHAT X-RAY REPORT": "cxray",
     "RESULT CHECK": "bsebr",               # v73.1: 📋 BSEB result by roll code + roll no
     "BSEB RESULT": "bsebr_direct",
     "BSEB RESULT CHECK": "bsebr_direct",
@@ -1581,8 +1540,6 @@ BTN_MODE_MAP = {
     "BANK STATEMENT TO EXCEL": "bankpdf",
     "BANK STATEMENT - EXCEL": "bankpdf",
     "BANK PDF TO EXCEL": "bankpdf",
-    "SARKARI KAGAZ SUITE": "kagaz",
-    "KAGAZ SUITE": "kagaz",
     "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
     # ---- v60.4: 💼 BUSINESS STUDIO (earning tools) ----
     "BUSINESS STUDIO": "bizstudio",
@@ -1606,9 +1563,6 @@ BTN_MODE_MAP = {
     "MEDIA STUDIO": "mediastudio",
     "MP3 STATUS STUDIO": "mediastudio",
     "VIP PREMIUM": "premium",
-    "ALL TOOLS (FREE)": "alltools",      # v61
-    "ALL TOOLS": "alltools",
-    "SAARE TOOLS": "alltools",
     # v79: "REFER & EARN" tool hataya (menu + alias dono)
     "MY ACCOUNT": "account",
     # v79: "HELP / TUTORIAL" tool hataya (menu + alias dono)
@@ -1654,13 +1608,11 @@ DL_SITES = {
                     "https://www.instagram.com/reel/C8xYzAbCdEf/"),
     "youtube":     ("▶️", "YouTube",        ["youtube.com", "youtu.be"],
                     "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
-    "facebook":    ("📘", "Facebook",       ["facebook.com", "fb.watch"],
-                    "https://www.facebook.com/watch/?v=10153231379946729"),
     "tiktok":      ("🎵", "TikTok",         ["tiktok.com"],
                     "https://vt.tiktok.com/ZS6rQpLmK/"),
 }
 
-DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok")
+DL_POPULAR = ("instagram", "youtube", "tiktok")  # v102: facebook gaya
 
 # ----------------------------------------------------------------------
 # v67: 📥 4 DOWNLOADER TOOLS — har app apna ALAG tool
@@ -1670,7 +1622,7 @@ DL_POPULAR = ("instagram", "youtube", "facebook", "tiktok")
 # ----------------------------------------------------------------------
 DL_SHORT = {
     "instagram": "INSTA", "youtube": "YOUTUBE",
-    "facebook": "FACEBOOK", "tiktok": "TIKTOK",
+    "tiktok": "TIKTOK",
 }
 
 
@@ -1712,14 +1664,24 @@ def dl_prompt_data(mode: str) -> dict:
 # 4 downloader tools seedhe main keyboard me (submenu NAHI) — row 2 ke baad
 try:
     _dl_rows = dl_kb_rows(2)
+    # v102: 📘 Facebook delete ke baad TIKTOK akela row me tha — use pichhli
+    #     row me jod do (INSTA · YOUTUBE · TIKTOK — 3 buttons, ek row).
+    if len(_dl_rows) > 1 and len(_dl_rows[-1]) == 1:
+        _dl_rows[-2].append(_dl_rows[-1].pop(0))
+        del _dl_rows[-1]
     # v68: 🥇 PREMIUM/SABSE ZAROORI TOOLS SABSE UPAR (user ka order) —
-    # analysis: downloader + number info + terabox sabse zyada bikte hain,
-    # isliye wo pehli rows me. Purane tools neeche, kuch nahi hata.
+    # v101: NUMBER INFO + FAMILY INFO sabse pehli row (user ka order).
     KB_BTNS[0:0] = [[f"📱 {to_bold('NUMBER INFO')}", f"👪 {to_bold('FAMILY INFO')}"]] + _dl_rows
-    # v101: 🥇 NUMBER INFO + FAMILY INFO sabse pehli row (user ka order —
-    #     users sabse pehle ye info tools dekhein).
-    # v67: keyboard ab 16 rows — aakhri do rows (REFER/ACCOUNT, HELP/SUPPORT)
-    #      ko 2 buttons wali rows me rakho (sundar lage)
+    # v102: koi bhi ek-button row bache to use right wale se merge karo
+    #     (index-safe loop).
+    _i_c = 0
+    while _i_c < len(KB_BTNS) - 1:
+        if len(KB_BTNS[_i_c]) == 1:
+            KB_BTNS[_i_c].append(KB_BTNS[_i_c + 1].pop(0))
+            if not KB_BTNS[_i_c + 1]:
+                del KB_BTNS[_i_c + 1]
+        else:
+            _i_c += 1
 except Exception as _dke:                                        # noqa: BLE001
     print("dl keyboard rows skip:", _dke)
 
@@ -1757,9 +1719,9 @@ def dl_url_matches(mode: str, url: str) -> bool:
 
 # v71: premium card/prompt frame — boxes ┏─┓ ┃ ┗─┛ + dotted separator.
 # (PROMPT_DATA se PEHLE hona zaroori hai — prompt renderer inhi ko use karta hai)
-PCARD_TOP = "┏────────────────────────────┓"
-PCARD_MID = "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"
-PCARD_BOT = "┗────────────────────────────┛"
+PCARD_TOP = ""  # v102: box frames gaye — OSINT-style plain lines
+PCARD_MID = "━━━━━━━━━━━━━━━━━━━━━━"
+PCARD_BOT = ""  # v102: box frames gaye
 
 PROMPT_DATA = {
     # ---------------------------------------------------------- DOWNLOADERS
@@ -1838,14 +1800,6 @@ PROMPT_DATA = {
         "tip": '',
         "foot": '',
     },
-    "cxray": {
-        "head": "💬 WHATSAPP CHAT X-RAY",
-        "ask": "Apni chat ki export file bhejein (.txt ya .zip):",
-        "ex": [('(file bhejein) — WhatsApp → chat → ⋮ → Export chat → "Without media"',
-                'poori fun report banegi')],
-        "tip": '',
-        "foot": '',
-    },
     "pin": {
         "head": "📮 PINCODE / AREA INFO ENGINE",
         "ask": "Pincode ya area ka naam bhejein:",
@@ -1903,13 +1857,6 @@ PROMPT_DATA = {
         "ex": [('NEW', 'naya mail id banane ke liye')],
         "tip": '',
         "foot": 'Bina number ke email · 10 minute me',
-    },
-    "kagaz": {
-        "head": "📜 KAGAZ SUITE · GOVT PAPERS",
-        "ask": "Neeche se apna document chunein:",
-        "ex": [('Kirayanama', 'kaunsa kagaz chahiye')],
-        "tip": 'Jaise: Kirayanama, Affidavit, Notice 138, Rent Agreement',
-        "foot": 'Sarkari kagaz ka draft — 2 minute me',
     },
     # ------------------------------------------------- v60.4 BUSINESS STUDIO
     "biz_invoice": {
@@ -2050,11 +1997,13 @@ def _render_tool_prompt(key: str) -> str:
     if not d:
         return ""
     head = str(d.get("head") or "")
+    # v102: OSINT-style — plain header line + heavy divider, no ┏ box,
+    # no unicode-bold (to_bold ab identity hai; asli bold <b> se)
     if " " in head:
         _icon, _rest = head.split(" ", 1)
-        L = [f"{PCARD_TOP}\n┃ {_icon} <b>{to_bold(_rest)}</b>\n{PCARD_BOT}"]
+        L = [f"{_icon} <b>{_rest}</b>", PCARD_MID]
     else:
-        L = [f"{PCARD_TOP}\n┃ <b>{to_bold(head)}</b>\n{PCARD_BOT}"]
+        L = [f"<b>{head}</b>", PCARD_MID]
     L.append("")
     L.append(f"🔗 <b>{hesc(str(d.get('ask') or ''))}</b>")
     ex = d.get("ex") or []
@@ -2075,7 +2024,7 @@ TUTORIAL_TEXT = (
     f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
     "──────────────────────\n"
     "📥 <b>Download:</b>\n"
-    "• 📥 <b>VIDEO DOWNLOAD = 4 ALAG TOOLS</b> (Insta, YouTube, Facebook, TikTok)\n"
+    "• 📥 <b>VIDEO DOWNLOAD = 3 ALAG TOOLS</b> (Insta, YouTube, TikTok)\n"
     "   Keyboard par neeche 📸 INSTA DL · ▶️ YOUTUBE DL … wale buttons hain —\n"
     "   apna app chuno aur uska link bhejo (YouTube par quality bhi chun sakte ho)\n"
     "• ⚡ TERABOX / CLOUD → Terabox/Drive/MediaFire link bhejo → direct link mil jayega\n"
@@ -2085,7 +2034,6 @@ TUTORIAL_TEXT = (
     "• 🖨️ 8-IN-1 SHEET → ek photo bhejo → 8 copies ki sheet\n"
     "• 📄 DOC PDF → marksheet ki photo bhejo → chhoti size ka PDF\n"
     "• 🏦 BANK PDF → EXCEL → statement PDF bhejo → Excel table\n"
-    "• 📜 KAGAZ SUITE → kirayanama, affidavit, notice, registry cost\n"
     "\n"
     "🔍 <b>Information:</b>\n"
     "• 📲 IMEI → <code>*#06#</code> se IMEI lo, bhejo → full phone details\n"
@@ -2139,8 +2087,6 @@ def tutorial_kb():
     ek bhi tutorial video nahi rahega). Ab sirf 📩 Support + 🔙 Menu.
     """
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"📩 Support — seedha message karo {SUPPORT_USERNAME}",
-                              url=SUPPORT_URL)],
         [InlineKeyboardButton("🔙 Menu", callback_data="menu")],
     ])
 
@@ -2150,23 +2096,18 @@ HELP_NOTICE = (
         "❓ <b>MADAD</b>\n"
         "──────────────────────\n"
         "📌 <b>/menu</b> kholo → tool dabao → jo bola jaye wo bhejo. Bas.\n"
-        "🛑 Beech me tool band karna ho to <b>/cancel</b> dabao.\n\n"
-        "👇 Koi bhi dikkat ho to seedha support ko message karo:"
+        "🛑 Beech me tool band karna ho to <b>/cancel</b> dabao."
     )
 
 
 def tool_support_kb(action: str = ""):
-    """Har tool ke neeche sirf 📩 Support button (v80).
+    """v102: user ka order — "support seedha message karo" har tool se HATAO.
 
-    Pehle yahan ek 30-second ka tutorial-video button bhi hota tha — saare
-    tutorial videos (aur uska callback) user ki hiring par poori tarah delete
-    ho chuke hain, isliye ab sirf Support button hai. `action` argument isliye
-    rakha hai taaki saare call sites same rahein.
+    Ab tool ke neeche koi button nahi (return None). Username sirf result
+    card ke ant me dikhta hai (BRAND_LINK). `action` arg isliye rakha gaya
+    hai taaki saare call sites bina change ke chalein.
     """
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"📩 Support — seedha message karo {SUPPORT_USERNAME}",
-                              url=SUPPORT_URL)],
-    ])
+    return None
 
 
 # Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
@@ -2177,13 +2118,6 @@ ASK_LINES = {
 }
 
 
-KAGAZ_MENU_TEXT = (
-    f"📜 <b>{to_bold('DOCUMENT SUITE (BIHAR/UP)')}</b>\n"
-    "Kirayanama, affidavit, notice 138, bayana, loan paper, "
-    "registry cost, bigha/kattha, GST/PAN check.\n"
-    "⚡ Har document = <b>1 credit</b> · ⚠️ Draft notary se check karwa lena\n"
-    "👇 <b>Neeche se chuno:</b>"
-)
 
 HUB_KEY_MISSING_TEXT = (
     "🔌 <b>API HUB not available</b>\n"
@@ -2238,20 +2172,6 @@ def city_coords(text: str):
     return (25.5941, 85.1376), "Patna"
 
 
-def kagaz_menu_kb():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📄 Kirayanama (rent agreement)", callback_data="kagaz_kirayanama"),
-         InlineKeyboardButton("⚖️ Affidavit", callback_data="kagaz_affidavit")],
-        [InlineKeyboardButton("🚫 Legal Notice 138 (cheque bounce)", callback_data="kagaz_notice138")],
-        [InlineKeyboardButton("🤝 Bayana / Pakki Rasid (zameen)", callback_data="kagaz_bayana"),
-         InlineKeyboardButton("📝 Rin Shodh (loan paper)", callback_data="kagaz_loan")],
-        [InlineKeyboardButton("🧾 Name/Address/Income Affidavit", callback_data="kagaz_nameaff")],
-        [InlineKeyboardButton("🏢 GST Number Check karo", callback_data="kagaz_gst"),
-         InlineKeyboardButton("🪪 PAN → GST Check", callback_data="kagaz_pan")],
-        [InlineKeyboardButton("🧮 Registry ka total kharcha", callback_data="kagaz_registry"),
-         InlineKeyboardButton("📐 Bigha/Kattha Converter", callback_data="kagaz_land")],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-    ])
 
 
 def media_menu_kb():
@@ -2279,18 +2199,6 @@ def voice_preset_kb():
     return InlineKeyboardMarkup(rows)
 
 
-def kagaz_ask_next(key: str, data: dict, step: int = 0) -> str:
-    """Document ke fields ek-ek karke poocho — simple likho."""
-    fields = KAGAZ_FIELDS[key]
-    if step >= len(fields):
-        return ""
-    fname, label, hint = fields[step]
-    return (f"📜 <b>{to_bold('KAGAZ SUITE')}</b> — {key}\n"
-            "──────────────────────\n"
-            f"✍️ <b>{label}</b> likho\n"
-            f"<i>(jaise: {hint})</i>\n"
-            f"🚫 Khaali chhodna hai to <code>skip</code> likho · ❌ Band karne ke liye /cancel\n"
-            f"📊 Step {step + 1} / {len(fields)}")
 
 
 # ============================================================
@@ -2454,7 +2362,7 @@ async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎉 <b>Poore bot ke saare tools aapke liye khule hain.</b>\n"
             "❌ Na koi VIP, na credits, na limit.\n"
             "👉 Neeche menu se seedha tool dabao.",
-            reply_markup=free_mode_kb(), parse_mode=HTML)
+            parse_mode=HTML)
         return
     vip_status = "👑 VIP ACTIVE" if is_premium(u) else ("👑 OWNER/ADMIN" if is_admin(uid_) else "🆓 Free User")
     expiry = premium_expiry(u)
@@ -2712,7 +2620,7 @@ async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if res.get("ok"):
         await st.edit_text(card + f"\n• Live test: ✅ <b>working</b> ({hesc(str(res.get('say'))[:80])})\n"
                                   "• Ab ye tools hub par chal rahe hain: IP · IFSC · PINCODE · TERABOX · "
-                                  "VIDEO DL (X) · KAGAZ (GST/PAN) · "
+                                  "VIDEO DL (X) · "
                                   "VEHICLE · IMEI · NUMBER INFO", parse_mode=HTML)
     else:
         await st.edit_text(card + f"\n• Live test: ❌ {safe_html_err(str(res.get('error'))[:150])}", parse_mode=HTML)
@@ -2749,8 +2657,7 @@ async def cmd_tutorial(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # v61: free mode me koi VIP bechna hi nahi hai — seedha free card
     if ALL_FREE and not is_admin(update.effective_user.id):
-        await update.message.reply_text(FREE_MODE_TEXT, reply_markup=free_mode_kb(),
-                                        parse_mode=HTML)
+        await update.message.reply_text(FREE_MODE_TEXT, parse_mode=HTML)
         return
     if is_admin(update.effective_user.id):
         st = payment_stats()
@@ -2778,9 +2685,9 @@ async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• ⚡ Terabox high-speed stream + direct download\n"
         "• 🔄 Channel Cloner + Auto-Forward\n"
         "• 📲 IMEI / Phone Details unlimited\n"
-        "• 🏦 Bank PDF→Excel · 📜 Kagaz Suite · ⚡ Media Studio\n\n"
+        "• 🏦 Bank PDF→Excel · ⚡ Media Studio\n\n"
         f"🎟️ <i>Har naye user ko {CREDITS_START} free credits milte hain "
-        "(Video Downloader, Number Info, Cloner, Bank PDF, Kagaz Suite, Media Studio, IMEI). "
+        "(Video Downloader, Number Info, Cloner, Bank PDF, Media Studio, IMEI). "
         "Baaki saare tools hamesha free hain.</i>\n\n"
         "👉 Plan chuno aur QR code se pay karo:"
     )
@@ -4841,7 +4748,7 @@ def pcard_title(icon: str, name: str) -> str:
     Aakhir me ek nayi line jaati hai — isse title ke baad hamesha khali
     line aati hai (aapki shikayat: "likhne ke beech space nahi hota").
     """
-    return f"{PCARD_TOP}\n┃ {icon} <b>{to_bold(name)}</b>\n{PCARD_BOT}\n"
+    return f"{icon} <b>{to_bold(name)}</b>\n{PCARD_MID}\n"
 
 
 def pcard_foot(*, ms: float = 0, source: str = "", note: str = "",
@@ -4970,39 +4877,64 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
 
 
 def familyinfo_card(res: dict, src_line: str = "", ms: float = 0) -> str:
-    """👪 FAMILY INFO card (v100) — Aadhaar HAMESHA masked, poora kabhi nahi."""
+    """👪 FAMILY INFO card — v102 redesign (user order: OSINT-style saaf-suthra
+    look — har block ke beech space, ━ dividers, faaltu IDs nahi).
+
+    Aadhaar HAMESHA masked — poora number is card me kahin nahi aata.
+    """
     res = res if isinstance(res, dict) else {}
-    L = ["👪 <b>FAMILY INFO — RATION CARD</b>"]
-    L.append(f"🔐 <b>Aadhaar:</b> <code>{hesc(str(res.get('aadhaar_mask') or 'XXXX-XXXX-••••'))}</code>")
+    L = ["👪 <b>FAMILY INFO — RATION CARD</b>",
+         PCARD_MID,
+         ""]
+    L.append(f"🔐 <b>Aadhaar:</b>       <code>{hesc(str(res.get('aadhaar_mask') or 'XXXX-XXXX-••••'))}</code>")
     if res.get("card_number"):
-        _ct = f" ({hesc(str(res['card_type']))})" if res.get("card_type") else ""
-        L.append(f"🪪 <b>Ration Card:</b> <code>{hesc(str(res['card_number']))}</code>{_ct}")
+        _ct = f"   ·   {hesc(str(res['card_type']))}" if res.get("card_type") else ""
+        L.append(f"🪪 <b>Ration Card:</b>  <code>{hesc(str(res['card_number']))}</code>{_ct}")
     if res.get("state_dist"):
-        L.append(f"📍 <b>State/Dist:</b> {hesc(str(res['state_dist']))}")
+        _sd = str(res["state_dist"])
+        if "/" in _sd:
+            _a, _b = [x.strip() for x in _sd.split("/", 1)]
+            L.append(f"📍 <b>State:</b>        {hesc(_a)}")
+            L.append(f"📍 <b>Dist:</b>         {hesc(_b)}")
+        else:
+            L.append(f"📍 <b>State/Dist:</b>   {hesc(_sd)}")
     if res.get("fps"):
-        L.append(f"🏪 <b>FPS Shop:</b> <code>{hesc(str(res['fps']))}</code>")
+        L.append(f"🏪 <b>FPS Shop:</b>     <code>{hesc(str(res['fps']))}</code>")
     if res.get("family_count"):
-        L.append(f"👥 <b>Members:</b> {hesc(str(res['family_count']))}")
-    if res.get("address"):
-        L.append(f"🏠 <b>Address:</b> {hesc(str(res['address'])[:300])}")
+        L.append(f"👥 <b>Members:</b>      {hesc(str(res['family_count']))}")
+    _addr = str(res.get("address") or "").strip()
+    if _addr:
+        L.append("")
+        L.append("🏠 <b>Address:</b>")
+        _toks = [x.strip() for x in _addr[:300].split(",") if x.strip()]
+        _cur = ""
+        for tk in _toks:
+            if _cur and len(_cur) + len(tk) + 2 > 40:
+                L.append(f"   {hesc(_cur)}")
+                _cur = tk
+            else:
+                _cur = (f"{_cur}, {tk}" if _cur else tk)
+        if _cur:
+            L.append(f"   {hesc(_cur)}")
     _mem = res.get("members") or []
     if _mem:
-        L.append(pcard_sep())
-        L.append("👨‍👩‍👧 <b>FAMILY MEMBERS:</b>")
+        L += ["", PCARD_MID, "", "👨‍👩‍ <b>FAMILY MEMBERS</b>", ""]
         for _i, _m in enumerate(_mem[:12], 1):
             _mn = hesc(str(_m.get("name") or "—"))
-            _me = hesc(str(_m.get("ekyc") or ""))
-            _mid = hesc(str(_m.get("member_id") or ""))
-            _mline = f"{_i}. <b>{_mn}</b>" + (f" — {_me}" if _me else "")
-            if _mid:
-                _mline += f" <code>{_mid}</code>"
-            L.append(_mline)
+            _me = str(_m.get("ekyc") or "").strip()
+            # v102: member_id (21-digit) dikhana BAND — faaltu shor tha
+            L.append(f"   {_i}.  <b>{_mn}</b>" + (f"   —   {hesc(_me)}" if _me else ""))
+    L += ["", PCARD_MID, ""]
+    _bits = []
     if src_line:
-        L.append(f"📡 <b>Source:</b> {src_line}")
-    L.append(f"⚡ <b>Response:</b> {int(ms)}ms")
-    L.append(pcard_sep())
-    L.append(BRAND_LINK)
-    return "\n".join([x for x in L if x])
+        _bits.append(f"📡 <b>Source:</b> {src_line}")
+    if ms:
+        _bits.append(f"⚡ <b>Speed:</b> {int(ms)}ms")
+    if _bits:
+        L.append("   |   ".join(_bits))
+    L.append("✅ <b>Lookup Status: SUCCESS</b>")
+    L += ["", BRAND_LINK]
+    return "\n".join(L)
 
 
 def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
@@ -5059,9 +4991,8 @@ def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
     _puc = "⚠️ N/A" if _puc == "-" else _puc
 
     VS = "────────────────────"
-    L = ["┏────────────────────────────┓",
-         f"🚘 <b>{to_bold('VEHICLE INFO REPORT')}</b>",
-         "┗────────────────────────────┛",
+    L = [f"🚘 <b>{to_bold('VEHICLE INFO REPORT')}</b>",
+         PCARD_MID,
          ""]
     if note:
         # v71.6: jab live data na aaye to SAAF wajah yahin dikhao
@@ -5527,11 +5458,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # v83: "📋 Saare tools ki list" button (free mode) — pehle koi handler nahi tha (dead button)
-    if data == "alltools":
-        await context.bot.send_message(update.effective_chat.id, all_tools_text(),
-                                       reply_markup=free_mode_kb() if ALL_FREE else None,
-                                       parse_mode=HTML)
-        return
     # v83: "🔙 Menu" (help/tutorial keyboard) — pehle koi handler nahi tha; back_home jaisa hi
     if data in ("back_home", "menu"):
         await safe_edit(q.message, WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
@@ -6323,10 +6249,10 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  "──────────────────────\n"
                  "Pehle sab apps ek hi menu me the. Ab keyboard par "
                  "<b>neeche wale</b> buttons dikhenge:\n"
-                 "   📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL · 🎵 TIKTOK DL\n\n"
+                 "   📸 INSTA DL · ▶️ YOUTUBE DL · 🎵 TIKTOK DL\n\n"
                  "👉 Keyboard par <b>neeche</b> daba ke apna app chuno, "
                  "ya seedha <b>link bhej do</b> — main khud pehchan lunga.\n\n"
-                 "📋 Poori list: <b>ALL TOOLS (FREE)</b> dabao.")
+                 "📋 Saare tools keyboard par hain 👇")
         await safe_reply(q.message, _hint, parse_mode=HTML)
         return
     if data.startswith("dlv:"):
@@ -6568,69 +6494,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await q.message.reply_text(tool_prompt(data), reply_markup=tool_support_kb(data), parse_mode=HTML)
         return
 
-    if data == "kagaz_menu":
-        context.user_data["mode"] = "kagaz_menu"
-        await q.message.reply_text(KAGAZ_MENU_TEXT, reply_markup=kagaz_menu_kb(), parse_mode=HTML)
-        return
-
-    if data.startswith("kagaz_") and data not in ("kagaz_menu",):
-        kind = data.replace("kagaz_", "")
-        _u_k = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_k, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("kagaz"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        context.user_data.pop("kagaz_data", None)
-        if kind == "registry":
-            context.user_data["mode"] = "kagaz_registry_state"
-            await q.message.reply_text(
-                f"🧮 <b>{to_bold('REGISTRY TOTAL COST')}</b>\n"
-                "──────────────────────\n"
-                "First tell the <b>state</b>: <code>Bihar</code> / <code>UP</code> / <code>Jharkhand</code>\n"
-                "<i>(Bihar: stamp 6.5% + registration 3% · 1% less for women/joint)</i>", parse_mode=HTML)
-            return
-        if kind == "land":
-            context.user_data["mode"] = "kagaz_land_value"
-            await q.message.reply_text(
-                f"📐 <b>{to_bold('BIGHA / KATTHA / DHUR CONVERTER')}</b>\n"
-                "──────────────────────\n"
-                "Type the area — example:\n"
-                "• <code>2 bigha</code>\n• <code>5 katha</code>\n• <code>10 decimal</code>\n• <code>1200 sqft</code>\n"
-                "• <code>3 dhur</code> / <code>1 acre</code> / <code>2.5 gaj</code>\n"
-                "──────────────────────\n"
-                "📐 <b>Now type your area:</b>", parse_mode=HTML)
-            return
-        if kind == "gst":
-            if not hubapi.hub_ready():
-                await q.message.reply_text(HUB_KEY_MISSING_TEXT, parse_mode=HTML)
-                return
-            context.user_data["mode"] = "kagaz_gst"
-            await q.message.reply_text(
-                "🏢 <b>GST NUMBER CHECK</b>\n"
-                "GSTIN bhejo — legal name, trade name, status, type, state, address.\n"
-                "📌 Example: <code>19BOKPS7056D1ZI</code>\n"
-                "🔤 <b>Now send the 15 character GSTIN:</b>", parse_mode=HTML)
-            return
-        if kind == "pan":
-            if not hubapi.hub_ready():
-                await q.message.reply_text(HUB_KEY_MISSING_TEXT, parse_mode=HTML)
-                return
-            context.user_data["mode"] = "kagaz_pan"
-            await q.message.reply_text(
-                "🪪 <b>PAN → GST CHECK</b>\n"
-                "PAN bhejo — us PAN par registered saare GST numbers.\n"
-                "📌 Example: <code>AAYFK4129N</code>\n"
-                "🔤 <b>Now send the 10 character PAN:</b>", parse_mode=HTML)
-            return
-        if kind not in KAGAZ_FIELDS:
-            await q.message.reply_text("❌ Ye document nahi mila.", parse_mode=HTML)
-            return
-        context.user_data["mode"] = f"kagaz_fill_{kind}"
-        context.user_data["kagaz_step"] = 0
-        context.user_data["kagaz_data"] = {}
-        await q.message.reply_text(kagaz_ask_next(kind, {}, 0), parse_mode=HTML)
-        return
 
     if data.startswith("media_"):
         kind = data.replace("media_", "")
@@ -7474,10 +7337,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "WEATHER / MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
             "WEATHER / MAUSAM ": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
-            "GOVT SERVICES": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
-            "GOVT": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
-            "GOVERNMENT": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
-            "GOVT SERVICE": "🏛️ Govt Services abhi bot se hataya gaya hai — aap 📜 <b>Sarkari Kagaz Suite</b> aur 🏦 <b>IFSC/Pin/IP</b> use kar sakte ho",
+            "GOVT SERVICES": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
+            "GOVT": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
+            "GOVERNMENT": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
+            "GOVT SERVICE": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
             "RTO VEHICLE INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
             "VEHICLE INFO + CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
             "VEHICLE INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
@@ -7569,10 +7432,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # 3b. v38: SARKARI KAGAZ SUITE (menu)
-        if action == "kagaz":
-            context.user_data["mode"] = "kagaz_menu"
-            await update.message.reply_text(KAGAZ_MENU_TEXT, reply_markup=kagaz_menu_kb(), parse_mode=HTML)
-            return
 
         # 3c. v38: MEDIA STUDIO (menu)
         if action == "mediastudio":
@@ -7650,15 +7509,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "──────────────────────\n"
                 + dl_tools_text()
                 + "\n\n👉 Keyboard par <b>neeche</b> wale buttons dabao — "
-                "📸 INSTA DL, ▶️ YOUTUBE DL, 📘 FACEBOOK DL …",
+                "📸 INSTA DL, ▶️ YOUTUBE DL, 🎵 TIKTOK DL …",
                 parse_mode=HTML)
             return
 
-        if action == "alltools":          # v61: saare tools ki list (FREE)
-            await update.message.reply_text(all_tools_text(),
-                                            reply_markup=free_mode_kb() if ALL_FREE else None,
-                                            parse_mode=HTML)
-            return
 
         # 9. VIP Premium, Refer & Account
         if action == "premium":
@@ -8369,7 +8223,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"<b>{hesc(DL_SITES[_dl_here][1])}</b> ke tool me hain.\n"
                     f"Koi baat nahi, main phir bhi download kar deta hoon 👇\n"
                     f"<i>(Agli baar sahi app ka tool chuno — keyboard par "
-                    f"neeche 📸 INSTA DL · ▶️ YOUTUBE DL · 📘 FACEBOOK DL · 🎵 TIKTOK DL.)</i>",
+                    f"neeche 📸 INSTA DL · ▶️ YOUTUBE DL · 🎵 TIKTOK DL.)</i>",
                     parse_mode=HTML)
             except Exception:                                    # noqa: BLE001
                 pass
@@ -9314,201 +9168,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
-    # ---------------- v38: KAGAZ FILL (ek-ek field) ----------------
-    if mode and mode.startswith("kagaz_fill_"):
-        kind = mode.replace("kagaz_fill_", "")
-        step = int(context.user_data.get("kagaz_step", 0))
-        data = context.user_data.get("kagaz_data") or {}
-        fields = KAGAZ_FIELDS.get(kind, [])
-        if step < len(fields):
-            fname = fields[step][0]
-            data[fname] = "" if raw_text.strip().lower() in ("skip", "-", "no") else raw_text.strip()
-        context.user_data["kagaz_data"] = data
-        step += 1
-        context.user_data["kagaz_step"] = step
-        if step < len(fields):
-            await update.message.reply_text(kagaz_ask_next(kind, data, step), parse_mode=HTML)
-            return
-        # sab fields mil gaye — PDF banao
-        _u = get_user(uid, user.first_name)
-        if not can_use_premium_tool(_u, uid):
-            await update.message.reply_text(get_credits_over_text("kagaz"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        await update.message.reply_text("📄 Making the document PDF... (2-5 seconds)")
-        try:
-            pdf = KAGAZ_MAKERS[kind](data)
-        except Exception as e:
-            await update.message.reply_text(fail_msg("KAGAZ FAILED", str(e)[:150]), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        names = {"kirayanama": "Kirayanama", "affidavit": "Affidavit", "notice138": "Legal_Notice_138",
-                 "bayana": "Bayana_Rasid", "loan": "Rin_Shodh", "nameaff": "Affidavit_Correction"}
-        await update.message.reply_document(
-            document=pdf, filename=f"{names.get(kind, 'Kagaz')}_{datetime.now().strftime('%d-%m-%Y')}.pdf",
-            caption=("📜 <b>" + names.get(kind, "KAGAZ").upper() + " READY ✅</b>\n"
-                     "🖨️ Print it, fill the needed places, get witness signatures.\n"
-                     "⚠️ <i>Get it finalised by a notary / sub-registrar — this is a computer-made draft.</i>\n\n"
-                     + spend_credit_msg(uid, "kagaz")),
-            parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        context.user_data.pop("kagaz_data", None)
-        add_use(uid)
-        return
-
-    if mode == "kagaz_registry_state":
-        st = raw_text.strip()
-        context.user_data["kagaz_reg_state"] = st
-        context.user_data["mode"] = "kagaz_registry_area"
-        await update.message.reply_text(
-            "📐 Ab <b>zameen ka area</b> likho — simple tarika:\n"
-            "• <code>2 katha</code>  • <code>1500 sqft</code>  • <code>1 bigha</code>  • <code>5 decimal</code>",
-            parse_mode=HTML)
-        return
-
-    if mode == "kagaz_registry_area":
-        m = re.match(r"([\d.]+)\s*([a-zA-Zа-я\s]+)?", raw_text.strip())
-        val = float(m.group(1)) if m and m.group(1) else 0.0
-        unit = (m.group(2) or "sqft").strip() if m else "sqft"
-        conv = convert_land(val, unit)
-        if not conv.get("ok"):
-            await update.message.reply_text(f"❌ {conv.get('error')}\nType it again (example <code>2 katha</code>)", parse_mode=HTML)
-            return
-        context.user_data["kagaz_reg_area"] = conv["sqft"]
-        context.user_data["mode"] = "kagaz_registry_rate"
-        await update.message.reply_text(
-            f"✅ {conv['sqft']} Sq Ft is set.\n\n"
-            "💰 Now tell the <b>MVR / circle rate</b> (₹ per Sq Ft):\n"
-            "<i>In Bihar you can check the MVR (circle rate) on <code>bhumijankari.bihar.gov.in</code>. "
-            "If you do not know it, type your deal rate.</i>\n"
-            "example: <code>3000</code>", parse_mode=HTML)
-        return
-
-    if mode == "kagaz_registry_rate":
-        try:
-            rate = float(re.sub(r"[^\d.]", "", raw_text) or 0)
-        except Exception:
-            rate = 0
-        if rate <= 0:
-            await update.message.reply_text("❌ Rate padh nahi paya. Sirf number type karo (jaise <code>3000</code>).", parse_mode=HTML)
-            return
-        context.user_data["mode"] = "kagaz_registry_buyer"
-        context.user_data["kagaz_reg_rate"] = rate
-        await update.message.reply_text(
-            "👤 Kharidar kaun hai? <code>male</code> / <code>female</code> / <code>joint</code> likho\n"
-            "<i>(Bihar: aurat ya aurat ke saath joint par 1% kam stamp duty lagti hai)</i>", parse_mode=HTML)
-        return
-
-    if mode == "kagaz_registry_buyer":
-        buyer = raw_text.strip().lower()
-        st = context.user_data.get("kagaz_reg_state", "bihar")
-        area = float(context.user_data.get("kagaz_reg_area") or 0)
-        rate = float(context.user_data.get("kagaz_reg_rate") or 0)
-        panch = 2.0 if str(st).lower().startswith("bih") else 0.0
-        res = registry_cost(st, area, rate, buyer, panchayat_pct=panch)
-        await update.message.reply_text(registry_text(res) + "\n\n" + spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
-
-    if mode == "kagaz_gst":
-        g = re.sub(r"\s+", "", raw_text or "").upper()
-        st = await _wait_st(update.message)
-        res = await asyncio.to_thread(hubapi.hub_gst, g)
-        if not res.get("ok"):
-            await st.edit_text(
-                f"❌ <b>GST CHECK NAHI HO PAYA</b>\n──────────────────────\n"
-                f"⚠️ {safe_html_err(str(res.get('error'))[:200])}\n"
-                "✅ Koi credit nahi kata. GSTIN 15 character ka hota hai (jaise <code>19BOKPS7056D1ZI</code>).",
-                parse_mode=HTML)
-            return
-        _st = str(res.get("state") or "")
-        if res.get("state_code"):
-            _st = (_st + f" (code {res.get('state_code')})").strip()
-        _chk = res.get("checksum_valid")
-        _chk_line = ""
-        if _chk is True:
-            _chk_line = "• <b>Checksum:</b> ✅ sahi\n"
-        elif _chk is False:
-            _chk_line = ("• <b>Checksum:</b> ⚠️ match nahi hua "
-                         f"(expected <code>{hesc(str(res.get('checksum_expected')))}</code>) — "
-                         "GSTIN ka aakhri character galat lagta hai\n")
-        _extra = kv_row("Legal Name", res.get("legal_name")) + kv_row("Trade Name", res.get("trade_name")) \
-            + kv_row("Status", res.get("status")) + kv_row("Registered", res.get("reg_date")) \
-            + kv_row("Address", res.get("address"))
-        card = (f"🏢 <b>{to_bold('GST NUMBER DETAILS')}</b>\n"
-                "──────────────────────\n"
-                f"• <b>GSTIN:</b> <code>{hesc(res.get('gstin'))}</code>\n"
-                + kv_row("State", _st)
-                + kv_row("PAN", res.get("pan"))
-                + kv_row("PAN Holder Type", res.get("pan_holder_type"))
-                + kv_row("Registration Type", res.get("registration_type"))
-                + _chk_line
-                + _extra
-                + "──────────────────────\n"
-                + ("" if _extra else
-                   "ℹ️ Legal name / address / filing status hub ke records me nahi hain.\n"
-                   "Upar ka data GSTIN ke format ka analysis hai (state, PAN, holder type, checksum).\n")
-                + f"<i>Source: {hesc(str(res.get('source')))}</i>")
-        await st.edit_text(card, parse_mode=HTML)
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
-
-    if mode == "kagaz_pan":
-        p10 = re.sub(r"[^A-Za-z0-9]", "", raw_text or "").upper()
-        st = await _wait_st(update.message)
-        res = await asyncio.to_thread(hubapi.hub_pan, p10)
-        if not res.get("ok"):
-            await st.edit_text(
-                f"❌ <b>PAN CHECK NAHI HO PAYA</b>\n──────────────────────\n"
-                f"⚠️ {safe_html_err(str(res.get('error'))[:200])}\n"
-                "✅ Koi credit nahi kata. PAN 10 character ka hota hai (jaise <code>AAYFK4129N</code>).",
-                parse_mode=HTML)
-            return
-        rows = []
-        for g in (res.get("gstins") or [])[:10]:
-            rows.append(f"• <code>{hesc(g.get('gstin'))}</code>"
-                        + (f" — {hesc(g.get('name'))}" if g.get("name") else "")
-                        + (f" <i>({hesc(g.get('status'))})</i>" if g.get("status") else ""))
-        card = (f"🪪 <b>{to_bold('PAN → GST DETAILS')}</b>\n"
-                "──────────────────────\n"
-                f"• <b>PAN:</b> <code>{hesc(res.get('pan'))}</code>\n"
-                + (kv_row("Format", "✅ sahi" if res.get("valid_format") else "")
-                   if res.get("valid_format") is not None else "")
-                + kv_row("Holder Type", res.get("holder_type"))
-                + kv_row("Series", res.get("series"))
-                + (f"• <b>Name:</b> {hesc(res.get('name'))}\n" if res.get("name") else "")
-                + (f"• <b>PAN Status:</b> {hesc(res.get('status'))}\n" if res.get("status") else "")
-                + f"• <b>GST numbers:</b> {len(res.get('gstins') or [])}\n\n"
-                + ("\n".join(rows) if rows else
-                   "<i>Is PAN par hub ke records me koi GST number nahi mila.</i>")
-                + f"\n──────────────────────\n"
-                + ("ℹ️ Hub abhi PAN ka <b>offline analysis</b> deta hai (format + holder type + series).\n"
-                   "GSTIN ki poori list ke liye upstream records chahiye.\n"
-                   if not rows else "")
-                + f"<i>Source: {hesc(str(res.get('source')))}</i>")
-        await st.edit_text(card, parse_mode=HTML)
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
-
-    if mode == "kagaz_land_value":
-        m = re.match(r"([\d.]+)\s*([a-zA-Zа-я\s]+)?", raw_text.strip())
-        val = float(m.group(1)) if m and m.group(1) else 0.0
-        unit = (m.group(2) or "sqft").strip() if m else "sqft"
-        res = convert_land(val, unit)
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            return
-        await update.message.reply_text(land_text(res) + "\n\n" + spend_credit_msg(uid, "kagaz"), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
-
+# ---------------- v102: 📜 KAGAZ SUITE delete (user order) ----------------
     # ---------------- v74.0: RESULT CHECK (BSEB) wizard ----------------
     if mode == "rc_code":
         rc = BSEBR.clean_digits(raw_text)
@@ -9645,12 +9305,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ---------------- v73.0: CHAT X-RAY ----------------
-    if mode == "cxray":
-        await update.message.reply_text(
-            "💬 <b>Chat ki file bhejein</b> (.txt ya .zip)\n"
-            "<i>WhatsApp → chat kholo → ⋮ menu → Export chat → </i><b>Without media</b>",
-            parse_mode=HTML)
-        return
 
     # ---------------- v38: BANK STATEMENT ----------------
     if mode == "bankpdf":
@@ -10512,78 +10166,11 @@ async def rc_deliver(target, context, uid: int, rc: str, rn: str):
     context.user_data.pop("rc_code_val", None)
 
 
-def cxray_caption(st: dict) -> str:
-    """Image ke saath chhoti summary (HTML)."""
-    users = st.get("users") or []
-    top = users[0] if users else {"name": "-", "n": 0, "share": 0}
-    ek = st.get("emoji_king") or ("", 0)
-    ha = st.get("haha_king") or ("", 0)
-    nt = st.get("night") or {}
-    ntop = (nt.get("top") or ("", 0)) if isinstance(nt, dict) else ("", 0)
-    bh, bhn = (st.get("busy_hour") or (None, 0))
-    L = [
-        f"💬 <b>{to_bold('WHATSAPP CHAT X-RAY')}</b>",
-        f"📊 <b>Total:</b> {st.get('total', 0):,} messages · {st.get('days', 0):,} din "
-        f"· {st.get('per_day', 0):g}/din",
-        f"👑 <b>Top chatter:</b> {hesc(str(top.get('name', '-')))} ({top.get('n', 0)} msg, "
-        f"{top.get('share', 0)}%)",
-    ]
-    if ek[1]:
-        L.append(f"😄 <b>Emoji King:</b> {hesc(str(ek[0]))} ({ek[1]} emoji)")
-    if ha[1]:
-        L.append(f"🤣 <b>Hasi King:</b> {hesc(str(ha[0]))} ({ha[1]}x)")
-    if ntop[1]:
-        L.append(f"🦉 <b>Raat ka jagaadu (12-5 baje):</b> {hesc(str(ntop[0]))} ({nt.get('n', 0)} msg)")
-    if bhn:
-        L.append(f"⏰ <b>Sabse busy waqt:</b> {int(bh):02d}:00 ({bhn} msg)")
-    if st.get("media"):
-        L.append(f"🖼️ <b>Media files:</b> {st['media']}")
-    L.append("")
-    L.append("🔒 <i>File sirf padhi gayi — kahin save ya upload nahi hui.</i>")
-    L.append(BRAND_LINK)
-    return "\n".join(L)
-
-
 async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime=""):
     """v38: aayi hui file ko mode ke hisaab se process karo. True = handle ho gaya."""
     say = msg.reply_text
 
     # ---------- 💬 CHAT X-RAY (v73.0) ----------
-    if mode == "cxray":
-        if kind != "chat":
-            await say("❌ Ye chat ki export file nahi lagti.\n"
-                      "📄 WhatsApp chat ki <b>.txt</b> (ya .zip) file bhejein —\n"
-                      "<i>WhatsApp → chat kholo → ⋮ (menu) → Export chat → </i>"
-                      "<b>Without media</b>", parse_mode=HTML)
-            return True
-        fname = (getattr(getattr(msg, "document", None), "file_name", "") or "")
-        st = await _wait_st(msg)
-        res = await asyncio.to_thread(CXR.analyze_file, data, fname)
-        if not res.get("ok"):
-            try:
-                await st.edit_text("❌ " + str(res.get("error") or "File samajh nahi aayi."),
-                                   parse_mode=HTML)
-            except Exception:                                    # noqa: BLE001
-                await say("❌ " + str(res.get("error") or "File samajh nahi aayi."),
-                          parse_mode=HTML)
-            return True
-        s2 = res["stats"]
-        cap = cxray_caption(s2)
-        img = await asyncio.to_thread(CXR.report_image, s2)
-        try:
-            await st.delete()
-        except Exception:                                        # noqa: BLE001
-            pass
-        if img:
-            try:
-                await msg.reply_photo(io.BytesIO(img), caption=cap, parse_mode=HTML)
-            except Exception:                                    # noqa: BLE001
-                await msg.reply_text(cap, parse_mode=HTML)
-        else:
-            await msg.reply_text(cap, parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return True
 
     # ---------- 🏦 BANK PDF ----------
     if mode in ("bankpdf", "bankpdf_pass") and kind == "pdf":
@@ -10946,8 +10533,7 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v38: naye tools ke files (PDF / audio / video / image) ----------
     _our_modes = ("bankpdf", "bankpdf_pass", "media_ringtone", "media_ringtone_start",
                   "media_karaoke", "media_8d", "media_bass", "media_voice_wait", "media_v2mp3",
-                  "media_trim_wait", "media_compress_wait", "media_status_audio",
-                  "cxray")                     # v73.0: 💬 chat export file (.txt/.zip)
+                  "media_trim_wait", "media_compress_wait", "media_status_audio")
     if mode in _our_modes:
         kind, att, fname, mime = None, None, "", ""
         if msg.document:
@@ -10962,8 +10548,6 @@ async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 kind = "audio"
             elif mime.startswith("video/") or fname.endswith((".mp4", ".mkv", ".mov", ".webm", ".3gp")):
                 kind = "video"
-            if kind is None and mode == "cxray" and (fname.endswith(".txt") or fname.endswith(".zip")):
-                kind = "chat"          # v73.0: WhatsApp export file
         elif msg.video:
             kind, att = "video", msg.video
         elif msg.animation:

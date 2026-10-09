@@ -182,9 +182,9 @@ for _h in ("pcard_title", "pcard_foot", "pcard_sep", "PCARD_TOP", "PCARD_MID", "
     check(f"helper '{_h}' maujood hai", hasattr(bot, _h))
 
 _t = bot.pcard_title("🏦", "TEST CARD")
-check("pcard_title premium box banata hai (v71 frame)",
-      "┏" in _t and "┗" in _t and "┃" in _t)
-check("pcard_title title ko bold-unicode karta hai", "𝐓𝐄𝐒𝐓" in _t)
+check("pcard_title v102 header style (plain + ━ divider)",
+      "<b>TEST CARD</b>" in _t and "━" in _t and "┏" not in _t)
+check("pcard_title bold-unicode NAHI karta (v102 plain font)", "𝐓𝐄𝐒𝐓" not in _t)
 
 _f = bot.pcard_foot(ms=250, source="TestAPI")
 check("pcard_foot me source dikhta hai", "TestAPI" in _f)
@@ -208,7 +208,7 @@ section("5) ⚡ PERFORMANCE — blocking call async handler se hata")
 # =====================================================================
 # analyze_link() pehle async handler me SEEDHA call hota tha (event loop block).
 _lc_i = BOT_SRC.index('if mode == "linkcheck":')
-_lc_j = BOT_SRC.index('if mode == "cxray":', _lc_i)
+_lc_j = BOT_SRC.index('if mode == "', _lc_i + 20)  # v102: cxray block gaya
 _lc = BOT_SRC[_lc_i:_lc_j]
 check("LINK CHECK: analyze_link ab asyncio.to_thread me hai",
       "await asyncio.to_thread(analyze_link" in _lc)
@@ -358,11 +358,10 @@ check(f"safe_html_err ka har output balanced hai ({len(_tricky)} tricky inputs)"
       _all_bal, str([t for t in _tricky if not bot._tags_balanced(bot.safe_html_err(t))][:3]))
 
 # --- BGMI/IMEI/GST/PAN/numapi me hesc → safe_html_err ---
-check("IMEI status error safe_html_err use karta hai",
-      BOT_SRC.count("safe_html_err(str(res.get('error'))") >= 3)
-check("GST/PAN error safe_html_err use karte hain",
-      BOT_SRC.count('safe_html_err(str(res.get(\'error\'))[:200])') >= 2 or
-      BOT_SRC.count("safe_html_err(str(res.get('error'))[:200])") >= 2)
+check("IMEI status error safe_html_err use karta hai (v102: kagaz flow gaya)",
+      BOT_SRC.count("safe_html_err(str(res.get('error'))") >= 2)
+check("v102: GST/PAN (kagaz) flow delete — helper baaki flows me zinda",
+      "safe_html_err(str(res.get('error'))" in BOT_SRC)
 
 # --- purane 4 injection bugs wapas na aayein ---
 check("Video Downloader title ab escape hota hai (3 jagah)",

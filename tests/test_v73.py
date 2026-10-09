@@ -248,8 +248,8 @@ check("BTN_MODE_MAP: TEMP NUMBER → tnum (+ purana naam bhi chalta hai)",
 check("BTN_MODE_MAP: TEMP MAIL (email) abhi bhi tempmail par", bot.BTN_MODE_MAP.get("TEMP MAIL") == "tempmail")
 check("tnum FREE hai — PREMIUM_TOOLS me NAHI",
       "tnum" not in bot.PREMIUM_TOOLS)
-check("premium count same (37) — free tool se nahi badla",
-      len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
+check("premium count same (29) — free tool se nahi badla",
+      len(bot.PREMIUM_TOOLS) == 29, str(len(bot.PREMIUM_TOOLS)))
 check("rate-limit entry hai (25 / 300s)", bot.TOOL_RATE_LIMITS.get("tnum") == (25, 300, "Temp Mail (Number)"),
       str(bot.TOOL_RATE_LIMITS.get("tnum")))
 check("VIP wall par bhi tool khula rehta hai (vip_free_cb)", bot.vip_free_cb("tnum_open"))
@@ -269,7 +269,9 @@ check("intro card chhota hai (koi gyaan nahi)",
 check("intro me seedha desh chunne ki baat", "Desh chuno" in _p)
 check("intro card me koi moti line (━) nahi — patli lines only",
       "━" not in _p and "─" in _p)
-check("card title box style me hai", bot.tnum_card({"cc": "us"}, {"ok": True, "number": "1", "messages": []}).startswith("┏"))
+check("card title v102 header style (plain + ━)",
+      "<b>TEMP NUMBER</b>" in bot.tnum_card({"cc": "us"}, {"ok": True, "number": "1", "messages": []})
+      and "┏" not in bot.tnum_card({"cc": "us"}, {"ok": True, "number": "1", "messages": []}))
 
 # =====================================================================
 section("6) Assignment engine — 6 users, owner sab ALAG (mock pool, offline)")
@@ -323,7 +325,7 @@ check("card never empty (khaali inbox par bhi body hai)",
       len(bot.tnum_card({"cc": "us"}, {"ok": True, "number": "1", "messages": []})) > 120)
 check("inbox fail par saaf line aati hai (khaali card nahi)",
       "nahi khula" in bot.tnum_card({"cc": "us"}, {"ok": False, "error": "site slow"}))
-check("moti line (━) card me nahi", "━" not in _card)
+check("card me ━ divider (v102 style)", "━" in _card)
 
 
 # =====================================================================

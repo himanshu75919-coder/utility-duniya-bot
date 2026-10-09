@@ -260,10 +260,10 @@ for gone in ("BULK MODE", "REFER & EARN", "HELP / TUTORIAL"):
           str([l for l in _labels if gone in l][:2]))
 check("MY ACCOUNT button zinda hai (REFER wali row se hataya, delete nahi kiya)",
       any("MY ACCOUNT" in l for l in _labels))
-check("SUPPORT / MADAD aakhri row par hai",
-      "SUPPORT / MADAD" in B.unbold(B.KB_BTNS[-1][0]).upper())
+check("SUPPORT / MADAD aakhri row par hai (v102: MY ACCOUNT ke saath)",
+      any("SUPPORT" in B.unbold(x).upper() for x in B.KB_BTNS[-1]))
 check("aakhri row me ab HELP/TUTORIAL saath me NAHI",
-      len(B.KB_BTNS[-1]) == 1)
+      not any("HELP" in B.unbold(x).upper() or "TUTORIAL" in B.unbold(x).upper() for x in B.KB_BTNS[-1]))
 
 # --- text aliases (typing se tool na khule) ---
 for alias in ("BULK MODE (EXCEL)", "BULK MODE", "BULK EXCEL", "BULK REPORT",

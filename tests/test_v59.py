@@ -489,19 +489,14 @@ check("/support me URL button hai (tap = chat khulti hai)",
       "InlineKeyboardButton(f\"📩 Message karo {SUPPORT_USERNAME}\", url=SUPPORT_URL)" in BOT_SRC
       or "url=SUPPORT_URL" in BOT_SRC)
 
-# HAR tool ke prompt keyboard me support button hona chahiye
-_no_support = []
-for _a in bot.PROMPT_DATA:
-    _k = bot.tool_support_kb(_a)
-    _urls = [b.url for _r in _k.inline_keyboard for b in _r if b.url]
-    if not _urls or "t.me/" not in _urls[0]:
-        _no_support.append(_a)
-check("HAR tool ke prompt par 📩 Support button (tap = owner se chat)",
-      not _no_support, str(_no_support[:4]))
+# v102 USER ORDER: tool se PEHLE support-nag/koi button NAHI — tool_support_kb
+# ab hamesha None deta hai (username sirf result ke andar, ek baar).
+check("v102: tool_support_kb har tool ke liye None (support-nag hataya)",
+      all(bot.tool_support_kb(_a) is None for _a in bot.PROMPT_DATA))
 
 # tool_support_kb ab kabhi None nahi deta (warna support button gayab)
-check("tool_support_kb None nahi deta (har tool me button)",
-      bot.tool_support_kb("koi_galat_tool") is not None)
+check("tool_support_kb ab None deta hai (v102)",
+      bot.tool_support_kb("koi_galat_tool") is None)
 
 # LIVE: /support ka card
 class _SM:

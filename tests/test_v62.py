@@ -221,12 +221,12 @@ check("purane emi prompt ka head waisa hi hai",
 check("purane 10 business tools abhi bhi render karte hain",
       all(bot.biz_build(k, bot.biz_parse(k, "A | B | C", "X")).get("ok") is not None
           for k in _OLD10))
-check("PREMIUM_TOOLS 38 (32 + 2 naye + v70 whois + v71 vahan + v71.8 uhunt + v100 familyinfo)", len(bot.PREMIUM_TOOLS) == 30,
+check("PREMIUM_TOOLS 29 (v102: kagaz gaya)", len(bot.PREMIUM_TOOLS) == 29,
       str(len(bot.PREMIUM_TOOLS)))
 check("keyboard me BUSINESS STUDIO button zinda",
       any("BUSINESS STUDIO" in bot.unbold(b).upper() for r in bot.KB_BTNS for b in r))
-check("keyboard me ALL TOOLS (FREE) button zinda",
-      any("ALL TOOLS" in bot.unbold(b).upper() for r in bot.KB_BTNS for b in r))
+check("keyboard me ALL TOOLS (FREE) button DELETE (v102)",
+      not any("ALL TOOLS" in bot.unbold(b).upper() for r in bot.KB_BTNS for b in r))
 
 # =====================================================================
 print(f"\n{'=' * 62}")

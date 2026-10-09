@@ -196,8 +196,8 @@ def main():
     print("=" * 62)
     SINK.clear()
     run(B._on_cb_pro(_Upd(5001, cq="alltools"), _Ctx()))
-    ok("alltools: tools ki list bheji gayi",
-       any("SAARE TOOLS" in t for _k, t in SINK), str(SINK)[:160])
+    ok("v102: alltools dead-button SAARE TOOLS list NAHI bhejta",
+       not any("SAARE TOOLS" in t for _k, t in SINK))
     SINK.clear()
     run(B._on_cb_pro(_Upd(5001, cq="menu"), _Ctx()))
     ok("menu: welcome/menu wapas aaya (edit ya send)",
