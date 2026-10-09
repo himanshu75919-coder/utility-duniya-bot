@@ -170,7 +170,7 @@ def main():
         ok("PROMPT_DATA 34 tools (v102)", len(_pd) == 34, f"count={len(_pd)}")
         ok("terabox head intact", _pd.get("terabox", {}).get("head") == "⚡ TERABOX / CLOUD ENGINE")
         ok("insta_dl head intact",
-           _pd.get("insta_dl", {}).get("head") == "📥 VIDEO DOWNLOAD (Insta / YouTube / Facebook / TikTok)")
+           _pd.get("insta_dl", {}).get("head") == "📥 VIDEO DOWNLOAD (Insta · YouTube · TikTok)")  # v103: FB DL gaya
         ok("har prompt me head+ask+tip (structure intact)",
            all(isinstance(v, dict) and "head" in v and "ask" in v for v in _pd.values()))
     except Exception as e:  # noqa: BLE001

@@ -458,7 +458,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts (no bold-unicode) + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted (KAGAZ · CHAT X-RAY · ALL TOOLS FREE · FACEBOOK DL) | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -682,7 +682,7 @@ def get_credits_over_text(action: str = "") -> str:
         f"{tool_name} ek <b>premium tool</b> hai — 1 use = 1 credit.\n"
         f"Aapke <b>{CREDITS_START} free credits khatam ho gaye.</b>\n\n"
         "👑 <b>VIP lene se POORA bot UNLIMITED ho jayega:</b>\n"
-        "• 📥 Instagram/YouTube/Facebook/TikTok Downloader • 📱 Number Info\n"
+        "• 📥 Instagram/YouTube/TikTok Downloader • 📱 Number Info\n"
         "• 🔄 Channel Cloner\n"
         "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
         "• 🏦 Bank PDF→Excel • ⚡ Media Studio\n"
@@ -1733,7 +1733,7 @@ PROMPT_DATA = {
         "foot": 'Bina ad · bina VIP · seedha download',
     },
     "insta_dl": {
-        "head": "📥 VIDEO DOWNLOAD (Insta / YouTube / Facebook / TikTok)",
+        "head": "📥 VIDEO DOWNLOAD (Insta · YouTube · TikTok)",
         "ask": "Apne app ka video link bhejein:",
         "ex": [('https://www.instagram.com/reel/C8xYzAbCdEf/', 'Instagram reel ka link')],
         "tip": "App me reel par 'Share' → 'Copy link' → yahan paste karo",
@@ -8209,7 +8209,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not is_supported_video_url(raw_text):
             await update.message.reply_text(
                 fail_msg("UNSUPPORTED LINK",
-                         "This link is not supported. Send links from Instagram, YouTube, Facebook or TikTok."),
+                         "This link is not supported. Send links from Instagram, YouTube or TikTok."),
                 parse_mode=HTML,
             )
             return

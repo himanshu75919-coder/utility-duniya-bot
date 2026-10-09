@@ -1178,6 +1178,11 @@ def _ig_embed(clean: str, media_cat: str):
             m_v = (re.search(r'"videoUrl":"(https?://[^"]+?\.mp4[^"]*)"', html)
                    or re.search(r'"video_versions":\[\{"url":"(https?://[^"]+?)"', html)
                    or re.search(r'"video_url":"(https?://[^"]+?\.mp4[^"]*)"', html))
+            if not m_v:   # v103: triple-escaped JSON wale embed variants
+                _hd = _deep_unescape(r.text or "")
+                m_v = (re.search(r'"video_versions":\s*\[\s*\{\s*"url"\s*:\s*"(https?://[^"]+?)"', _hd)
+                       or re.search(r'"video_url"\s*:\s*"(https?://[^"]+?\.mp4[^"]*)"', _hd)
+                       or re.search(r'"videoUrl"\s*:\s*"(https?://[^"]+?\.mp4[^"]*)"', _hd))
             if not m_v:
                 continue                       # photo post / sirf HLS (kaam ka nahi)
             v_url = m_v.group(1)
@@ -1194,6 +1199,98 @@ def _ig_embed(clean: str, media_cat: str):
                         "platform": "Instagram", "engine": "embed-mp4"}
         except Exception:                                          # noqa: BLE001
             continue
+    return None
+
+
+def _ig_wayback(clean: str, media_cat: str):
+    """v103: archive.org snapshot se ASLI media (viral/purane posts ka safety net).
+
+    Hamara IP IG block kare to bhi wayback ke paas saved copy mil sakti hai.
+    Media URL khud scontent ka ho aur mara hua ho to wayback ke `if_` raw
+    redirect se file nikalte hain (wo archive karta hai)."""
+    code = _ig_code_of(clean)
+    if not code:
+        return None
+    want_video = media_cat in ("reel", "video", "igtv")
+    for path in (f"reel/{code}/", f"p/{code}/"):
+        try:
+            r = httpio.get("http://archive.org/wayback/available",
+                           params={"url": "instagram.com/" + path}, timeout=10)
+            import json as _json
+            j = _json.loads(r.text or "{}")
+            snap = (j.get("archived_snapshots") or {}).get("closest") or {}
+            if not snap.get("url"):
+                continue
+            rs = httpio.get(snap["url"], headers=DESKTOP_UA, timeout=18,
+                            allow_redirects=True)
+            html = _deep_unescape(rs.text or "")
+            if len(html) < 500:
+                continue
+            mv = (re.search(r'"video_versions":\s*\[\s*\{\s*"url"\s*:\s*"(https?://[^"]+?)"', html)
+                  or re.search(r'"video(?:Url|_url)"\s*:\s*"(https?://[^"]+?\.mp4[^"]*)"', html)
+                  or re.search(r'(https://scontent[^"\s\\]+?\.mp4[^"\s\\]*)', html))
+            if mv:
+                v0 = mv.group(1)
+                if ".m3u8" not in v0:
+                    for cand in (v0, "https://web.archive.org/web/2if_/" + v0):
+                        try:
+                            hdr = dict(DESKTOP_UA)
+                            hdr["Referer"] = "https://web.archive.org/"
+                            rv = httpio.get(cand, headers=hdr, timeout=35)
+                            if rv.status_code in (200, 206) and len(rv.content) > 20000:
+                                return {"ok": True, "type": "video",
+                                        "category": media_cat or "reel",
+                                        "bytes": rv.content,
+                                        "size_mb": _size_mb(rv.content),
+                                        "title": "", "platform": "Instagram",
+                                        "engine": "wayback"}
+                        except Exception:                        # noqa: BLE001
+                            continue
+            if not want_video:
+                mi = re.search(r'(https://scontent[^"\s\\]+?\.(?:jpg|jpeg)[^"\s\\]*)', html)
+                if mi:
+                    for cand in (mi.group(1),
+                                 "https://web.archive.org/web/2if_/" + mi.group(1)):
+                        try:
+                            ri = httpio.get(cand, headers=DESKTOP_UA, timeout=20)
+                            jb = _jpeg_fit(ri.content) if ri.status_code == 200 else None
+                            if jb:
+                                return {"ok": True, "type": "photo",
+                                        "category": media_cat or "post", "bytes": jb,
+                                        "size_mb": _size_mb(jb), "title": "",
+                                        "platform": "Instagram", "engine": "wayback"}
+                        except Exception:                        # noqa: BLE001
+                            continue
+        except Exception:                                        # noqa: BLE001
+            continue
+    return None
+
+
+def _ig_jina(clean: str, media_cat: str):
+    """v103: r.jina.ai (free reader proxy) embed page khulta hai unke IP se —
+    hamara datacenter IP IG block kare tab bhi video URL mil jaati hai."""
+    code = _ig_code_of(clean)
+    if not code:
+        return None
+    try:
+        r = httpio.get(f"https://r.jina.ai/https://www.instagram.com/p/{code}/embed/captioned/",
+                       headers={"User-Agent": "Mozilla/5.0", "X-Timeout": "12"},
+                       timeout=16)
+        txt = _deep_unescape(r.text or "")
+        if len(txt) < 300:
+            return None
+        mv = re.search(r'(https?://[^"\s\)]+?\.mp4[^"\s\)]*)', txt)
+        if not mv or ".m3u8" in mv.group(1):
+            return None
+        hdr = dict(DESKTOP_UA)
+        hdr["Referer"] = "https://www.instagram.com/"
+        rv = httpio.get(mv.group(1), headers=hdr, timeout=35)
+        if rv.status_code in (200, 206) and len(rv.content) > 20000:
+            return {"ok": True, "type": "video", "category": media_cat or "reel",
+                    "bytes": rv.content, "size_mb": _size_mb(rv.content),
+                    "title": "", "platform": "Instagram", "engine": "jina-embed"}
+    except Exception:                                            # noqa: BLE001
+        return None
     return None
 
 
@@ -1479,6 +1576,13 @@ def _ig_kind_ok(res, want_video: bool) -> bool:
 
 
 def download_instagram_media(url: str) -> dict:
+    # v103: REEL/TV intent ORIGINAL link se pakdo — insta_clean /reel/ → /p/ kar
+    #     deta hai, phir classify "post" bolta tha = cover photo jeet jaati thi
+    #     (user bug: "reel ka link bheja, photo aa gayi"). Ye flag aage cache +
+    #     referee + engine budget sab ko batata hai ki YAHAN VIDEO CHAHIYE.
+    _v103_raw = str(url or "")
+    _vid_from_raw = bool(re.search(r"instagr(?:am\.com|\.it|am\.am)/(?:reel|reels|tv)/",
+                                   _v103_raw, re.I))
     # v85: ganda link (&amp;/markdown/fbclid) pehle saaf — engines ko canonical post URL
     url = _clean_incoming(url)
     try:
@@ -1492,6 +1596,10 @@ def download_instagram_media(url: str) -> dict:
     if not clean.startswith("http"):
         clean = "https://" + clean.lstrip("/")
     media_cat = classify_instagram_url(clean)
+    if _vid_from_raw and media_cat not in ("reel", "story"):
+        media_cat = "reel"          # v103: canonical ne type chhupa liya tha
+    want_video = bool(_vid_from_raw or media_cat in ("reel", "video", "igtv")
+                      or "/reel" in clean or "/tv/" in clean)
     # v86: PROFILE link (/username) → HD profile photo (login nahi chahiye)
     if media_cat == "profile":
         _pp = _ig_profile_pic(clean)
@@ -1502,7 +1610,19 @@ def download_instagram_media(url: str) -> dict:
                 "error": (f"@{_pu} ki profile photo nahi mili — account private/deleted ho "
                           "sakta hai, ya username me spelling mistake. Public profile ka sahi link bhejo.")}
     # v74.3: cache check (RAM → DISK) — dobara link par turant
+    # v103: cache par BHI referee lagta hai — reel ke liye purani "cover photo"
+    #     cache kabhi serve nahi hogi (galat entry turant delete bhi ho jaati hai).
     _mc = _mem_get(clean, "ig") or disk_get(clean, "ig")
+    if _mc and not _ig_kind_ok(dict(_mc[1] or {}), want_video):
+        try:
+            with _DL_MEM_LOCK:
+                _DL_MEM.pop(_mem_key(clean, "ig"), None)
+            _dk = _disk_key(clean, "ig")
+            if _dk and os.path.exists(_dk):
+                os.remove(_dk)
+        except Exception:                                        # noqa: BLE001
+            pass
+        _mc = None
     if _mc:
         _d, _m = _mc
         _o = dict(_m or {})
@@ -1522,8 +1642,6 @@ def download_instagram_media(url: str) -> dict:
     # = deadline ke bahar = bekaar "fail". (User ne 33s tak progress dekha tha.)
     # v86: "story" want_video se HATA — photo-story bhi hoti hai! (Pehle photo wali
     # story referee se reject ho jaati thi = "story download fail" ki ek wajah.)
-    want_video = (media_cat in ("reel", "video", "igtv")
-                  or "/reel" in clean or "/tv/" in clean)
 
     def _eng(fn):
         """Engine ka result referee se guzaaro; na-qabil-e-qabool ho to None."""
@@ -1542,7 +1660,16 @@ def download_instagram_media(url: str) -> dict:
     # v85: photo post par 5th engine — poori carousel album (6-7 photos = sab aayein)
     if not want_video:
         _fns.append(_eng(lambda: _ig_embed_album(clean, media_cat)))
-    _budget = 26.0 if want_video else 24.0
+    # v103: REEL/VIDEO par do extra engines (datacenter IP par IG login-wall
+    #     de deta hai — ye dono uske baahein ka raasta hain):
+    #       · archive.org ka saved snapshot (viral reels aksar mil jaati hain)
+    #       · r.jina.ai reader apne IP se embed page kholti hai
+    if want_video:
+        _fns.append(_eng(lambda: _ig_wayback(clean, media_cat)))
+        _fns.append(_eng(lambda: _ig_jina(clean, media_cat)))
+        _budget = 32.0
+    else:
+        _budget = 24.0
 
     try:
         from modules.core import heavy as _hg
@@ -1586,8 +1713,11 @@ def download_instagram_media(url: str) -> dict:
                           "story block kar di. Reel/photo post ka link bhejo — wo pakka chalega.")}
     if media_cat == "reel":
         return {"ok": False, "category": "reel",
-                "error": ("Instagram ne ye Reel block kar di (rate-limit/login wall). 30-60 second baad dobara try karo, ya doosra link bhejo."
-                          "Try again after 30-60 seconds, or set the IG_COOKIES_FILE env to make it always work.")}
+                "error": ("⚠️ Is Reel ka VIDEO Instagram ke server se nahi mila "
+                          "(login-wall / embed off / post limited). 30-60 second baad "
+                          "dobara try karo.\n\n"
+                          "ℹ️ Reel par kabhi galat cheez (cover photo) nahi bhejenge — "
+                          "isliye ye error dikh raha hai. Post/story ka link hamesha chalega.")}
     return {"ok": False, "category": media_cat,
             "error": "Media nahi nikal paya — dekho post public hai kya (private/age-restrict post nahi chalti)."}
 
