@@ -202,8 +202,8 @@ if _FF and _mk_testsrc(_TV, 320, 240, 1):
         MD.httpio.get = _hon
         _rh = MD._yt_loader("https://www.youtube.com/watch?v=VIDHON01", 720,
                             wait=15, max_mb=48)
-        ok("'720'-ladder → quality 360p (sach)", bool(_rh and _rh.get("ok"))
-           and (_rh or {}).get("quality") == "360p", str((_rh or {}).get("quality")))
+        ok("'720' loader → quality 720p (v104: loader v2 API ASLI 720 deta hai)", bool(_rh and _rh.get("ok"))
+           and (_rh or {}).get("quality") == "720p", str((_rh or {}).get("quality")))
     finally:
         MD.httpio.get = _real_get
 else:

@@ -203,7 +203,7 @@ try:
     ok("background job done hota hai", bool(_st and _st[0] == "done" and _st[1] == "http://cdn/warm.mp4"))
     _r = MD._yt_loader(_U, 360, wait=10, max_mb=48)
     ok("pickup → video (loader.to)", bool(_r and _r.get("ok")) and _r.get("engine") == "loader.to"
-       and _r.get("title") == "WARM" and _r.get("quality") == "144p", str((_r or {}).get("quality")))  # v98: ladder-sach ("360"->144p ffprobe-verified)
+       and _r.get("title") == "WARM" and _r.get("quality") == "360p", str((_r or {}).get("quality")))  # v104: label seedha height ka; sach _yt_honest naap kar batata hai
     _MD_JOBS.pop((_VID, 360), None)
 finally:
     MD.httpio.get = _real_get
@@ -278,8 +278,8 @@ finally:
     MD.httpio.get = _real_get
 
 print("\n[E] Regression — wiring + version + prompts")
-ok("quality-pipe me loader (1080 + 720)", "_yt_loader(url, 1080" in MD_SRC
-   and "_yt_loader(url, 720" in MD_SRC)
+ok("quality-pipe me loader DIRECT maang-height par (v104)", "_yt_loader(url, h, wait=30" in MD_SRC
+   and "_yt_loader_hd(" in MD_SRC)  # v104: loader step-1, ladder step-2
 ok("direct-chain me loader", "_lres = _yt_loader(url, 720, wait=30" in MD_SRC)
 ok("picker par prewarm hook", "MD.yt_loader_prewarm(raw_text, 1080)" in BOT_SRC)  # v98: 1080-master
 ok("hub caps 6/12 intact", "_call_capped(_hub_youtube_download, 6" in MD_SRC

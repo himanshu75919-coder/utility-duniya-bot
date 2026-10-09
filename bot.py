@@ -458,7 +458,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -8262,7 +8262,11 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                                   callback_data=f"ytq:{h}") for h in opts[i:i + 2]])
             rows.append([InlineKeyboardButton("❌ Cancel", callback_data="ytq:0")])
             try:
-                MD.yt_loader_prewarm(raw_text, 1080)  # v98: 1080-master (sab quality isi se)   # v97: tap se pehle hi loader job (cookieless YT)
+                # v104: 1080-master (bg HD ladder) + 720 DIRECT — loader.to ka
+                # v2 API ab har format par ASLI resolution deta hai, isliye
+                # tap karte hi us-height ki taiyaar job pickup hoti hai.
+                MD.yt_loader_prewarm(raw_text, 1080)
+                MD.yt_loader_prewarm(raw_text, 720)
             except Exception:                    # noqa: BLE001
                 pass
             context.user_data["yt_url"] = raw_text

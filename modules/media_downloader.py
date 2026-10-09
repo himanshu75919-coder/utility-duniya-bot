@@ -1294,6 +1294,135 @@ def _ig_jina(clean: str, media_cat: str):
     return None
 
 
+# =====================================================================================
+# v104 🏆 IG HD ENGINE — r.jina.ai ka RENDERED page.
+# Datacenter IP par IG hamare page me sirf og:image (640px, e35-compressed)
+# deta hai — isliye "post ka link = blurry ek photo" wali shikayat thi.
+# Jina apne IP se page FULL render karta hai aur markdown me page ke RAW
+# media URLs Leak hote hain: carousel ki HAR photo, 1080px se 3072px tak,
+# aur public reels ke mp4 (jab render me aa jaayein). Suggested-post grid
+# ko perma-link code check + "Discover something new" marker se kaata hai.
+# Private account → {ok:False, private:True} signal (caller honest note lagata hai).
+# =====================================================================================
+def _ig_efg_res(u: str) -> int:
+    """scontent URL ke efg=/stp= token se photo ki resolution (px). Unknown → 640."""
+    try:
+        import base64 as _b64
+        import urllib.parse as _up
+        m = re.search(r"[?&]efg=([^&\s)\"']+)", u)
+        if m:
+            raw = _up.unquote(m.group(1))
+            raw += "=" * (-len(raw) % 4)
+            j = _b64.b64decode(raw)
+            txt = j.decode("utf-8", "ignore")
+            m2 = re.search(r"\.(\d{3,4})\.", txt)
+            if m2:
+                return int(m2.group(1))
+        m3 = re.search(r"_s(\d{3,4})x", u)
+        if m3:
+            return int(m3.group(1))
+        m4 = re.search(r"/(\d{3,4})x\d{3,4}/", u)
+        if m4:
+            return int(m4.group(1))
+    except Exception:                                            # noqa: BLE001
+        pass
+    return 640
+
+
+def _ig_jina_hd(clean: str, media_cat: str):
+    """v104: jina render se post/carousel HD (ya video) — kabhi exception nahi."""
+    try:
+        if not clean or "instagr" not in clean:
+            return None
+        r = httpio.get("https://r.jina.ai/" + str(clean).rstrip("/") + "/",
+                       headers={"User-Agent": "Mozilla/5.0", "X-Timeout": "18"},
+                       timeout=26)
+        if r.status_code != 200:
+            return None
+        txt = _deep_unescape(r.text or "")
+        if len(txt) < 300:
+            return None
+        low_all = txt.lower()
+        if "profile is private" in low_all or "account is private" in low_all:
+            return {"ok": False, "private": True}
+        # region = post ka hissa; 'Discover/Suggested' ke baad sab ANYA post hai
+        cut = len(txt)
+        for _mk in ("Discover something new", "Suggested for you", "More posts",
+                    "You Might Also Like", "See everyday moments"):
+            i = txt.find(_mk)
+            if i != -1:
+                cut = min(cut, i)
+        region = txt[:cut]
+        our_code = (_ig_code_of(clean) or "").lower()
+        hdr = dict(DESKTOP_UA)
+        hdr["Referer"] = "https://www.instagram.com/"
+
+        # ---- 1) VIDEO (reel ka mp4 render me aa gaya to) ----
+        mv = re.search(r"(https://[^\s)\"']+?\.mp4[^\s)\"']*)", region)
+        if mv:
+            data = _http_get_capped(mv.group(1), MAX_TG_MB, headers=hdr,
+                                    timeout=45, want="video")
+            if data and len(data) > 30000:
+                _tt = re.search(r'Title:\s*(.{0,70})', txt)
+                return {"ok": True, "type": "video", "category": media_cat or "reel",
+                        "bytes": data, "size_mb": _size_mb(data),
+                        "title": (_tt.group(1).strip() if _tt else ""),
+                        "platform": "Instagram", "engine": "jina-hd"}
+
+        # ---- 2) PHOTOS: markdown lines → image URL + uska permalink ----
+        cands = {}   # asset media-id -> (res, url)
+        for _ln in region.splitlines():
+            if ".jpg" not in _ln.lower() and ".jpeg" not in _ln.lower() \
+                    and ".png" not in _ln.lower() and ".webp" not in _ln.lower():
+                continue
+            _ll = _ln.lower()
+            if "profile picture" in _ll or "profile_pic" in _ll or "rsrc.php" in _ll:
+                continue
+            imgs = re.findall(r'!?\[[^\]]*\]\((https?://[^)\s]+\.(?:jpg|jpeg|png|webp)[^)\s]*)', _ln)
+            if not imgs:
+                imgs = re.findall(r'(https?://[a-z0-9.\-]*(?:cdninstagram|instagram)\.com/[^)\s"\']+\.(?:jpg|jpeg|png|webp)[^)\s"\']*)', _ln)
+            if not imgs:
+                continue
+            link_m = re.search(r'\]\((https?://(?:www\.)?instagr(?:am\.com|\.am)/[^\s)]+)\)\s*$', _ln)
+            if link_m and our_code:
+                _lc = re.search(r"/(?:p|reel|reels|tv)/([A-Za-z0-9_-]+)", link_m.group(1))
+                if _lc and _lc.group(1).lower() != our_code:
+                    continue          # suggested post ki photo — ye post NAHI
+            for _u in imgs[:1]:
+                if "cdninstagram.com" not in _u and "instagram.com" not in _u:
+                    continue
+                res = _ig_efg_res(_u)
+                fn = re.sub(r"[?#].*$", "", _u).rsplit("/", 1)[-1].lower()
+                key_m = re.match(r"\d+_(\d+)_", fn)
+                key = (key_m.group(1) if key_m else fn) or _u[:60]
+                if key not in cands or res > cands[key][0]:
+                    cands[key] = (res, _u)
+        if cands:
+            items = []
+            for _res, _u in sorted(cands.values(), key=lambda x: -x[0])[:10]:
+                raw = _http_get_capped(_u, 24, headers=hdr, timeout=22, want="image")
+                if not raw:
+                    continue
+                jb = _jpeg_fit(raw, max_px=1600, quality=92)
+                if jb:
+                    items.append({"type": "photo", "bytes": jb,
+                                  "src_res": _res})
+            if len(items) >= 2:
+                _tt = re.search(r'Title:\s*(.{0,70})', txt)
+                return {"ok": True, "type": "carousel", "category": media_cat or "post",
+                        "bytes": None, "title": (_tt.group(1).strip() if _tt else ""),
+                        "items": items, "count": len(items),
+                        "platform": "Instagram", "engine": "jina-hd"}
+            if len(items) == 1 and int(items[0].get("src_res") or 640) > 700:
+                raw1 = items[0]["bytes"]
+                return {"ok": True, "type": "photo", "category": media_cat or "post",
+                        "title": "", "bytes": raw1, "size_mb": _size_mb(raw1),
+                        "platform": "Instagram", "engine": "jina-hd"}
+        return None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
 def _jpeg_fit(raw: bytes, max_px: int = 2160, quality: int = 90):
     """Photo ko Telegram-safe JPEG banao (badi photo = OOM + 10MB photo limit).
 
@@ -1653,10 +1782,33 @@ def download_instagram_media(url: str) -> dict:
             return r if _ig_kind_ok(r, want_video) else None
         return _g
 
+    # v104: og ka slot ab "pehle jina-HD (public post = poori album HD),
+    #         phir hi blurry 640px og" — HD available hote hi og kabhi
+    #         nahi jeetega; private account par honest 🔒 note ke saath og.
+    _jina_note = {}
+
+    def _hd_then_og():
+        try:
+            jr = _ig_jina_hd(clean, media_cat)
+        except Exception:                                        # noqa: BLE001
+            jr = None
+        if jr and jr.get("private"):
+            _jina_note["private"] = True
+            jr = None
+        if _ig_kind_ok(jr, want_video):
+            return jr
+        o = _og_scrape(clean, media_cat, allow_photo=not want_video)
+        if o and o.get("ok") and _jina_note.get("private") and not o.get("note"):
+            o = dict(o)
+            o["note"] = ("🔒 Ye post PRIVATE account ki hai — Instagram server "
+                         "khud sirf preview photo deta hai. Public accounts ki "
+                         "posts/carousels full HD (saari photos) aati hain.")
+        return o
+
     _fns = [_eng(lambda: _ig_parth(clean, media_cat)),
             _eng(lambda: _ig_ytdlp(clean, media_cat)),
             _eng(lambda: _ig_embed(clean, media_cat)),
-            _eng(lambda: _og_scrape(clean, media_cat, allow_photo=not want_video))]
+            _eng(_hd_then_og)]
     # v85: photo post par 5th engine — poori carousel album (6-7 photos = sab aayein)
     if not want_video:
         _fns.append(_eng(lambda: _ig_embed_album(clean, media_cat)))
@@ -1667,9 +1819,10 @@ def download_instagram_media(url: str) -> dict:
     if want_video:
         _fns.append(_eng(lambda: _ig_wayback(clean, media_cat)))
         _fns.append(_eng(lambda: _ig_jina(clean, media_cat)))
+        _fns.append(_eng(lambda: _ig_jina_hd(clean, media_cat)))   # v104
         _budget = 32.0
     else:
-        _budget = 24.0
+        _budget = 34.0   # v104: 24→34 — jina render (cold ~20s) ko mauka
 
     try:
         from modules.core import heavy as _hg
@@ -2046,8 +2199,11 @@ def _yt_loader(url: str, height: int = 360, wait: float = 30, max_mb: int = MAX_
             return None
         return {"ok": True, "type": "video", "platform": "YouTube", "title": title or "",
                 "bytes": data, "size_mb": _size_mb(data),
-                "quality": (({"1080": "1080p", "720": "360p", "480": "240p", "360": "144p"}.get(fmt, fmt + "p"))  # v98: ladder ka SACH (ffprobe-verified)
-                        if fmt.isdigit() else (fmt or f"{h}p")),
+                # v104: loader.to ka v2 API ab ASLI 720/1080 deta hai (live nap:
+                # format=720 → 1280x720 @ ~1 Mbps). Purana "720→360p" darr-map
+                # hisaab galat kar raha tha; asli label ab _yt_honest decide
+                # karega (file naap kar).
+                "quality": f"{h}p",
                 "engine": "loader.to"}
     except Exception:  # noqa: BLE001
         return None
@@ -2657,6 +2813,55 @@ def downscale_video(data: bytes, target_h: int, max_mb: int = MAX_TG_MB) -> dict
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def _probe_data(data: bytes):
+    """v104: bytes ki ASLI resolution naapo (temp file → _ff_probe). Fail → (0,0,0)."""
+    tmp = None
+    try:
+        if not data or len(data) < 4096:
+            return 0.0, 0, 0
+        tmp = tempfile.mkdtemp(prefix="vhon_")
+        p = os.path.join(tmp, "v.mp4")
+        with open(p, "wb") as f:
+            f.write(data)
+        return _ff_probe(p)
+    except Exception:                                            # noqa: BLE001
+        return 0.0, 0, 0
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+def _yt_honest(res: dict, req_h: int) -> dict:
+    """v104 TRUST — label file se MILAN hona chahiye, warna jhooth.
+
+    Jo file bheji ja rahi hai uski asli height naapi jaati hai. Asli height
+    maangti quality SE KAM nikli → label THEEK hota hai + user ko saaf note.
+    (User ki shikayat: '720 choose kiya, 360 jaisa blurry file'.)"""
+    try:
+        if (not isinstance(res, dict) or not res.get("ok")
+                or res.get("type") != "video" or not res.get("bytes")):
+            return res
+        _d, _w, _h = _probe_data(res["bytes"])
+        try:
+            req = int(req_h)
+        except Exception:  # noqa: BLE001
+            req = 0
+        if not _h or not req:
+            return res
+        if _h < req:
+            res["quality"] = f"{_h}p"
+            res["engine"] = (str(res.get("engine") or "?")) + f" (napa:{_h}p)"
+            res["note_quality"] = (
+                f"⚠️ Source me sirf ASLI {_h}p maujood tha — {req}p ka nakli "
+                "version (blurry upscale) bhejna theek nahi laga. Ye asli "
+                f"{_h}p file hai.")
+        elif _d and not res.get("duration"):
+            res["duration"] = int(_d)
+        return res
+    except Exception:                                            # noqa: BLE001
+        return res
+
+
 def _yt_quality_download(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict:
     """v68: cache ke saath — wahi video+quality dobara = TURANT."""
     _c = _mem_get(url, f"res{int(height)}")
@@ -2666,7 +2871,7 @@ def _yt_quality_download(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict
         _out.update({"ok": True, "bytes": _data, "size_mb": _size_mb(_data),
                      "cached": True})
         return _out
-    _res = _yt_quality_download_raw(url, height, max_mb)
+    _res = _yt_honest(_yt_quality_download_raw(url, height, max_mb), height)  # v104
     try:
         if _res.get("ok") and _res.get("bytes"):
             _meta = {k: v for k, v in _res.items() if k != "bytes"}
@@ -2677,53 +2882,43 @@ def _yt_quality_download(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict
 
 
 def _yt_quality_download_raw(url: str, height: int, max_mb: int = MAX_TG_MB) -> dict:
-    """v52 quality pipeline: pehle direct (agar server IP allowed hai),
-    warna hub 1080p + bot-side ffmpeg downscale. Result contract = _hub_youtube_download."""
+    """v104 ordering (user ki '720 = blurry' shikayat ka ilaaj):
+
+    1) loader.to seedha MAANGI height par — uska v2 API ab ASLI 720/1080
+       deta hai (live naap: 1280x720 @1.1Mbps) aur prewarm-job turant milta
+       hai (~10-40s). Purane code me ye master-ladder ke PEECHE daba tha.
+    2) Master ladder (1080-master → ffmpeg) — HD (720/1080) par backup.
+    3) Direct yt-dlp — fmt "18/22" order fix ke saath (ab 22 pehle).
+    4) Hub + downscale — source ki asli height nappkar, upscale kabhi nahi.
+    Label hamesha NAAP kar (call-site _yt_quality_download → _yt_honest).
+    Result contract = _hub_youtube_download."""
     h = int(height)
-    if h >= 1080:
-        # v98: REAL HD — 1080-master se ffmpeg (ladder nakli hai, master asli)
-        _hd10 = _yt_loader_hd(url, 1080, wait=120, max_mb=max_mb)
+    # 1) Loader direct-height (360/480/720/1080 format valid + real, live-verified)
+    _l = _yt_loader(url, h, wait=30, max_mb=max_mb)
+    if _l and _l.get("ok"):
+        return _l
+    if h >= 720:
+        # 2) HD hi chahiye to master-ladder backup; loader ne size cap me
+        #    1080 nahi pakda to bhi yeahi raasta sahi hai
+        _hd10 = _yt_loader_hd(url, 1080 if h >= 1080 else 720, wait=120, max_mb=max_mb)
         if _hd10 and _hd10.get("ok"):
             return _hd10
         if _hd10 and _hd10.get("fatal"):
             return _hd10
-        # v97: cookieless 1080 pehle (shorts par ~20s); fail → hub → 720
-        _l10 = _yt_loader(url, 1080, wait=30, max_mb=max_mb)
-        if _l10 and _l10.get("ok"):
-            return _l10
-        # v68: hub ko 12 second — warna seedha tez engine (720p quality)
-        _hd = _call_capped(_hub_youtube_download, 12, url, max_mb)
-        if _hd and _hd.get("ok"):
-            return _hd
-        h = 720
-    # v98: REAL HD — 1080-master se ffmpeg (360/480/720 sab asli)
-    _hd = _yt_loader_hd(url, h, wait=120, max_mb=max_mb)
-    if _hd and _hd.get("ok"):
-        return _hd
-    if _hd and _hd.get("fatal"):
-        return _hd
-    # v97: prewarmed loader pickup (720) — picker par job shuru ho chuka hota hai
-    _lw = _yt_loader(url, 720, wait=30, max_mb=max_mb)
-    if _lw and _lw.get("ok"):
-        if h >= 720:
-            return _lw
-        _ds97 = downscale_video(_lw["bytes"], h, max_mb)
-        if _ds97.get("ok"):
-            _lw["bytes"] = _ds97["bytes"]
-            _lw["size_mb"] = _ds97["size_mb"]
-            _lw["quality"] = f"{h}p"
-            _lw["engine"] = (_lw.get("engine") or "loader.to") + f" → {h}p"
-            return _lw
-        _lw["note_quality"] = "chhoti quality convert nahi ho payi — original HD bheja hai"
-        return _lw
-    # 1) Direct local download (kaam karta hai jab YouTube IP allow kare)
+        if h >= 1080:
+            # v68: hub ko 12 second — warna seedha tez engines
+            _hd = _call_capped(_hub_youtube_download, 12, url, max_mb)
+            if _hd and _hd.get("ok"):
+                return _hd
+            h = 720
+    # 3) Direct local download (YouTube datacenter IP ab allow karta hai)
     data, info = yt_download_at_height(url, h, max_mb)
     if data and len(data) > 1000:
         return {"ok": True, "type": "video", "platform": "YouTube",
                 "title": (info or {}).get("title") or "", "bytes": data,
                 "size_mb": _size_mb(data), "duration": (info or {}).get("duration") or 0,
                 "quality": f"{h}p", "engine": "direct"}
-    # 2) Fallback: hub ka best-quality link + bot par ffmpeg downscale
+    # 4) Fallback: hub ka best-quality link + bot par ffmpeg downscale
     hubres = _hub_youtube_download(url, max_mb)
     if not hubres.get("ok") or hubres.get("type") != "video" or not hubres.get("bytes"):
         # v56: pehle yahan khali {"ok": False} jaata tha — user ko wajah pata
@@ -2732,6 +2927,15 @@ def _yt_quality_download_raw(url: str, height: int, max_mb: int = MAX_TG_MB) -> 
         if not hubres.get("error"):
             hubres["error"] = friendly_dl_error(platform="YouTube")
         return hubres                                        # link/error waisa hi
+    # v104: pehle hub ki file ki ASLI height naapo. Hub aksar 360p "best"
+    # deta hai — use ffmpeg se 720 karke "720p" bolna hi wo dhoka tha jiski
+    # user ne shikayat ki. Source chhota → waisa hi bhejo (label theek hoga).
+    _dh2, _wh2, _hh2 = _probe_data(hubres["bytes"])
+    if _hh2 and _hh2 <= h:
+        hubres["note_quality"] = (f"Hub ke paas sirf asli {_hh2}p tha — "
+                                  f"{h}p ka nakli upscale nahi bheja. "
+                                  "Neeche original link se aap khud HD le sakte hain.")
+        return hubres
     ds = downscale_video(hubres["bytes"], h, max_mb)
     if not ds.get("ok"):
         if ds.get("too_big"):
@@ -2764,12 +2968,15 @@ def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
         cap = max_mb - 3
         h = int(height)
         if _HAS_FFMPEG:
-            # v65: 360p/720p PROGRESSIVE pehle (single file, merge nahi = 3x tez)
-            fmt = (f"18/22/"
-                   f"b[height<={h}][ext=mp4][filesize_approx<{cap}M]/"
+            # v104 FIX — pehle "18/22/" PEHLE tha = itag 18 (360p) hamesha jeet
+            # jaata tha, 720 maangne par bhi BLURRY 360 milta tha. Ab: 22 (asli
+            # 720p progressive) pehle, phir height-fitting best, 18 SIRF aakhri
+            # sahara (us par bhi label _yt_honest se NAAP kar asli hota hai).
+            fmt = ((f"22/" if h >= 720 else "")
+                   + f"b[height<={h}][ext=mp4][filesize_approx<{cap}M]/"
                    f"b[height<={h}][filesize_approx<{cap}M]/"
                    f"bv*[height<={h}][filesize_approx<{cap//2}M]+ba[filesize_approx<{cap//2}M]/"
-                   f"bv*[height<={h}]+ba/b[height<={h}]/b/best")
+                   f"bv*[height<={h}]+ba/b[height<={h}]/18/b/best")
         else:
             fmt = (f"b[ext=mp4][height<={h}][filesize<{cap}M]/b[height<={h}][filesize_approx<{cap}M]/"
                    f"b[height<={h}]/b/best")
