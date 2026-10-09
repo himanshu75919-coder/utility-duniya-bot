@@ -167,7 +167,7 @@ def main():
     print("=" * 62)
     try:
         _pd = B.PROMPT_DATA
-        ok("PROMPT_DATA 43 tools (42 + QR Scanner)", len(_pd) == 43, f"count={len(_pd)}")
+        ok("PROMPT_DATA 44 tools (43 + familyinfo)", len(_pd) == 44, f"count={len(_pd)}")
         ok("terabox head intact", _pd.get("terabox", {}).get("head") == "⚡ TERABOX / CLOUD ENGINE")
         ok("insta_dl head intact",
            _pd.get("insta_dl", {}).get("head") == "📥 VIDEO DOWNLOAD (Insta / YouTube / Facebook / TikTok)")

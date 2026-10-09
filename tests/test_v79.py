@@ -261,7 +261,7 @@ check("exam kb me 3 exam + CBSE", len(bot._rc_exam_kb().inline_keyboard) == 5,
       str(len(bot._rc_exam_kb().inline_keyboard)))
 check("year kb me saare saal + back",
       len(bot._rc_year_kb().inline_keyboard) == 4, str(len(bot._rc_year_kb().inline_keyboard)))
-check("FREE hai (premium 37)", "bsebr" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 37)
+check("FREE hai (premium 38)", "bsebr" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 38)
 check("rate-limit: rc (wizard step) + bsebr", bot.TOOL_RATE_LIMITS.get("rc") is not None
       and bot.TOOL_RATE_LIMITS.get("bsebr") is not None)
 check("VIP wall par khula (rc_ prefix)",

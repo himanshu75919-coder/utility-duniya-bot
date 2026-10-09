@@ -194,6 +194,12 @@ services:
         sync: false            # number API key (SECRET — default Demo)
       - key: MYNUM_API_TIMEOUT
         value: "40"            # API slow hai — 10-60 second
+      - key: FAMINFO_API_URL
+        sync: false            # family API endpoint (khali = built-in default)
+      - key: FAMINFO_API_KEY
+        sync: false            # family API key (SECRET — default Demo)
+      - key: FAMINFO_API_TIMEOUT
+        value: "40"            # API slow hai — 10-60 second
       - key: VEHICLE_PROVIDER_AUTHORIZED
         value: "0"              # official portal links only unless provider is authorized
 

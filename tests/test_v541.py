@@ -199,7 +199,7 @@ check("keyboard me IFSC button duplicate nahi",
 # =====================================================================
 section("3) 🧾 Version + overall sanity")
 check("BOT_VERSION v56+ par hai",
-      re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9])', _bot_src) is not None)
+      re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9]|[1-9][0-9]{2,})', _bot_src) is not None)
 
 # --- v59: purana UPI card/status block bhi poori tarah gaya ---
 check("UPI ka purana card/status section nahi bacha",

@@ -248,7 +248,7 @@ check("intro chhota hai — koi gyaan nahi (v74.4)", len(bot.TNUM_INTRO.splitlin
 check("refresh button label update (Naya OTP check karo)",
       "Naya OTP check karo" in BOT_SRC)
 check("tool FREE hi hai (premium 37, tnum bahar)",
-      "tnum" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 37)
+      "tnum" not in bot.PREMIUM_TOOLS and len(bot.PREMIUM_TOOLS) == 38)
 check("temp number ab 1 app / 3 desh (v74.3 order — WhatsApp fi/nl/us)",
       len(TN.SERVICES) == 1 and [c["cc"] for c in TN.COUNTRIES] == ["fi", "nl", "us"])
 # =====================================================================

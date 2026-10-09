@@ -168,8 +168,8 @@ def main():
        and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION,
        B.BOT_VERSION[:16])
     ok("PREMIUM_TOOLS 37 intact (qr_scan alag, cxray-pattern)",
-       len(B.PREMIUM_TOOLS) == 37 and "qr_scan" not in B.PREMIUM_TOOLS, f"count={len(B.PREMIUM_TOOLS)}")
-    ok("PROMPT_DATA 43 (42 + qr_scan naya)", len(B.PROMPT_DATA) == 43, f"count={len(B.PROMPT_DATA)}")
+       len(B.PREMIUM_TOOLS) == 38 and "qr_scan" not in B.PREMIUM_TOOLS, f"count={len(B.PREMIUM_TOOLS)}")
+    ok("PROMPT_DATA 44 (43 + familyinfo naya)", len(B.PROMPT_DATA) == 44, f"count={len(B.PROMPT_DATA)}")
     ok("purane prompts intact (spot check)",
        B.PROMPT_DATA.get("terabox", {}).get("head") == "⚡ TERABOX / CLOUD ENGINE"
        and B.PROMPT_DATA.get("qr", {}).get("head") == "📷 QR CODE MAKER"

@@ -294,6 +294,7 @@ from modules.imei_lookup import (
     validate_imei as imei_validate,
 )
 from modules import mynum_api as mynum
+from modules import familyinfo_api as faminfo
 from modules.vehicle_tool import (
     vehicle_lookup as vahan_lookup,
     offline_parse as vahan_offline,
@@ -419,6 +420,7 @@ TOOL_RATE_LIMITS = {
     "pin":         (15, 60,  "Pincode Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
     "numinfo":     (10, 60,  "Number Info"),
+    "familyinfo":  (10, 60,  "Family Info"),
     "linkcheck":   (10, 60,  "Link Check"),
     "short":       (10, 60,  "URL Shortener"),
     "appfind":     (15, 60,  "App Finder"),
@@ -485,7 +487,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 REAL-HD — 🎞️ loader-1080 master + ffmpeg HD + background tap | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -592,6 +594,7 @@ def to_bold(text: str) -> str:
 PREMIUM_TOOLS = {
     "insta_dl",            # 📥 downloader ENGINE (27 alag tools isi par chalte hain)
     "numinfo",             # 📱 NUMBER INFO
+    "familyinfo",          # 👪 FAMILY INFO (v100)
     "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
     # ---- v38 MARU-TOAD PACK (chhupe tools) ----
     "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
@@ -637,6 +640,7 @@ PREMIUM_TOOLS = {
 PREMIUM_TOOL_NAMES = {
     "insta_dl": "📥 Video Downloader",
     "numinfo": "📱 Number Info",
+    "familyinfo": "👪 Family Info",
     "cloner": "🔄 Channel Cloner",
     "bankpdf": "🏦 Bank Statement → Excel",
     "kagaz": "📜 Sarkari Kagaz Suite",
@@ -1505,6 +1509,7 @@ KB_BTNS = [
     [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
     [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
     [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
+    [f"👪 {to_bold('FAMILY INFO')}"],
     [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}"],   # v70: domain ka public record
     [f"🕵️ {to_bold('USERNAME HUNTER')}"],       # v71.8: sirf public profiles (koi login nahi)
     [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
@@ -1611,6 +1616,7 @@ BTN_MODE_MAP = {
     "IMEI LOOKUP": "imei",
     "PHONE INFO (IMEI)": "imei",
     "NUMBER INFO": "numinfo",
+    "FAMILY INFO": "familyinfo",
     "IFSC INFO": "ifsc",
     "WEBSITE OWNER X-RAY": "osint_whois",
     "WEBSITE OWNER": "osint_whois",
@@ -1918,6 +1924,13 @@ PROMPT_DATA = {
         "tip": '+91 ya 0 pehle lagane ki zaroorat nahi — seedha 10 digit bhejo',
         "foot": 'Circle · operator · owner card',
     },
+    "familyinfo": {
+        "head": "👪 FAMILY INFO",
+        "ask": "12-digit Aadhaar number bhejein:",
+        "ex": [('401635555849', '12-digit Aadhaar number')],
+        "tip": 'Aadhaar hamesha masked rehta hai (XXXX-XXXX-1234) — poora kabhi nahi dikhta',
+        "foot": 'Ration card · family members · eKYC',
+    },
     "appfind": {
         "head": "📦 APP FINDER · PLAY · APPSTORE · F-DROID",
         "ask": "App ka naam ya package code bhejein:",
@@ -2186,6 +2199,7 @@ TUTORIAL_TEXT = (
     "🔍 <b>Information:</b>\n"
     "• 📲 IMEI → <code>*#06#</code> se IMEI lo, bhejo → full phone details\n"
     "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
+    "• 👪 FAMILY INFO → Aadhaar bhejo → ration family card\n"
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🏦 IFSC INFO → IFSC code bhejo → bank + branch + MICR mil jaata hai\n"
@@ -4974,6 +4988,42 @@ def numinfo_card(res: dict, owner: dict | None = None, extra: dict | None = None
         _card.append("💡 Record nahi mila? Number sahi likho → <code>/numapi</code> se API test karo.")
     _card.append(BRAND_LINK)   # v59.7: clickable
     return "\n".join([_l for _l in _card if _l])
+
+
+def familyinfo_card(res: dict, src_line: str = "", ms: float = 0) -> str:
+    """👪 FAMILY INFO card (v100) — Aadhaar HAMESHA masked, poora kabhi nahi."""
+    res = res if isinstance(res, dict) else {}
+    L = ["👪 <b>FAMILY INFO — RATION CARD</b>"]
+    L.append(f"🔐 <b>Aadhaar:</b> <code>{hesc(str(res.get('aadhaar_mask') or 'XXXX-XXXX-••••'))}</code>")
+    if res.get("card_number"):
+        _ct = f" ({hesc(str(res['card_type']))})" if res.get("card_type") else ""
+        L.append(f"🪪 <b>Ration Card:</b> <code>{hesc(str(res['card_number']))}</code>{_ct}")
+    if res.get("state_dist"):
+        L.append(f"📍 <b>State/Dist:</b> {hesc(str(res['state_dist']))}")
+    if res.get("fps"):
+        L.append(f"🏪 <b>FPS Shop:</b> <code>{hesc(str(res['fps']))}</code>")
+    if res.get("family_count"):
+        L.append(f"👥 <b>Members:</b> {hesc(str(res['family_count']))}")
+    if res.get("address"):
+        L.append(f"🏠 <b>Address:</b> {hesc(str(res['address'])[:300])}")
+    _mem = res.get("members") or []
+    if _mem:
+        L.append(pcard_sep())
+        L.append("👨‍👩‍👧 <b>FAMILY MEMBERS:</b>")
+        for _i, _m in enumerate(_mem[:12], 1):
+            _mn = hesc(str(_m.get("name") or "—"))
+            _me = hesc(str(_m.get("ekyc") or ""))
+            _mid = hesc(str(_m.get("member_id") or ""))
+            _mline = f"{_i}. <b>{_mn}</b>" + (f" — {_me}" if _me else "")
+            if _mid:
+                _mline += f" <code>{_mid}</code>"
+            L.append(_mline)
+    if src_line:
+        L.append(f"📡 <b>Source:</b> {src_line}")
+    L.append(f"⚡ <b>Response:</b> {int(ms)}ms")
+    L.append(pcard_sep())
+    L.append(BRAND_LINK)
+    return "\n".join([x for x in L if x])
 
 
 def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
@@ -9244,6 +9294,37 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         tel_note("numinfo", True, _ms, credit=True)
         await _reply_nonempty(update.message, spend_credit_msg(uid, "numinfo") + "\n" + card, parse_mode=HTML)
+        add_use(uid)
+        return
+
+    if mode == "familyinfo":
+        # v100: 👪 FAMILY INFO — Aadhaar → ration family record (poora Aadhaar kahin nahi).
+        _u_fi = get_user(uid, update.effective_user.first_name)
+        if not can_use_premium_tool(_u_fi, uid):
+            await update.message.reply_text(get_credits_over_text("familyinfo"),
+                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _t0fi = time.perf_counter()
+        try:
+            _fres = await asyncio.wait_for(
+                asyncio.to_thread(faminfo.lookup, raw_text), 55)
+        except asyncio.TimeoutError:
+            _fres = {"ok": False, "error": "API slow (55s) — dobara try karo."}
+        except Exception:                                        # noqa: BLE001
+            _fres = {"ok": False, "error": "Family lookup me dikkat aayi."}
+        _msfi = (time.perf_counter() - _t0fi) * 1000
+        _fres = _fres if isinstance(_fres, dict) else {"ok": False}
+        if not _fres.get("ok"):
+            tel_note("familyinfo", False, 0, error=str(_fres.get("error"))[:90])
+            await update.message.reply_text(f"❌ {_fres.get('error') or 'Record nahi mila.'}",
+                                            parse_mode=HTML)
+            context.user_data.pop("mode", None)
+            return
+        _fline = "🟢 <b>LIVE</b> — family API se" + (" (⚡ cache)" if _fres.get("cached") else "")
+        _fcard = familyinfo_card(_fres, _fline, _msfi)
+        tel_note("familyinfo", True, _msfi, credit=True)
+        await _reply_nonempty(update.message, spend_credit_msg(uid, "familyinfo") + "\n" + _fcard, parse_mode=HTML)
         add_use(uid)
         return
 

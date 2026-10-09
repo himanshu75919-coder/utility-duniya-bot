@@ -95,7 +95,7 @@ section("1) 🎨 NAYA PROMPT SYSTEM (head + ✨ ask + 📝 Examples)")
 # =====================================================================
 import bot  # noqa: E402
 
-check("BOT_VERSION v58+ par hai", re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
+check("BOT_VERSION v58+ par hai", re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9]|[1-9][0-9]{2,})', BOT_SRC) is not None)
 check("PROMPT_DATA maujood hai (naya system)", hasattr(bot, "PROMPT_DATA"))
 check("PROMPT_DATA me behaviour: har entry me head/ask/ex", all(
     isinstance(v, dict) and v.get("head") and v.get("ask")

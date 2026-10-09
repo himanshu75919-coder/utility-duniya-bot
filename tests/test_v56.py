@@ -357,7 +357,7 @@ check("expand_url ka error raw urllib3 text nahi hai",
 section("7) 🧾 VERSION + FILE HYGIENE")
 # =====================================================================
 check("BOT_VERSION v56+ par hai",
-      re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9])', BOT_SRC) is not None)
+      re.search(r'BOT_VERSION = \(?"v(?:5[6-9]|[6-9][0-9]|[1-9][0-9]{2,})', BOT_SRC) is not None)
 # duplicate keys — asli check
 def _dup_keys(path):
     _t = ast.parse(open(path, encoding="utf-8").read())
