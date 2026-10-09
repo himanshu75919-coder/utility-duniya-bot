@@ -156,7 +156,7 @@ def main():
         except Exception as e:  # noqa: BLE001
             ok(f"render_caption({_jn})", False, repr(e)[:100])
     ok("short buttons validate", "_slu = _safe_btn_url" in BOT_SRC)
-    ok("appfind buttons validate", "_stu = _safe_btn_url" in BOT_SRC and "_ssu = _safe_btn_url" in BOT_SRC)
+    ok("appfind buttons gaye (v101 removal)", "_stu = _safe_btn_url" not in BOT_SRC)
     ok("linkcheck final button validate", "_fu2 = _safe_btn_url" in BOT_SRC)
     ok("short empty-rows guard", "InlineKeyboardMarkup(rows) if rows else None" in BOT_SRC)
 
@@ -168,8 +168,8 @@ def main():
        and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION,
        B.BOT_VERSION[:16])
     ok("PREMIUM_TOOLS 37 intact (qr_scan alag, cxray-pattern)",
-       len(B.PREMIUM_TOOLS) == 38 and "qr_scan" not in B.PREMIUM_TOOLS, f"count={len(B.PREMIUM_TOOLS)}")
-    ok("PROMPT_DATA 44 (43 + familyinfo naya)", len(B.PROMPT_DATA) == 44, f"count={len(B.PROMPT_DATA)}")
+       len(B.PREMIUM_TOOLS) == 30 and "qr_scan" not in B.PREMIUM_TOOLS, f"count={len(B.PREMIUM_TOOLS)}")
+    ok("PROMPT_DATA 44 (43 + familyinfo naya)", len(B.PROMPT_DATA) == 37, f"count={len(B.PROMPT_DATA)}")
     ok("purane prompts intact (spot check)",
        B.PROMPT_DATA.get("terabox", {}).get("head") == "⚡ TERABOX / CLOUD ENGINE"
        and B.PROMPT_DATA.get("qr", {}).get("head") == "📷 QR CODE MAKER"

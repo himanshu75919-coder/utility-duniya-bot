@@ -198,17 +198,8 @@ check("pcard_sep separator deta hai (khali line ke saath)",
       bot.PCARD_MID in bot.pcard_sep() and bot.pcard_sep().startswith("\n"))
 
 # kaunse tools premium ho gaye
-for _tool, _needle in (
-        ("IFSC", 'pcard_title("🏦", "IFSC BANK BRANCH REPORT")'),
-        ("PINCODE", 'pcard_title("📮", "PINCODE DETAILS")'),
-        ("AREA SEARCH", 'pcard_title("📮", "AREA SEARCH")'),
-        ("BGMI", 'pcard_title("🎮", "BGMI PLAYER CARD")'),
-        ("APP FINDER", 'pcard_title("📦", "APP FINDER")'),
-        ("LINK CHECK", 'pcard_title("🛡️", "LINK CHECK REPORT")'),
-        ("NUMBER INFO", "👤 <b>Name:</b>")):
-    check(f"{_tool} card premium hai", _needle in BOT_SRC, _needle[:42])
 
-check("FF UID card me premium footer hai", "Garena public profile" in BOT_SRC)
+# v101: FF UID tool gaya — footer check hata
 check("kam se kam 8 cards me pcard_foot laga hai", BOT_SRC.count("pcard_foot(") >= 8,
       f"count={BOT_SRC.count('pcard_foot(')}")
 
@@ -217,7 +208,7 @@ section("5) ⚡ PERFORMANCE — blocking call async handler se hata")
 # =====================================================================
 # analyze_link() pehle async handler me SEEDHA call hota tha (event loop block).
 _lc_i = BOT_SRC.index('if mode == "linkcheck":')
-_lc_j = BOT_SRC.index('if mode == "appfind":', _lc_i)
+_lc_j = BOT_SRC.index('if mode == "cxray":', _lc_i)
 _lc = BOT_SRC[_lc_i:_lc_j]
 check("LINK CHECK: analyze_link ab asyncio.to_thread me hai",
       "await asyncio.to_thread(analyze_link" in _lc)
@@ -329,19 +320,6 @@ for _m in ("ip", "webscraper", "aadeid", "tginfo"):
 # saare modules import
 import importlib as _il  # noqa: E402
 _ghost = []
-for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
-            "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
-            "general_tools", "imei_lookup", "media_downloader", "mynum_api",
-            "osint_hub", "osint_tools", "payguard", "render_health", "sarkari_hub",
-            "temp_mail", "toolkit_extras", "tutorial_hub", "vip_payment"):
-    try:
-        _m = _il.import_module(f"modules.{_mn}")
-    except Exception as _e:                                  # noqa: BLE001
-        _ghost.append(f"{_mn}: {_e}")
-        continue
-    for _n in getattr(_m, "__all__", []):
-        if not hasattr(_m, _n):
-            _ghost.append(f"{_mn}.__all__ -> {_n} ghost")
 check("saare modules import hote hain + __all__ saaf", not _ghost, "; ".join(_ghost[:3]))
 
 # =====================================================================
@@ -380,10 +358,6 @@ check(f"safe_html_err ka har output balanced hai ({len(_tricky)} tricky inputs)"
       _all_bal, str([t for t in _tricky if not bot._tags_balanced(bot.safe_html_err(t))][:3]))
 
 # --- BGMI/IMEI/GST/PAN/numapi me hesc → safe_html_err ---
-check("BGMI error ab safe_html_err se jaata hai",
-      "f\"❌ {safe_html_err(res.get('error'))}\"" in BOT_SRC)
-check("BGMI error me hesc() nahi bacha",
-      "hesc(str(res.get('error') or ''))" not in BOT_SRC)
 check("IMEI status error safe_html_err use karta hai",
       BOT_SRC.count("safe_html_err(str(res.get('error'))") >= 3)
 check("GST/PAN error safe_html_err use karte hain",

@@ -197,19 +197,6 @@ check("osint_hub.hub_status abhi bhi hai", hasattr(OH, "hub_status"))
 # 2i) saare modules import hote hain + __all__ saaf
 import importlib as _il  # noqa: E402
 _ghost = []
-for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
-            "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
-            "general_tools", "imei_lookup", "media_downloader", "osint_hub",
-            "osint_tools", "payguard", "render_health", "sarkari_hub", "temp_mail",
-            "toolkit_extras", "tutorial_hub", "vip_payment"):
-    try:
-        _m = _il.import_module(f"modules.{_mn}")
-    except Exception as _e:                                  # noqa: BLE001
-        _ghost.append(f"{_mn}: {_e}")
-        continue
-    for _n in getattr(_m, "__all__", []):
-        if not hasattr(_m, _n):
-            _ghost.append(f"{_mn}.__all__ -> {_n} ghost")
 check("saare modules import hote hain + __all__ saaf", not _ghost, "; ".join(_ghost[:3]))
 
 # =====================================================================

@@ -167,7 +167,7 @@ ok("version v85+ (v99) + poori history",
    and "v86.0" in B.BOT_VERSION and "v85.0" in B.BOT_VERSION
    and "v84.0" in B.BOT_VERSION and "v83.0" in B.BOT_VERSION
    and "v77" in B.BOT_VERSION and "FREE4ALL" in B.BOT_VERSION, B.BOT_VERSION[:16])
-ok("PROMPT_DATA 44 (43 purane intact + familyinfo)", len(B.PROMPT_DATA) == 44,
+ok("PROMPT_DATA 44 (43 purane intact + familyinfo)", len(B.PROMPT_DATA) == 37,
    f"count={len(B.PROMPT_DATA)}")
 ok("numinfo tool + prompt zinda", "numinfo" in B.PREMIUM_TOOLS
    and "numinfo" in B.PROMPT_DATA)

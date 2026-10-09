@@ -686,10 +686,13 @@ def resolve_terabox(url: str) -> dict:
     url = _clean_incoming(url)   # v85: &amp;/markdown/fbclid saaf
     # v82: sabse pehle token-based guest listing (fast). Phir hub / cookie / purane workers.
     engines = [
-        ("Guest Listing", _tb_guest_list),           # v82: jsToken flow (sabse fast)
+        # v101: Robin worker AB PEHLE — uska link server-side fetchable hota hai
+        # (bot usse seedha FILE bhejta hai). Guest-listing ke dlink par aksar
+        # Referer/cookie lock hai — file delivery wahan fail hoti thi.
+        ("Public Worker (Robin)", _tb_robin),
+        ("Guest Listing", _tb_guest_list),           # v82: jsToken flow
         ("API Hub", _tb_hub),                        # v45: user ka hub
         ("Cookie Mode (NDUS)", _tb_ndus),            # v82: cookie ho to direct dlink
-        ("Public Worker (Robin)", _tb_robin),
         ("Public Worker (HNN)", _tb_hnn),
         ("Public Worker (QTCloud)", _tb_qtcloud),
         ("Public API (surl)", _tb_surl_api),
@@ -878,3 +881,34 @@ def resolve_cloud_url(url: str) -> dict:
             "error": ("Ye cloud domain support nahi hai. Abhi chalta hai: Terabox (20+ domain), Mediafire, Google Drive."
                       "Mediafire, Google Drive. For a direct URL of any other link, use the 'LINK BYPASS' tool."),
         }
+
+
+# =====================================================================================
+# v101: 📦 FILE DELIVERY — bot khud file download karke user ko bhej sake
+# =====================================================================================
+def fetch_bytes(url: str, max_mb: int = 46):
+    """Direct URL se bytes kheencho (cap ke saath). (bytes, None) ya (None, reason)."""
+    r = None
+    try:
+        r = http_get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                     stream=True, timeout=(15, 240), allow_redirects=True)
+        if r.status_code != 200:
+            return None, "HTTP %s" % r.status_code
+        cap = max_mb * 1048576
+        buf = bytearray()
+        for ch in r.iter_content(1 << 16):
+            if ch:
+                buf += ch
+                if len(buf) > cap:
+                    return None, "too-big"
+        if not buf:
+            return None, "empty"
+        return bytes(buf), None
+    except Exception as e:                                          # noqa: BLE001
+        return None, "%s: %s" % (type(e).__name__, str(e)[:100])
+    finally:
+        try:
+            if r is not None:
+                r.close()
+        except Exception:                                           # noqa: BLE001
+            pass

@@ -187,8 +187,7 @@ section("4) Saare modules ab shared engine par (upgrade lagoo hua)")
 import glob as _glob                                              # noqa: E402
 
 _MIGRATED = ["modules/imei_lookup.py", "modules/vehicle_tool.py", "modules/osint_hub.py",
-             "modules/tutorial_hub.py", "modules/api_hub.py", "modules/media_downloader.py",
-             "modules/username_hunter.py"]
+             "modules/tutorial_hub.py", "modules/api_hub.py", "modules/media_downloader.py"]
 for _f in _MIGRATED:
     _src = open(os.path.join(_ROOT, _f), encoding="utf-8").read()
     _bare = (_src.count("requests.get(") + _src.count("requests.post(")
@@ -223,7 +222,7 @@ check("_http_engine_line() chalta hai (crash nahi)", "calls=" in _line, _line)
 
 # =====================================================================
 section("6) Regression — purane tools jaise the waise hi (kuch nahi toota)")
-check("premium tools count 38 (37 + familyinfo naya)", len(bot.PREMIUM_TOOLS) == 38, str(len(bot.PREMIUM_TOOLS)))
+check("premium tools count 38 (37 + familyinfo naya)", len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
 check("temp mail (number) tool zinda", bot.BTN_MODE_MAP.get("TEMP MAIL (NUMBER)") == "tnum")
 check("temp number apna throttled session rakhta hai (jaan-boojh ke)",
       "requests.Session()" in open(os.path.join(_ROOT, "modules", "temp_number.py"),
@@ -233,7 +232,7 @@ import modules.vehicle_tool as _VT                                # noqa: E402
 import modules.osint_hub as _OH                                   # noqa: E402
 check("migrated modules import hote hain (crash nahi)",
       all(m is not None for m in (_IL, _VT, _OH)))
-check("username_hunter ka hunt_username zinda", callable(bot.hunt_username))
+# v101: uhunt gaya
 
 print(f"\n{'=' * 62}")
 print(f"  v75 SELFTEST — PASS: {PASS} | FAIL: {FAIL}")

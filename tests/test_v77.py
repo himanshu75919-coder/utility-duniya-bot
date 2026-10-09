@@ -175,7 +175,7 @@ _kb = [bot.unbold(b) for r in bot.KB_BTNS for b in r]
 check("keyboard me CHAT X-RAY button", any("CHAT X-RAY" in x.upper() for x in _kb))
 check("BTN_MODE_MAP: CHAT X-RAY → cxray", bot.BTN_MODE_MAP.get("CHAT X-RAY") == "cxray")
 check("FREE hai (premium count 37 wahi)", "cxray" not in bot.PREMIUM_TOOLS
-      and len(bot.PREMIUM_TOOLS) == 38, str(len(bot.PREMIUM_TOOLS)))
+      and len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
 check("rate-limit entry hai", bot.TOOL_RATE_LIMITS.get("cxray") is not None)
 check("PROMPT_DATA + PROMPTS me cxray", "cxray" in bot.PROMPT_DATA and "cxray" in bot.PROMPTS)
 _p = bot.tool_prompt("cxray")

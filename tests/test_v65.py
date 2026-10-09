@@ -95,7 +95,7 @@ check("pinger max 6 baar bolta hai (spam nahi)",
       "_progress_pinger" in open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read()
       and "max_pings: int = 6" in open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read())
 check("download shuru hote hi TURANT message (1s me)",
-      "link mil gaya!" in open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read())
+      "_wait_st(update.message)" in open(os.path.join(_ROOT, "bot.py"), encoding="utf-8").read())
 
 # =====================================================================
 section("[C] 🛡️ HARD CRASH-PROOF — 3 layer")

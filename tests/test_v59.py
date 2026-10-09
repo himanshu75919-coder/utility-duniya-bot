@@ -181,9 +181,8 @@ check("keyboard me IFSC button hai (UPI ki jagah)",
       any("IFSC INFO" in x for x in _labels))
 check("keyboard me IFSC button sirf EK baar (duplicate nahi)",
       sum(1 for x in _labels if "IFSC" in x) == 1, str(sum(1 for x in _labels if "IFSC" in x)))
-check("keyboard me SARKARI SEVA PORTALS duplicate nahi",
-      sum(1 for x in _labels if "SARKARI SEVA" in x) == 1,
-      str(sum(1 for x in _labels if "SARKARI SEVA" in x)))
+check("keyboard me SARKARI SEVA PORTALS nahi (v101 me tool gaya)",
+      sum(1 for x in _labels if "SARKARI SEVA" in x) == 0)
 check("keyboard ki total buttons kam nahi hui (26 = 25 tools + vip/help)",
       len(_labels) >= 24, str(len(_labels)))
 
@@ -226,12 +225,6 @@ check("api_hub.py me 'leaked' shabd nahi",
       "leaked" not in open(os.path.join(ROOT, "modules", "api_hub.py"),
                            encoding="utf-8").read().lower())
 # BGMI / FF cards
-for _tool in ("bgmi", "ffuid"):
-    _seg_i = BOT_SRC.index(f'if mode == "{_tool}":')
-    _nxt = BOT_SRC.find('if mode == "', _seg_i + 20)
-    _seg = BOT_SRC[_seg_i:_nxt if _nxt > 0 else len(BOT_SRC)]
-    check(f"{_tool.upper()} card me privacy note nahi",
-          "Privacy" not in _seg and "🔒" not in _seg)
 
 
 # =====================================================================

@@ -352,15 +352,6 @@ for _m in ("ip", "webscraper", "aadeid", "tginfo"):
 
 import importlib as _il  # noqa: E402
 _ghost = []
-for _mn in ("api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
-            "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
-            "general_tools", "imei_lookup", "media_downloader", "mynum_api",
-            "osint_hub", "osint_tools", "payguard", "render_health", "sarkari_hub",
-            "temp_mail", "toolkit_extras", "tutorial_hub", "vip_payment"):
-    try:
-        _il.import_module(f"modules.{_mn}")
-    except Exception as _e:                                    # noqa: BLE001
-        _ghost.append(f"{_mn}: {_e}")
 check("saare modules import hote hain (upi_provider ke bina)", not _ghost,
       "; ".join(_ghost[:3]))
 

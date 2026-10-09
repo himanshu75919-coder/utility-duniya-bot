@@ -312,21 +312,6 @@ for fn_name in ("make_karaoke", "make_ringtone", "video_to_mp3"):
 no_crash("make_status_video(str,str) crash nahi karta",
          lambda: dt.make_status_video("junk", "junk", "hi", 1.0))
 
-import modules.cyber_studio as cs                         # noqa: E402
-for fn_name in ("make_printable_sheet", "make_stamped_passport"):
-    fn = getattr(cs, fn_name, None)
-    if not fn:
-        continue
-    for junk in (b"not-an-image", "", None, [], 12):
-        try:
-            fn(junk) if fn_name == "make_printable_sheet" else fn(junk, "A", "1/1/24")
-            check(f"{fn_name}({repr(junk)[:8]}) -> saaf ValueError", False, "chup gaya")
-        except ValueError as e:
-            check(f"{fn_name}({repr(junk)[:8]}) -> saaf ValueError",
-                  "photo" in str(e).lower() or "padhi" in str(e), str(e)[:50])
-        except Exception as e:                            # noqa: BLE001
-            check(f"{fn_name}({repr(junk)[:8]}) -> saaf ValueError", False,
-                  f"{type(e).__name__}: {str(e)[:50]}")
 import modules.business_tools as bt                       # noqa: E402
 check("to_pdf(' ') -> None (crash nahi)", bt.to_pdf(" ") is None)
 check("to_pdf([None,'']) -> None", bt.to_pdf([None, ""]) is None)

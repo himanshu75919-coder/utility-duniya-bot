@@ -215,10 +215,11 @@ check("/rcsetup command hai (step-by-step help)", callable(getattr(bot, "cmd_rcs
 section("[D] 🔁 PURANA KUCH TOOTA NAHI")
 # =====================================================================
 check("4 downloader tools zinda", len(bot.DL_SITES) == 4)
-check("premium tools 38 (35 + vahan + uhunt + familyinfo)", len(bot.PREMIUM_TOOLS) == 38, str(len(bot.PREMIUM_TOOLS)))
-check("keyboard rows badhe (18)", len(bot.KB_BTNS) >= 18, str(len(bot.KB_BTNS)))
-check("downloader sabse upar hi hai",
-      "INSTA DL" in bot.unbold(bot.KB_BTNS[0][0]).upper())
+check("premium tools 30 (v101: 8 tools hataye)", len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
+check("keyboard rows compact (v101: 15 rows sab pairs)", len(bot.KB_BTNS) >= 15, str(len(bot.KB_BTNS)))
+check("info+downloader top rows (v101 order)",
+      "NUMBER INFO" in bot.unbold(bot.KB_BTNS[0][0]).upper()
+      and "INSTA DL" in bot.unbold(bot.KB_BTNS[1][0]).upper())
 check("whois tool zinda", "osint_whois" in bot.PREMIUM_TOOLS)
 check("'Privacy' shabd koi jagah nahi", "privacy" not in BOT_SRC.lower())
 _vm = __import__("re").search(r"v(\d+)\.(\d+)", bot.BOT_VERSION)

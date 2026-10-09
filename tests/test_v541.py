@@ -68,106 +68,12 @@ section("1) 🔥 FF UID — HTTP 403 ab 'blocked' hai, 'UID nahi mila' nahi")
 # ko temporarily rok diya tha. Purana code 403 ko "other" state me daal kar
 # "UID ... nahi mila" wala galat message bana deta tha (aur user ko lagta
 # UID kharab hai).
-import modules.gaming_tools as GT  # noqa: E402
 
 _ALL_REGIONS = ["IND", "SAC", "BR", "EU", "NA", "TH", "SG", "VN", "ID",
                 "ME", "PK", "BD", "CIS", "TW", "US"]
 
 
-def _fake_status(force: bool = False) -> dict:
-    return {"ok": True, "status": "online", "avg_ms": "300ms", "uptime": "99.8%",
-            "daily_requests": "12000", "release": "OB55 - 1.132.8",
-            "api_regions": list(_ALL_REGIONS),
-            "regions": {r: {"total": 10, "available": 5, "banned": 0}
-                        for r in _ALL_REGIONS},
-            "dead_regions": [], "error": ""}
-
-
-class _FakeResp:
-    def __init__(self, code: int, payload: dict):
-        self.status_code = code
-        self._p = payload
-
-    def json(self):
-        return self._p
-
-
-def _patch_http(code: int, payload: dict):
-    def _fake_get(url, **kw):
-        return _FakeResp(code, payload)
-    return _fake_get
-
-
-_orig_status, orig_http_get, orig_get_json = (GT.ff_service_status, GT.http_get,
-                                              GT.http_get_json)
-GT.ff_service_status = _fake_status
-
-try:
-    # --- (a) 403 par blocked soft-fail ---
-    GT.http_get = _patch_http(403, {})
-    r403 = GT.ff_player_info("123456789", "IND", use_cache=False)
-    check("403 → ok=False", r403.get("ok") is False)
-    check("403 → service_busy=True (isliye credit nahi katega)",
-          r403.get("service_busy") is True)
-    check("403 → blocked flag set", r403.get("blocked") is True)
-    _e = str(r403.get("error") or "")
-    check("403 message me 'HTTP 403' dikhta hai", "403" in _e, _e[:80])
-    check("403 message Hinglish hai (English nahi)",
-          ("credit NAHI kata" in _e) and ("server ko block" in _e), _e[:90])
-    check("403 message jhootha 'nahi mila' NAHI bolta", "nahi mila" not in _e, _e[:90])
-    check("403 message English 'Try again after some time' NAHI bolta",
-          "Try again after" not in _e)
-
-    # --- (b) 403 auto-scan (saare regions) par bhi blocked ---
-    r403a = GT.ff_player_info("123456789", "", use_cache=False)
-    check("auto-scan 403 → service_busy=True", r403a.get("service_busy") is True)
-    check("auto-scan 403 → blocked_regions ginti hai",
-          int(r403a.get("blocked_regions") or 0) >= 1, str(r403a.get("blocked_regions")))
-
-    # --- (c) 404 ab bhi 'genuinely not found' (regression na ho) ---
-    GT.http_get = _patch_http(404, {"success": False, "error": "PLAYER_NOT_FOUND"})
-    r404 = GT.ff_player_info("123456789", "IND", use_cache=False)
-    check("404 → notfound=True", r404.get("notfound") is True)
-    check("404 → service_busy NAHI (ye asli 'nahi mila')",
-          not r404.get("service_busy"))
-    check("404 message me 'nahi mila' hai",
-          "nahi mila" in str(r404.get("error") or ""))
-
-    # --- (d) 429 rate-limit path abhi bhi kaam karta hai ---
-    GT.http_get = _patch_http(429, {"success": False, "error": "RATE_LIMIT"})
-    r429 = GT.ff_player_info("123456789", "IND", use_cache=False)
-    check("429 → service_busy=True", r429.get("service_busy") is True)
-    check("429 → 'rate-limit' message", "rate-limit" in str(r429.get("error") or ""))
-
-    # --- (e) 500 → network/server error soft-fail ---
-    GT.http_get = _patch_http(503, {})
-    r503 = GT.ff_player_info("123456789", "IND", use_cache=False)
-    check("503 → service_busy=True", r503.get("service_busy") is True)
-
-    # --- (f) success path abhi bhi card banata hai ---
-    GT.http_get = _patch_http(200, {"success": True, "result": {
-        "basicInfo": {"nickname": {"text": "TestPlayer"}, "level": 62,
-                      "region": "IND"},
-        "socialInfo": {"friendsCount": {"text": "120"}},
-        "inventory": {"characterName": "Alok",
-                      "characterImage": "https://x/char.png"},
-        "profileCard": {"png": "https://x/card.png"},
-        "clothesUrl": {"png": "https://x/outfit.png"},
-    }})
-    rok = GT.ff_player_info("123456789", "IND", use_cache=False)
-    check("200 → ok=True", rok.get("ok") is True)
-    check("200 → nickname card me hai",
-          "TestPlayer" in str(rok.get("lines") or rok.get("nickname") or rok))
-finally:
-    GT.ff_service_status = _orig_status
-    GT.http_get = orig_http_get
-    GT.http_get_json = orig_get_json
-
-# bot.py side: soft-fail par credit nahi katta (wiring)
 _bot_src = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
-_ffseg = _bot_src[_bot_src.index('if mode == "ffuid":'):]
-check("ffuid handler soft-fail par credit NAHI katta",
-      "_soft" in _ffseg and "service_busy" in _ffseg)
 
 
 # =====================================================================
@@ -261,7 +167,7 @@ check("IMEI render_caption 1024 ke andar + balanced",
       len(_rc) <= 1024 and html_balanced(_rc) is True)
 
 _imei_seg = _bot_src[_bot_src.index('if mode == "imei":'):]
-_imei_seg = _imei_seg[:_imei_seg.index('if mode == "pp_stamp_text":')]
+_imei_seg = _imei_seg[:_imei_seg.index('if mode == "numinfo":')]
 check("IMEI: credit AB delivery ke BAAD katta hai (pehle doob jaata tha)",
       _imei_seg.index("_imei_sent = False") < _imei_seg.index('spend_credit_msg(uid, "imei")'))
 check("IMEI: HTML fail ho to plain-text fallback hai",

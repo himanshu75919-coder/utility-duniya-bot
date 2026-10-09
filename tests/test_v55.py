@@ -118,53 +118,6 @@ except ValueError:
     check("galat UPI reject", True)
 
 # =====================================================================
-section("3) 🎮 FF/BGMI REGION PARSING — sab formats")
-# =====================================================================
-import modules.gaming_tools as GT
-
-_cases = [
-    ("7860944073 BR", "BR"), ("7860944073 (BR)", "BR"), ("7860944073 - BR", "BR"),
-    ("7860944073, br", "BR"), ("7860944073 india", "IND"), ("7860944073 INDIA", "IND"),
-    ("7860944073 RUSSIA", "CIS"), ("7860944073 RU", "CIS"), ("7860944073 SINGAPORE", "SG"),
-    ("7860944073", None), ("7860944073 bhai", None), ("", None),
-]
-for _inp, _want in _cases:
-    _got = GT.parse_region(_inp)
-    check(f"parse_region({_inp!r}) == {_want!r}", _got == _want, f"got {_got!r}")
-for _inp in ["7860944073 BR", "7860944073 (BR)", "7860944073 - BR", "7860944073, br"]:
-    _s = GT.strip_region(_inp)
-    check(f"strip_region({_inp!r}) sirf UID deta hai", _s == "7860944073", f"got {_s!r}")
-check("strip_region plain UID ko chhodta hai", GT.strip_region("7860944073") == "7860944073")
-
-# ff_player_info message-format handle karta hai (region andar)
-_res = GT.ff_player_info("7860944073 (BR)")
-check("ff_player_info message-format chalta hai (crash nahi)",
-      isinstance(_res, dict) and "ok" in _res, f"got {str(_res)[:100]}")
-
-# =====================================================================
-section("4) 📄 CYBER STUDIO — single-bytes crash fix")
-# =====================================================================
-import modules.cyber_studio as CS
-from PIL import Image
-
-_im = Image.new("RGB", (800, 1000), (250, 250, 250))
-_b = io.BytesIO(); _im.save(_b, format="JPEG"); _jpg = _b.getvalue()
-
-_out = CS.compress_document_pdf(_jpg)          # single bytes (pehle TypeError)
-check("single bytes par crash nahi (v55 fix)", _out.read(4) == b"%PDF")
-_out2 = CS.compress_document_pdf([_jpg, _jpg])  # list (normal path)
-check("list input par sahi PDF", _out2.read(4) == b"%PDF")
-try:
-    CS.compress_document_pdf("not-bytes")
-    check("string input par clean TypeError", False, "raise nahi hua")
-except TypeError:
-    check("string input par clean TypeError", True)
-try:
-    CS.compress_document_pdf([])
-    check("khaali list par clean ValueError", False, "raise nahi hua")
-except ValueError:
-    check("khaali list par clean ValueError", True)
-
 # =====================================================================
 section("5) 🔗 TOOLKIT EXTRAS — core.net + parallel")
 # =====================================================================
@@ -237,10 +190,10 @@ section("7) 🧹 CODE HEALTH — dead imports / duplicate keys")
 # 8a) koi module import fail na ho + har __all__ naam exist kare
 import importlib
 _mods = ["api_hub", "channel_cloner", "cloud_tools", "core.cache", "core.limiter",
-         "core.net", "core.telemetry", "cyber_studio", "desi_tools", "gaming_tools",
+         "core.net", "core.telemetry", "desi_tools",
          "general_tools", "imei_lookup", "media_downloader", "osint_hub",
          "osint_tools", "payguard", "render_health",
-         "sarkari_hub", "temp_mail", "toolkit_extras", "tutorial_hub",
+         "temp_mail", "toolkit_extras", "tutorial_hub",  # v101: sarkari_hub/username_hunter/gaming_tools/cyber_studio gaye
          "vip_payment"]
 _ghost = []
 for _mn in _mods:

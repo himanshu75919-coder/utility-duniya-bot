@@ -63,83 +63,6 @@ def check(name: str, cond: bool, extra: str = ""):
 
 
 # =====================================================================
-section("1) 🔥 FF UID — live regions + health gate (pehle har UID par 404)")
-# AUDIT: purani hardcoded list me `RU` tha jo API me EXIST HI NAHI KARTA,
-# aur `EU`/`NA`/`SAC` MISSING the. Live test me 7/7 regions par 404 aaya tha
-# aur bot user ko bolta tha "Region galat ho sakta hai" (jhooth).
-import modules.gaming_tools as GT  # noqa: E402
-
-_st = GT.ff_service_status(force=True)
-check("service status pre-check chalta hai", _st.get("ok") is True)
-check("status online hai", str(_st.get("status")).lower() in ("online", "up", "ok", ""))
-_regs = _st.get("api_regions") or []
-check(f"API ke asli regions mile (n={len(_regs)})", len(_regs) >= 10)
-check("❌ 'RU' ab list me NAHI (API me exist hi nahi karta)", "RU" not in _regs)
-check("✅ EU / NA / SAC ab supported hain (pehle missing)",
-      all(x in _regs for x in ("EU", "NA", "SAC")))
-check("per-region availability data hai",
-      isinstance(_st.get("regions"), dict) and len(_st["regions"]) >= 5)
-check("avg response time + uptime dikhta hai",
-      bool(_st.get("avg_ms")) and bool(_st.get("uptime")))
-
-_fr = GT.ff_regions()
-check("ff_regions() API se validate hoti hai", len(_fr) >= 10 and "RU" not in _fr)
-check("scan order IND se shuru (desi users)", _fr and _fr[0] == "IND")
-
-check("REGION_ALIASES: 'india'→IND", GT.REGION_ALIASES.get("INDIA") == "IND")
-check("REGION_ALIASES: 'RU'→CIS (RU exist nahi karta)", GT.REGION_ALIASES.get("RU") == "CIS")
-check("parse_region: '1633864660 BR' → BR", GT.parse_region("1633864660 BR") == "BR")
-check("parse_region: '1633864660 india' → IND", GT.parse_region("1633864660 india") == "IND")
-check("strip_region: UID bachata hai", GT.strip_region("1633864660 BR") == "1633864660")
-check("galat region code par saaf message (network waste nahi)",
-      GT.ff_player_info("1633864660", "ZZZZ").get("ok") is False)
-check("chhota UID reject + help", "UID kahan milega" in str(GT.ff_player_info("12").get("error")))
-
-# AUDIT: real player 510069453 region SAC me tha — jo purani list me tha hi nahi.
-_ff = GT.ff_player_info("510069453", use_cache=False)
-check("🎯 REAL player milta hai (auto-scan, pehle hamesha fail)", _ff.get("ok") is True)
-if _ff.get("ok"):
-    check(f"nickname aaya ({_ff.get('nickname')!r})", bool(_ff.get("nickname")))
-    check("level aaya", _ff.get("level") is not None)
-    check("region aaya", bool(_ff.get("region")))
-    check("rank aaya", bool(_ff.get("rank_br")))
-else:
-    check("nickname/level/region aaye", False, str(_ff.get("error"))[:60])
-
-_t0 = time.time(); GT.ff_player_info("1633864660", use_cache=False); _scan = time.time() - _t0
-# AUDIT: pehle auto-scan 11.36s leta tha kyunki TH region consistently 11.08s
-# leta tha aur baaki 14 regions 0.2s me ho jaate the — ek straggler sab block karta tha.
-check(f"auto-scan deadline me hota hai ({_scan:.1f}s < 9s) — pehle 11.4s tha", _scan < 9.0)
-
-_nf = GT.ff_player_info("999999999999", use_cache=False)
-check("not-found par honest message", _nf.get("ok") is False and _nf.get("notfound") is True)
-check("not-found par kitne regions try hue wo batata hai",
-      (_nf.get("regions_tried") or 0) >= 5)
-check("not-found = user ki galti, service_busy NAHI", _nf.get("service_busy") is not True)
-
-# =====================================================================
-section("2) 🎮 BGMI — honest availability gate (pehle dead host par 1 credit jata tha)")
-# AUDIT: kronos-api.pubg.com DNS resolve hi nahi hota; pubg-shazam.herokuapp.com
-# HTTP 404 + text/html deta hai (Heroku free dynes band). Dono dead — par tool
-# menu me "🎮 BGMI UID" ke naam se premium credit leta tha.
-_av = GT.bgmi_availability(force=True)
-check("availability gate chalta hai", isinstance(_av, dict) and "alive" in _av and "dead" in _av)
-check("dono providers check hue", _av.get("checked") == 2)
-_bg = GT.bgmi_player_info("510069453", use_cache=False)
-check("lookup crash nahi hota", isinstance(_bg, dict))
-if not _bg.get("ok"):
-    check("❗ service_busy flag set hai (credit NAHI katna chahiye)",
-          _bg.get("service_busy") is True)
-    check("❗ available=False honest hai", _bg.get("available") is False)
-    check("backward-compat 'fallback' key hai", _bg.get("fallback") is True)
-    check("message me official tarika bataya gaya", "Profile" in str(_bg.get("error")))
-    check("message me saaf likha hai credit nahi kata", "credit" in str(_bg.get("error")).lower())
-    check("jhootha 'server tak pahunch hui' claim NAHI",
-          "pubg-shaz" not in str(_bg.get("error")))
-check("chhota UID reject", GT.bgmi_player_info("12").get("ok") is False)
-check("kabhi fake stats nahi deta", not (_bg.get("ok") is False and bool(_bg.get("stats"))))
-
-# =====================================================================
 section("3) 📧 TEMP MAIL — OTP extraction (pehle 1200-char body dump milta tha)")
 # AUDIT: log temp mail OTP ke liye lete hain, par bot poora email body dump kar
 # deta tha — branding/footer/unsubscribe ke beech se 6-digit code khud dhoondhna
@@ -219,55 +142,7 @@ check("no-token par saaf message", "NEW" in str(TM.tm_messages("a@b.com", "").ge
 check("expired token detect", TM.is_expired("API returned HTTP 401") is True)
 
 # =====================================================================
-section("4) 📦 APP FINDER — real verification (pehle 8 blind search URLs)")
-# AUDIT: get_app_store_links("whatsapp") aur ("xyzabc123fakeapp") → SAME 8 links.
-# Tool app dhoondhta hi nahi tha. Aur 2 stores MOD-APK piracy sites the.
 import modules.general_tools as GEN  # noqa: E402
-
-_names = " ".join(s["name"].lower() for s in GEN.TRUSTED_STORES)
-check("❌ GetModPC (piracy) hata diya gaya", "getmodpc" not in _names)
-check("❌ HappyMod (piracy) hata diya gaya", "happymod" not in _names)
-check("❌ koi 'Mod' badge nahi", "mod" not in _names)
-check("✅ Google Play rakha", "google play" in _names)
-check("✅ F-Droid rakha", "f-droid" in _names)
-check("✅ APKMirror rakha", "apkmirror" in _names)
-check("backward-compat: get_app_store_links abhi bhi chalta hai",
-      len(GEN.get_app_store_links("whatsapp")["stores"]) >= 6)
-
-_a = GEN.app_lookup("whatsapp", use_cache=False)
-check("app_lookup chalta hai", _a.get("ok") is True, str(_a.get("error"))[:60])
-check("✅ app VERIFIED mili (found=True)", _a.get("found") is True)
-_apps = _a.get("apps") or []
-check(f"multiple results (n={len(_apps)})", len(_apps) >= 1)
-if _apps:
-    _t = _apps[0]
-    check("real title mila", bool(_t.get("title")) and _t.get("title") != _t.get("package"))
-    check("package id mila", bool(_t.get("package")))
-    check("developer mila (pehle khaali tha)", bool(_t.get("developer")))
-    check("rating mili", bool(_t.get("rating")))
-    check("review count mila (India locale Cr/L)", bool(_t.get("votes")))
-    check("downloads mile", bool(_t.get("downloads")))
-    check("icon URL mila", bool(_t.get("icon")))
-    check("store link mila", bool(_t.get("url")))
-    check("HTML entities unescape hue (&amp; → &)", "&amp;" not in str(_t.get("title")))
-
-_fake = GEN.app_lookup("xyzabc123fakenonexistentapp", use_cache=False)
-check("❗ FAKE app par found=False (pehle same 8 links aate the)", _fake.get("found") is False)
-check("fake app par honest error message", bool(_fake.get("error")))
-check("fake app error me teeno stores ka zikr", "Google Play" in str(_fake.get("error")))
-
-_direct = GEN.app_lookup("org.videolan.vlc", use_cache=False)
-check("direct package-id lookup chalta hai", _direct.get("found") is True)
-check("khaali input reject", GEN.app_lookup("").get("ok") is False)
-check("1-char input reject", GEN.app_lookup("x").get("ok") is False)
-_ios = GEN._itunes_search("whatsapp", 2)
-check("iTunes API se iOS results (cross-store)", len(_ios) >= 1 and _ios[0].get("store") == "appstore")
-check("F-Droid API: real open-source app", GEN._fdroid_check("org.videolan.vlc") is not None)
-check("F-Droid API: non-existent → None", GEN._fdroid_check("com.fake.nonexistentapp123") is None)
-check("_fmt_downloads readable", GEN._fmt_downloads("10,000,000,000+") == "10B+")
-check("_fmt_votes readable", GEN._fmt_votes("24500000") == "24.5M reviews")
-
-# =====================================================================
 section("5) 📷 QR — colors / logo / UPI (pehle params ignore hote the)")
 # AUDIT: make_qr_bytes(fill=, back=) params the par bot kabhi pass nahi karta tha;
 # error correction M (15%) thi jabki center logo ke liye H (30%) chahiye.
@@ -432,10 +307,6 @@ _bot_src = open(os.path.join(ROOT, "bot.py"), encoding="utf-8").read()
 # bot.py khud import karke helper ko live test karte hain (source-grep se aage)
 import bot  # noqa: E402
 
-for _fn in ["ff_player_info", "bgmi_player_info",
-            "tm_create", "tm_poll", "tm_delete", "app_lookup", "make_branded_qr",
-            "tel_note", "tel_snapshot"]:
-    check(f"bot.py me import/usage: {_fn}", _fn in _bot_src)
 # v55: ye 7 naam bot.py me sirf DEAD imports the — ruff F401 cleanup me hate:
 #   web_cache_snapshot, tm_messages, tm_extract_codes, build_upi_link,
 #   tel_health_card, ff_service_status, gaming_cache_snapshot,
@@ -452,40 +323,6 @@ check("v55: telemetry card bot.py ke apne _telemetry_block se banti hai", "_tele
 check("tempmail inline buttons wired (tm_inbox)", 'data in ("tm_inbox", "tm_otp")' in _bot_src)
 check("tempmail delete button wired", 'data == "tm_del"' in _bot_src)
 check("telemetry /sys card me hai", "_telemetry_block()" in _bot_src)
-check("appfind verified card bhejta hai", "verified app" in _bot_src)
-check("❌ appfind ab 'Mod/APK websites' nahi bolta", "Verified Mod/APK" not in _bot_src)
-check("bgmi soft-fail par credit nahi katta",
-      re.search(r'if mode == "bgmi":.*?_soft = bool\(res\.get\("service_busy"\)\)', _bot_src, re.S) is not None)
-check("ffuid soft-fail par credit nahi katta",
-      re.search(r'if mode == "ffuid":.*?_soft = bool\(res\.get\("service_busy"\)\)', _bot_src, re.S) is not None)
-check("ffuid region parsing engine ko delegate (purana 2-4 letter regex gaya)",
-      'ff_player_info, raw_text, ""' in _bot_src)
-_gtsrc = open(os.path.join(ROOT, "modules", "gaming_tools.py"), encoding="utf-8").read()
-check("bgmi availability gate engine ke andar hai (bot ko soft-fail milta hai)",
-      "bgmi_availability" in _gtsrc and "note_upstream" in _gtsrc)
-
-# =====================================================================
-section("9) 🛡️ CREDIT FAIRNESS — service ki galti par credit na kate")
-# v52.3 me BGMI dead hone ke bawajood premium credit le raha tha aur user ko
-# sirf ek lamba help paragraph milta tha.
-_bg = GT.bgmi_player_info("510069453", use_cache=False)
-if not _bg.get("ok"):
-    check("BGMI fail par service_busy=True (bot credit skip karega)",
-          _bg.get("service_busy") is True)
-_st2 = GT.ff_service_status()
-if _st2.get("ok"):
-    _regs = _st2.get("regions") or {}
-    _dead = [r for r, v in _regs.items() if v.get("available", 1) <= 0]
-    if _dead:
-        _r = GT.ff_player_info("510069453", _dead[0], use_cache=False)
-        check("FF dead-region par service_busy (credit skip)",
-              _r.get("service_busy") is True or _r.get("ok") is True)
-    else:
-        check("FF dead-region test (abhi koi region dead nahi — skip ok)", True)
-check("FF genuine not-found par service_busy NAHI (wo user ki galti hai)",
-      GT.ff_player_info("999999999999", "IND", use_cache=False).get("service_busy") is not True)
-check("App Finder not-found par credit nahi katta",
-      re.search(r'if not app_data\.get\("found"\):.*?tel_note\("appfind", False', _bot_src, re.S) is not None)
 
 # =====================================================================
 section("10) 📷 QR WIRING — branded engine + credit fairness (v53.0 naya kaam)")
@@ -522,10 +359,6 @@ check("WiFi open-network detection (none/no/skip/open)",
 check("WiFi QR me security warning hai (password encode hota hai)",
       "trusted logon ko scan karne do" in _bot_src)
 # v58.0: prompts ka NAYA format (user order) — header + ✨ ask + 📝 Examples
-check("appfind prompt v71 premium format me hai",
-      '"appfind": {' in _bot_src and "APP FINDER" in _bot_src
-      and "🔗 <b>" in bot.PROMPTS.get("appfind", "")
-      and "<code>whatsapp</code>" in bot.PROMPTS.get("appfind", ""))
 check("har prompt me ask line hai (v71: 🔗)",
       all("🔗 <b>" in v for v in bot.PROMPTS.values() if v))
 check("har prompt me box + ask + example hai (v71)",

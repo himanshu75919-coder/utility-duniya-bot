@@ -172,9 +172,9 @@ check("to_thread me chalta hai (bot atakta nahi)",
 section("[D] 🔁 PURANA KUCH TOOTA NAHI")
 # =====================================================================
 check("downloaders 4 hi hain", len(bot.DL_SITES) == 4)
-check("downloader tools sabse upar (premium first)",
-      "INSTA DL" in bot.unbold(bot.KB_BTNS[0][0]).upper())
-check("keyboard me purane tools zinda", len(bot.KB_BTNS) >= 17)
+check("downloader tools top rows me (v101: row1)",
+      "INSTA DL" in bot.unbold(bot.KB_BTNS[1][0]).upper())
+check("keyboard me tools zinda (v101 re-pair: 15 rows)", len(bot.KB_BTNS) >= 15)
 check("IFSC/PINCODE/NUMBER INFO zinda",
       all(x in bot.PREMIUM_TOOLS for x in ("ifsc", "pin", "numinfo")))
 check("numinfo card still sample format",

@@ -219,18 +219,7 @@ except ImportError:  # agar purani database.py use ho rahi ho to bot crash na ho
     def get_auto_cloners_for_source(_source):
         return []
 
-from modules.sarkari_hub import (
-    SARKARI_CITIZEN_TEXT,
-    STATE_PORTALS_TEXT,
-    get_sarkari_citizen_kb,
-    get_state_portals_kb,
-)
-from modules.cyber_studio import (
-    compress_document_pdf,
-    make_printable_sheet,
-    make_stamped_passport,
-)
-from modules.cloud_tools import resolve_cloud_url, tb_fetch_thumb
+from modules.cloud_tools import resolve_cloud_url, tb_fetch_thumb, fetch_bytes
 from modules import desi_tools as desi
 from modules.desi_tools import (
     KAGAZ_FIELDS,
@@ -307,16 +296,11 @@ from modules.osint_tools import (
     lookup_pincode,
     lookup_whois,        # v70: 🌐 WEBSITE OWNER X-RAY (RDAP public record)
 )
-from modules.username_hunter import hunt_username     # v71.8: 🕵️ USERNAME HUNTER (public only)
 from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
 from modules import chat_xray as CXR                   # v73.0: 💬 WHATSAPP CHAT X-RAY (offline, free)
 from modules import bseb_result as BSEBR               # v73.1: 📋 BOARD RESULT (BSEB official API)
 from modules import boards as BRD                      # v74.5: BSEB + CBSE
 from modules import captcha_bridge as CB              # v74.6: 🔐 captcha bridge (user solve karta hai)
-from modules.gaming_tools import (
-    ff_player_info,
-    bgmi_player_info,
-)
 from modules.temp_mail import (
     tm_create,
     tm_poll,
@@ -409,13 +393,10 @@ TOOL_RATE_LIMITS = {
     "media_tts":   (8,  60,  "Text → Hindi Voice"),
     "yt_q":        (8,  120, "YouTube Quality"),
     # normal info tools
-    "bgmi":        (8,  60,  "BGMI UID"),
-    "ffuid":       (8,  60,  "FF UID"),
     "tempmail":    (10, 120, "Temp Mail"),
     "tnum":        (25, 300, "Temp Mail (Number)"),    # v71.9: free temp number + OTP
     "ifsc":        (15, 60,  "IFSC Info"),
     "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
-    "uhunt":       (10, 60,  "Username Hunter (Public)"),
     "vahan":       (10, 120, "RC + Challan (Gaadi X-Ray)"),
     "pin":         (15, 60,  "Pincode Info"),
     "imei":        (8,  60,  "IMEI Lookup"),
@@ -423,12 +404,8 @@ TOOL_RATE_LIMITS = {
     "familyinfo":  (10, 60,  "Family Info"),
     "linkcheck":   (10, 60,  "Link Check"),
     "short":       (10, 60,  "URL Shortener"),
-    "appfind":     (15, 60,  "App Finder"),
     "qr_scan":     (15, 60,  "QR Scanner"),          # v86: naya tool (photo → QR text)
     # document tools (local CPU)
-    "pp_stamp":    (10, 120, "Passport Photo"),
-    "print_sheet": (10, 120, "8-in-1 Print Sheet"),
-    "doc_compress":(10, 120, "Document PDF"),
     "kagaz":       (15, 120, "Kagaz Suite"),
     # ---- v60.4: BUSINESS STUDIO (CPU-heavy file generation) ----
     "biz_invoice":     (12, 120, "Invoice / Bill"),
@@ -487,7 +464,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -605,22 +582,14 @@ PREMIUM_TOOLS = {
     # ---- v51: baaki saare tools bhi premium (earning model) ----
     "terabox",             # ⚡ TERABOX / CLOUD DOWNLOADER
     "vnum",                # 🌐 VIRTUAL NUMBERS (OTP)
-    "pp_stamp",            # 📸 PASSPORT PHOTO (NAME/DOP)
-    "print_sheet",         # 🖨️ 8-IN-1 PRINT SHEET
-    "doc_compress",        # 📄 DOCUMENT PDF COMPRESS
-    "sarkari",             # 🏛️ SARKARI SEVA PORTALS
     "ifsc",                # 🏦 IFSC INFO
     "osint_whois",         # 🌐 WEBSITE OWNER X-RAY (v70)
-    "uhunt",               # 🕵️ USERNAME HUNTER (v71.8)
     "vahan",               # 🚗 RC + CHALLAN (v71)
     "pin",                 # 📮 PINCODE INFO
-    "bgmi",                # 🎮 BGMI UID
-    "ffuid",               # 🔥 FF UID
     "tempmail",            # 📧 TEMP MAIL
     "qr",                  # 📷 QR CODE (text/wifi/vcard)
     "short",               # 🔗 URL SHORT
     "linkcheck",           # 🔍 LINK CHECK
-    "appfind",             # 📦 APP FINDER
     # ---- v60.4: 💼 BUSINESS STUDIO (10 earning tools) ----
     "biz_invoice",         # 🧾 Invoice / GST Bill
     "biz_resume",          # 💼 Resume / CV
@@ -648,22 +617,14 @@ PREMIUM_TOOL_NAMES = {
     "imei": "📲 IMEI / Phone Details",
     "terabox": "⚡ Terabox / Cloud Downloader",
     "vnum": "🌐 Virtual Numbers (OTP)",
-    "pp_stamp": "📸 Passport Photo (Name/DOP)",
-    "print_sheet": "🖨️ 8-in-1 Print Sheet",
-    "doc_compress": "📄 Document PDF Compress",
-    "sarkari": "🏛️ Sarkari Seva Portals",
     "ifsc": "🏦 IFSC Info",
     "osint_whois": "🌐 Website Owner X-Ray",
-    "uhunt": "🕵️ Username Hunter",
     "vahan": "🚗 RC + Challan (Gaadi X-Ray)",
     "pin": "📮 Pincode Info",
-    "bgmi": "🎮 BGMI UID",
-    "ffuid": "🔥 FF UID",
     "tempmail": "📧 Temp Mail",
     "qr": "📷 QR Code",
     "short": "🔗 URL Short",
     "linkcheck": "🔍 Link Check",
-    "appfind": "📦 App Finder",
     # ---- v60.4: 💼 BUSINESS STUDIO ----
     "biz_invoice": "🧾 Invoice / GST Bill",
     "biz_resume": "💼 Resume / CV Maker",
@@ -784,7 +745,7 @@ VIP_WALL_TEXT = (
     "💎 <b>VIP lene par aapko milega:</b>\n"
     "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
     "• 📱 Number Info + 📲 IMEI full spec-sheet + 🏦 IFSC Info\n"
-    "• 🔄 Channel Cloner (auto-forward) + 📡 TG Public Info + 🔥 FF/BGMI\n"
+    "• 🔄 Channel Cloner (auto-forward) + 📡 TG Public Info\n"
     "• 🏦 Bank PDF → Excel · 📜 Kagaz Suite · ⚡ Media Studio\n"
     "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
     "• ♾️ <b>Sab kuch unlimited</b> — koi credit, koi limit nahi\n"
@@ -1503,31 +1464,21 @@ async def send_tnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
 KB_BTNS = [
     [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
-    # v66.1: ❌ "VIDEO DOWNLOADER" tool POORI TARAH HATA DIYA (user ka order).
-    #         Ab sirf 27 alag-alag tools hain (INSTA DL, YOUTUBE DL, ...).
-    [f"🔄 {to_bold('CHANNEL CLONER')}"],
-    [f"📸 {to_bold('PASSPORT PHOTO (NAME/DOP)')}", f"🖨️ {to_bold('8-IN-1 PRINT SHEET')}"],
-    [f"📄 {to_bold('DOCUMENT PDF COMPRESS')}", f"🏛️ {to_bold('SARKARI SEVA PORTALS')}"],
-    [f"📱 {to_bold('NUMBER INFO')}", f"🏦 {to_bold('IFSC INFO')}"],
-    [f"👪 {to_bold('FAMILY INFO')}"],
-    [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}"],   # v70: domain ka public record
-    [f"🕵️ {to_bold('USERNAME HUNTER')}"],       # v71.8: sirf public profiles (koi login nahi)
-    [f"🚗 {to_bold('RC + CHALLAN')}"],          # v71: gaadi ka record
-    [f"📮 {to_bold('PINCODE INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
-    [f"📞 {to_bold('TEMP NUMBER')}"],   # v74.4: `TEMP MAIL (NUMBER)` confusing naam tha
-
-    [f"💬 {to_bold('CHAT X-RAY')}"],           # v73.0: apni WhatsApp chat ki fun report (file bhejo)
-    [f"📋 {to_bold('RESULT CHECK')}"],         # v73.1: BSEB result — roll code + roll number se
-    [f"🎮 {to_bold('BGMI UID')}", f"🔥 {to_bold('FF UID')}"],
-    [f"📷 {to_bold('QR CODE')}", f"📦 {to_bold('APP FINDER')}"],
-    [f"📷 {to_bold('QR SCANNER')}"],   # v86: QR wali photo bhejo → text/link pao
-    [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
+    # v101: ❌ 8 tools user ke order par POORE hataaye (PASSPORT PHOTO, 8-IN-1 PRINT
+    #     SHEET, DOCUMENT PDF COMPRESS, SARKARI SEVA PORTALS, USERNAME HUNTER,
+    #     BGMI UID, FF UID, APP FINDER) — code + buttons + prompts sab gaye.
+    # v101: 📐 saari rows ab 2-2 buttons wali (horizontal, ek manner me) —
+    #     adhuri rows jod di.
+    [f"🔄 {to_bold('CHANNEL CLONER')}", f"🚗 {to_bold('RC + CHALLAN')}"],
+    [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}", f"📮 {to_bold('PINCODE INFO')}"],
+    [f"🏦 {to_bold('IFSC INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
+    [f"📞 {to_bold('TEMP NUMBER')}", f"💬 {to_bold('CHAT X-RAY')}"],
+    [f"📋 {to_bold('RESULT CHECK')}", f"📷 {to_bold('QR CODE')}"],
+    [f"📷 {to_bold('QR SCANNER')}", f"🔗 {to_bold('URL SHORT')}"],
+    [f"🔍 {to_bold('LINK CHECK')}", f"📲 {to_bold('IMEI / PHONE DETAILS')}"],
     [f"🏦 {to_bold('BANK STATEMENT → EXCEL')}", f"📜 {to_bold('SARKARI KAGAZ SUITE')}"],
     [f"💼 {to_bold('BUSINESS STUDIO')}", f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}"],
-    [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💎 {to_bold('VIP PREMIUM')}"],
-    [f"👤 {to_bold('MY ACCOUNT')}"],
-    # v79: 🎁 REFER & EARN · 📤 BULK MODE (EXCEL) · ❓ HELP / TUTORIAL — teeno
-    # tools user ki hiring par hataaye gaye (menu se). SUPPORT row aakhri hai.
+    [f"💎 {to_bold('VIP PREMIUM')}", f"👤 {to_bold('MY ACCOUNT')}"],
     [f"💬 {to_bold('SUPPORT / MADAD')}"],
 ]
 
@@ -1576,14 +1527,6 @@ BTN_MODE_MAP = {
     # purane Instagram labels -> seedha INSTA tool (service apni jagah zinda)
     "INSTA DOWNLOADER": "dl_instagram",
     "INSTAGRAM DOWNLOADER": "dl_instagram",
-    "PASSPORT PHOTO (NAME/DOP)": "pp_stamp",
-    "8-IN-1 PRINT SHEET": "print_sheet",
-    "DOCUMENT PDF COMPRESS": "doc_compress",
-    "DOCUMENT PDF COMPRESSOR": "doc_compress",
-    "BGMI UID": "bgmi",
-    "BGMI": "bgmi",
-    "FF UID": "ffuid",
-    "FREE FIRE UID": "ffuid",
     "TEMP MAIL": "tempmail",
     "TEMPMAIL": "tempmail",
     "TEMP NUMBER": "tnum",                 # v74.4: naya naam
@@ -1610,7 +1553,6 @@ BTN_MODE_MAP = {
     "QR (LINK / TEXT)": "qr",
     "QR (WIFI SHARE)": "qr_wifi",
     "QR (CONTACT CARD)": "qr_vcard",
-    "SARKARI SEVA PORTALS": "sarkari",
     "IMEI / PHONE DETAILS": "imei",
     "IMEI INFO": "imei",
     "IMEI LOOKUP": "imei",
@@ -1622,8 +1564,6 @@ BTN_MODE_MAP = {
     "WEBSITE OWNER": "osint_whois",
     "WHOIS": "osint_whois",
     "DOMAIN OWNER": "osint_whois",
-    "USERNAME HUNTER": "uhunt",
-    "USERNAME HUNTER (PUBLIC)": "uhunt",
     "RC + CHALLAN": "vahan",
     "RC CHALLAN": "vahan",
     "GAADI X-RAY": "vahan",
@@ -1637,7 +1577,6 @@ BTN_MODE_MAP = {
     "SCAN QR": "qr_scan",
     "URL SHORT": "short",
     "LINK CHECK": "linkcheck",
-    "APP FINDER": "appfind",
     "BANK STATEMENT → EXCEL": "bankpdf",
     "BANK STATEMENT TO EXCEL": "bankpdf",
     "BANK STATEMENT - EXCEL": "bankpdf",
@@ -1776,7 +1715,9 @@ try:
     # v68: 🥇 PREMIUM/SABSE ZAROORI TOOLS SABSE UPAR (user ka order) —
     # analysis: downloader + number info + terabox sabse zyada bikte hain,
     # isliye wo pehli rows me. Purane tools neeche, kuch nahi hata.
-    KB_BTNS[0:0] = _dl_rows
+    KB_BTNS[0:0] = [[f"📱 {to_bold('NUMBER INFO')}", f"👪 {to_bold('FAMILY INFO')}"]] + _dl_rows
+    # v101: 🥇 NUMBER INFO + FAMILY INFO sabse pehli row (user ka order —
+    #     users sabse pehle ye info tools dekhein).
     # v67: keyboard ab 16 rows — aakhri do rows (REFER/ACCOUNT, HELP/SUPPORT)
     #      ko 2 buttons wali rows me rakho (sundar lage)
 except Exception as _dke:                                        # noqa: BLE001
@@ -1837,27 +1778,6 @@ PROMPT_DATA = {
         "foot": 'HD · bina watermark · 30 second me',
     },
     # ---------------------------------------------------------- PHOTO TOOLS
-    "pp_stamp": {
-        "head": "📸 EXAM PASSPORT PHOTO STUDIO",
-        "ask": "Apni front-facing photo bhejein (chehra saaf + roshni achi ho):",
-        "ex": [('(photo bhejein) — saaf selfie, chehra saamne', 'photo + naam + date of photo')],
-        "tip": 'Ek hi baar me 3 cheez bhejo: photo, naam, DOP (jaise 12-05-2026)',
-        "foot": 'Exam form ke liye 20-50 KB ki ready photo',
-    },
-    "print_sheet": {
-        "head": "🖨️ 8-IN-1 PRINT SHEET MAKER",
-        "ask": "Ek photo bhejein — 8-in-1 print sheet ban jayegi:",
-        "ex": [('(photo bhejein) — passport size ban jayegi', '4x6 inch wali photo')],
-        "tip": 'Ek normal photo bhejo — bot 8 copies ek A4 sheet par laga dega',
-        "foot": 'Ek print me 8 photo · paper bachao',
-    },
-    "doc_compress": {
-        "head": "📄 DOCUMENT CAMERA → PDF",
-        "ask": "Document ki photo bhejein (PDF ban jayegi):",
-        "ex": [('(file bhejein) — marksheet / Aadhaar ka PDF ya photo', 'PDF ya photo dono chalega')],
-        "tip": 'Bada PDF ho to bhi chinta nahi — bot chhota kar dega',
-        "foot": 'Form upload ke liye perfect size',
-    },
     # ------------------------------------------------------------- FINANCE
     "bankpdf": {
         "head": "🏦 BANK STATEMENT PDF → EXCEL",
@@ -1887,28 +1807,7 @@ PROMPT_DATA = {
         "tip": 'Poora link bhejo ya sirf website ka naam — dono chalega',
         "foot": 'Site purani hai ya nayi — paisa dene se pehle pata karo',
     },
-    "uhunt": {
-        "head": "🕵️ USERNAME HUNTER (PUBLIC PROFILES)",
-        "ask": "Username bhejein (jo log sites par rakhte hain):",
-        "ex": [('rahul_99', 'jaise instagram / github par hota hai')],
-        "tip": '',
-        "foot": '',
-    },
     # ------------------------------------------------------------- GAMING
-    "bgmi": {
-        "head": "🎮 BGMI PLAYER CARD ENGINE",
-        "ask": "BGMI UID bhejein (8-10 digit):",
-        "ex": [('5123456789', 'player ka UID (8-10 digit)')],
-        "tip": 'UID game ke profile me neeche likha hota hai',
-        "foot": 'Naam · level · region sab ek card me',
-    },
-    "ffuid": {
-        "head": "🔥 FREE FIRE UID ENGINE",
-        "ask": "Free Fire UID bhejein (8-10 digit):",
-        "ex": [('7860944073', 'player ka UID (8-10 digit)')],
-        "tip": 'UID ke saath BR / IND likhne se region bhi mil jata hai',
-        "foot": 'Nickname · level · region',
-    },
     # -------------------------------------------------------- PHONE / OSINT
     "imei": {
         "head": "🔐 IMEI V2 & GSMARENA SPECS ENGINE",
@@ -1930,13 +1829,6 @@ PROMPT_DATA = {
         "ex": [('401635555849', '12-digit Aadhaar number')],
         "tip": 'Aadhaar hamesha masked rehta hai (XXXX-XXXX-1234) — poora kabhi nahi dikhta',
         "foot": 'Ration card · family members · eKYC',
-    },
-    "appfind": {
-        "head": "📦 APP FINDER · PLAY · APPSTORE · F-DROID",
-        "ask": "App ka naam ya package code bhejein:",
-        "ex": [('whatsapp', 'app ka naam')],
-        "tip": 'App ka naam ya package (com.whatsapp) — dono chalega',
-        "foot": 'Official link · size · version',
     },
     # ------------------------------------------------------------ LOCATION
     "bsebr": {
@@ -2190,7 +2082,6 @@ TUTORIAL_TEXT = (
     "• 🔄 CHANNEL CLONER → Source + Target set karo, FULL AUTO ON karo, posts khud copy honge\n"
     "\n"
     "📄 <b>Document:</b>\n"
-    "• 📸 PASSPORT PHOTO → photo + naam + date bhejo → print ready photo\n"
     "• 🖨️ 8-IN-1 SHEET → ek photo bhejo → 8 copies ki sheet\n"
     "• 📄 DOC PDF → marksheet ki photo bhejo → chhoti size ka PDF\n"
     "• 🏦 BANK PDF → EXCEL → statement PDF bhejo → Excel table\n"
@@ -2203,7 +2094,6 @@ TUTORIAL_TEXT = (
     "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
     "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
     "• 🏦 IFSC INFO → IFSC code bhejo → bank + branch + MICR mil jaata hai\n"
-    "• 🎮 BGMI UID / 🔥 FF UID → dost ka game UID bhejo → naam, level, rank, stats (public)\n"
     "• 📧 TEMP MAIL → NEW bhejo → ek-baar ka email + inbox (OTP/signup ke liye)\n"
     "• 📞 TEMP MAIL (NUMBER) → FREE temp number + OTP (har user ko alag number, 10+ desh)\n"
     "\n"
@@ -2936,7 +2826,7 @@ def _startup_selfcheck() -> bool:
     _bad = []
     for _mn in ("api_hub", "channel_cloner", "desi_tools", "general_tools", "gaming_tools",
                 "imei_lookup", "media_downloader", "mynum_api", "osint_hub",
-                "osint_tools", "payguard", "render_health", "sarkari_hub", "temp_mail",
+                "osint_tools", "payguard", "render_health", "temp_mail",
                 "toolkit_extras", "tutorial_hub", "vip_payment"):
         try:
             _il.import_module(f"modules.{_mn}")
@@ -3635,6 +3525,95 @@ async def _st_edit(st, update, text: str, *, reply_markup=None, parse_mode: str 
         except Exception:                                        # noqa: BLE001
             pass
         return False
+
+
+# ---------------- v101: ⏳ WAIT-FEW-SECONDS + TYPING PUMP ----------------
+# User ka order: tool me input bhejte hi sirf "Wait few seconds" dikhao,
+# phir result. Beech me bot "typing..." dikhata rahe (active lage) — jab tak
+# result na bheja jaaye. Typing pump khud ruk jaata hai jab bot koi bhi
+# message send/edit/delete karta hai (niche wala Bot-wrapper dekhता hai).
+WAIT_NOTE = "⏳ <b>Wait few seconds...</b>"
+_TYPING_STOP: dict = {}
+
+
+def _arm_typing(bot, chat_id: int):
+    """Chal raha typing pump 4.3s ke tick par 'typing...' bhejta rehta hai."""
+    try:
+        if chat_id in _TYPING_STOP:
+            return  # already pumping
+        _TYPING_STOP[chat_id] = False
+
+        async def _pump():
+            try:
+                for _ in range(40):                      # ~3 min hard cap
+                    if _TYPING_STOP.get(chat_id, True):
+                        return
+                    await bot.send_chat_action(chat_id=chat_id, action="typing")
+                    await asyncio.sleep(4.3)
+            except Exception:                            # noqa: BLE001
+                pass
+            finally:
+                _TYPING_STOP.pop(chat_id, None)
+
+        asyncio.get_running_loop().create_task(_pump())
+    except Exception:                                    # noqa: BLE001
+        pass
+
+
+def _stop_typing(chat_id):
+    if chat_id in _TYPING_STOP:
+        _TYPING_STOP[chat_id] = True
+
+
+async def _wait_st(target):
+    """⏳ 'Wait few seconds' note bhejo + typing pump arm karo. st lauta do."""
+    m = await target.reply_text(WAIT_NOTE, parse_mode=HTML)
+    try:
+        _stop_typing(target.chat_id)                     # purana pump (agar) reset
+        _arm_typing(target.get_bot(), target.chat_id)
+    except Exception:                                    # noqa: BLE001
+        pass
+    return m
+
+
+def _wrap_bot_typing_stop():
+    """Jab bhi bot user ko message bheje/edit kare → us chat ka typing pump band."""
+    from telegram import Bot as _TGBot
+    for _nm in ("send_message", "send_photo", "send_video", "send_audio", "send_document",
+                "send_animation", "send_voice", "edit_message_text", "edit_message_caption",
+                "edit_message_media", "delete_message"):
+        if getattr(_TGBot, "_v101_wrapped", False):
+            break
+        def _mk(name):
+            _orig = getattr(_TGBot, name)
+
+            async def _w(self, *a, **k):
+                r = await _orig(self, *a, **k)
+                try:
+                    cid = k.get("chat_id")
+                    if cid is None and a:
+                        cid = a[0]
+                    if cid is not None:
+                        _stop_typing(int(cid))
+                except Exception:                        # noqa: BLE001
+                    pass
+                return r
+            return _w
+        _nf = _mk(_nm)
+        try:  # v101: HTML-net (v93) ka marker zinda rakho — tests dhundhte hain
+            if getattr(_TGBot, _nm, None) is not None and getattr(getattr(_TGBot, _nm), "__ud_wrapped__", False):
+                _nf.__ud_wrapped__ = True
+        except Exception:                        # noqa: BLE001
+            pass
+        setattr(_TGBot, _nm, _nf)
+    try:
+        _TGBot._v101_wrapped = True
+    except Exception:                                    # noqa: BLE001
+        pass
+
+
+_wrap_bot_typing_stop()
+
 
 
 class _StatusMsg:
@@ -5150,37 +5129,6 @@ def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
     return "\n".join([_l for _l in L if _l is not None])
 
 
-def uhunt_card(res: dict) -> str:
-    """🕵️ USERNAME HUNTER ka card (v71.8) — sirf PUBLIC profiles."""
-    res = res or {}
-    un = str(res.get("username") or "")
-    found = list(res.get("found") or [])
-    unknown = list(res.get("unknown") or [])
-    nf = int(res.get("not_found") or 0)
-    ms = float(res.get("ms") or 0)
-    EM = {"dev": "💻", "social": "💬", "creative": "🎨", "music": "🎵",
-          "video": "🎬", "gaming": "🎮", "other": "🔹"}
-    L = [pcard_title("🕵️", "USERNAME HUNTER"),
-         f"🔎 <b>Username:</b> <code>{hesc(un)}</code>",
-         pcard_sep()]
-    if found:
-        L.append(f"✅ <b>Mila — {len(found)} jagah:</b>")
-        for it in found[:24]:
-            L.append(f"├ {EM.get(str(it.get('cat')), '🔹')} "
-                     f"<b>{hesc(str(it.get('site')))}</b> — "
-                     f"<code>{hesc(str(it.get('url')))}</code>")
-        L.append(pcard_sep())
-    else:
-        L.append("😕 <b>Kisi bhi site par ye username nahi mila.</b>")
-        L.append(pcard_sep())
-    _tail = f"❌ Nahi mila: <b>{nf}</b>"
-    if unknown:
-        _tail += f"  •  ⚪ Check nahi ho paya: <b>{len(unknown)}</b>"
-    L.append(_tail)
-    L.append(f"🕒 {int(res.get('checked') or 0)} sites · {ms / 1000:.1f}s")
-    L.append("")
-    L.append(BRAND_LINK)
-    return "\n".join(L)
 
 
 def whois_card(res: dict) -> str:
@@ -5903,13 +5851,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Sarkari & Student Portals
-    if data == "sarkari_citizen":
-        await q.message.edit_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
-        return
 
-    if data == "sarkari_state_list":
-        await q.message.edit_text(STATE_PORTALS_TEXT, reply_markup=get_state_portals_kb(), parse_mode=HTML)
-        return
 
     # VIP Buy Handlers
     if data.startswith("buy_plan_"):
@@ -6956,7 +6898,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not txt:
             await q.answer("Pehle text bhejo — Media Studio → Text → Hindi Voice", show_alert=True)
             return
-        st = await q.message.reply_text("🗣️ <b>Hindi awaaz bana raha hoon...</b>\n<i>(5-15 seconds)</i>", parse_mode=HTML)
+        st = await _wait_st(q.message)
         res = await desi.hindi_tts(txt, vkey)
         if not res.get("ok"):
             await st.edit_text(fail_msg("HINDI VOICE FAILED", res.get("error", "")), parse_mode=HTML)
@@ -6983,8 +6925,7 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 "🔥 FF UID me UID bhejo (e.g. <code>7860944073</code>).",
                 parse_mode=HTML)
             return
-        st = await q.message.reply_text(
-            "️ Image load ho rahi hai..." + (" (outfit badi hai, ~3MB)" if kind == "outfit" else ""))
+        st = await _wait_st(q.message)
         try:
             await q.message.reply_photo(
                 photo=url,
@@ -7012,45 +6953,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "qr_text":
         context.user_data["mode"] = "qr"
         await q.message.reply_text(tool_prompt("qr"), reply_markup=tool_support_kb("qr"), parse_mode=HTML)
-        return
-
-    # Document compress: size + grayscale + GO
-    if data in ("doc_kb_100", "doc_kb_200", "doc_kb_300", "doc_kb_500"):
-        context.user_data["doc_kb"] = int(data.split("_")[-1])
-        await q.answer(f"Size set: {context.user_data['doc_kb']} KB ✅")
-        return
-    if data == "doc_gray":
-        context.user_data["doc_gray"] = not context.user_data.get("doc_gray", False)
-        state = "ON ✅" if context.user_data["doc_gray"] else "OFF"
-        await q.answer(f"Black & White: {state}", show_alert=True)
-        return
-    if data == "doc_go":
-        pages = context.user_data.get("doc_pages", [])
-        if not pages:
-            await q.answer("Pehle photo bhejo!", show_alert=True)
-            return
-        kb_target = context.user_data.get("doc_kb", 300)
-        gray = context.user_data.get("doc_gray", False)
-        await q.answer("Making the PDF...")
-        try:
-            pdf_buf = compress_document_pdf(pages, kb_target, grayscale=gray)
-            pdf_buf.name = f"Document_{kb_target}KB.pdf"
-            size_kb = len(pdf_buf.getvalue()) / 1024
-            await q.message.reply_document(
-                document=pdf_buf,
-                caption=(spend_credit_msg(uid, "doc_compress") + "\n" +
-                         f"📄 <b>{to_bold('COMPRESSED PDF READY')}</b>\n"
-                         f"• {len(pages)} page • {size_kb:.0f} KB • {kb_target} KB limit me ✅\n"
-                         f"• Mode: {'⚫ Black & White' if gray else '🌈 Colour'}\n\n"
-                         "Ye file government portal par upload kar sakte ho."),
-                parse_mode=HTML)
-        except Exception as e:
-            await q.message.reply_text(f"❌ Could not make the PDF: <code>{hesc(str(e))}</code>", parse_mode=HTML)
-        context.user_data.pop("doc_pages", None)
-        context.user_data.pop("doc_kb", None)
-        context.user_data.pop("doc_gray", None)
-        context.user_data.pop("mode", None)
-        add_use(uid)
         return
 
     # v49.15: purane messages ke bache buttons (numrec/nsafe) - chup-chaap band, koi card nahi
@@ -7218,7 +7120,7 @@ async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_o
     tries = context.user_data.get("pay_shot_tries", 0)
     user = update.effective_user
 
-    st = await update.message.reply_text("🔍 Checking the screenshot...")
+    st = await _wait_st(update.message)
     try:
         tg_file = await photo_obj.get_file()
         buf = io.BytesIO()
@@ -7703,15 +7605,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # 4. Sarkari Portals (v51: premium — 1 credit per use)
-        if action == "sarkari":
-            _u_s = get_user(uid, user.first_name)
-            if not can_use_premium_tool(_u_s, uid):
-                await update.message.reply_text(get_credits_over_text("sarkari"),
-                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                return
-            note = spend_credit_msg(uid, "sarkari")
-            await update.message.reply_text(note + "\n" + SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
-            return
 
         # 6b. QR Code (4 types) (v51: premium — 1 credit per QR)
         if action == "qr":
@@ -7928,8 +7821,8 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # ---------- v50: CENTRAL RATE-LIMIT GATE ----------
     # Ek hi jagah se SAARE tools par limit lagti hai — har tool me alag code
     # likhne ki zaroorat nahi. Admin ko bypass; VIP ko bhi bypass.
-    # Sub-steps (jaise "pp_stamp_text") apne parent tool ("pp_stamp") ki limit
-    # share karte hain, taaki multi-step tool ek hi use me 5 baar na gina jaye.
+    # Sub-steps apne parent tool ki limit share karte hain, taaki multi-step
+    # tool ek hi use me 5 baar na gina jaye.
     if mode and not is_admin(uid):
         _mstr = str(mode)
         _rl_key = _mstr if _mstr in TOOL_RATE_LIMITS else None
@@ -8302,7 +8195,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "terabox":
-        st = await update.message.reply_text("⚡ Resolving the cloud link (6 engines)...")
+        st = await _wait_st(update.message)
         try:
             # v82: ye pehle SYNC call tha — 6 engines ke timeouts me poora bot ruk jaata tha.
             #      Ab thread me chalta hai + hard timeout; error ho to bhi user ko saaf jawab.
@@ -8316,6 +8209,47 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if res.get("ok"):
             files = res.get("files") or []
+            # v101: 📦 FILE-DELIVERY — single file ≤46MB ho to bot khud download
+            # karke FILE bhejta hai (Telegram bot limit 50MB). Badi file ya fetch
+            # fail ho to purana link-card chalta hai — user kabhi khaali nahi jaata.
+            try:
+                _f0 = files[0] if len(files) == 1 else None
+                if _f0:
+                    _sb = int(_f0.get("size_bytes") or 0)
+                    _dl = str(_f0.get("dlink") or "")
+                    if _dl and 0 < _sb <= 46 * 1048576:
+                        await _st_edit(st, update, "📦 <b>File bhej raha hoon...</b>", parse_mode=HTML)
+                        _b, _derr = await with_tool_timeout(
+                            asyncio.to_thread(fetch_bytes, _dl, 46), 200, "terabox")
+                        if _b:
+                            import io as _io_t
+                            _nm = str(_f0.get("name") or "file.bin")
+                            _ext = _nm.rsplit(".", 1)[-1].lower() if "." in _nm else ""
+                            _buf = _io_t.BytesIO(_b)
+                            _buf.name = _nm[:60]
+                            _cap = (spend_credit_msg(uid, "terabox") + "\n"
+                                    + f"⚡ <b>{to_bold('TERABOX — FILE AA GAYI')}</b>\n"
+                                    + f"• 📁 <code>{hesc(_nm[:70])}</code>\n"
+                                    + f"• 📊 <b>{_sb / 1048576:.1f} MB</b> — direct file, koi link nahi!")
+                            if _ext in ("mp4", "mov", "webm", "mkv", "avi", "m4v"):
+                                await update.message.reply_video(video=_buf, caption=_cap,
+                                                                  supports_streaming=True, parse_mode=HTML)
+                            elif _ext in ("mp3", "m4a", "aac", "ogg", "wav", "flac"):
+                                await update.message.reply_audio(audio=_buf, caption=_cap, parse_mode=HTML)
+                            elif _ext in ("jpg", "jpeg", "png", "gif", "webp", "bmp"):
+                                await update.message.reply_photo(photo=_buf, caption=_cap, parse_mode=HTML)
+                            else:
+                                await update.message.reply_document(document=_buf, caption=_cap, parse_mode=HTML)
+                            try:
+                                await st.delete()
+                            except Exception:                       # noqa: BLE001
+                                pass
+                            add_use(uid)
+                            return
+                        if _derr:
+                            log.warning("v101 terabox delivery: %s", str(_derr)[:120])
+            except Exception as _fde:                               # noqa: BLE001
+                log.warning("v101 terabox delivery error: %s", str(_fde)[:120])
             if len(files) > 1:
                 lines = []
                 for idx, f in enumerate(files[:12], 1):
@@ -8447,11 +8381,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         # v65: TURANT jawab (1 second me) — user ko pata chale bot kaam kar raha hai
         _stop_ping(context)
-        st = await update.message.reply_text(
-            f"⚡ <b>{hesc(plat)}</b> — link mil gaya!\n"
-            f"🔄 Download shuru kar diya… <i>(HD, bina watermark)</i>\n"
-            f"⏱️ <i>Zyada se zyada <b>30 second</b> — warna main direct link de dunga.</i>",
-            parse_mode=HTML)
+        st = await _wait_st(update.message)
         # v65: progress pinger — har 5 second "ho raha hai" (user ko lage na ki bot mar gaya)
         _ping_stop = asyncio.Event()
         _ping_task = asyncio.create_task(_progress_pinger(
@@ -8788,136 +8718,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=HTML)
         return
 
-    if mode == "bgmi":
-        _t0 = time.perf_counter()
-        res = await asyncio.to_thread(bgmi_player_info, raw_text)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if res.get("ok"):
-            st = res.get("stats") or {}
-            pr = res.get("profile") or {}
-            tel_note("bgmi", True, _ms, credit=True)
-            await _reply_nonempty(update.message, spend_credit_msg(uid, "bgmi") + "\n" +
-                pcard_title("🎮", "BGMI PLAYER CARD") + "\n"
-                f"🎯 <b>{hesc(str(pr.get('name') or '—'))}</b>\n"
-                + pcard_sep() + "\n"
-                f"• <b>UID:</b> <code>{hesc(str(res.get('uid') or ''))}</code>\n"
-                f"• <b>Level:</b> {hesc(str(pr.get('level', '—')))}\n"
-                f"• <b>Rank Points:</b> {hesc(str(pr.get('rankPoints', '—')))}\n"
-                f"• <b>Games:</b> {hesc(str(st.get('matches', '—')))} | "
-                f"<b>Wins:</b> {hesc(str(st.get('wins', '—')))}\n"
-                f"• <b>Kills:</b> {hesc(str(st.get('totalKills', '—')))} | "
-                f"<b>Deaths:</b> {hesc(str(st.get('totalDeaths', '—')))}\n"
-                f"• <b>K/D:</b> {hesc(str(st.get('killsPerMatch', '—')))}\n"
-                f"• <b>Top 10:</b> {hesc(str(st.get('top10Finishes', '—')))} | "
-                f"<b>Longest Kill:</b> {hesc(str(st.get('longestKill', '—')))}m\n"
-                + (f"• <b>Title:</b> {hesc(str(pr.get('title')))[:40]}\n" if pr.get("title") else "")
-                + pcard_foot(ms=_ms,
-                             source=f"<code>{hesc(str(res.get('source') or 'public'))}</code>",
-                             ),
-                parse_mode=HTML)
-        else:
-            # ⚠️ v53.0: `service_busy` = SERVICE ki galti (BGMI ke public stats
-            # servers abhi band hain), user ki nahi. Is case me **credit NAHI
-            # katta** — pehle kat jata tha aur user ko kuch milta hi nahi tha.
-            _soft = bool(res.get("service_busy"))
-            tel_note("bgmi", False, _ms, soft=_soft,
-                     error=str(res.get("error") or "")[:120])
-            if _soft:
-                await update.message.reply_text(str(res.get("error") or ""), parse_mode=HTML)
-            else:
-                # v57: safe_html_err — pehle hesc() tha isliye engine ka <b> tag
-                # literal "&lt;b&gt;" ban ke dikhta tha (asli bug).
-                await update.message.reply_text(
-                    f"❌ {safe_html_err(res.get('error'))}",
-                                                parse_mode=HTML)
-        add_use(uid)
-        return
 
-    if mode == "ffuid":
-        _t0 = time.perf_counter()
-        # v53.0: region parsing ab engine ke andar hoti hai (REGION_ALIASES me
-        # "india"→IND, "RU"→CIS jaise aliases bhi). Purana regex sirf 2-4 letter
-        # codes pakadta tha, isliye "1633864660 india" fail ho jata tha.
-        res = await asyncio.to_thread(ff_player_info, raw_text, "")
-        _ms = (time.perf_counter() - _t0) * 1000
-        if res.get("ok"):
-            tel_note("ffuid", True, _ms, credit=True)
-            lines = [
-                f"🔥 <b>{to_bold('FREE FIRE PLAYER CARD')}</b>\n"
-                f"🎯 <b>{hesc(str(res.get('nickname') or '—'))}</b>\n"
-                "──────────────────────\n"
-                f"• <b>UID:</b> <code>{hesc(str(res.get('uid') or ''))}</code>",
-                f"• <b>Level:</b> {hesc(str(res.get('level', '—')))}"
-                + (f" | <b>EXP:</b> {hesc(str(res.get('exp')))}" if res.get("exp") else ""),
-                f"• <b>Region:</b> {hesc(str(res.get('region', '—')))}"
-                + (f" | <b>Prime:</b> L{hesc(str(res.get('prime')))}" if res.get("prime") else ""),
-                f"• <b>BR Rank:</b> {hesc(str(res.get('rank_br')))} ({hesc(str(res.get('rp_br')))} RP)",
-            ]
-            if res.get("rp_cs") not in (None, "—", ""):
-                lines.append(f"• <b>CS Rank:</b> {hesc(str(res.get('rank_cs')))} "
-                             f"({hesc(str(res.get('rp_cs')))})")
-            if res.get("max_rank") not in (None, "—", ""):
-                lines.append(f"• <b>Max Rank:</b> {hesc(str(res.get('max_rank')))}")
-            if res.get("clan"):
-                lines.append(f"• <b>Clan/Guild:</b> {hesc(str(res['clan'])[:40])}")
-            if res.get("liked") not in (None, "—", ""):
-                lines.append(f"• <b>Likes:</b> {hesc(str(res.get('liked')))}")
-            if res.get("last_login") not in (None, "—", ""):
-                lines.append(f"• <b>Last Login:</b> {hesc(str(res.get('last_login')))}")
-            if res.get("created") not in (None, "—", ""):
-                lines.append(f"• <b>Account Created:</b> {hesc(str(res.get('created')))}")
-            if res.get("bio"):
-                lines.append(f"• <b>Bio:</b> {hesc(str(res['bio'])[:100])}")
-            lines += [pcard_foot(ms=_ms,
-                                 source="<code>Garena public profile</code>",
-                                 )]
-            # ── v54.0: IMAGES ─────────────────────────────────────
-            # Official profile banner (avatar + naam + level) photo ke roop me
-            # jata hai — pehle sirf text card milta tha. Character portrait aur
-            # outfit breakdown on-demand buttons par (outfit ~2.7MB hai, har
-            # query par download wasteful).
-            _pc = res.get("profile_card") or ""
-            _char = res.get("character_image") or ""
-            _outf = res.get("outfit_image") or ""
-            _cap = spend_credit_msg(uid, "ffuid") + "\n" + "\n".join(lines)
-            if res.get("character_name"):
-                _cap = _cap.replace("──────────────────────\n<i>Public in-game",
-                                    f"• <b>Character:</b> {hesc(str(res['character_name']))}\n"
-                                    "──────────────────────\n<i>Public in-game", 1)
-            _btns = []
-            if _char:
-                _btns.append([InlineKeyboardButton(
-                    "🧍 Character photo", callback_data="ffimg:char")])
-            if _outf:
-                _btns.append([InlineKeyboardButton(
-                    "👕 Outfit / loadout dekhiye", callback_data="ffimg:outfit")])
-            context.user_data["ff_img"] = {"char": _char, "outfit": _outf,
-                                           "card": _pc}
-            if _pc:
-                # banner URL se photo bhejo; fail ho to gracefully text-only
-                try:
-                    await update.message.reply_photo(
-                        photo=_pc, caption=_cap, parse_mode=HTML,
-                        reply_markup=InlineKeyboardMarkup(_btns) if _btns else None)
-                except Exception as e:                       # noqa: BLE001
-                    log.debug("ff profile_card send fail: %s", str(e)[:80])
-                    await update.message.reply_text(
-                        _cap, parse_mode=HTML,
-                        reply_markup=InlineKeyboardMarkup(_btns) if _btns else None)
-            else:
-                await update.message.reply_text(
-                    _cap, parse_mode=HTML,
-                    reply_markup=InlineKeyboardMarkup(_btns) if _btns else None)
-        else:
-            _soft = bool(res.get("service_busy"))
-            tel_note("ffuid", False, _ms, soft=_soft,
-                     error=str(res.get("error") or "")[:120])
-            if _soft:
-                await update.message.reply_text(str(res.get("error") or ""), parse_mode=HTML)
-            else:
-                await update.message.reply_text(f"{res.get('error')}", parse_mode=HTML)
-        add_use(uid)
-        return
 
     if mode == "tempmail":
         # v53.0: ab **OTP auto-detect** hota hai (temp mail ka asli use-case),
@@ -9061,6 +8862,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data.pop("mode", None)
             add_use(uid)
             return
+        _wi = await _wait_st(update.message)
         ok15, imei_clean, imei_err = imei_validate(raw_text)
         # ---------- v58: DEVICE NAAM / MODEL CODE ka rasta ----------
         # Prompt me likha tha "ya direct Device Model Name / Code bhejein" par
@@ -9168,52 +8970,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if mode == "pp_stamp_text":
-        raw = context.user_data.get("raw_photo")
-        if not raw:
-            context.user_data.pop("mode", None)
-            await update.message.reply_text("⚠️ Please open 📸 PASSPORT PHOTO from the menu and send a photo first.",
-                                            parse_mode=HTML)
-            return
-        txt = re.sub(r"\s+", " ", (raw_text or "")).strip()
-        m_d = re.search(r"(\d{1,2})[\-/. ](\d{1,2})[\-/. ](\d{4})", txt)
-        if m_d:
-            name = txt[:m_d.start()].strip(" -.,")
-            dop = f"{int(m_d.group(1)):02d}-{int(m_d.group(2)):02d}-{m_d.group(3)}"
-        else:
-            name, dop = txt, date.today().strftime("%d-%m-%Y")
-        name = re.sub(r"[^A-Za-z .'\-]", "", name).strip()
-        if len(name) < 2:
-            await update.message.reply_text(
-                "✍️ <b>Name samajh nahi aaya.</b>\nSend it like this: <code>RAHUL SHARMA 30-09-2026</code>",
-                parse_mode=HTML)
-            return
-        if not m_d:
-            await update.message.reply_text(
-                f"⚠️ <b>Date nahi mili</b> — maine aaj ki date lagayi: <b>{dop}</b>\n"
-                f"<i>Agar doosri date chahiye to dobara bhejo:</i> <code>{name.upper()} 01-01-2026</code>",
-                parse_mode=HTML)
-        wait = await update.message.reply_text("🎨 Making the photo… (5-10 seconds)")
-        try:
-            stamped, sz = await asyncio.to_thread(make_stamped_passport, raw, name.upper(), dop)
-        except Exception as e:
-            await wait.edit_text(fail_msg("PHOTO FAILED", clean_err(e)), parse_mode=HTML)
-            return
-        try:
-            await wait.delete()
-        except Exception:
-            pass
-        await update.message.reply_photo(
-            photo=stamped,
-            caption=(spend_credit_msg(uid, "pp_stamp") + "\n" +
-                     f"📸 <b>{to_bold('OFFICIAL GOVT EXAM PHOTO READY')}</b>\n"
-                     f"• <b>Name:</b> {hesc(name.upper())}\n• <b>DOP:</b> {hesc(dop)}\n"
-                     f"• <b>Size:</b> {sz} KB (20-50KB ✅)"),
-            parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        context.user_data.pop("raw_photo", None)
-        add_use(uid)
-        return
 
     if mode == "numinfo":
         _u = get_user(uid, update.effective_user.first_name)
@@ -9224,6 +8980,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         # v57: offline validation turant (network nahi), phir provider + hub PARALLEL.
         # Pehle ye dono serial chalte the — user ko dono ka time jod kar lagta tha.
+        _wn = await _wait_st(update.message)
         res = lookup_phone_info(raw_text)
         if not res.get("ok"):
             tel_note("numinfo", False, 0, error=str(res.get("error"))[:90])
@@ -9305,6 +9062,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
+        _wfi = await _wait_st(update.message)
         _t0fi = time.perf_counter()
         try:
             _fres = await asyncio.wait_for(
@@ -9337,6 +9095,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
+        _wv = await _wait_st(update.message)
         _t0v = time.perf_counter()
         _off = await asyncio.to_thread(vahan_offline, raw_text)
         _vres = {}
@@ -9373,6 +9132,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
             return
+        _ww = await _wait_st(update.message)
         _t0w = time.perf_counter()
         w_res = await asyncio.to_thread(lookup_whois, raw_text)
         _msw = (time.perf_counter() - _t0w) * 1000
@@ -9390,36 +9150,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if mode == "uhunt":
-        # v71.8: 🕵️ USERNAME HUNTER — sirf PUBLIC profiles (koi login/OTP/session nahi)
-        _u_h = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u_h, uid):
-            await update.message.reply_text(get_credits_over_text("uhunt"),
-                                            reply_markup=get_limit_exceeded_kb(),
-                                            parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        _t0h = time.perf_counter()
-        _h_res = {}
-        try:
-            _h_res = await asyncio.wait_for(asyncio.to_thread(hunt_username, raw_text),
-                                            timeout=45)
-        except Exception:                                      # noqa: BLE001
-            _h_res = {}
-        _msh = (time.perf_counter() - _t0h) * 1000
-        if not _h_res.get("ok"):
-            tel_note("uhunt", False, _msh, error="bad username")
-            await update.message.reply_text(
-                "❌ " + str(_h_res.get("error") or "Kuch nahi mila.") + "\n\n"
-                "💡 <b>Example:</b> <code>rahul_99</code>",
-                parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        _h_res["ms"] = _h_res.get("ms") or _msh
-        tel_note("uhunt", True, _msh, credit=True)
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "uhunt") + "\n" + uhunt_card(_h_res), parse_mode=HTML)
-        add_use(uid)
-        return
 
     # v75.2: list mili (paste ya file) -> poora flow ek hi jagah
     if mode == "bulk_wait":
@@ -9502,7 +9232,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await update.message.reply_text(f"❌ {p_res.get('error')}", parse_mode=HTML)
         else:
             # Area / post-office ke naam se pincode dhoondo
-            st = await update.message.reply_text("🔍 Area ke naam se pincode dhoondh raha hoon...")
+            st = await _wait_st(update.message)
             a_res = await asyncio.to_thread(search_by_area_name, raw_text)
             if a_res.get("ok"):
                 lines = []
@@ -9684,7 +9414,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "kagaz_gst":
         g = re.sub(r"\s+", "", raw_text or "").upper()
-        st = await update.message.reply_text("🔎 <b>GSTIN check kar raha hoon…</b>", parse_mode=HTML)
+        st = await _wait_st(update.message)
         res = await asyncio.to_thread(hubapi.hub_gst, g)
         if not res.get("ok"):
             await st.edit_text(
@@ -9729,7 +9459,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if mode == "kagaz_pan":
         p10 = re.sub(r"[^A-Za-z0-9]", "", raw_text or "").upper()
-        st = await update.message.reply_text("🔎 <b>PAN check kar raha hoon…</b>", parse_mode=HTML)
+        st = await _wait_st(update.message)
         res = await asyncio.to_thread(hubapi.hub_pan, p10)
         if not res.get("ok"):
             await st.edit_text(
@@ -9993,7 +9723,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             digits = re.sub(r"[^\d]", "", raw_text)
             start = int(digits) if digits else 0
-        st = await update.message.reply_text("🎧 Making the ringtone...")
+        st = await _wait_st(update.message)
         res = await asyncio.to_thread(desi.audio_cut, raw, str(start), str(start + 30), "mp3")
         if not res.get("ok"):
             await st.edit_text(fail_msg("RINGTONE FAILED", res.get("error", "")), parse_mode=HTML)
@@ -10210,7 +9940,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "short":
-        st = await update.message.reply_text("🔗 Making short links (6 providers)...")
+        st = await _wait_st(update.message)
         # v75.1 — ⚡ SPEED FIX: pehle `asyncio.gather` tha (SLOWEST ka wait).
         #  `shorten_url` 6 provider try karta hai aur `expand_url` redirect chain
         #  follow karta hai — dono me se koi ek slow ho to user dono ka time
@@ -10254,7 +9984,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if mode == "linkcheck":
-        st = await update.message.reply_text("🔍 Running a 6-layer scan on the link...")
+        st = await _wait_st(update.message)
         _t0 = time.perf_counter()
         chk = await asyncio.to_thread(analyze_link, raw_text)
         _ms = (time.perf_counter() - _t0) * 1000
@@ -10292,100 +10022,6 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if mode == "appfind":
-        # v53.0: ab **asli verification** hoti hai — Google Play + App Store +
-        # F-Droid teeno par check, aur real app card (developer/rating/reviews/
-        # downloads/icon) aata hai. Pehle sirf 8 blind search URLs bante the —
-        # "xyzabc123fakeapp" bhejo tab bhi wahi 8 links aate the.
-        # ⚠️ MOD/piracy sites (GetModPC, HappyMod) hata di gayi — modified APK
-        #    distribute karna copyright violation hai aur malware ka bada source.
-        _t0 = time.perf_counter()
-        app_data = await asyncio.to_thread(app_lookup, raw_text)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if not app_data.get("ok"):
-            tel_note("appfind", False, _ms, error=str(app_data.get("error") or "")[:120])
-            await update.message.reply_text(str(app_data.get("error") or "App search fail."),
-                                            parse_mode=HTML)
-            add_use(uid)
-            return
-        if not app_data.get("found"):
-            # app mili hi nahi → credit NAHI katta (user ko kuch mila hi nahi)
-            tel_note("appfind", False, _ms, error="not found")
-            kb_stores = []   # v86: store URLs validate (scrape ka ajeeb URL = crash tha)
-            for s in (app_data.get("stores") or []):
-                _stu = _safe_btn_url(s.get("url") or "")
-                if _stu:
-                    kb_stores.append([InlineKeyboardButton(f"{s.get('name', 'Store')}", url=_stu)])
-            kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-            await update.message.reply_text(
-                str(app_data.get("error") or "App nahi mili.")
-                + "\n\n🔎 <b>Fir bhi khud dhoondhna ho to:</b>",
-                reply_markup=InlineKeyboardMarkup(kb_stores), parse_mode=HTML)
-            add_use(uid)
-            return
-        tel_note("appfind", True, _ms, credit=True)
-
-        apps = app_data.get("apps") or []
-        L = [pcard_title("📦", "APP FINDER"), 
-             f"🔍 <b>Search:</b> <code>{hesc(app_data.get('query', '')[:36])}</code>",
-             pcard_sep(),
-             f"✅ <b>{len(apps)}</b> verified app" + ("s" if len(apps) != 1 else "")
-             + " mili (Play Store / App Store / F-Droid par check kiya)",
-             pcard_sep()]
-        for i, a in enumerate(apps[:5], 1):
-            _st = "🍎 iOS" if a.get("store") == "appstore" else "🤖 Android"
-            L.append(f"\n<b>{i}. {hesc(str(a.get('title') or a.get('package') or ''))}</b>")
-            _meta = []
-            if a.get("rating"):
-                _meta.append(f"⭐ {hesc(str(a['rating']))}")
-            if a.get("votes"):
-                _meta.append(f"({hesc(str(a['votes']))})")
-            if a.get("downloads"):
-                _meta.append(f"📥 {hesc(str(a['downloads']))}")
-            if a.get("price"):
-                _meta.append(f"💰 {hesc(str(a['price']))}")
-            if _meta:
-                L.append("   " + " · ".join(_meta))
-            if a.get("developer"):
-                L.append(f"   👨‍💻 {hesc(str(a['developer'])[:40])}"
-                         + ("  🟢 <i>F-Droid par bhi</i>" if a.get("also_on_fdroid") else ""))
-            if a.get("package"):
-                L.append(f"   🆔 <code>{hesc(str(a['package'])[:52])}</code>")
-            if a.get("tagline"):
-                L.append(f"   ℹ️ <i>{hesc(str(a['tagline'])[:90])}</i>")
-            L.append(f"   {_st}")
-        L.append("\n" + pcard_sep())
-        L.append(pcard_foot(ms=_ms, source="Google Play · App Store · F-Droid (live check)",
-                            brand=False))
-        L.append("👇 <b>Store me kholo:</b>")
-
-        # buttons: pehle top app ke direct links, phir search links
-        # v86: sab URLs validate (scrape/API ka ajeeb URL = crash tha)
-        kb_stores = []
-        _top = apps[0] if apps else {}
-        if _top.get("store") == "play" and _top.get("package"):
-            _pu = _safe_btn_url(_top.get("url") or
-                                f"https://play.google.com/store/apps/details?id={_top['package']}")
-            if _pu:
-                kb_stores.append([InlineKeyboardButton("📱 Play Store par kholo (direct)", url=_pu)])
-        elif _top.get("store") == "appstore" and _top.get("url"):
-            _au = _safe_btn_url(_top.get("url") or "")
-            if _au:
-                kb_stores.append([InlineKeyboardButton("🍎 App Store par kholo (direct)", url=_au)])
-        if _top.get("fdroid_url"):
-            _fu3 = _safe_btn_url(_top.get("fdroid_url") or "")
-            if _fu3:
-                kb_stores.append([InlineKeyboardButton("🟢 F-Droid par kholo (open source)", url=_fu3)])
-        for s in (app_data.get("stores") or [])[:6]:
-            _ssu = _safe_btn_url(s.get("url") or "")
-            if _ssu:
-                kb_stores.append([InlineKeyboardButton(f"🔎 {s.get('name', 'Store')} — search", url=_ssu)])
-        kb_stores.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "appfind") + "\n" + "\n".join(L)[:3600],
-            reply_markup=InlineKeyboardMarkup(kb_stores), parse_mode=HTML)
-        add_use(uid)
-        return
 
     # Forwarded message for ID Finder + Auto-Forward channel pakadna
     if hasattr(update.message, "forward_origin") and update.message.forward_origin:
@@ -10417,8 +10053,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
             + tool_prompt(_mode_now), reply_markup=tool_support_kb(_mode_now), parse_mode=HTML)
         return
     if _mode_now:
-        _name = {"pp_stamp_text": "📸 PASSPORT PHOTO", "pp_stamp": "📸 PASSPORT PHOTO",
-                 "bankpdf_pass": "🏦 BANK PDF"}.get(_mode_now)
+        _name = {"bankpdf_pass": "🏦 BANK PDF"}.get(_mode_now)
         if _name:
             await update.message.reply_text(
                 f"🤔 <b>Samajh nahi aaya.</b> {_name} tool chalu hai — "
@@ -10454,7 +10089,7 @@ async def do_ytmp3(update, context, uid, url):
         await update.message.reply_text(get_credits_over_text("mediastudio"),
                                         reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
         return
-    st = await update.message.reply_text("🎵 Downloading the song... (15-60 seconds)")
+    st = await _wait_st(update.message)
     res = await asyncio.to_thread(desi.youtube_mp3, url, "192")
     if not res.get("ok"):
         await st.edit_text(fail_msg("MP3 FAILED", res.get("error", "")), parse_mode=HTML)
@@ -10836,7 +10471,7 @@ async def rc_deliver(target, context, uid: int, rc: str, rn: str):
         year = BSEBR.CURRENT_YEAR
     db["rc"], db["rn"] = str(rc), str(rn)
     context.user_data["rcdb"] = db
-    st = await target.reply_text("🔎 Bihar Board se result nikal raha hoon…")
+    st = await _wait_st(target)
     res = await asyncio.to_thread(BSEBR.check, exam_key, year, rc, rn)
     try:
         await st.delete()
@@ -10922,7 +10557,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
                       "<b>Without media</b>", parse_mode=HTML)
             return True
         fname = (getattr(getattr(msg, "document", None), "file_name", "") or "")
-        st = await say("🔎 Chat padh raha hoon… (5-20 second)")
+        st = await _wait_st(msg)
         res = await asyncio.to_thread(CXR.analyze_file, data, fname)
         if not res.get("ok"):
             try:
@@ -10957,7 +10592,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
             await say(get_credits_over_text("bankpdf"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             context.user_data.pop("mode", None)
             return True
-        st = await say("🔎 Reading the PDF table... (5-30 seconds)")
+        st = await _wait_st(msg)
         res = await asyncio.to_thread(parse_bank_statement, data)
         if res.get("ok"):
             await st.delete()
@@ -11015,7 +10650,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
                  "media_8d": ("🔊 8D sound", desi.eff_8d),
                  "media_bass": ("💥 Bass boost", desi.bass_boost)}
         label, fn = names[mode]
-        st = await say(f"{label} in progress... (10-60 seconds)")
+        st = await _wait_st(msg)
         res = await asyncio.to_thread(fn, data)
         if not res.get("ok"):
             await st.edit_text(fail_msg("FAILED", res.get("error", "")), parse_mode=HTML)
@@ -11033,7 +10668,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
         if not can_use_premium_tool(get_user(uid), uid):
             await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return True
-        st = await say("🎼 Extracting MP3 from the video...")
+        st = await _wait_st(msg)
         res = await asyncio.to_thread(desi.video_to_mp3, data)
         if not res.get("ok"):
             await st.edit_text(fail_msg("FAILED", res.get("error", "")), parse_mode=HTML)
@@ -11070,7 +10705,7 @@ async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime
         if not can_use_premium_tool(get_user(uid), uid):
             await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
             return True
-        st = await say("🗜️ Video compress ho raha hai... (30 second - 3 minute)\n<i>Badi video me zyada time lagta hai.</i>")
+        st = await _wait_st(msg)
         res = await asyncio.to_thread(desi.video_compress, data, 18.0)
         if not res.get("ok"):
             await st.edit_text(fail_msg("COMPRESS FAILED", res.get("error", "")) +
@@ -11210,64 +10845,12 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Photo Studio: Name & DOP Stamp
-    if mode == "pp_stamp":
-        photo_file = await update.message.photo[-1].get_file()
-        buf = io.BytesIO()
-        await photo_file.download_to_memory(buf)
-        context.user_data["raw_photo"] = buf.getvalue()
-        context.user_data["mode"] = "pp_stamp_text"
-        await update.message.reply_text("✍️ Now send your <b>NAME and DATE OF PHOTO (DOP)</b>:\n(example: <code>RAHUL SHARMA 30-09-2026</code>)", parse_mode=HTML)
-        return
 
-    if mode == "pp_stamp_text":
-        # v44: photo dobara bheji gayi → nayi photo lagao, naam-dop phir maango (crash nahi)
-        photo_file = await update.message.photo[-1].get_file()
-        buf = io.BytesIO()
-        await photo_file.download_to_memory(buf)
-        context.user_data["raw_photo"] = buf.getvalue()
-        await update.message.reply_text(
-            "🖼️ New photo set ✅\n✍️ Now send your <b>NAME and DATE OF PHOTO (DOP)</b>:\n"
-            "(example: <code>RAHUL SHARMA 30-09-2026</code>)", parse_mode=HTML)
-        return
 
     # Signature Cleaner
     # Printable 8-in-1 Sheet
-    if mode == "print_sheet":
-        photo_file = await update.message.photo[-1].get_file()
-        buf = io.BytesIO()
-        await photo_file.download_to_memory(buf)
-        sheet = make_printable_sheet(buf.getvalue(), 8)
-        await update.message.reply_photo(
-            photo=sheet,
-            caption=spend_credit_msg(uid, "print_sheet") + "\n" + f"🖨️ <b>{to_bold('PRINTABLE 8-IN-1 PASSPORT SHEET READY')}</b>\n\n(4x6 inch lab print sheet @ 300 DPI)",
-            parse_mode=HTML,
-        )
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
 
     # Document PDF Compressor (size option + grayscale)
-    if mode == "doc_compress":
-        photo_file = await update.message.photo[-1].get_file()
-        buf = io.BytesIO()
-        await photo_file.download_to_memory(buf)
-        pages = context.user_data.setdefault("doc_pages", [])
-        pages.append(buf.getvalue())
-
-        rows = [
-            [InlineKeyboardButton("🟢 100 KB (smallest)", callback_data="doc_kb_100"),
-             InlineKeyboardButton("🔵 200 KB", callback_data="doc_kb_200")],
-            [InlineKeyboardButton("🟣 300 KB (safe)", callback_data="doc_kb_300"),
-             InlineKeyboardButton("🟠 500 KB (best quality)", callback_data="doc_kb_500")],
-            [InlineKeyboardButton("⚫ Black & White (smaller)", callback_data="doc_gray")],
-            [InlineKeyboardButton(f"✅ {len(pages)} photos made into PDF", callback_data="doc_go")],
-        ]
-        await update.message.reply_text(
-            f"📄 <b>{to_bold('DOCUMENT PDF COMPRESS')}</b>\n\n"
-            f"📸 {len(pages)} photos received (marksheet/certificate). Send more or choose the size 👇\n\n"
-            "💡 <b>Size guide:</b> government portals usually ask for 100-300 KB.",
-            reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
-        return
 
     # v86: 📷 QR SCANNER — photo aayi → QR decode karo
     if mode == "qr_scan":
@@ -11282,7 +10865,7 @@ async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await safe_reply(update.message,
                              "⚠️ Photo padhi nahi ja saki. Dobara bhejein.", parse_mode=HTML)
             return
-        st = await update.message.reply_text("📷 QR scan ho raha hai…")
+        st = await _wait_st(update.message)
         res = await asyncio.to_thread(qr_scan_bytes, _qr_bytes)
         if res.get("ok"):
             _txt = str(res.get("text") or "")
@@ -12547,14 +12130,10 @@ def main():
         if await vip_gate(u):
             await u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)
 
-    async def _cmd_sarkari(u, c):
-        if await vip_gate(u):
-            await u.message.reply_text(SARKARI_CITIZEN_TEXT, reply_markup=get_sarkari_citizen_kb(), parse_mode=HTML)
 
     app.add_handler(CommandHandler("vnum", _cmd_vnum))
     app.add_handler(CommandHandler("terabox", _cmd_terabox))
     app.add_handler(CommandHandler("cloner", _cmd_cloner))
-    app.add_handler(CommandHandler("sarkari", _cmd_sarkari))
 
     # Callbacks
     # v59.10: har update ka hisaab (group=-10 = sabse pehle, koi reply nahi karta)

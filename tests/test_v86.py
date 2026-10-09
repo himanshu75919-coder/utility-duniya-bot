@@ -178,9 +178,6 @@ try:
 except Exception:
     pass
 reg_names = [getattr(x, "name", "") for x in registry()]
-for want in ("osint_hub", "username_hunter", "vehicle_tool", "biz_fonts"):
-    check(f"module cache '{want}' bounded ho gaya (pehle leak karta tha)",
-          want in reg_names, f"registry={reg_names}")
 
 try:
     rep = bot._janitor_stats()
@@ -193,7 +190,7 @@ except Exception as e:
 
 # --- KOI NAYA TOOL NAHI JUDA (yahi is release ka rule hai) ---
 check("❌ koi naya tool nahi juda: PREMIUM_TOOLS 37 hi hai",
-      len(bot.PREMIUM_TOOLS) == 38, str(len(bot.PREMIUM_TOOLS)))
+      len(bot.PREMIUM_TOOLS) == 30, str(len(bot.PREMIUM_TOOLS)))
 check("❌ koi naya tool nahi juda: BIZ_MENU 12 hi hai",
       len(bot.BIZ_MENU) == 12, str(len(bot.BIZ_MENU)))
 check("❌ koi naya tool nahi juda: BIZ_STEPS 12 hi hai",

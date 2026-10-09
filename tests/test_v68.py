@@ -72,8 +72,8 @@ check("download par 40s outer timeout laga hai",
 check("YouTube quality par timeout-guard hai (v98 background + 600s cap)",
       "asyncio.wait_for(" in BOT_SRC and "_yt_hd_bg" in BOT_SRC
       and "_YT_HD_RUNNING" in BOT_SRC)
-check("user ko 'max 30 second' bataya jaata hai",
-      "zyada se zyada <b>30 second</b>" in BOT_SRC.lower())
+check("input par sirf 'Wait few seconds' (v101 UI)",
+      "wait few seconds" in BOT_SRC.lower())
 check("purana '15 second' ka wada hata diya",
       "Zyada se zyada 15 second lagenge" not in BOT_SRC
       and "zyada se zyada 15 second" not in BOT_SRC.lower())
@@ -172,13 +172,13 @@ check("atka hua tool 1 second me chhod diya (bot zinda)", _r is None and _el < 3
 # =====================================================================
 section("[F] 🥇 PREMIUM TOOLS SABSE UPAR + /speed")
 # =====================================================================
-_lbl = [bot.unbold(x) for x in bot.KB_BTNS[0] + bot.KB_BTNS[1]]
+_lbl = [bot.unbold(x) for x in bot.KB_BTNS[1] + bot.KB_BTNS[2]]  # v101: row0 = info tools
 check("keyboard ki pehli 2 rows me 4 downloader tools hain",
       sum(1 for x in _lbl if x.upper().endswith(" DL")) == 4, str(_lbl))
-check("downloader tools rows 0-1 me hain (premium first)",
+check("downloader tools rows 1-2 me hain (v101: info row top par)",
       "INSTA DL" in _lbl[0].upper() and "YOUTUBE DL" in _lbl[1].upper())
-check("purane tools bhi zinda (kuch nahi hata)",
-      len(bot.KB_BTNS) >= 16, str(len(bot.KB_BTNS)))
+check("tools zinda (v101: 15 rows, 8 hataye)",
+      len(bot.KB_BTNS) >= 15, str(len(bot.KB_BTNS)))
 check("/speed command hai", hasattr(bot, "cmd_speed"))
 check("cache stats function hai", callable(MD.dl_cache_stats))
 check("version naya hai (v68 ya usse upar)",

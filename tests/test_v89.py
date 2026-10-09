@@ -400,7 +400,7 @@ check("_st_edit: edit fail hua to naya message bheja (crash-shield tak nahi gaya
       _ok_ed is False and len(_texts) == 1, str(_texts)[:60])
 check("downloader block me kacha `await st.edit_text(` nahi bacha",
       "await st.edit_text(" not in _bsrc[_bsrc.index('res = await with_tool_timeout(download_video_async'):
-      _bsrc.index('    if mode == "bgmi":')],
+      _bsrc.index('    if mode == "tempmail":')],
       "koi ek site bachi")
 
 # ======================================================================
@@ -441,9 +441,6 @@ for _p in (_vp, _op):
         os.remove(_p)
     except OSError:
         pass
-check("cyber_studio/bulk jaisi byte-only tools bytes par hi chalti rahengi",
-      callable(getattr(__import__("modules.cyber_studio", fromlist=["x"]),
-                       "_load_photo", None)))
 
 # ======================================================================
 section("G. ⚡ Speed non-regression (v78 ka DB fix ab bhi zinda)")
