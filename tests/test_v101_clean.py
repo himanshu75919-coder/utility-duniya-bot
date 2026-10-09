@@ -126,7 +126,7 @@ check("fetch_bytes offline behavior: galat URL → (None, reason) not crash",
       CT.fetch_bytes("http://127.0.0.1:9/x.bin", 1)[0] is None)
 
 print("\n== 6) VERSION ==")
-check("BOT_VERSION v104 head", bot.BOT_VERSION.startswith("v104.0 HD-TRUTH"), bot.BOT_VERSION[:48])
+check("BOT_VERSION v104 head", bot.BOT_VERSION.startswith("v105.0 BEST-ONLY"), bot.BOT_VERSION[:48])
 check("v100/v99 history intact",
       "v100.0 FAMILY-INFO" in bot.BOT_VERSION and "v99.0 MYNUM-API" in bot.BOT_VERSION)
 check("start-text me FF/BGMI zinda nahi (gaya hua tool promote NAHI)",

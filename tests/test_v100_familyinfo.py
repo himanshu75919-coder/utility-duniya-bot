@@ -162,7 +162,7 @@ ok("28 purane premium tools sab maujood (v102: kagaz gaya)",
    len([t for t in B.PREMIUM_TOOLS if t != "familyinfo"]) == 28)
 
 section("8) version history")
-ok("BOT_VERSION v104 head", B.BOT_VERSION.startswith("v104.0 HD-TRUTH"),
+ok("BOT_VERSION v104 head", B.BOT_VERSION.startswith("v105.0 BEST-ONLY"),
    B.BOT_VERSION[:40])
 ok("v100 tag history me", "v100.0 FAMILY-INFO" in B.BOT_VERSION)
 ok("v99 full-tag history me", "v99.0 MYNUM-API — 📱 purane number API delete" in B.BOT_VERSION)

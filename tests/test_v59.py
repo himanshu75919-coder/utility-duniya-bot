@@ -380,12 +380,13 @@ MD._YT_QUAL_CACHE.clear()
 # bot.py ka YouTube branch: koi blocking metadata fetch nahi
 check("bot.py me yt_available_qualities ka await nahi bacha",
       "await asyncio.to_thread(yt_available_qualities" not in BOT_SRC)
-check("bot.py instant cached-qualities use karta hai",
-      "yt_cached_qualities(raw_text)" in BOT_SRC)
-check("cache miss par background warm chalta hai",
-      "yt_warm_qualities(raw_text)" in BOT_SRC)
-check("cache miss par YT_QUALITY_OPTIONS turant dikhte hain",
-      "list(YT_QUALITY_OPTIONS)" in BOT_SRC)
+check("v105: quality-picker HATAA — koi ytq button build nahi hota",
+      'callback_data=f\"ytq:{h}\"' not in BOT_SRC and "QUALITY CHUNO" not in BOT_SRC)
+check("v105: YT link seedha best-quality flow (_yt_hd_bg 1080 + prewarm)",
+      "MD.yt_loader_prewarm(raw_text, 1080)" in BOT_SRC
+      and "uid, raw_text, 1080, _st105," in BOT_SRC)
+check("v105: purana 720-prewarm line picker ke saath hi gayab",
+      "yt_loader_prewarm(raw_text, 720)" not in BOT_SRC)
 _md_imp = BOT_SRC.split("from modules.media_downloader import (")[1].split(")")[0]
 check("bot.py me yt_cached_qualities / yt_warm_qualities import hai",
       "yt_cached_qualities" in _md_imp and "yt_warm_qualities" in _md_imp)

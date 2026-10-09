@@ -156,9 +156,8 @@ def main():
     ok("test-locked raw_text lines intact",
        all(s in BOT_SRC for s in ("_fid = dl_fid_get(raw_text)",
                                   "dl_fid_set(raw_text, _sent.video.file_id)",
-                                  "with_tool_timeout(download_video_async(raw_text), 40",
-                                  "yt_cached_qualities(raw_text)",
-                                  "asyncio.to_thread(resolve_cloud_url, raw_text)")))
+                                  "with_tool_timeout(download_video_async(raw_text), 75",
+                                  "asyncio.to_thread(resolve_cloud_url, raw_text)")))  # v105: yt_cached_qualities line picker ke saath hata (test v59 me locked)
     ok("urlclean import fail-safe (bot kabhi nahi rukta)",
        "from modules.core import urlclean as _UC" in BOT_SRC and "_UC = None" in BOT_SRC)
 

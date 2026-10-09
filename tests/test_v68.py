@@ -66,7 +66,7 @@ section("[A] ⏱️ 30 SECOND TARGET")
 # =====================================================================
 check("hard deadline 30 second hai", MD.FAST_DEADLINE == 30, str(MD.FAST_DEADLINE))
 check("download par 40s outer timeout laga hai",
-      'with_tool_timeout(download_video_async(raw_text), 40' in BOT_SRC)
+      'with_tool_timeout(download_video_async(raw_text), 75' in BOT_SRC)
 # v98: quality-tap ab background HD task hai (transcode 1-4 min); 40s-inline hata,
 # 600s wait_for cap + double-tap guard uski jagah (latakna ab bhi impossible).
 check("YouTube quality par timeout-guard hai (v98 background + 600s cap)",

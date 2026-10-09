@@ -109,13 +109,12 @@ U2 = ("https://scontent-sea5-1.cdninstagram.com/v/t51.82787-15/1_2_3_n.webp"
 ok("stp s640x640 → 640", MD._ig_efg_res(U2) == 640, MD._ig_efg_res(U2))
 ok("anjaan URL → default 640 (safe)", MD._ig_efg_res("https://x.com/y.jpg") == 640)
 
-print("\n== 7) bot.py — picker prewarm (720 bhi) ==")
-ok("1080 ke saath 720 prewarm bhi", BOT_SRC.count("MD.yt_loader_prewarm(") >= 2
-   and "MD.yt_loader_prewarm(raw_text, 720)" in BOT_SRC)
+print("\n== 7) bot.py — prewarm (v105: sirf 1080 — picker hi hata diya) ==")
+ok("1080 prewarm maujood", "MD.yt_loader_prewarm(raw_text, 1080)" in BOT_SRC)
 
 print("\n== 8) Version head ==")
-ok("BOT_VERSION v104.0 HD-TRUTH",
-   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v104\.0', BOT_SRC) is not None)
+ok("BOT_VERSION current head (v104+)",
+   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v10[4-9]\.', BOT_SRC) is not None)
 
 print("\n" + ("🎉 v104 SELFTEST: SAB PASSED" if not FAIL
               else "❌ FAILURES: " + "; ".join(FAIL)))

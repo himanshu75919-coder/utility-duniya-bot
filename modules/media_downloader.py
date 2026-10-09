@@ -389,8 +389,11 @@ def _ig_parth(clean: str, media_cat: str):
             if v_url:
                 r_v = httpio.get(v_url, headers=DESKTOP_UA, timeout=25)
                 if r_v.status_code == 200 and len(r_v.content) > 1000:
+                    _dv, _dw, _dh = _probe_data(r_v.content)   # v105: asli naap
                     return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
                             "title": title, "bytes": r_v.content, "size_mb": _size_mb(r_v.content),
+                            "duration": int(_dv or 0),
+                            "quality": f"{_dh}p" if _dh else None,
                             "platform": "Instagram", "engine": "parth-dl"}
 
         # Single Photo
@@ -1399,11 +1402,15 @@ def _ig_jina_hd(clean: str, media_cat: str):
                     cands[key] = (res, _u)
         if cands:
             items = []
-            for _res, _u in sorted(cands.values(), key=lambda x: -x[0])[:10]:
+            # v105: user order — "usi quality me jis quality ka post ho".
+            # IG original 1080-3072px tak hota hai; Telegram photo-safety ke
+            # liye 2400px cap (uske neeche JPEG q93 = practically original).
+            # Album ki SAARI photos (IG max 20; hum 12 tak bhejte hain).
+            for _res, _u in sorted(cands.values(), key=lambda x: -x[0])[:12]:
                 raw = _http_get_capped(_u, 24, headers=hdr, timeout=22, want="image")
                 if not raw:
                     continue
-                jb = _jpeg_fit(raw, max_px=1600, quality=92)
+                jb = _jpeg_fit(raw, max_px=2400, quality=93)
                 if jb:
                     items.append({"type": "photo", "bytes": jb,
                                   "src_res": _res})
@@ -1423,7 +1430,96 @@ def _ig_jina_hd(clean: str, media_cat: str):
         return None
 
 
-def _jpeg_fit(raw: bytes, max_px: int = 2160, quality: int = 90):
+def _ig_ensure_playable(data: bytes) -> bytes:
+    """v105: Telegram streaming ke liye h264 + aac chahiye. loader.to kabhi
+    VP9/HEVC deti hai → ffmpeg se H264 re-encode (reels chhoti hoti hain).
+    Kuch bigde to original bytes wapas (file chalegi, preview na sahi).
+    Kabhi exception nahi phenkta."""
+    tmp = None
+    try:
+        if not _HAS_FFMPEG or not data or len(data) < 50000:
+            return data
+        tmp = tempfile.mkdtemp(prefix="igp_")
+        src = os.path.join(tmp, "in.mp4")
+        out = os.path.join(tmp, "out.mp4")
+        with open(src, "wb") as f:
+            f.write(data)
+        cp = subprocess.run([_FFMPEG_LOC, "-hide_banner", "-i", src],
+                            capture_output=True, timeout=30)
+        txt = (cp.stderr or b"").decode(errors="ignore")
+        if re.search(r"Video:\s*h264", txt):
+            return data                                   # already playable
+        dur = 60.0
+        m = re.search(r"Duration:\s*(\d+):(\d+):([\d.]+)", txt)
+        if m:
+            dur = int(m.group(1)) * 3600 + int(m.group(2)) * 60 + float(m.group(3))
+        cp2 = _ffmpeg_gated(
+            [_FFMPEG_LOC, "-y", "-i", src, "-c:v", "libx264", "-preset",
+             "veryfast", "-crf", "22", "-c:a", "aac", "-b:a", "96k",
+             "-movflags", "+faststart", out],
+            min(300, 60 + int(dur) * 3))
+        if (cp2.returncode == 0 and os.path.exists(out)
+                and os.path.getsize(out) > 5000
+                and os.path.getsize(out) <= int(MAX_TG_MB) * 1048576):
+            with open(out, "rb") as f:
+                return f.read()
+    except Exception:                                            # noqa: BLE001
+        pass
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+    return data
+
+
+def _ig_loader_reel(clean: str, media_cat: str):
+    """v105 KA DHAMAKA: loader.to sirf YouTube nahi — Instagram reel/highlight
+    ka VIDEO bhi nikaal deta hai (uska server IG-blocked IP nahi hai). Live
+    proof 10 Oct: public reel → 12-19s me genuine MP4. Quality wahi jo IG
+    anonymous ko deta hai (aksar 360-640p) — par publicly available best yahi
+    hai, aur label hum FILE NAAPkar lagate hain (jhooth kabhi nahi)."""
+    try:
+        if not clean or "instagr" not in clean or not _ig_code_of(clean):
+            return None
+        import urllib.parse as _up
+        api = ("https://loader.to/ajax/download.php?format=1080&url="
+               + _up.quote(str(clean).strip(), safe=""))
+        r = httpio.get(api, headers=_LOADER_UA, timeout=25)
+        if r.status_code != 200:
+            return None
+        j = r.json()
+        if not isinstance(j, dict) or not j.get("success"):
+            return None
+        purl = j.get("progress_url") or ""
+        if not (isinstance(purl, str) and purl.startswith("http")):
+            return None
+        dl = ""
+        end = time.time() + 26.0
+        while time.time() < end:
+            time.sleep(4)
+            try:
+                done, dl, _t, _f = _loader_poll_once(purl)
+            except Exception:                                    # noqa: BLE001
+                continue
+            if done:
+                break
+        if not dl:
+            return None
+        data = _http_get_capped(dl, MAX_TG_MB, headers=_LOADER_UA, timeout=50,
+                                want="video")
+        if not data or len(data) < 20000:
+            return None
+        data = _ig_ensure_playable(data)
+        _dur, _w, _h = _probe_data(data)
+        _q = f"{_h}p" if _h else "reel"
+        return {"ok": True, "type": "video", "category": media_cat or "reel",
+                "bytes": data, "size_mb": _size_mb(data),
+                "duration": int(_dur or 0), "quality": _q, "title": "",
+                "platform": "Instagram", "engine": "loader-ig"}
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
+def _jpeg_fit(raw: bytes, max_px: int = 2160, quality: int = 94):  # v105: q90→94 = practically original
     """Photo ko Telegram-safe JPEG banao (badi photo = OOM + 10MB photo limit).
 
     Returns bytes ya None. Kabhi exception nahi.
@@ -1808,6 +1904,7 @@ def download_instagram_media(url: str) -> dict:
     _fns = [_eng(lambda: _ig_parth(clean, media_cat)),
             _eng(lambda: _ig_ytdlp(clean, media_cat)),
             _eng(lambda: _ig_embed(clean, media_cat)),
+            _eng(lambda: _ig_loader_reel(clean, media_cat)),   # v105: reel/video post ka asli video
             _eng(_hd_then_og)]
     # v85: photo post par 5th engine — poori carousel album (6-7 photos = sab aayein)
     if not want_video:
@@ -1820,7 +1917,7 @@ def download_instagram_media(url: str) -> dict:
         _fns.append(_eng(lambda: _ig_wayback(clean, media_cat)))
         _fns.append(_eng(lambda: _ig_jina(clean, media_cat)))
         _fns.append(_eng(lambda: _ig_jina_hd(clean, media_cat)))   # v104
-        _budget = 32.0
+        _budget = 55.0   # v105: 32→55 — loader-ig job (12-45s) + fetch ko waqt
     else:
         _budget = 34.0   # v104: 24→34 — jina render (cold ~20s) ko mauka
 

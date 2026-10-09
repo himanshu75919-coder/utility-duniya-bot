@@ -458,7 +458,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v105.0 BEST-ONLY — 🚀 YouTube: QUALITY-PICKER HATAA — link bhejo = seedha server-ki-best HD (0 taps) + 🎬 IG reels/videos LIVE (loader-ig engine, 12-19s) + parth-dl wala aaya (720p reels, full-quality albums) | v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -5209,7 +5209,7 @@ async def _yt_hd_bg(app, chat_id, uid, url, h, st, fname):
             mb = res.get("size_mb") or 0
             try:
                 await st.edit_text(
-                    f" <b>VIDEO ({h}p)</b> — file badi hai ({mb} MB, Telegram limit 48MB).\n"
+                    f" <b>VIDEO — BEST ({h}p try)</b> — file badi hai ({mb} MB, Telegram limit 48MB).\n"
                     "Neeche ke direct link se browser/IDM me poora video download ho jayega:\n"
                     f"<code>{res['direct_url']}</code>\n\n"
                     + (res.get("note") or ""),
@@ -5242,7 +5242,7 @@ async def _yt_hd_bg(app, chat_id, uid, url, h, st, fname):
             chat_id=chat_id,
             video=media_buf,
             caption=(
-                f"📥 <b>YOUTUBE VIDEO — {h}p</b>\n"
+                f"📥 <b>YOUTUBE VIDEO — {hesc(str(_q))}</b>\n"
                 f"• 📝 {hesc(str(res.get('title') or '')[:60])}\n"
                 f"{dur_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
                 f"• 🎞️ <b>Quality:</b> {hesc(str(_q))}\n"
@@ -6662,8 +6662,8 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 dl_fid_forget(url, f"q{h}")
         # v98: REAL-HD background — transcode me 1-4 min lag sakta hai,
         # isliye tap turant free + video taiyaar hote hi auto-bhej.
-        # (Neeche ka purana inline-send ab _yt_hd_bg me hai — dead code,
-        #  agle version me safai hogi.)
+        # (v105: tap ke neeche ka purana inline-send HATAA diya gaya — wo
+        #  _yt_hd_bg me hi ab live hai.)
         try:
             await st.edit_text(
                 f"⏳ <b>{h}p HD</b> taiyaar ho raha hai…\n"
@@ -6679,54 +6679,6 @@ async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await q.answer("HD taiyaar ho raha hai… ⏳")
         except Exception:                                    # noqa: BLE001
             pass
-        return
-        if not res.get("ok"):
-            # v56: technical yt-dlp error ki jagah friendly Hindi + solution.
-            _ferr = str(res.get("error") or "") or friendly_dl_error(platform="YouTube")
-            await st.edit_text(fail_msg("YOUTUBE DOWNLOAD FAILED", _ferr),
-                               parse_mode=HTML)
-            return
-        if res.get("type") == "link" and res.get("direct_url"):
-            mb = res.get("size_mb") or 0
-            await st.edit_text(
-                f" <b>VIDEO ({h}p)</b> — file badi hai ({mb} MB, Telegram limit 48MB).\n"
-                "Neeche ke direct link se browser/IDM me poora video download ho jayega:\n"
-                f"<code>{res['direct_url']}</code>\n\n"
-                + (res.get("note") or ""),
-                parse_mode=HTML)
-            add_use(uid)
-            await _reply_nonempty(q.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
-            return
-        if res.get("type") != "video" or not res.get("bytes"):
-            await st.edit_text(fail_msg("VIDEO READY NAHI HUI", "Dobara try karo (link public hai kya?)"),
-                               parse_mode=HTML)
-            return
-        media_buf = io.BytesIO(res["bytes"])
-        media_buf.name = "youtube_video.mp4"
-        dur = res.get("duration") or 0
-        dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
-        qnote = res.get("note_quality") or ""
-        _sentq = await q.message.reply_video(
-            video=media_buf,
-            caption=(
-                f"📥 <b>YOUTUBE VIDEO — {h}p</b>\n"
-                f"• 📝 {hesc(str(res.get('title') or '')[:60])}\n"
-                f"{dur_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
-                f"• 🎞️ <b>Quality:</b> {h}p\n"
-                f"• ⚙️ Engine: {hesc(str(res.get('engine') or ''))}\n"
-                + (f"⚠️ {qnote}\n" if qnote else "")
-            ),
-            parse_mode=HTML,
-            supports_streaming=True,
-        )
-        # v68: agli baar ke liye file_id yaad rakho (0.1 second delivery)
-        try:
-            dl_fid_set(url, _sentq.video.file_id, f"q{h}")
-        except Exception:                                        # noqa: BLE001
-            pass
-        await st.delete()
-        add_use(uid)
-        await _reply_nonempty(q.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
         return
 
     if data.startswith("mvoicepk:"):
@@ -8240,43 +8192,55 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _ping_stop = asyncio.Event()
         _ping_task = asyncio.create_task(_progress_pinger(
             update.message,
-            lambda el: (f"⚡ <b>{hesc(plat)}</b> — kaam chal raha hai… ({el}s / max 30s)\n"
+            lambda el: (f"⚡ <b>{hesc(plat)}</b> — kaam chal raha hai… ({el}s)\n"
                         "🔄 <i>Bas thoda sa aur — file taiyaar ho rahi hai.</i>"),
             every=6, stop=_ping_stop, edit_msg=st))
         context.user_data["_ping_stop"] = _ping_stop
-        # v52: YouTube link → user khud quality chunta hai (360/480/720/1080)
+        # v105: YouTube ka QUALITY-PICKER PURI TARAH HATAA gaya (user ki order:
+        #       "quality chose karne wala option hi hta do"). Ab link bhejo =
+        #       server par jo BEST quality available hai wahi seedha HD me
+        #       milti hai — koi tap nahi, koi confusion nahi. Pehle ka
+        #       360/480/720/1080 chun-ne wala menu yahin se chalta tha.
         if re.search(r"(youtube\.com|youtu\.be)/", raw_text):
-            # v59: INSTANT quality buttons.
-            # PEHLE: poora metadata fetch hota tha (5-20 second!) phir buttons
-            #        dikhte the — user ko lagta tha bot so gaya.
-            # AB: cache ho to usse, warna standard options TURANT dikhte hain
-            #     (1080/720/480/360). Background me cache bhar jaata hai taaki
-            #     agli baar asli available qualities instantly dikhein.
-            heights = yt_cached_qualities(raw_text)
-            opts = heights if heights else list(YT_QUALITY_OPTIONS)
-            if not heights:
-                yt_warm_qualities(raw_text)      # background — block nahi karta
-            rows = []
-            for i in range(0, len(opts), 2):
-                rows.append([InlineKeyboardButton(f"🎞️ {h}p" + (" ⭐" if h == opts[0] else ""),
-                                                  callback_data=f"ytq:{h}") for h in opts[i:i + 2]])
-            rows.append([InlineKeyboardButton("❌ Cancel", callback_data="ytq:0")])
+            _stop_ping(context)
+            _yt_stop = asyncio.Event()
+            context.user_data["_ping_stop"] = _yt_stop
             try:
-                # v104: 1080-master (bg HD ladder) + 720 DIRECT — loader.to ka
-                # v2 API ab har format par ASLI resolution deta hai, isliye
-                # tap karte hi us-height ki taiyaar job pickup hoti hai.
+                # best-format job ABHI shuru (loader.to v2 = asli 1080/720)
                 MD.yt_loader_prewarm(raw_text, 1080)
-                MD.yt_loader_prewarm(raw_text, 720)
             except Exception:                    # noqa: BLE001
                 pass
-            context.user_data["yt_url"] = raw_text
-            context.user_data["mode"] = "yt_q"
-            await _st_edit(st, update, 
-                f"🎞️ <b>{to_bold('YOUTUBE QUALITY CHUNO')}</b>\n"
-                "Video kon si quality me chahiye? <b>Jo dabao, wahi milegi.</b>\n"
-                "⭐ = is video ki available best quality\n"
-                "💳 1 credit jayega (video ready hone par)",
-                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
+            # v68 instant-hit: ye video pehle kisi ne mangi thi to TURANT wapas
+            _fid105 = dl_fid_get(raw_text, "q1080")
+            if _fid105:
+                try:
+                    await update.message.reply_video(
+                        video=_fid105, supports_streaming=True, parse_mode=HTML,
+                        caption=("⚡ <b>INSTANT</b> — ye video pehle hi ready thi "
+                                 "(0.1 second)"))
+                    _yt_stop.set()
+                    add_use(uid)
+                    await _reply_nonempty(update.message,
+                                          spend_credit_msg(uid, "insta_dl"),
+                                          parse_mode=HTML)
+                    return
+                except Exception:                # noqa: BLE001
+                    dl_fid_forget(raw_text, "q1080")
+            _st105 = _StatusMsg(st, _yt_stop)
+            asyncio.create_task(_progress_edit(
+                st, "🎞️ <b>BEST quality</b> nikaal raha hoon…",
+                every=PROGRESS_EVERY, stop=_yt_stop, max_pings=12))
+            await _st105.edit_text(
+                "🎞️ <b>YOUTUBE — BEST QUALITY</b>\n"
+                "⏳ Server par jo sabse upar quality available hai, wahi asli HD "
+                "me nikaal raha hoon (chhoti video = 30-60s; badi/long video par "
+                "1–4 min). Taiyaar hote hi video yahin aa jayegi 📥\n"
+                "💳 1 credit — sirf video milne par kat-ta hai (fail par nahi)",
+                parse_mode=HTML)
+            asyncio.create_task(_yt_hd_bg(
+                context.application, update.effective_chat.id,
+                uid, raw_text, 1080, _st105,
+                (update.effective_user.first_name if update.effective_user else "")))
             return
         # v68: ⚡ INSTANT REPEAT — yahi video pehle bheji thi? file_id se TURANT bhejo
         _fid = dl_fid_get(raw_text)
@@ -8299,7 +8263,7 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 dl_fid_forget(raw_text)      # purana file_id kharab — dobara download
 
         # v68: hard timeout — koi bhi tool bot ko 40 second se zyada nahi rok sakta
-        res = await with_tool_timeout(download_video_async(raw_text), 40, "video-dl")
+        res = await with_tool_timeout(download_video_async(raw_text), 75, "video-dl")  # v105: 40→75 (reel engine)
         if res is None:
             # v79: upar ka card kehta hai "Zyada se zyada 30 second — warna main
             # direct link de dunga". Ab waada poora hota hai: 9 second me direct
@@ -8450,8 +8414,9 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
                     f"{title_line}{dur_line}"
                     f"• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
-                    + (f"• 🎞️ <b>Quality:</b> {hesc(str(res.get('quality')))} (FHD)\n"
-                       if res.get("quality") else "")
+                    + (f"• 🎞️ <b>Quality:</b> {hesc(str(res.get('quality')))}"
+                       f"{' (FHD)' if str(res.get('quality')) in ('1080p','1440p') else ''}\n"
+                       if res.get("quality") else "• 🎞️ <b>Quality:</b> jo publicly available best thi\n")
                     + f"• 🔊 <b>Audio:</b> Original ✅\n"
                       f"• ⚙️ Engine: {engine}"
                 )
