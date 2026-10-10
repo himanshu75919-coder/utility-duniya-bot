@@ -62,6 +62,15 @@ try:
 except ImportError:
     parth_dl = None
 
+# v106: ⚡ IG FAST ENGINE — Instagram ke KHUD ke public JSON API se 1-5 second
+# me post/reel/TV/carousel/profile-photo (+ cookie ho to story/highlight).
+# Race me SABSE PEHLE chalta hai; fail/cooldown par 0.001s me None → purane
+# engines (parth/embed/og/yt-dlp) waise hi chalte rehte hain.
+try:
+    from modules import ig_fast as IGF
+except Exception:                                               # noqa: BLE001
+    IGF = None
+
 # v105.2: yt_dlp LAZY — boot me ~39 MB RAM nahi khata. Pehli download
 # par import hota hai. Lock se concurrent first-use par adhoora None nahi milega.
 yt_dlp = None
@@ -1921,6 +1930,14 @@ def download_instagram_media(url: str) -> dict:
                       or "/reel" in clean or "/tv/" in clean)
     # v86: PROFILE link (/username) → HD profile photo (login nahi chahiye)
     if media_cat == "profile":
+        # v106: IG FAST engine pehle — 1 API call me HD photo (~1s)
+        if IGF is not None:
+            try:
+                _ppf = IGF.fetch_profile_pic(_ig_profile_user(clean))
+                if _ppf and _ppf.get("ok"):
+                    return _ppf
+            except Exception:                                     # noqa: BLE001
+                pass
         _pp = _ig_profile_pic(clean)
         if _pp and _pp.get("ok"):
             return _pp
@@ -1928,6 +1945,22 @@ def download_instagram_media(url: str) -> dict:
         return {"ok": False, "category": "profile",
                 "error": (f"@{_pu} ki profile photo nahi mili — account private/deleted ho "
                           "sakta hai, ya username me spelling mistake. Public profile ka sahi link bhejo.")}
+    # v106: STORY FAST-FAIL — Instagram story bina LOGIN cookie ke koi bhi
+    # service nahi de sakti (IG ki apni privacy limit). Pehle 30-55 second ki
+    # race chalti thi aur phir bhi fail — ab TURANT saaf jawab milta hai.
+    # Cookie lagi ho (/cookies ya IG_COOKIE env) to story bhi isi engine se
+    # aati hai — race me IGF.fetch_media story engine ban kar chalta hai.
+    if media_cat == "story" and IGF is not None and not IGF.has_login_cookie():
+        return {"ok": False, "category": "story", "need_login": True,
+                "error": ("🔐 Instagram STORY bina login ke kisi ko nahi milti — ye "
+                          "Instagram ki apni privacy limit hai (story sirf logged-in "
+                          "logon ko dikhti hai).\n\n"
+                          "✅ ILAAJ: Bot me apni Instagram cookie lagao — /cookies "
+                          "command bhejo, wahan poora tarika likha hai. Cookie lagte "
+                          "hi story + highlight download ON ho jaayega.\n\n"
+                          "ℹ️ Reel/post ka link bhejoge to wo bina cookie ke bhi "
+                          "1-5 second me aa jaayega.")}
+
     # v74.3: cache check (RAM → DISK) — dobara link par turant
     # v103: cache par BHI referee lagta hai — reel ke liye purani "cover photo"
     #     cache kabhi serve nahi hogi (galat entry turant delete bhi ho jaati hai).
@@ -1998,8 +2031,14 @@ def download_instagram_media(url: str) -> dict:
     # v105.2: fast/public path pehle — parth carousel/reel aksar 1-5s me milta
     # hai. yt-dlp sabse aakhir me; common post success par uski ~39MB import aur
     # background fetch start hi nahi hoti. Loader.to video bhi yt-dlp se pehle.
-    _fns = [_eng(lambda: _ig_parth(clean, media_cat)),
-            _eng(lambda: _ig_embed(clean, media_cat))]
+    # v106: ⚡ IG FAST ENGINE SABSE PEHLE — Instagram ke apne JSON API se
+    # post/reel/TV/carousel 1-5s me (pehle race 20-55s leta tha). 429 cooldown
+    # par ye 0.001s me None deta hai, phir purane engines waise hi chalte hain.
+    _fns = []
+    if IGF is not None:
+        _fns.append(_eng(lambda: IGF.fetch_media(clean, media_cat)))
+    _fns.extend([_eng(lambda: _ig_parth(clean, media_cat)),
+                 _eng(lambda: _ig_embed(clean, media_cat))])
     if want_video:
         _fns.extend([_eng(lambda: _ig_loader_reel(clean, media_cat)),
                      _eng(_hd_then_og)])
@@ -2009,6 +2048,8 @@ def download_instagram_media(url: str) -> dict:
                      _eng(lambda: _ig_jina_hd(clean, media_cat)),
                      _eng(lambda: _ig_ytdlp(clean, media_cat))])
         _budget = 55.0   # v105: loader-ig job (12-45s) + fetch ko waqt
+                         # v106: budget wahi — jeet ab fast engine 1-5s me hi jaata hai;
+                         # budget sirf tab kaam aata hai jab SAARE fast raaste fail hon.
     else:
         _fns.extend([_eng(_hd_then_og),
                      _eng(lambda: _ig_embed_album(clean, media_cat)),
