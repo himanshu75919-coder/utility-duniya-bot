@@ -90,6 +90,10 @@ print("\n== 3) Media race / transfers bounded ==")
 _src_race = inspect.getsource(MD._race)
 ok("race has max two downloader workers", "workers = min(2, len(fns))" in _src_race)
 ok("race cancels remaining work on return", "fut.cancel()" in _src_race and "cancel_futures=True" in _src_race)
+_ig_src = inspect.getsource(MD.download_instagram_media)
+ok("parth/embed fast paths run before yt-dlp heavy fallback",
+   _ig_src.index("_ig_parth(clean") < _ig_src.index("_ig_ytdlp(clean")
+   and _ig_src.index("_ig_embed(clean") < _ig_src.index("_ig_ytdlp(clean"))
 # A rolling race should never run >2 callbacks at once; all fail => all tested.
 _lk = threading.Lock(); _active = 0; _peak = 0; _count = 0
 

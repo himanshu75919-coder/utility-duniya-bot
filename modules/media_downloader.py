@@ -1995,25 +1995,25 @@ def download_instagram_media(url: str) -> dict:
                          "posts/carousels full HD (saari photos) aati hain.")
         return o
 
+    # v105.2: fast/public path pehle — parth carousel/reel aksar 1-5s me milta
+    # hai. yt-dlp sabse aakhir me; common post success par uski ~39MB import aur
+    # background fetch start hi nahi hoti. Loader.to video bhi yt-dlp se pehle.
     _fns = [_eng(lambda: _ig_parth(clean, media_cat)),
-            _eng(lambda: _ig_ytdlp(clean, media_cat)),
-            _eng(lambda: _ig_embed(clean, media_cat)),
-            _eng(lambda: _ig_loader_reel(clean, media_cat)),   # v105: reel/video post ka asli video
-            _eng(_hd_then_og)]
-    # v85: photo post par 5th engine — poori carousel album (6-7 photos = sab aayein)
-    if not want_video:
-        _fns.append(_eng(lambda: _ig_embed_album(clean, media_cat)))
-    # v103: REEL/VIDEO par do extra engines (datacenter IP par IG login-wall
-    #     de deta hai — ye dono uske baahein ka raasta hain):
-    #       · archive.org ka saved snapshot (viral reels aksar mil jaati hain)
-    #       · r.jina.ai reader apne IP se embed page kholti hai
+            _eng(lambda: _ig_embed(clean, media_cat))]
     if want_video:
-        _fns.append(_eng(lambda: _ig_wayback(clean, media_cat)))
-        _fns.append(_eng(lambda: _ig_jina(clean, media_cat)))
-        _fns.append(_eng(lambda: _ig_jina_hd(clean, media_cat)))   # v104
-        _budget = 55.0   # v105: 32→55 — loader-ig job (12-45s) + fetch ko waqt
+        _fns.extend([_eng(lambda: _ig_loader_reel(clean, media_cat)),
+                     _eng(_hd_then_og)])
+        # v103: archive + r.jina fallback; uske baad hi yt-dlp (lazy/heavy).
+        _fns.extend([_eng(lambda: _ig_wayback(clean, media_cat)),
+                     _eng(lambda: _ig_jina(clean, media_cat)),
+                     _eng(lambda: _ig_jina_hd(clean, media_cat)),
+                     _eng(lambda: _ig_ytdlp(clean, media_cat))])
+        _budget = 55.0   # v105: loader-ig job (12-45s) + fetch ko waqt
     else:
-        _budget = 34.0   # v104: 24→34 — jina render (cold ~20s) ko mauka
+        _fns.extend([_eng(_hd_then_og),
+                     _eng(lambda: _ig_embed_album(clean, media_cat)),
+                     _eng(lambda: _ig_ytdlp(clean, media_cat))])
+        _budget = 34.0   # v104: jina render (cold ~20s) ko mauka
 
     try:
         from modules.core import heavy as _hg
