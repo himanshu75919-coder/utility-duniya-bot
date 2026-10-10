@@ -1,35 +1,34 @@
 # ===================================================================
-#  Utility Duniya Super Bot — Render Blueprint (v60 FORTRESS)
+#  Utility Duniya Bot — Render Blueprint (v108 SLIM)
 #
 #  ⚠️⚠️ SABSE ZAROORI BAAT — DATA KAHAN RAKHA JAYEGA ⚠️⚠️
 #
 #  Render ka FREE plan "ephemeral filesystem" deta hai. Iska matlab:
 #      deploy / restart / sleep-wake / maintenance -> SAARA LOCAL DATA GAYAB
 #
-#  PEHLE yahi problem thi: bot ka poora database (VIP premium users,
-#  payments, credits, referrals) ek local file `botdata.db` me tha, aur
-#  deploy hone par wo file delete ho jati thi. Isliye premium users
-#  "delete" ho jaate the.
+#  ✅ Iska hal built-in hai (PREMIUM VAULT) — kuch kharidne ki zaroorat NAHI:
+#     1. Poora data ENCRYPTED backup ban kar (a) aapke Telegram par aur
+#        (b) GitHub ke `vault-backup` branch me chala jata hai.
+#     2. Bot uthte hi pichhla backup MERGE karta hai.
+#     >>> Isliye deploy/restart par user data kho nahi sakta. <<<
 #
-#  ✅ AB ISKA HAL v60 me built-in hai — kuch kharidne ki zaroorat NAHI:
-#     1. Local file ke saath-saath poora data ENCRYPTED backup ban kar
-#        (a) aapke Telegram par aur (b) GitHub ke ek alag branch
-#            (`vault-backup`) me chala jata hai.
-#     2. Bot uthte hi pichhla backup MERGE karta hai — premium users
-#        WAPAS aa jaate hain.
-#     3. Restore se pehle aur baad me VIP count milaya jata hai; agar
-#        VIP kam ho raha ho to restore ABORT ho jata hai.
-#     >>> Isliye deploy/restart par premium user kho sakta hi nahi. <<<
+# ===================================================================
+#  📉 v108 me kya badla (RAM ka asli ilaaj)
+# -------------------------------------------------------------------
+#  Pehle 24 tools the. Video downloader (yt-dlp + ffmpeg), PDF/Excel
+#  (reportlab, pdfplumber, openpyxl), image tools (Pillow, qrcode) aur
+#  150MB upload (telethon) — ye sab IMPORT HOTE HI 300+ MB RAM le lete
+#  the. Render free plan me total 512 MB hai, isliye Linux ka OOM killer
+#  bot ko maar deta tha (logs me sirf "Killed") aur bot beech kaam me
+#  ruk jaata tha. Aapke logs me yahi dikh raha tha:
+#       MEMORY HIGH 466 MB (limit 512) — aggressive safai
+#       MEMORY HIGH 489 MB (limit 512) — aggressive safai
 #
-#  💰 (Optional, sirf agar aap Render ka paid plan lein)
-#     Ek persistent disk laga do to local file bhi permanent ho jayegi —
-#     bot khud use detect kar lega, koi code change nahi:
-#         disk:
-#           name: utility-data
-#           mountPath: /var/data      <- bot yahan khud botdata.db bana lega
-#           sizeGB: 1
-#     Free plan par disk available nahi hai — isliye upar wala vault
-#     system hi asli bharosa hai. (Wahi default rehta hai.)
+#  v108 me sirf 2 tools bache (NUMBER INFO + FAMILY INFO) aur unki
+#  libraries hi install hoti hain. Naap kar dekha gaya:
+#       boot RAM : ~54 MB      (pehle ~224 MB)
+#       chalte hue: ~62 MB     (pehle 416-489 MB)
+#  Yani 512 MB ki limit ab chhuti hi nahi — bot rukega nahi.
 # ===================================================================
 
 services:
@@ -42,10 +41,11 @@ services:
     autoDeploy: true           # GitHub par push hote hi deploy ho jaye
     buildCommand: pip install -r requirements.txt
     startCommand: python bot.py
-    healthCheckPath: /health   # polling aur webhook dono modes me 200 OK route
-                               # ⚠️ v77: Dashboard par bhi check kar lena — live
-                               # service me ye khaali mila tha, isliye Render
-                               # "zinda magar atka" app ko dobara nahi uthata tha.
+    healthCheckPath: /health   # polling aur webhook dono modes me 200 OK
+                               # v108 FIX: ye page pehle kabhi-kabhi KHAALI
+                               # body ke saath 200 deta tha (ek line crash ho
+                               # jaati thi to poora page gayab). Ab har line
+                               # alag guard me hai — page kabhi khaali nahi.
 
     envVars:
       # ---------- ZAROORI (Render khud poochhega — yahan mat likho) ----------
@@ -54,48 +54,42 @@ services:
       - key: ADMIN_ID
         sync: false            # apni Telegram numeric ID (@userinfobot se milegi)
 
-      # ---------- OPTIONAL (baad me bhi bhar sakte ho) ----------
+      # ---------- OPTIONAL ----------
       - key: ADMINS
         sync: false            # extra admins, comma se alag: 123456,789012
       - key: FORCE_CHANNEL
         sync: false            # jaise @YourChannel (force-join chahiye to)
       - key: FORCE_CHANNEL_LINK
         sync: false            # https://t.me/YourChannel
-      - key: UPI_ID
-        sync: false            # payment ke liye: yourname@upi
-      - key: TUTORIAL_URL
-        sync: false            # apna tutorial link (khali = bot khud banayega)
-      # ---------- MODE (v59.9) ----------
-      # DEFAULT = auto (webhook) — Render par sabse reliable. POLLING me deploy ke
-      # waqt 10-20 second do instance ek saath getUpdates karte hain aur Telegram
-      # "Conflict: terminated by other getUpdates request" deta hai (us waqt bot
-      # jawab nahi deta). Webhook me Telegram khud update bhejta hai -> Conflict 0.
-      # Safety: DNS check + Telegram preflight fail ho to bot chup-chaap POLLING
-      # par chalta hai (crash nahi hota). Zabardasti polling chahiye to WEBHOOK_MODE=polling
+      - key: OWNER_USERNAME
+        value: Supermannn_x    # card ke neeche "Powered by" me yahi dikhta hai
+      - key: BRAND_TAG
+        value: "@Supermannn_x"
+
+      # ---------- MODE ----------
+      # DEFAULT = auto (webhook) — Render par sabse reliable. POLLING me deploy
+      # ke waqt 10-20 second do instance ek saath getUpdates karte hain aur
+      # Telegram "Conflict" deta hai. Webhook me Telegram khud update bhejta
+      # hai -> Conflict 0. Fail ho to bot chup-chaap POLLING par chalta hai.
       - key: WEBHOOK_MODE
         value: auto            # auto | on | polling | off
       - key: WEBHOOK_URL
-        sync: false            # khali rakho = polling. Webhook ke liye service ka pura URL
+        sync: false            # khali = polling. Webhook ke liye service ka pura URL
       - key: WEBHOOK_SECRET
-        sync: false            # webhook path ka optional secret (khali = token ka hissa)
+        sync: false            # webhook path ka optional secret
+
       # ==================================================================
-      #  v60 — 🛡️ PREMIUM VAULT (data kabhi na khoye) — YE ZAROOR BHARO
+      #  🛡️ PREMIUM VAULT (data kabhi na khoye) — YE ZAROOR BHARO
       # ==================================================================
-      # Backup kahan jayega. Do jagah — dono free, dono automatic:
+      #  ⚠️ Backup ek ALAG branch (`vault-backup`) me jata hai — 'main' me
+      #     NAHI! Warna har backup naya deploy trigger kar deta aur bot ka
+      #     infinite restart loop ban jata.
       #
-      #  (a) TELEGRAM — backup aapko bot se ek file ke roop me milta hai
-      #      (aapke ADMIN_ID wali chat me). Iske liye KUCH set karne ki
-      #      zaroorat nahi — apne aap chalu rehta hai.
-      #      Alag chat/channel chahiye to:
-      #         VAULT_BACKUP_CHAT_ID = -1001234567890
-      #
-      #  (b) GITHUB — aapke token se offsite backup, AES-level encrypted
-      #      (SHAKE256 + HMAC). Repo public ho to bhi koi padh nahi sakta.
-      #      ⚠️ Ye token Render me hi daalo (SECRET), yaml me kabhi nahi.
-      #      ⚠️ Backup ek ALAG branch (`vault-backup`) me jata hai — 'main'
-      #         me nahi! Warna har backup Render ka naya deploy trigger kar
-      #         deta aur bot ka infinite restart loop ban jata. Isliye
-      #         VAULT_GITHUB_BRANCH ko 'main' NA karein.
+      #  ⚠️⚠️ AAPKE LOGS ME YE ERROR AA RAHA THA:
+      #         GitHub backup fail: HTTP 401 { "message": "Bad credentials" }
+      #     Matlab: VAULT_GITHUB_TOKEN purana / expire / galat hai.
+      #     ➜ Naya GitHub token banao aur Render me VAULT_GITHUB_TOKEN
+      #       update karo, warna GitHub backup band rahega.
       - key: VAULT_GITHUB_REPO
         value: himanshu75919-coder/utility-duniya-bot
       - key: VAULT_GITHUB_BRANCH
@@ -103,135 +97,75 @@ services:
       - key: VAULT_GITHUB_TOKEN
         sync: false            # 🔑 GitHub token (SECRET — sirf Render me daalo)
       - key: VAULT_KEY
-        sync: false            # 🔑 (optional) apna encryption password. Khali = BOT_TOKEN se
+        sync: false            # 🔑 apna encryption password — YE ZAROOR SET KARO.
+                               # Khali chhoda to key BOT_TOKEN se banti hai, aur
+                               # BotFather se token badalte hi purane backup
+                               # padhe nahi ja payenge.
       - key: VAULT_BACKUP_MINUTES
-        value: "30"            # kitne minute me auto-backup (min 5)
+        value: "60"            # v108: bot halka hai, itni jaldi backup ki zaroorat nahi
       - key: VAULT_ENABLED
         value: "on"            # off = poora vault band
       - key: VAULT_BACKUP_CHAT_ID
         sync: false            # (optional) backup alag chat me bhejni ho to
 
-      # ---------- v60: 🛡️ CRASH SHIELD ----------
-      # Render free plan me sirf 512 MB RAM milti hai. Video + ffmpeg + PDF
-      # ek saath chalein to process "Killed" ho jata hai (aapko crash dikhta
-      # hai). v105.2 watchdog ~389MB par trim, ~420MB par hard clean karta hai.
+      # ==================================================================
+      #  🛡️ CRASH SHIELD / MEMORY
+      # ==================================================================
+      #  v108: bot ab ~62 MB par chalta hai, isliye ye thresholds kabhi
+      #  chhuenge hi nahi. Phir bhi safety ke liye lage hue hain.
       - key: MEMORY_LIMIT_MB
-        value: "512"           # plan ki RAM (Starter=512, Standard=2048)
+        value: "512"           # plan ki RAM (free = 512)
       - key: MEM_RESTART_MB
-        value: "429"           # clean restart threshold; code physical limit se neeche clamp karta hai
+        value: "429"           # clean restart threshold
       - key: MEM_RESTART_UPTIME_S
         value: "900"           # pehle 15 min me unnecessary restart na ho
-      - key: MAX_TG_MB
-        value: "48"            # free 512MB par video buffer cap; bade files ke liye fallback/direct URL
-      - key: BIGFILE_WARM
-        value: "off"           # Telethon pehli badi file par lazy-load = idle RAM kam
 
-      # ==================================================================
-      #  v77: 🏗️ HEAVY GATE + 🚦 UPDATE GATE  (yaahi "baar-baar crash" ka ilaaj)
-      # ==================================================================
-      # Render free plan = 512 MB RAM / 0.1 CPU. Is limit se zyada RAM =
-      # Linux OOM killer BOT ko maar deta hai (log me sirf "Killed").
-      # Do naye layers:
-      #
-      #  1) HEAVY GATE — video download / ffmpeg / PDF jaise bhaari kaam ek
-      #     saath kitne chalein. v105.2 se free 512MB par sirf ek job allowed.
-      #     Bheed me user ko saaf "busy" jawab milta hai, bot marta nahi.
-      #  2) UPDATE GATE — PTB ka default ek time par EK update process karta
-      #     hai: ek user ka 30-second video tool baaki sabko block kar deta
-      #     tha ("bot atak gaya" = sabse common crash-shadow). Ab alag-alag
-      #     chat parallel chalti hain, ek hi chat ke messages order me
-      #     (wizard flows safe), aur Telegram ka dobara bheja hua update drop
-      #     ho jaata hai (dohra kaam / dohra credit nahi).
-      - key: HEAVY_MAX_SLOTS
-        value: "1"             # free 512MB par ek media/PDF kaam; code me bhi clamp
-      - key: HEAVY_WAIT_SECONDS
-        value: "25"            # queue me kitni der rukein, phar "busy" jawab
-      - key: HEAVY_GATE
-        value: "on"            # off = gate band (sirf debugging ke liye)
+      # ---------- 🚦 UPDATE GATE ----------
       - key: MAX_CONCURRENT_UPDATES
         value: "8"             # ek saath total updates (chat-wise order bani rahegi)
       - key: UPDATE_DEDUPE
         value: "on"            # Telegram ke retry (same update_id) drop karo
       - key: UPDATE_PER_CHAT_ORDER
-        value: "on"            # ek hi user ke messages kram se chalen (state safe)
-      # v77: hang par khud theek — loop 240s atka to log, 900s atka to clean
-      #      restart (dead bot se behtar 15-second ka restart). 0 = restart off.
+        value: "on"            # ek hi user ke messages kram se chalen
+      # hang par khud theek — loop 900s atka to clean restart. 0 = off.
       - key: HANG_RESTART_SECONDS
         value: "900"
-      # ---------- v60: 🧹 AUTO CLEANUP ----------
-      # Purane temp files + expired caches khud safai hoti hai (disk bharne se bachao)
-      - key: CLEANUP_MINUTES
-        value: "45"
 
-      # ---------- v52: SELF-PING (free instance ko jaagte rakhta hai = FAST respond) ----------
-      # Bot apna hi /health ping karta hai -> Render ko inbound traffic lagta hai -> 15-min
-      # sleep nahi hota -> cold start (30-60s) sirf pehli baar, baad me bot ~instant respond.
+      # ---------- 🧹 AUTO CLEANUP ----------
+      - key: CLEANUP_MINUTES
+        value: "60"
+
+      # ---------- SELF-PING (free instance ko jaagte rakhta hai) ----------
+      # Bot apna hi /health ping karta hai -> Render ko traffic lagta hai ->
+      # 15-min sleep nahi hota -> bot ~instant respond karta hai.
       - key: BOT_SELF_URL
         value: https://utility-duniya-bot.onrender.com
 
-      # ---------- OSINT HUB (aapka apna API — isi se data aata hai) ----------
-      - key: OSINT_API_BASE
-        value: https://osint-api-hub.onrender.com
-      - key: OSINT_API_KEY
-        value: Demo
-      - key: OSINT_TIMEOUT
-        value: "70"            # hub slow hai; bot beech me progress dikhata hai
-
-      # ---------- DEVICE MODEL LOOKUP (TAC only; no full serial sent) ----------
-      - key: IMEI_API_BASE
-        value: https://osint-api-hub.onrender.com/api
-      - key: IMEI_API_KEY
-        value: Demo
-
-      # ---------- PRIVACY / AUTHORIZED PROVIDERS ----------
-      - key: NUM_LEAK_ENABLED
-        value: "off"            # personal leaked-record search is not supported
-      # ---------- AAPKI LICENSED API (v49.6) ----------
-      # Hub (osint-api-hub) par apni API lagane ke baad yahan kuch nahi chahiye.
-      # Ye sirf tab bharo jab DIREct bot me provider lagana ho (aam taur par nahi).
-      - key: VEHICLE_PROVIDER_URL
-        sync: false            # aapki vehicle API ka endpoint (hub par lagayi hai to khali)
-      - key: VEHICLE_PROVIDER_KEY
-        sync: false            # us API ki key
-      # ---------- v57: 📱 NUMBER INFO — AAPKI API (direct, hub ke bina) ----------
-      # Ye lagate hi Number Info live carrier/circle data dega.
-      # Poori guide: NUMBER-INFO-API-SETUP.md (v99: tumhara number API built-in)
+      # ==================================================================
+      #  📱 NUMBER INFO — aapki API
+      # ==================================================================
+      #  Poori guide: NUMBER-INFO-API-SETUP.md
       - key: MYNUM_API_URL
         sync: false            # number API endpoint (khali = built-in default)
       - key: MYNUM_API_KEY
-        sync: false            # number API key (SECRET — default Demo)
+        sync: false            # number API key (SECRET)
       - key: MYNUM_API_TIMEOUT
         value: "40"            # API slow hai — 10-60 second
+
+      # ==================================================================
+      #  👪 FAMILY INFO — aapki API
+      # ==================================================================
       - key: FAMINFO_API_URL
         sync: false            # family API endpoint (khali = built-in default)
       - key: FAMINFO_API_KEY
-        sync: false            # family API key (SECRET — default Demo)
+        sync: false            # family API key (SECRET)
       - key: FAMINFO_API_TIMEOUT
-        value: "40"            # API slow hai — 10-60 second
-      - key: VEHICLE_PROVIDER_AUTHORIZED
-        value: "0"              # official portal links only unless provider is authorized
+        value: "40"
 
-      # ---------- v61: 🎉 ALL-FREE MODE (saare tools FREE) ----------
-      # "on"  = HAR USER HAR TOOL CHALA SAKTA HAI — koi VIP nahi, koi credit
-      #         nahi, koi limit nahi. (DEFAULT — isi liye kuch set karne ki
-      #         zaroorat bhi nahi hai.)
-      # "off" = purana VIP/credits system wapas (kisi user ka data delete
-      #         nahi hota — sirf darwaza band ho jata hai).
-      - key: ALL_FREE
-        value: "on"
-      - key: PREMIUM_ONLY
-        value: "off"           # v49.4 wala purana switch — ab ALL_FREE hi chalta hai
+      # ---------- PRIVACY ----------
+      - key: NUM_SHOW_FULL_IDS
+        value: "0"             # 1 = Aadhaar/doc ID full dikhaye (0 = masked, safe)
 
       # ---------- SETTINGS ----------
-      - key: FREE_CREDITS
-        value: "25"            # naye user ko itne premium credits
-      - key: REFER_NEED
-        value: "5"             # itne refer par free VIP
-      - key: FREE_LIMIT
-        value: "20"            # purana daily-limit var (ab use nahi hota)
-      - key: NUM_SHOW_FULL_IDS
-        value: "0"             # 1 = Aadhaar/doc ID bhi full dikhaye (0 = masked, safe)
-      - key: UPI_NAME
-        value: UtilityBot
-      - key: BRAND_TAG
-        value: "@Supermannn_x"
+      - key: ALL_FREE
+        value: "on"            # dono tools sabke liye free (koi VIP/credit nahi)

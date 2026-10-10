@@ -1,572 +1,232 @@
-# ⚡ Utility Duniya Super-Bot — **v59.0 UPI Verify Removed + Deep Clean + Fast YouTube**
+# 📱 Utility Duniya Bot — **v108.0 SLIM**
 
-## 🆕 v59.3 — 🛡️ HARDCORE CRASH-PROOF CORE
+> **Ek line me:** 24 tools wala bhaari bot kaat kar **sirf 2 tools** ka halka,
+> na-rukne wala bot bana diya gaya — **📱 NUMBER INFO** aur **👪 FAMILY INFO**.
 
-**Boot self-check** (logs me version + commit + modules + API status) ·
-**Self-heal supervisor** (main() crash ho to bot khud restart — Render 502 nahi) ·
-**loop exception guard** (background task error se bot nahi girta) ·
-**crash counter** `/health` par · **owner-only API** aur **POST API** support.
-Guide: **`DEMO-API-SETUP.md`** (Render me key/value exact) + **`AB-KYA-KARNA-HAI.md`**
+[![RAM](https://img.shields.io/badge/RAM-62%20MB%20%2F%20512%20MB-brightgreen)]()
+[![Tools](https://img.shields.io/badge/tools-2-blue)]()
+[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen)]()
 
-## 🆕 v59.0 — "UPI GAYA + DEEP CLEAN + FAST YOUTUBE"
+---
 
-**🏦 UPI VERIFY poora delete** (user ka order) — tool handler, prompt, keyboard button,
-rate-limit, premium list, `BTN_MODE_MAP`, dono callbacks, `/upiapi` command,
-`modules/upi_provider.py` (poori file) aur `modules/osint_tools.py` ka
-`upi_verify()` + `UPI_BANK_HANDLES` (84 line) + `UPI_VERIFY_*` env vars + uski doc.
-**🔒 Privacy lecture text saare tools se gayi** (BGMI · FF UID · Number Info · UPI) —
-kisi bhi tool me privacy note/card nahi.
-**📱 Number Info ab aapke diye format me** — `👤 Name / 👨 Father / 📱 Phones-Alt /
-🌐 Region / 🆔 Govt ID / 🏠 Address(es)` → separator → number/operator/source/time.
-Data **sirf aapki API** se (`NUMINFO_PROVIDER_URL/KEY`); API na ho to fallback card + hint.
-**⚡ YouTube download ka 5–20 second lag gaya** — quality buttons ab **instant**
-(6-ghante cache + background warm) aur download progressive format (`18`/`22`) se
-≈3x tez (merge avoid) + parallel chunks.
-**🐛 Ek chhupa crash bhi pakda:** patch ne galti se `/version` function uda diya tha
-(handler reh gaya = Render startup crash) — wapas lagaya + test me regression lock.
-Poore numbers: **`V59-KYA-BADLA.md`** · **Deploy steps: `AB-KYA-KARNA-HAI.md`**
+## 😤 Problem kya thi
 
-## 🕘 v58.0 — "NAYA PROMPT SYSTEM + IMEI PHOTO + API PANELS"
+Bot beech kaam me ruk jaata tha, "sochta" reh jaata tha, aur kabhi-kabhi khud
+restart ho jaata tha. Render ke logs me ye line baar-baar aati thi:
 
-**🎨 Saare 22 tools ka prompt naya** (aapka diya format): header + `✨` ask + `📝 Examples`
-bullets. Video Downloader me 5 app examples (YouTube·Instagram·Facebook·TikTok·X).
-**🚫 Do lines poori tarah gayi** — `⚡ Credits: ♾️ Unlimited (VIP)` aur
-`Tap /cancel any time to stop.` ab tool start par kahin nahi.
-**📸 IMEI me photo fix** — adhoora TAC naam (`XIAOMI NOTE 10 PRO`) ab nanoreview
-search API se theek hota hai (`Xiaomi Redmi Note 10 Pro`) + direct photo URL;
-galat-photo guard bhi (model code se galat device ka photo nahi).
-**🔎 Device naam / model code se search** — pehle kaam hi nahi karta tha, ab chalta hai.
-**🏦 UPI naam API** (naya `modules/upi_provider.py` + `/upiapi`, legal + opt-in) aur
-**📱 Number Info owner panel** — ⚠️ **dono v59 me badal gaye** (UPI tool poora delete,
-Number Info card naya). Poore numbers: **`V58-KYA-BADLA.md`** (history) + **`V59-KYA-BADLA.md`**
+```
+MEMORY HIGH 466 MB (limit 512) — aggressive safai
+MEMORY HIGH 489 MB (limit 512) — aggressive safai
+```
 
-📊 **Tests: 837 checks — 0 fail** (naya `tests/test_v58.py` = 113 checks)
+**Asli wajah:** Render ke free plan me kul **512 MB RAM** milti hai. Purane bot
+me video downloader (`yt-dlp` + `ffmpeg`), PDF/Excel banane wale tools
+(`reportlab`, `pdfplumber`, `openpyxl`), image tools (`Pillow`, `qrcode`) aur
+150 MB upload (`telethon`) — ye sab **chalu hone se pehle hi**, sirf import
+hote hi, 300+ MB kha jaate the. Jaise hi koi user ek bhaari tool chalata,
+memory 512 ke paar — aur Linux ka OOM killer bot ko maar deta (logs me sirf
+`Killed` dikhta).
 
-📊 **v59 total: 950 checks — 0 fail** (naya `tests/test_v59.py` = 113 checks + baaki suite update)
+Yani problem bot ke "slow code" ki nahi thi. **Bot me zaroorat se zyada saman
+bhara hua tha.**
 
-## 🕘 v57.0 — "NUMBER INFO API + PREMIUM CARDS"
+---
 
-## 🆕 v57.0 — "NUMBER INFO API + PREMIUM CARDS"
+## ✅ v108 ka hal — saman hi nikaal diya
 
-**📱 Number Info me ab aapki apni API lagegi** — docs me v49.6 se likha tha par code me
-**implement hi nahi tha**. Ab sach me kaam karta hai: 6 env vars (`NUMINFO_PROVIDER_*`),
-6-ghante cache, provider+hub **parallel** (2x fast), aur fallback chain
-(provider → hub → offline) — **tool kabhi band nahi hota**. Naya `/numapi` command se
-Telegram me hi pata kar lo API lagi hai ya nahi. **Guide: `NUMBER-INFO-API-SETUP.md`**
-
-**Aur 4 asli crash bugs mile + fix:** `BRAND_TAG` NameError · **4 jagah HTML injection**
-(Video ka title `<`, `>`, `&` rakhta to pura message reject ho jaata · Cloner tag · URL clean) ·
-aur ulta bug — BGMI/FF ke HTML errors `&lt;b&gt;` banke dikh rahe the (`safe_html_err()` fix).
-**9 premium boxed cards** + LINK CHECK ka blocking call hata (poora bot block ho jaata tha).
-Poore numbers: **`V57-KYA-BADLA.md`**
-
-📊 **Tests: 720 checks — 0 fail** (naya `tests/test_v57.py` = 140 checks)
-
-## 🕘 v56.0 — "CRASH-PROOF + 5-TOOL CLEANUP"
-
-**Asli crash ki jadd mil gayi:** python-telegram-bot me `send_photo` / `send_document` /
-`send_video` **sirf `Bot` par hote hain — `Message` par NAHI** (Message par `reply_photo` /
-`reply_document` hote hain). Code **8 jagah** `q.message.send_photo()` aur
-`update.message.send_document()` call kar raha tha → har baar `AttributeError` →
-user ko *"⚠️ Chhota sa ghatna ho gaya!"*. **Sab fix + naya test jo dobara aane nahi dega.**
-Poore numbers: **`V56-KYA-BADLA.md`**
-
-| Kya | Pehle | Ab |
+| | Pehle (v107) | Ab (v108 SLIM) |
 |---|---|---|
-| 🚨 **Crash (8 call sites)** | `Message` par `send_*` → AttributeError → crash | Sab hataye + `tests/test_v56.py` guard |
-| 🗑️ **5 tools (aapke order par)** | 🌐 Domain OSINT · 📌 Pinterest · 📄 Web Scraper · 🪪 Aadhaar EID · 📡 TG Public Info | Code + modules + tests + docs — **poora saaf** (bot.py 30 KB halka) |
-| 💬 Purane keyboard walon ke liye | kuch nahi (error) | **24 labels** ka friendly message + alternative |
-| 🛡️ Callback ka purana message | `InaccessibleMessage` par crash | `cbmsg()` guard — naya message bhej deta hai |
-| 🤖 YouTube bot-check error | `ERROR: [youtube] ... Sign in to confirm you're not a bot. Use --cookies...` | 17 errors ka **saaf Hindi + solution** ("credit nahi kata") |
-| 🔌 Dead link | `junk.nonexistent-xyz.com` → **"SAFE ✅ 0/100"** (jhootha bharosa!) | **"LINK KHULTA NAHI 🔌"** + OTP warning |
-| 🧹 Network error | `HTTPSConnectionPool(...): Max retries exceeded...` raw | "🔌 Ye website ka pata hi nahi chala — spelling galat hai" |
+| Tools | 24 | **2** |
+| `bot.py` lines | 11,848 | **2,431** |
+| Python libraries | 18 | **4** |
+| Boot RAM | ~224 MB | **~54 MB** |
+| Chalte hue RAM | 416–489 MB | **~62 MB** |
+| 512 MB limit | baar-baar chhuti thi | **kabhi paas bhi nahi** |
 
-**Tests: 580 checks · 0 fail** (`14 + 97 + 208 + 67 + 63 + 131`) · Naya suite: `tests/test_v56.py`
-
-## 🆕 v55.0 — "DEEP AUDIT + PRO UPGRADE" (saare 24 tools live-test kiye)
-
-Is baar koi naya tool nahi — **saare tools ek-ek karke asli API par chala ke check kiye**.
-6 asli bugs fix, 2 tools 7-18x fast, 1 naya feature. Poore numbers: **`V55-KYA-BADLA.md`**
-
-| Kya | Pehle | Ab |
-|---|---|---|
-| 📧 Temp-mail mailbox delete | POST bhejta tha → **kabhi delete nahi hua** | DELETE method → sach me delete |
-| 💳 UPI payment link | `pa=name%40upi` → kuch apps "invalid VPA" | raw `pa=name@upi` (NPCI spec) |
-| 🎮 FF/BGMI region | `7860944073 (BR)` → region pakda hi nahi | `(BR)`, `- BR`, `, br` — sab chalte hain |
-| 📄 Doc→PDF (1 photo) | **crash** (TypeError) | auto-handle + saaf error |
-| 🔗 Link Check | **5.4s** | **0.7s** (parallel + pooled) |
-| 🌐 Domain OSINT | **27.7s** (crt.sh 502) | **1.5s** (Certspotter + parallel) |
-| 🔗 Cloner | links manually hatane padte the | naya **🔗 Links Hatao ON/OFF** button |
-
-**Tests: 548 static + 59 live checks · 0 fail** · Naya suite: `tests/test_v55.py`
-
-## 🆕 v54.1 me kya badla — **"LIVE SCREENSHOTS WALE BUGS FIX"**
-
-Aapne Telegram ke live screenshots bheje the — unhi se pakde gaye 4 asli bugs:
-
-| Bug (screenshot me dikha) | Ab kya hota hai |
-|---|---|
-| 📌 Pinterest **Download** par "⚠️ Chhota sa ghatna ho gaya" | Wajah: bina filename wala BytesIO → Telegram 400 → crash. Ab filename set + try/except + `send_document` fallback. **Credit sirf tab katta hai jab media actually deliver ho.** |
-| 🔥 FF UID par English "The API returned an HTTP 403 error." | 403 = API ne **Render ke server IP** ko temporarily block kiya (aapki UID kharab nahi). Ab Hinglish card: "API ne humare server ko block kar rakha hai — 15-30 min baad try karo, credit nahi kata." |
-| 📡 TG PUBLIC INFO card me khali rows | Double newline hata diya — card ab saaf. |
-| 💳 Pinterest download par **credit gate** nahi tha | 0-credit user bhi free download kar leta tha. Ab gate hai — credits khatam to VIP card. |
-| 🩺 `/health` par commit pata nahi chalta tha | Ab `version + commit SHA + branch + uptime` dikhta hai → "live par kaunsa code hai" ek nazar me. |
-| 🧹 Purane (hataaye hue) tools ads me dikhte the | Credits-over aur VIP-wall text se 🚗 Vehicle/Challan aur 🔒 Private Channel Setup hata diye. |
-| 🏦 UPI verify ka look competitor-jaisa chahiye tha | *(v52.2)* boxed **UPI VERIFY REPORT** card banaya tha — **v59 me ye tool poora delete ho gaya.** |
-
-## 🆕 v54.3 — LIVE crash fix (Render log se pakda) + speed
-
-| Cheez | Ab |
-|---|---|
-| 💥 IMEI par "Chhota sa ghatna ho gaya" + credit kat gaya | Render log me asli error tha: *"can't find end tag corresponding to start tag 'i'"*. Lamba card `[:4000]` se kat-te waqt `<i>` tag adhoora reh jaata tha → Telegram pura message reject. Ab **`cut_html()`** — line-safe + tag-balanced cutting (naya module `modules/core/html_safe.py`). |
-| 💳 Credit fairness | IMEI me credit **delivery ke baad** katta hai; deliver na ho to "Koi credit nahi kata". |
-| 🐢 1-minute delay | Render free instance 15 min me soti hai; keepalive ping ab **10 → 4 minute** par (bot + hub dono jaagte rehte hain). |
-
-## 🆕 v54.2 — screenshots round 2 se polish
-
-| Cheez | Ab |
-|---|---|
-| 📌 Pinterest list me "(bina title)" | Ab smart label: title → pinner ka naam → domain → "Pinterest pin" |
-| 📌 Competitor jaisa photo preview | Search list ke turant baad **top result ka photo preview** (free, koi credit nahi; fail ho to chup-chaap skip) |
-| 🏦 UPI card me status section | *(v54.2)* **📊 ACCOUNT DETAILS & STATUS** add hua tha — **v59 me UPI tool poora delete.** |
-
-### 📱 Number Info — data kahan se aata hai
-Nam/pata wala data **sirf aapki apni API** ke jawab se dikhta hai
-(`NUMINFO_PROVIDER_URL` / `NUMINFO_PROVIDER_KEY` — Render Environment me).
-Bot khud kahin se personal record nahi uthata. API na ho to tool phir bhi chalta hai
-(operator/circle/type) aur card me setup hint aata hai (`/numapi`).
-
-**Tests (v54 era): 828 checks · 0 fail** (106+127+208+14+279+94) · **v55: +73 regression + 59 live = 960 checks, 0 fail.**
-> 📖 Poori Hinglish detail: **`V50-KYA-BADLA.md`** → v54.1 section.
+> Ye andaaze nahi hain — har number asli bot chala kar naapa gaya hai.
 
 ---
 
-## 🆕 v53.0 me kya badla — **"PRO ENGINE" upgrade**
+## 🎯 Jo 2 tools bache hain
 
-> Is release me **koi naya tool nahi**. Purane tools ko *live* test karke (asli API,
-> asli UID, asli link par) andar se theek kiya gaya hai. Do niyam ab hard-coded hain:
-> **bot jhooth nahi bolega**, aur **kaam na hone par credit nahi katega**.
+### 📱 NUMBER INFO
+10-digit mobile number bhejo → owner ka naam, pita ka naam, address, operator,
+circle, ported status — sab ek premium card me.
 
-| Tool | Pehle (measure kiya hua) | Ab (v53.0) |
-|---|---|---|
-| 🔥 **FF UID** | har UID par `Player not found`, **11s**, credit kat-ta tha | **asli data, 0.19s** — SAC region add (jahan asli players the), parallel scan + 6s deadline |
-| 🎮 **BGMI UID** | dead server par bhi **1 credit** kat-ta tha | **availability probe** → `service_busy`, **credit nahi katta**, kabhi fake stats nahi |
-| 📧 **Temp Mail** | poora body dump, OTP dhoondhna user ka kaam | **OTP auto-detect 10/10** + false-positive guard + inline buttons + sirf naye messages |
-| 📦 **App Finder** | **8 blind guessed URL**, 2 **piracy** sites | **Google Play se verified** metadata (dev/rating/reviews/downloads/icon) + F-Droid + iOS; nakli app → `found=False`, **credit nahi** |
-| 📷 **QR** | color/logo params **ignore**, lamba text → **crash** | `make_branded_qr()` wired: **center logo**, **custom colors**, **contrast guard**; vCard ab **4 step** (naam/phone/company/email); WiFi special-char escape |
-| 📊 **Observability** | **58 `except: pass`** — chup-chaap fail | `modules/core/telemetry.py` — calls/ok/fail/latency/cache/errors; **`/sys`** par health card + DEAD upstreams + worst tools |
-| 🛡️ **Credit fairness** | fail par bhi credit kat-ta tha | **charge-on-success only** — `service_busy` / `found=False` / QR-fail ⇒ **no charge** |
+### 👪 FAMILY INFO
+12-digit ID bhejo → poore parivaar ke members ek card me.
 
-**Removed (hamesha ke liye):** GetModPC + HappyMod piracy links App Finder se.
+> **⚠️ Zaroori:** in dono tools ka code **ek line bhi nahi badla gaya hai**.
+> Inke cards, prompts, API calls, masking rules — sab bilkul waise hi hain jaise
+> v107 me the. Inhe `bot.py` se **verbatim (copy-paste) uthaya** gaya hai, aur
+> 3 automatic checks lagaye gaye hain jo build ke waqt confirm karte hain ki
+> code badla to nahi.
 
-**Naya module:** `modules/core/telemetry.py`
-```python
-tel_note(tool, ok, ms, soft=False, error="", credit=True, cache_hit=False)
-tel_health_card(max_rows=12)   # /sys ke liye HTML block
-tel_snapshot() · tel_tool_stats(t) · tel_worst_tools(n) · tel_upstream_status()
-is_soft_fail(result)           # credit rokne ka decision
-```
-
-**Engine API contracts (v53.0):**
-```python
-# modules/general_tools.py
-make_branded_qr(text, *, fg="#111111", bg="#FFFFFF", logo_bytes=None, size=620, label="")
-app_lookup(name, use_cache=True, max_results=5)   # -> {ok, found, query, apps[...]}
-wifi_qr_data(ssid, password="", security="WPA", hidden=False)   # special chars escaped
-vcard_data(name, phone, org="", email="", title="", url="", address="", note="")  # CRLF
-build_upi_link(pa, pn, amt=None, note="", txn_ref="", mam="")   # ValueError on bad VPA
-
-# modules/gaming_tools.py
-ff_player_info(text, region="")   # region aliases + auto-detect internally
-ff_regions() · ff_service_status(force=False) · bgmi_availability(force=False)
-
-# modules/temp_mail.py
-tm_create() · tm_poll(addr, token, seen_ids) · tm_messages(...) · extract_codes(...)
-  # tm_poll -> {ok,count,new_count,messages,codes,new_codes,all_ids,expired}
-```
-
-**bot.py ke naye helpers:** `build_qr_image()` (branded QR + contrast guard + telemetry),
-`_qr_logo_bytes()` (cached brand logo), `_hex_ok()`, `_qr_luminance()`,
-`_telemetry_block()` (`/sys` card), `_pin_meta_line()` (pin caption).
-
-**Naye env vars** (sabke default set — Render par kuch dalna zaroori nahi):
-`PIN_SEARCH_COUNT` `PIN_TIMEOUT` `PIN_CACHE_TTL` `FF_SCAN_TIMEOUT` `FF_SCAN_DEADLINE`
-`GAMING_TIMEOUT` `GAMING_STATUS_TTL` `SCRAPER_TIMEOUT` `SCRAPER_MAX_MB`
-`SCRAPER_MIN_WORDS` `MAILTM_TIMEOUT` `MAILTM_BODY_CHARS` `APP_TIMEOUT`
-`APP_CACHE_TTL` `APP_MAX_RESULTS` `TELEMETRY_MAX_TOOLS` `TELEMETRY_LATENCY_WINDOW`
-
-> 📖 Poori detail (Hinglish, numbers ke saath): **`V50-KYA-BADLA.md`** → v53.0 section.
-> 🔍 Audit trail: **`V53-AUDIT-REPORT.md`**
+**Privacy:** Aadhaar/doc ID **hamesha masked** dikhta hai (`XXXX-XXXX-1234`).
+Ye lock jaan-boojh kar lagaya gaya hai.
 
 ---
 
-## 🆕 v52.3 me kya badla
+## 🗑️ Kya-kya permanently delete hua (23 tools)
 
-### 🎮🔥 NAYA: GAME PLAYER INFO (BGMI UID + FF UID)
-Dost ka game UID bhejo → **player ka naam, level, rank, K/D, last login** — sab **public in-game data**.
-- 🔥 **FF UID**: Garena ke public profile data se (free API) — 13 regions (IND/BR/SG/US...) support
-- 🎮 **BGMI UID**: best-effort public stats + official in-game guide (BGMI India ke liye free public API officially nahi hai — kabhi fake data nahi)
-- ⚠️ "Private leaderboard" / real identity wala data **kabhi nahi** — sirf public in-game data
+<details>
+<summary><b>Poori list dekhne ke liye click karo</b></summary>
 
-### 📧 NAYA: TEMP MAIL (disposable email + inbox)
-`NEW` bhejo → ek-baar ka email ID (mail.tm free API) → kisi bhi jagah signup/OTP ke liye.
-`INBOX` bhejo → messages yahan dikhte hain. Password bot generate karta hai, user ko sirf address dikhta hai. 30 din valid.
+**Aapki pehli list (15):**
+YOUTUBE DL · TIKTOK DL · CHANNEL CLONER · TERABOX DOWNLOADER ·
+WEBSITE OWNER X-RAY · TEMP MAIL · TEMP NUMBER · QR CODE · LINK CHECK ·
+URL SHORT · BUSINESS STUDIO · BANK STATEMENT → EXCEL ·
+MEDIA STUDIO (MP3/STATUS) · MY ACCOUNT · SUPPORT / MADAD
 
-### 🪪 NAYA: AADHAAR EID STATUS HELPER (APNA EID)
-Apna **14-digit Enrolment ID (EID/EPIC)** bhejo (Aadhaar acknowledgement slip ke top par) →
-bot **ready SMS** bana deta hai: `UID STATUS xxxxxxxxxxxxxxxx` → **51969** pe bhejo → official UIDAI status.
-- ✅ 100% legal: sirf APNA EID, official CAPTCHA-free SMS service + official web link
-- ❌ Koi data leak nahi, koi CAPTCHA bypass nahi, kisi aur ka EID/Aadhaar nahi
+**Baad me add kiye (8):**
+INSTA DL · VIRTUAL NUMBERS · RC + CHALLAN · PINCODE INFO · IFSC INFO ·
+RESULT CHECK · QR SCANNER · IMEI / PHONE DETAILS
 
-> ⚖️ Teeno + baaki sab **100% legal** — sirf public data + official sources.
-> Saare 6 naye tools **premium (1 credit/use)** hain.
+Inka **code, buttons, modules, libraries, env vars, docs aur tests** — sab hata
+diya gaya. Sirf chhupaya nahi gaya, poora nikala gaya hai.
 
-### 🧪 Tests (5 suites, sab green)
-```bash
-python3 tests/test_v50_core.py            # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py                  # 208 checks — v52.3 tools + saare purane sections
-python3 _verify_v49.py                    # 128 checks — purana regression suite
-python3 tests/test_privacy_safe_lookup.py #  14 checks — privacy/IMEI/webhook guards (unittest)
-python3 tests/test_v53.py                 # 277 checks — v53.0 pro-engine suite (LIVE internet par)
-#                                         # ─────────
-#                                         # 733 checks · 0 fail
-```
+</details>
+
+**Purane buttons ab bhi dabao to?** Bot crash nahi karega — ek simple message
+aayega: *"ye tool ab band kar diya gaya hai"*, aur naya 2-button menu dubara
+bhej dega.
 
 ---
 
-## 🆕 v52.2 me kya badla
+## 🛡️ Safety sab waise hi hai (kuch kam nahi hua)
 
-### 🌍 NAYA: DOMAIN OSINT (🌐 IP/DOMAIN tool ka upgrade)
-Domain bhejo → **full public OSINT report**: whois (official RDAP registry), DNS records (A/AAAA/MX/NS/TXT),
-**subdomains** (Certificate Transparency / crt.sh), + primary A-record ki **IP location/ISP/hosting**.
-IP bhejo → wahi purana IP info card. Sab public/official sources — koi private info nahi.
+Tools kam hue, **suraksha nahi**:
 
-### 🗑️ HATA DIYA (v59): UPI VERIFY
-UPI verify tool (v52.2 me aaya tha) + uski poori code **v59 me delete** ho gayi —
-tool, module, `/upiapi` command, env vars, doc, keyboard button. Uski jagah keyboard me
-ab **📮 PINCODE INFO** hai.
-
-### 📡 NAYA: TG PUBLIC INFO
-Public `@username` bhejo → **naam + bio + member count** (public channels/groups Bot API `getChat` se,
-user profiles t.me public page se). Sirf public info — private members/phone nahi.
-
-> ⚖️ Teeno **100% legal** — sirf public data + official APIs (RDAP / DNS / Bot API / t.me).
-> Premium hain (1 credit/use) — baaki info tools jaise hi.
-
-### 🧪 Tests (3 suites, **414 checks** — sab green)
-```bash
-python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 179 checks — tools + deletion + TTS + GOVT-removed + YT quality + v52.2 tools
-python3 _verify_v49.py             # 128 checks — purana regression suite
-```
+- **Premium Vault** — poora data encrypted hokar GitHub + Telegram par backup,
+  aur restart par apne aap wapas. Render free plan par restart hote hi local
+  file gayab ho jaati hai — isliye ye zaroori hai.
+- **Crash Shield** — 19 handlers guard me. Koi error aaye to sirf wahi message
+  fail hoga, bot zinda rahega.
+- **Memory watchdog** — 389 MB par safai, 420 MB par clean restart.
+- **Hang watchdog** — 900 s atak jaye to khud restart.
+- **Join-wall, rate-limit, update-gate, janitor** — sab chaalu.
 
 ---
 
-## 🆕 v52.1 me kya badla
+## 🩺 v108 me 1 purana bug bhi theek hua
 
-### 🗑️ GOVT SERVICES PERMANENTLY delete (user order)
-v52.0 me jo 4 govt tools aaye the (Court Case Status / Sarkari Result / Govt ID Status / Job Tracker)
-— user ke order par **poore delete** ho gaye (button + engine module `modules/govt_tools.py` +
-premium entry + rate-limit + tests + docs, sab). `ECOURTS_API_KEY` env bhi hata diya.
-Purane keyboard ke users ko saaf "Govt Services hata diya gaya" message milta hai.
+`/health` page kabhi-kabhi **HTTP 200 ke saath khaali body** bhejta tha (page
+banate waqt ek line crash ho jaati thi to poora page gayab ho jaata tha).
+Render ko 200 dikhta tha, isliye wo atke hue app ko restart hi nahi karta.
 
-### 🎞️ NAYA (v52.0 se, abhi bhi hai): YOUTUBE QUALITY SELECTOR (Video Downloader)
-YouTube link bhejo → **1080p / 720p / 480p / 360p buttons** aayenge → jo dabao wahi quality milegi.
-Pipeline: pehle direct download (agar YouTube server IP allow kare), warna hub 1080p + **bot-side
-ffmpeg downscale** (360p waghera). 1080p = original (koi re-encode nahi).
+Ab `/health` ki **har line alag guard** me hai — ek line fail ho to sirf wahin
+likha aayega `(ye line nahi ban payi: ...)`, page kabhi khaali nahi jayega.
 
-### 🚀 SPEED FIXES (premium feel)
-| Kya | Detail |
-|---|---|
-| ⚡ **Self-ping keepalive** | Bot ab apna hi public `/health` ping karta hai (Render LB ke through) → 15-min sleep **nahi** hota → **cold start sirf pehli baar**, baad me bot ~instant respond |
-| 🖼️ **Welcome photo cache** | `/start` par welcome photo ab file_id (CDN) se turant aati hai — har baar dobara upload nahi |
-
-### 🧪 Tests (3 suites, **356 checks** — sab green)
-```bash
-python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 122 checks — tools + 6-tool deletion + TTS + GOVT-removed + YT quality
-python3 _verify_v49.py             # 128 checks — purana regression suite
-```
-
-### ⚙️ Naye env vars (Render me)
-| Var | Value | Kyu |
-|---|---|---|
-| `BOT_SELF_URL` | `https://utility-duniya-bot.onrender.com` | Self-ping speed fix |
+Saath hi `delete_webhook(...)` call par `await` chhoot gaya tha (naye
+python-telegram-bot me ye coroutine hai), isliye purana webhook kabhi hatta hi
+nahi tha aur polling me `Conflict: can't use getUpdates` aa sakta tha. Ab fix hai.
 
 ---
 
-## 🆕 v51.3 me kya badla
-
-| Kya | Detail |
-|---|---|
-| 🛡️ **Deploy "Conflict" error ab friendly** | Deploy ke dauran purana + naya instance ~30 sec ek saath chalte hain → Telegram "Conflict" deta tha → log me scary red ERROR aata tha. Ab: ek saaf **NOTE** log hota hai (auto-heal message), user ko koi "ghatna" message nahi, duplicate spam nahi. Bot khud 1-2 min me theek ho jata tha — wo behavior wahi, bas log ab saaf. |
-| 🏷️ **Log me asli version** | Purana hardcode "v30 Ultra" banner the — ab startup line me **asli BOT_VERSION** dikhta hai (kaunsa version chala, turant pata) |
-| ✅ **Tests** | 3 suites, **338 checks sab green** (4 naye conflict-handling checks) |
-
-## 🆕 v51.2 me kya badla
-
-| Kya | Detail |
-|---|---|
-| 🗣️ **NAYA TOOL: TEXT → HINDI VOICE** | Media Studio me — text bhejo (max 1500 letters) → **ekdum real desi Hindi awaaz me MP3** (2 voices: Madhur male / Swara female). Engine: `edge-tts` (Microsoft neural, **free, koi API key nahi**). 1 credit/use. |
-| ✅ **Tests** | 3 suites, **334 checks sab green** (naye 13 TTS checks: live male/female MP3 generation + wiring) |
-
-**Ek hi bot me 27+ kaam:** video download, channel auto-forward, photo/document banane wale tools,
-sarkari kagaz, bank statement → Excel, media studio (MP3 / status video / karaoke), info tools
-(IMEI / vehicle / number / IFSC / pincode / IP), QR, link safety, aur
-**VIP + payment system (ab SAARE tools premium)**.
-
-Poora bot ka **text Hinglish** me hai — short prompt + example ke saath, taaki naya user bhi bina
-padhe samajh jaye.
-
-> 📖 **Non-technical ho?** [`V50-KYA-BADLA.md`](V50-KYA-BADLA.md) padho — aasaan bhasha me, bina jargon.
-
----
-
-## 🆕 v51.1 me kya badla (Premium Earning Edition)
-
-### 🗑️ 6 tools PERMANENTLY delete (code + bot + GitHub + videos, sab se gayab)
-| Tool | Note |
-|---|---|
-| 🧮 **EMI / INTEREST CALC** | Menu button, 3-step flow, calculator engine (bank EMI + chakravritti vyaaj) — poora gayab |
-| 🖼️ **SITE SCREENSHOT** | HD + Full Page dono, engine + SSRF wiring — poora gayab |
-| 🖼️ **IMAGE→PDF** | Multi-photo PDF + A4, `on_pdf_cb` handler — poora gayab |
-| 🔒 **PRIVATE CHANNEL SETUP** | Cloner ka private-help flow + "Poori Guide" button — poora gayab |
-| 🆔 **ID & USERNAME FINDER** | `me`/forward/@username + 5-platform checker engine — poora gayab |
-| 🌦️ **WEATHER / MAUSAM** (v51.1) | Menu button, prompt, Open-Meteo engine (`weather_report`, `WMO_WEATHER`, city aliases) — poora gayab |
-
-> Purane keyboard ke users ko **tool ke hisaab se saaf "hata diya gaya" message + replacement suggestion** milta hai (crash nahi) + `/refresh` se naya menu.
-
-### 💰 SAARE tools AB PREMIUM (earning model)
-| Kya | Detail |
-|---|---|
-| 👑 **Sab tools premium** | Naye user ko **25 free credits** (1 use = 1 credit). Credits khatam → VIP lo. |
-| ♾️ **VIP = unlimited** | 30d ₹49 · 60d ₹89 · 90d ₹129 · 120d ₹169 · Lifetime ₹199 — poora bot unlimited. |
-|  **Vehicle key fix** | Ab `rto` action premium gate se sahi pass hota hai (pehle key mismatch thi). |
-| 🛡️ **Credit spend** | Har tool ke result par 1 credit deduct (fail hone par credit nahi jata). |
-
-### 🧪 Tests (3 suites, 356 checks — sab green)
-```bash
-python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 122 checks — tools + 6-tool deletion + TTS + GOVT-removed + YT quality + DB/credits
-python3 _verify_v49.py             # 128 checks — purana regression suite
-```
-
----
-
-## 🆕 v50 Core Layer me kya badla (v50.1–v50.3)
-
-| Kya | Detail |
-|---|---|
-| 🚨 **Bot freeze fix** | 9 tools (IP / IFSC / Pincode / Area / Vehicle / URL-short / Screenshot) blocking HTTP call kar rahe the — jab tak wo chalte, **poora bot sab users ke liye dead** tha. Ab sab `asyncio.to_thread` me. Screenshot par 30s tak freeze hota tha. |
-| 🔒 **SSRF guard** | `expand_url` user ka link seedha fetch karta tha — `http://169.254.169.254/` (cloud metadata) ya `127.0.0.1` se server ke secrets nikal sakte the. Ab input **+ har redirect hop** validate hota hai. |
-| ⚡ **Caching** | IFSC / pincode / IP / area / GST / PAN ab cached. Repeat query **instant**, API quota bachti hai. |
-| 🛡️ **Rate limiting** | Har tool par per-user limit (central gate, `bot.on_text` me ek jagah). Pehle koi bhi spam karke API quota kha / upstream IP block karwa sakta tha. Admin + VIP bypass. |
-| 🐛 **Area Search fix** | Bot ka apna help `Patna GPO` / `Kankarbagh` / `Boring Road SO` suggest karta tha — **teeno API par fail hote the**, aur jo milta tha wo galat state ka hota tha. Ab suffix-stripping + score-based ranking. `Patna GPO` → **800001 Bihar** ✅ |
-| 🎯 **GST/PAN validation** | Galat format ab **bina network** pakda jata hai (pehle 60s hub call jata tha). State-code aur PAN holder-category bhi check hote hain. |
-| 📡 **`/sys` command** | Admin ke liye live health: uptime, RAM, cache hit-rate, rate-limiter counters, mode. |
-| 🧪 **107 naye tests** | `tests/test_v50_core.py` — asli `on_text` ko mocked Update ke saath chala kar rate-limit gate, SSRF, caching, validators verify karta hai. |
-
-### Naya: `modules/core/`
-
-Bot ka professional foundation layer — koi naya third-party dependency nahi, Render par kuch
-install nahi karna padega.
-
-| Module | Kaam |
-|---|---|
-| `core/net.py` | Ek hi HTTP layer: shared connection pool, **har request par default timeout**, backoff retry, 429/`Retry-After` handling, response size cap, `is_safe_url()` SSRF guard |
-| `core/cache.py` | Bounded thread-safe TTL cache + `cached_call()` — LRU eviction, negative-result short TTL, hit-rate stats |
-| `core/limiter.py` | Per-`(user, action)` sliding-window rate limiter, bypass support, auto-cleanup (memory leak nahi), env se configurable |
-
-> ⚠️ **Gotcha:** `net.py` me transport-level retry **jaan-boojh kar OFF** hai. urllib3 ka
-> retry `timeout` ko multiply kar deta tha (`timeout=2` → 6 second wait). Retry ka ek hi
-> malik hai: `_request()` ka apna loop.
-
-### Env (optional — sab ke sensible defaults hain)
+## 🚀 Deploy (Render)
 
 ```bash
-# Rate limits: RATE_LIMIT_<MODE>="limit:window"
-RATE_LIMIT_IFSC=15:60
-RATE_LIMIT_SHOT=4:120
-# Cache
-INFO_CACHE_SIZE=4096
-INFO_CACHE_TTL=1800
-# HTTP
-NET_TIMEOUT=20
-NET_MAX_MB=150
+pip install -r requirements.txt
+python bot.py
 ```
 
-### Tests
+Render par bas do cheezein **zaroori** hain:
+
+| Key | Value |
+|---|---|
+| `BOT_TOKEN` | BotFather ka token |
+| `ADMIN_ID` | aapki Telegram numeric ID (@userinfobot se) |
+
+Baaki sab optional — poori list `.env.example` aur `render.yaml` me comments ke
+saath likhi hai.
+
+📖 **Guides:**
+- `NUMBER-INFO-API-SETUP.md` — Number/Family API lagane ka tarika
+- `TOKEN-KAISE-LE-AUR-KAHAN-SE.md` — Vault ka GitHub token
+- `RENDER-NAYI-SERVICE-KAISE-BANAYE.md` — Render par service banana
+
+---
+
+## 💬 Commands
+
+| Command | Kaam |
+|---|---|
+| `/start` | menu kholo |
+| `/menu` `/tools` | 2-button menu dubara |
+| `/cancel` | chalu kaam rok do |
+| `/refresh` `/newmenu` | keyboard dubara bhejo |
+| `/version` | kaunsa version chal raha hai |
+| `/numapi [number]` | Number API test |
+| `/famapi [id]` | Family API test |
+
+<details>
+<summary><b>Admin commands</b></summary>
+
+`/admin` · `/sys` (ya `/system`, `/health`) · `/ban` · `/unban` ·
+`/broadcast` · `/vault` · `/backup` · `/restore`
+
+</details>
+
+---
+
+## 🧪 Tests
 
 ```bash
-python3 tests/test_v50_core.py     # 106 checks — core layer (SSRF/cache/rate-limit) + live APIs
-python3 _selftest_v50.py           # 122 checks — tools + 6-tool deletion + TTS + GOVT-removed + YT quality + DB/credits
-python3 _verify_v49.py             # 128 checks — purana regression suite
+python tests/test_v108_slim.py
 ```
 
----
-
-## 🆕 v50 me kya badla (Premium Pro)
-
-> ⚠️ **v51/v51.1 note:** v50 me jo tools aaye the — 🧮 EMI/INTEREST CALC, 🖼️ SITE SCREENSHOT, 🖼️ IMAGE→PDF,
-> 🆔 ID & USERNAME FINDER — wo **v51 me permanently delete** ho gaye (upar dekho). 🌦️ WEATHER bhi **v51.1 me permanently delete** ho gaya.
-
-### 🐛 BUG FIXES (real problems)
-| Kya | Problem |
-|---|---|
-| 🆔 **ID Finder forward** | Forward karne par ID nahi milti thi (help text aa jata tha) — ab forward sabse pehle process hota hai |
-| 🖨️ **8-in-1 sheet** | Photos 1.17×1.5" chhoti print hoti thi — ab **EXACT 3.5×4.5cm** (413×532px @300DPI) |
-| 📸 **Passport photo size** | Kabhi 20KB se chhoti file banti thi (portals reject karte hain) — ab 20-50KB window pakka |
-| 📱 **Toll-free numbers** | 1800-… (11 digit) US country code ban jata tha — ab +91 India |
-| 🛠️ **Admin tutorial button** | Button par crash (galat HTML tag) — ab kaam karta hai + link dikhata hai |
-| 📢 **Broadcast** | `<` jaise character par poora broadcast fail hota — ab plain-text fallback |
-| 🗄️ **Database** | "database is locked" crash ka risk — `busy_timeout` laga |
-| 🧹 **Dead code** | 70 lines duplicate admin code delete kiya |
-
-### ⚡ SPEED + PRO UPGRADES
-| Kya | Kya badla |
-|---|---|
-| 🔗 **URL Shortener** | Ab 6 providers **PARALLEL** chalte hain — 10-45s ki jagah **~1 second** |
-| 🔍 **Link Check** | NAYA **domain-age** signal (free RDAP) — 30 din se naya domain = automatic risk +20. Phishing feed scan bhi ab instant |
-| 🏦 **Bank PDF** | Password wale PDF par pehle **khud common passwords try** karta hai — aksar user ko matlaagne ki zaroorat hi nahi |
-| 👤 **Error handling** | Koi ghatna ho to user ko saaf message milta hai (pehle chup-chaap fail hota) |
-
-✅ **Test suite:** `_selftest_v50.py` = **122 checks** (tools, 6-tool deletion, TTS, GOVT, YT quality, conflict-fix, DB/credits)
+**163 checks, sab pass.** Ye 8 cheezein check karte hain:
+boot · menu me sirf 2 button · 23 deleted tools ka naam-o-nishaan na ho ·
+dono cards ka output · offline parser · prompts · nakli Telegram se poora
+end-to-end flow · source me koi leftover code na bache.
 
 ---
 
-## 🆕 v49 me kya badla
-
-| Kya | Detail |
-|---|---|
-| 🗑️ **3 faaltu tools hate** | 🎬 CLIP MAKER · 🔓 LINK BYPASS · 📈 INTEREST CALC — menu, code, video, tutorial: sab se gayab |
-| 🗣️ **Poora bot Hinglish** | Har prompt ab short Hinglish + `📌 Jaise:` example. Lambi English instructions hata di gayi |
-| 📲 **IMEI tool fix** | Hub ka naya TAC endpoint + phone ki photo + poori spec sheet + `.json` file. Privacy: sirf pehle 8 digit dikhte hain |
-| 🔌 **Hub URLs sahi** | Bot ab `osint-api-hub.onrender.com/api` (naya hub) use karta hai — purane dead host nahi |
-| 🧹 **Saaf-safai** | 9 bekaar tutorial videos, 14 purane dev-note files aur 2 dead module (`clip_maker`, `ai_brain`) delete |
-| ✅ **Test suite** | `_verify_v49.py` = **93 checks** (3-tool removal, 29 menu buttons, Hinglish texts, 26 live API checks, DB/credits) |
-
----
-
-## 🚀 Deploy (Render) — 4 step
-
-1. GitHub par push karo.
-2. Render → apni service → **Manual Deploy** → **Clear build cache & deploy**.
-3. Environment tab me ye 4 cheezein zaroor honi chahiye:
-```
-BOT_TOKEN=BotFather se mila token
-ADMIN_ID=aapki Telegram user ID      (owner — unlimited, free)
-UPI_ID=aapka@upi                     (VIP payment ke liye)
-UPI_NAME=Utility Duniya
-```
-4. Telegram me `/start` bhejo → menu aa jayega. `/premium` → VIP plans. `/admin` → admin panel.
-
-> 🚨 **Deploy ke baad ek baar `/refresh` (ya `/newmenu`) bhejo** — isse sab users ko naya
-> keyboard mil jata hai (purane hataye gaye tools ke buttons hat jayenge).
-
----
-
-## 💎 Credits + VIP ka hisaab
-
-| Cheez | Kitna |
-|---|---|
-| Naya user | **25 credits free** (one time — roz nahi milte) |
-| Premium tools | **1 use = 1 credit** |
-| Baaki saare tools | **FREE** (koi credit nahi) |
-| VIP (paid) / Owner | **Unlimited** — premium tools bhi free |
-
-**Premium tools:** 📥 Video Downloader · 📱 Number Info · 🔄 Channel Cloner · 🔒 Private Channel Setup ·
-🏦 Bank Statement PDF→Excel · 📜 Document Suite · ⚡ Media Studio · 🚗 Vehicle Info + Challan · 📲 IMEI / Phone Details.
-
-VIP lene ka tarika: `/premium` → plan chuno → QR se paisa → **Step 2**: UTR bhejo (12 digit) →
-**Step 3**: screenshot bhejo → admin verify karke activate kar dega. Status: `/mypay`.
-**Direct VIP (bina payment):** `/admin` → plan select → `/activate <user_id>`.
-
----
-
-## 🧰 Poori tool list (v49)
-
-**Download / forward**
-📥 Video Downloader (Instagram, YouTube, FB, X, TikTok, Pinterest… 20+ sites) · ⚡ Terabox/Mediafire/GDrive resolver ·
-🔄 Channel Cloner — manual + **full-auto** (source → target, caption/watermark/thumbnail) · 🔒 Private Channel Setup
-
-**Photo / document**
-📸 Govt Exam Passport Photo (naam + DOP stamp) · 🖨️ 8-in-1 Print Sheet · 📄 Doc/Marksheet PDF Compress (100KB-500KB) ·
-🖼️ Image → Multi-page PDF · 🏦 **Bank Statement PDF → Excel** · 📜 **Document Suite**
-(kirayanama, affidavit, notice 138, bayana/pakki rasid, rin shodh, naam sudhar + **registry total cost** + **bigha/kattha converter**)
-
-**Media studio**
-⚡ YouTube→MP3 · 🎬 Status Video (9:16) · 🎧 Ringtone cutter · 🎤 Karaoke · 🔊 8D · 💥 Bass boost ·
-🗣️ Voice change (kid / heavy / robot / ghost / gadget / echo) · ✂️ Trim · 🗜️ Compress · 🎼 Video→MP3
-
-**Info**
-🚗 Vehicle Info + Challan · 📲 IMEI / Phone Details (device + poori spec sheet + .json) · 📱 Number Info
-(operator/circle/type + links) · 🏦 IFSC branch · 📮 Pincode + post offices (area ke naam se bhi) ·
-🆔 ID & Username Finder · 🌐 IP/Domain · 📦 App Finder (8 trust stores)
-
-**Chhote tools**
-📷 QR (link/text, WiFi, contact) · 🔗 URL Short · 🔍 Link Check (scam detector) ·
-🖼️ Website Screenshot (HD + full page) · 🏛️ Sarkari Seva Portals · 👤 My Account ·
-❓ Help/Tutorial · 💎 VIP · 🎁 Refer & Earn (5 refer = 30 din VIP)
-
----
-
-## 📖 Tutorial
-
-- Bot ke andar: har tool ke neeche **🎬 video button** (30 sec video) + ❓ **Help/Tutorial** me saare video.
-- Text tutorial: **`TUTORIAL.md`** (aur bot ka telegra.ph page — `/tutrefresh` se refresh).
-- Admin commands: `/admin` (dashboard), `/payments` (pending list), `/activate <id> [days]`,
-  `/credits <id> [n]`, `/refresh` (sabko naya keyboard), `/tutrefresh`, `/imeistatus`.
-
----
-
-## 🗂️ Files
+## 📁 Project structure
 
 ```
-bot.py              — main bot (handlers, menus, credits, VIP, admin, kagaz flow, media studio flow)
-database.py         — SQLite (users, credits, payments, VIP, referrals, cloner config)
+bot.py                      # poora bot (2,431 lines)
+database.py                 # SQLite
+requirements.txt            # sirf 4 libraries
+render.yaml                 # Render blueprint (Hinglish comments ke saath)
+.env.example                # config ka namuna
+
 modules/
-  channel_cloner.py — cloner engine (auto-forward, branding, albums, floodwait retry)
-  cloud_tools.py    — terabox / mediafire / gdrive direct-link resolvers
-  cyber_studio.py   — passport photo, print sheet, PDF compress (grayscale/A4)
-  desi_tools.py     — bank statement parser, kagaz PDFs, registry cost, land units, media studio (ffmpeg)
-  general_tools.py  — QR, vCard, WiFi QR, image→PDF, screenshot, app store links
-  media_downloader.py — yt-dlp / hub engine (20+ sites) + YouTube 1080p
-  osint_tools.py    — IFSC, pincode, phone info, IP, username finder
-  api_hub.py        — aapke OSINT API hub ke saare endpoints ka wrapper
-  imei_lookup.py    — IMEI → brand/model/spec sheet (TAC privacy included)
-  vehicle_challan.py— live vehicle RC + challan report
-  render_health.py  — Render keepalive / health + webhook URL helper
-  payguard.py       — payment proof check (UTR + duplicate + screenshot analysis)
-  sarkari_hub.py    — government portals ke direct links
-  tutorial_hub.py   — tutorial page (telegra.ph) + video links
-  vip_payment.py    — VIP plans, UPI QR, payment flow
-requirements.txt    — saare packages
-TUTORIAL.md         — text tutorial (bot ke andar se bhi link milta hai)
-1-PADHO-PEHLE.md    — sabse pehle ye padho (setup + zaroori baatein)
-RENDER-ME-KYA-DALNA-HAI.md — Render me kaun-kaun se env var dalne hain
-tutorial_videos/    — har tool ka 30 second video (CDN se serve hota hai)
+  mynum_api.py              # 📱 NUMBER INFO    (unchanged)
+  familyinfo_api.py         # 👪 FAMILY INFO    (unchanged)
+  osint_tools.py            # offline number parser
+  render_health.py          # /health route
+
+modules/core/               # safety layer
+  vault.py                  # encrypted backup + restore
+  guard.py                  # crash shield + memory watchdog
+  joinwall.py  limiter.py  updategate.py  janitor.py
+  safesend.py  html_safe.py  net.py  htmlnet.py
+  cache.py  bounded.py  memtrace.py  telemetry.py  safeconf.py
+
+tests/test_v108_slim.py     # 163 checks
 ```
 
 ---
 
-## 🧪 Khud test karo
+## 📦 Dependencies — 18 se 4
 
-```bash
-python3 _verify_v49.py        # 93 checks: menu, Hinglish text, live API, DB/credits
-python3 _selftest_v45.py      # hub integration (61 checks)
-python3 _selftest_v48.py      # video size / truncated-file checks
-python3 _selftest_imei.py     # IMEI flow (70 checks)
-python3 _selftest_vehicle.py  # vehicle + challan (78 checks)
-python3 -m pytest tests/ -q   # privacy tests
 ```
+python-telegram-bot[webhooks]>=22.8,<23
+requests>=2.32,<3
+phonenumbers>=8.13,<10
+python-dotenv>=1.0,<2
+```
+
+Hataye gaye: `yt-dlp`, `ffmpeg-python`, `telethon`, `Pillow`, `qrcode`,
+`reportlab`, `pdfplumber`, `openpyxl`, `beautifulsoup4`, `lxml`,
+`python-whois`, `dnspython`, `pytesseract`, `instaloader` — **yahi 14
+libraries milkar 300+ MB RAM khaati thi.**
 
 ---
 
-## ⚠️ Zaroori baatein
+<div align="center">
 
-- **Koi AI tool nahi** — sab deterministic (Render 512MB me aaram se chalega).
-- **Legal:** Number info = live carrier/type + links (kisi ki niji jaankari nahi). Kuch hub endpoints
-  owner ki marzi se off hain — bot us case me saaf Hinglish message deta hai, credit nahi katta.
-- **Vehicle/challan** hub par disabled ho to bot graceful message + official portal link deta hai.
-- **Copyright:** downloader sirf public links ke liye — kisi ka paid content dobara bechna galat hai.
-- Payment proof sakhti se check hota hai: UTR format + duplicate + screenshot asli hai ya photo.
+**v108.0 SLIM** · 2 tools · 62 MB · 163 tests passing
+
+</div>

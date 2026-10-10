@@ -1,543 +1,168 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-⚡ TOOLVAULT / UTILITY DUNIYA SUPER-BOT (v30 Ultra Edition) ⚡
-- 30+ Dedicated Separate Tools with Aesthetic Mathematical Bold Fonts (𝐓𝐄𝐋𝐄𝐆𝐑𝐀𝐌 style)
-- Short, Modern & Aesthetic Rowdy/Venom Style Welcome Card
-- 100% Working 3-Step Virtual Numbers (OTP) Funnel
-- Advanced Channel Cloner & Auto-Forwarder Settings Dashboard (Replace words, remove promo links, custom thumbnails)
-- Instagram Downloader with 100% Full Audio & HD Media (Reels, Videos, Photos, Public Stories)
-- Text to Actors & Celebrity Voice Studio (Amitabh Don, Pushpa, Modi, SRK, CarryMinati, Narrator)
-- 6-Store App Finder (including GetModPC, PlayStore, HappyMod, APKPure)
-- Accurate Rich Web Search with 5-6 Verified Results
-- Free direct access without forced channel joining
-- 24/7 Zero-Lag Keepalive Server on Port 10000 (UptimeRobot friendly)
+Utility Duniya Bot — v108.0 SLIM
+=====================================================================
+
+  ✅ IS BOT ME SIRF 2 TOOLS HAIN:
+        📱 NUMBER INFO    — 10 digit number  → operator / circle / record
+        👪 FAMILY INFO    — 12 digit Aadhaar → ration card + family
+
+  ❌ v108 me ye 15 tools PERMANENTLY DELETE kar diye gaye (user ka order):
+        YouTube DL · TikTok DL · Insta DL · Channel Cloner ·
+        Terabox Downloader · Website Owner X-Ray · Temp Mail ·
+        Temp Number · QR Code · QR Scanner · Link Check · URL Short ·
+        Business Studio · Bank Statement→Excel · Media Studio ·
+        My Account · Support/Madad · Virtual Numbers · RC+Challan ·
+        Pincode · IFSC · Result Check · IMEI · VIP Premium
+     Inka code, buttons, handlers, modules aur libraries — sab hata diye.
+
+  🧠 KYUN (Render free plan = 512 MB RAM):
+     Purana bot yt-dlp + ffmpeg + Pillow + reportlab + telethon load karta
+     tha — idle par hi ~450 MB. OOM killer bot ko maar deta tha ("Killed")
+     aur beech kaam me bot ruk jaata tha. Ab sirf halki libraries bachi
+     hain, isliye bot 512 MB ki limit ke aas-paas kabhi nahi jaata.
+
+  🔒 NUMBER INFO / FAMILY INFO ka code JAISA KA TAISA hai — card layout,
+     API call, timeout, error message sab bilkul pehle jaisa.
 """
 
 import asyncio
-import io
-import sys
-import json
 import logging
 import os
 import re
 import socket
-import time
+import sys
 import threading
-import tempfile
-from datetime import date, datetime, timezone   # v75: timezone (smart-detect message)
+import time
 from html import escape as hesc
-import html  # v95: caption &quot;/&amp; fix (unescape)
-from urllib.parse import quote
 
 try:
     from dotenv import load_dotenv
     load_dotenv()
-except Exception:
+except Exception:                                                # noqa: BLE001
     pass
 
-# v60: SAFE CONFIG LAYER — peeche `int(os.getenv("ADMIN_ID", "0") or 0)` tha.
-# Render ke Environment tab me galti se aisi value aa jaye:
-#     ADMIN_ID = 12345   # mera id      <- int() CRASH -> bot start hi nahi hota
-#     FREE_CREDITS = 25 credits          <- CRASH
-# ...to "Application failed to start" aata tha aur samajh hi nahi aata ki kyun.
-# Ab `env_int` kachra value ko ignore karke default le leta hai + warn karta hai.
-from modules.core.safeconf import (
-    env_bool as _env_bool,
-    env_float as _env_float,
-    env_int as _env_int,
-    env_str as _env_str,
-)
-from modules.core.guard import (
-    crash_state as guard_crash_state,
-    guarded,
-    install_global_guard,
-    register_gc_trigger,
-    start_hang_watchdog,
-    start_memory_watchdog,
-)
-# v76 FORTRESS — 🧹 JANITOR: khud-safai (temp files + atke hue ffmpeg process +
-# bounded cache prune + disk watchdog). Render free plan par "bot baar-baar
-# crash" ke 3 chhupe kaaran isi se khatam hote hain.
-from modules.core.janitor import (
-    janitor_block as _janitor_block,
-    janitor_stats as _janitor_stats,
-    start_janitor,
-)
-# v76 — 🪣 saare module-cache ek registry me (memory pressure me ek saath saaf)
-from modules.core.bounded import (
-    cache_report as _bounded_report,
-    clear_all_caches as _clear_module_caches,
-    prune_all_caches as _prune_module_caches,
-)
-# v77: 🏗️ HEAVY GATE — bhaari kaam (video download / ffmpeg / PDF) ek saath
-#      kitne chalein, ye OOM-kill ("bot baar-baar crash") ka asli ilaaj hai.
-from modules.core import heavy as _heavy
-# v77: 🚦 UPDATE GATE — ek user ka bhaari tool baaki sab ko line me na khada
-#      kare (PTB ka default webhook concurrency 1 = "bot atak gaya"), aur
-#      Telegram ka dobara bheja hua update double kaam na kare.
+# ---------------- CORE (crash shield / memory / safety) ----------------
+from modules.core.safeconf import (env_bool as _env_bool, env_int as _env_int,
+                                   env_str as _env_str)
+from modules.core.guard import (crash_state as guard_crash_state,
+                                guarded, install_global_guard,
+                                start_hang_watchdog, start_memory_watchdog,
+                                mem_mb as _mem_mb, free_memory as _free_mem)
+from modules.core.janitor import (janitor_block as _janitor_block,
+                                  janitor_stats as _janitor_stats,
+                                  start_janitor)
+from modules.core.bounded import (cache_report as _bounded_report,
+                                  clear_all_caches as _bounded_clear)
 from modules.core import updategate as _ug
-
-
-def _heavy_health_line() -> str:
-    """/health + /sys ke liye ek line; gate kabhi bot ko nahi rokta."""
-    try:
-        return _heavy.health_line()
-    except Exception as _e:                                      # noqa: BLE001
-        return f"heavy-gate: (unavailable: {str(_e)[:40]})"
-# v75 — 🧠 PRO ENGINE: saare tools ka universal advanced layer
-#       (smart detect + provider race + result history + tool analytics)
-from modules.core import proengine as pro
-# v85 — 🔗 LINK SANITIZER: &amp;/markdown/fbclid wale gande links downloaders
-#       tak saaf pahunchen (fail-link + crash-button ka permanent ilaaj)
-try:
-    from modules.core import urlclean as _UC
-except Exception:  # noqa: BLE001
-    _UC = None
-# v81.0 — 🔐 FORCE-JOIN WALL (user ki hiring: "Force join gate banao")
 from modules.core import joinwall as JW
-# v75.1 — 📤 BULK MODE (EXCEL): earning tool (list -> poora Excel report)
-from modules import bulk_mode as BM
-from modules.core.safesend import (
-    safe_answer_cb,
-    safe_delete,
-    safe_edit,
-    safe_reply,
-    safe_send_document,
-    safe_send_photo,
-    safe_send_text,
-    safe_send_video,
-    trim_callback_data,
-)
+from modules.core import memtrace as _mt
+from modules.core.safesend import (safe_answer_cb, safe_delete, safe_edit,
+                                   safe_reply, safe_send_text)
 from modules.core.vault import (db_path as vault_db_path, vault,
                                 set_main_loop as vault_set_main_loop)
-# v60.4: 💼 BUSINESS STUDIO — 10 naye earning tools (invoice, resume, biodata,
-# certificate, ID card, visiting card, letter, UPI poster, labels, EMI card)
-from modules.business_tools import (
-    BRAND as BIZ_BRAND,
-    visiting_card_image as biz_vcard,
-    upi_qr_image as biz_upi_qr,
-    resume_image as biz_resume,
-    set_brand as biz_set_brand,
-    to_pdf as biz_to_pdf,
-    emi_breakup as biz_emi_breakup,
-    emi_card_image as biz_emi_card,
-    has_devanagari as biz_has_hindi,
-    certificate_image as biz_certificate,
-    biodata_image as biz_biodata,
-    idcard_image as biz_idcard,
-    invoice_image as biz_invoice,
-    label_sheet_image as biz_labels,
-    salary_slip_image as biz_salary,       # v62
-    menu_card_image as biz_menucard,       # v62
-    letter_image as biz_letter,
-)
-
-
-
-from telegram import (
-    BotCommand,
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    InputMediaPhoto,
-    InputMediaVideo,
-    KeyboardButton,
-    Message,          # v75: smart-detect ka 1-tap button (synthetic input message)
-    ReplyKeyboardMarkup,
-    Update,
-)
-from telegram.error import Conflict
-from telegram.ext import (
-    Application,
-    ApplicationHandlerStop,     # v75.2: bulk file handler ke baad aage na jaaye
-    CallbackQueryHandler,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    TypeHandler,
-    filters,
-)
-
-# Internal modules
-from database import (
-    CREDITS_START,
-    parse_dt,
-    add_credits,
-    credits_stats,
-    get_credits,
-
-    spend_credits,
-    create_payment,
-    get_payment,
-    payment_stats,
-    pending_payments,
-    pending_payments_count,
-    recent_payments,
-    revoke_premium,
-    set_payment_admin_msg,
-    set_payment_status,
-    shot_exists,
-    user_payment_history,
-    user_payments,
-    utr_exists,
-    add_referral,
-
-    add_use,
-    all_user_ids,
-
-    find_by_username,
-    get_cloner_config,
-    get_user,
-    get_user_row,
-    grant_premium,
-    # v60: premium ledger — premium ka PERMANENT record (kabhi na khoye)
-    ledger_for,
-    ledger_all,
-    premium_ledger_stats,
-    restore_premium_from_ledger,
-    is_banned,
-    is_premium,
-    premium_expiry,
-
-    recent_users,
-
-    save_cloner_config,
-    save_username,
-    set_ban,
-    stats,
-
-    add_vip_grant,
-    list_vip_grants,
-    meta_get,
-    meta_set,
-    vip_grants_today,
-)
-# Full-Auto Channel Cloner helper (import guard)
-try:
-    from database import get_auto_cloners_for_source
-except ImportError:  # agar purani database.py use ho rahi ho to bot crash na ho
-    def get_auto_cloners_for_source(_source):
-        return []
-
-from modules.cloud_tools import resolve_cloud_url, tb_fetch_thumb, fetch_bytes
-from modules import desi_tools as desi
-from modules.desi_tools import (
-    VOICE_PRESETS,
-    convert_land,
-    land_text,
-    statement_summary_text,
-    statement_passwords,
-    parse_bank_statement,
-    registry_cost,
-    registry_text,
-)
-from modules.tutorial_hub import (
-
-    publish_tutorial,
-    strip_tutorial_lines,
-
-)
-from modules.channel_cloner import (
-
-    clone_messages,
-    cloner_summary_text,
-    forward_cloned_message,
-    get_cloner_settings_kb,
-)
-from modules.media_downloader import (
-
-    download_video_async,
-
-    is_supported_video_url,
-    platform_name,
-    YT_QUALITY_OPTIONS,
-    yt_cached_qualities,
-    yt_warm_qualities,
-    _yt_quality_download,
-    friendly_dl_error,
-)
-from modules import media_downloader as MD      # v66: cookies + client ladder
-from modules.core import bigfile as BF          # v79: 20MB → 150MB (MTProto)
-from modules.toolkit_extras import (
-    analyze_link,
-    expand_url,
-    shorten_url,
-)
-from modules import api_hub as hubapi
-from modules.render_health import (webhook_url_from_env, webhook_url_usable,
-                                   webhook_preflight,
-                         webhook_delivery_state, webhook_needs_repair, webhook_repair)
-from modules.imei_lookup import (
-    device_title as imei_title,
-    fetch_imei_details,
-    help_card as imei_help_card,
-    is_configured as imei_api_ready,
-    render_caption as render_imei_caption,
-    render_text as render_imei_text,
-    search_device as imei_search_device,
-    specs_filename as imei_specs_filename,
-    specs_json_bytes as imei_specs_json,
-    validate_imei as imei_validate,
-)
-from modules import mynum_api as mynum
-from modules import familyinfo_api as faminfo
-from modules.vehicle_tool import (
-    vehicle_lookup as vahan_lookup,
-    offline_parse as vahan_offline,
-    provider_ready as vahan_provider_ready,
-)
-from modules.osint_tools import (
-    search_by_area_name,
-    lookup_ifsc,
-    lookup_phone_info,
-    lookup_pincode,
-    lookup_whois,        # v70: 🌐 WEBSITE OWNER X-RAY (RDAP public record)
-)
-from modules import temp_number as TN                 # v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
-from modules import bseb_result as BSEBR               # v73.1: 📋 BOARD RESULT (BSEB official API)
-from modules import boards as BRD                      # v74.5: BSEB + CBSE
-from modules import captcha_bridge as CB              # v74.6: 🔐 captcha bridge (user solve karta hai)
-from modules.temp_mail import (
-    tm_create,
-    tm_poll,
-    tm_delete,
-)
-from modules.general_tools import (
-    vcard_data,
-    wifi_qr_data,
-    app_lookup,
-    make_branded_qr,
-    qr_scan_bytes,   # v86: 📷 QR SCANNER (naya tool)
-)
-from modules.payguard import (
-    MAX_BAD_TRIES,
-    admin_payment_card,
-    analyze_screenshot,
-    user_payment_reply,
-    utr_help_text,
-    validate_utr,
-)
-from modules.vip_payment import (
-    VIP_PLANS,
-    generate_plan_payment_qr,
-
-    get_premium_plans_kb,
-)
-
-# ---------------- v50: CORE LAYER (cache + rate-limit + safe HTTP) ----------------
 from modules.core import check_limit, limiter_stats
-from modules.core import httpio as http_engine   # v72.0: shared HTTP engine (speed + auto-retry)
-# v53.0: per-tool telemetry — kaunsa tool kitni baar fail hua, kaunsi upstream
-# API DEAD hai. Admin `/sys` par dikhta hai (pehle 58 jagah `except: pass` tha
-# aur kisi ko pata hi nahi chalta tha ki BGMI/FF jaisa tool kab se toota hua hai).
-from modules.core.telemetry import (
-    note as tel_note,
-    snapshot as tel_snapshot,
-    worst_tools as tel_worst_tools,
-)
+from modules.core.telemetry import (note as tel_note, snapshot as tel_snapshot,
+                                    worst_tools as tel_worst_tools)
 from modules.core.cache import TTLCache
-from modules.core.html_safe import cut_html, strip_html
 
-# Info-tools ka shared cache (IFSC / pincode / IP / area) — same sawaal par
-# API call dobara nahi hoti. 30 min TTL: ye data din bhar change nahi hota.
-INFO_CACHE = TTLCache(maxsize=_env_int("INFO_CACHE_SIZE", 4096, lo=64, hi=200000),
-                      default_ttl=_env_int("INFO_CACHE_TTL", 1800, lo=30, hi=86400))
-# v60: memory watchdog in caches ko safai ke waqt khali kar sakta hai (Render
-# free plan par 512 MB se aage jaate hi "Killed" ho jata tha).
-def _clear_caches_mem() -> None:
-    # v76: sabse pehle saare MODULE cache (osint / username / vehicle / imei ...)
-    # — pehle inhe koi saaf hi nahi karta tha, isliye RAM dheere-dheere bharti thi.
-    try:
-        _clear_module_caches()
-    except Exception:
-        pass
-    try:
-        INFO_CACHE.clear()
-    except Exception:
-        pass
-    for _c in ("APP_CACHE", "GAME_CACHE", "IMEI_CACHE", "MEDIA_QCACHE", "_HUB_MEM"):
-        _o = globals().get(_c)
-        if _o is not None and hasattr(_o, "clear"):
-            try:
-                _o.clear()
-            except Exception:
-                pass
-register_gc_trigger(_clear_caches_mem)
+# ---------------- TELEGRAM ----------------
+from telegram import (BotCommand, InlineKeyboardButton, InlineKeyboardMarkup,
+                      KeyboardButton, ReplyKeyboardMarkup, Update)
+from telegram.ext import (Application, CallbackQueryHandler, CommandHandler,
+                          ContextTypes, MessageHandler, TypeHandler, filters)
 
-# ---------------------------------------------------------------------------
-# v50: PER-TOOL RATE LIMITS
-# mode: (max uses, window seconds, tool ka naam jo message me dikhega)
-#
-# Kyun zaroori tha: pehle koi bhi user kisi bhi tool ko jitna chahe spam kar
-# sakta tha. Isse (a) aapki API quota khatam hoti thi, (b) upstream providers
-# (razorpay / postalpincode / ip-api / thum.io) aapka server IP block kar dete
-# the, (c) Render free plan ka CPU limit hit hota tha → bot sab ke liye slow.
-#
-# Limits jaan-boojh kar generous hain — normal user kabhi nahi takrayega.
-# Override: env me RATE_LIMIT_<MODE>="limit:window" daal do.
-TOOL_RATE_LIMITS = {
-    # heavy / mehnga (CPU ya bahut API kharcha)
-    "insta_dl":    (6,  120, "Video Downloader"),
-    # v64: prefix key — "dl_instagram", "dl_youtube" … sab isi limit me aate hain
-    "dl":          (15, 120, "Video Downloader"),
-    "terabox":     (6,  120, "Terabox Downloader"),
-    "bankpdf":     (5,  180, "Bank Statement → Excel"),
-    "bsebr":       (10, 300, "Result Check (BSEB)"),   # v74.0: wizard (FREE)
-    "rc":          (12, 300, "Result Check (BSEB)"),   # v74.0: rc_code/rc_roll (wizard steps)
-    "media_ytmp3": (5,  120, "YouTube → MP3"),
-    "media_tts":   (8,  60,  "Text → Hindi Voice"),
-    "yt_q":        (8,  120, "YouTube Quality"),
-    # normal info tools
-    "tempmail":    (10, 120, "Temp Mail"),
-    "tnum":        (25, 300, "Temp Mail (Number)"),    # v71.9: free temp number + OTP
-    "ifsc":        (15, 60,  "IFSC Info"),
-    "osint_whois": (12, 60,  "Website Owner (WHOIS)"),
-    "vahan":       (10, 120, "RC + Challan (Gaadi X-Ray)"),
-    "pin":         (15, 60,  "Pincode Info"),
-    "imei":        (8,  60,  "IMEI Lookup"),
-    "numinfo":     (10, 60,  "Number Info"),
-    "familyinfo":  (10, 60,  "Family Info"),
-    "linkcheck":   (10, 60,  "Link Check"),
-    "short":       (10, 60,  "URL Shortener"),
-    "qr_scan":     (15, 60,  "QR Scanner"),          # v86: naya tool (photo → QR text)
-    # document tools (local CPU)
-    # ---- v60.4: BUSINESS STUDIO (CPU-heavy file generation) ----
-    "biz_invoice":     (12, 120, "Invoice / Bill"),
-    "biz_resume":      (10, 120, "Resume / CV"),
-    "biz_biodata":     (10, 120, "Marriage Bio-data"),
-    "biz_certificate": (12, 120, "Certificate"),
-    "biz_idcard":      (10, 120, "ID Card"),
-    "biz_vcard":       (10, 120, "Visiting Card"),
-    "biz_letter":      (12, 120, "Application / Letter"),
-    "biz_upi":         (12, 120, "UPI Poster"),
-    "biz_labels":      (10, 120, "Price Label Sheet"),
-    "biz_emi":         (12, 120, "EMI / Loan Card"),
-    "biz_salary":      (10, 120, "Salary Slip"),          # v62
-    "biz_menucard":    (10, 120, "Menu / Rate Card"),     # v62
-}
+# ---------------- DATABASE (users / ban / vault backup) ----------------
+from database import (add_referral, add_use, all_user_ids, find_by_username,
+                      get_user, get_user_row, grant_premium, is_banned,
+                      is_premium, meta_get, meta_set, recent_users,
+                      save_username, set_ban, stats)
 
-# ---------------- CONFIG ----------------
-BOT_TOKEN = _env_str("BOT_TOKEN", "").strip()
+# ---------------- THE ONLY TWO TOOLS ----------------
+from modules import mynum_api as mynum                 # 📱 NUMBER INFO ka API
+from modules import familyinfo_api as faminfo          # 👪 FAMILY INFO ka API
+from modules.osint_tools import lookup_phone_info      # offline number parse
+from modules.render_health import (webhook_url_from_env, webhook_url_usable,
+                                   webhook_preflight, webhook_delivery_state,
+                                   webhook_needs_repair, webhook_repair)
+
+
+
+# =====================================================================
+#  CONFIG
+# =====================================================================
+BOT_TOKEN = _env_str("BOT_TOKEN", "")
 ADMIN_ID = _env_int("ADMIN_ID", 0)
 
-# v33: ek se zyada admin (ADMINS=123,456) — owner + helper admins kaam kar sakte hain
-_ADMIN_EXTRA = [_env_int(x, 0) for x in re.split(r"[,\s]+", os.getenv("ADMINS", "") or "") if str(x).strip()]
-_ADMIN_EXTRA = [x for x in _ADMIN_EXTRA if x > 0]
-ADMIN_IDS = {x for x in {ADMIN_ID, *_ADMIN_EXTRA} if x}
+_ADMIN_EXTRA = [x.strip() for x in _env_str("ADMINS", "").split(",") if x.strip()]
+_ADMIN_EXTRA = [int(x) for x in _ADMIN_EXTRA if x.lstrip("-").isdigit()]
+ADMIN_IDS = {x for x in ([ADMIN_ID] + _ADMIN_EXTRA) if x}
 OWNER_ID = ADMIN_ID
 
 
 def is_admin(uid: int) -> bool:
     """Owner/admin hai? Uske liye koi premium limit nahi lagti."""
     return bool(ADMIN_IDS) and uid in ADMIN_IDS
-# v105.1: default channel = osint_xpert (Render env set kare to wahi jeetta)
-FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "-1004393596502").strip()
-FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "https://t.me/osint_xpert").strip()
-UPI_ID = os.getenv("UPI_ID", "yourname@upi").strip()
-UPI_NAME = os.getenv("UPI_NAME", "UtilityDuniya").strip()
-# Render ka webhook default overlapping polling instances se Telegram Conflict rokta hai.
-WEBHOOK_URL = webhook_url_from_env()
-# purana daily-limit constant (v36 tak) — ab credits system hai; sirf backward-compat ke liye rakha hai
-FREE_LIMIT = _env_int("FREE_LIMIT", 10, lo=1, hi=100000)
-# v59.7: @username ko CLICKABLE banaya — koi bhi tap kare to seedha owner se
-# chat khul jaati hai (uske baad "Start" dabate hi message bhej sakta hai).
-# Username Render env se badla ja sakta hai (OWNER_USERNAME) — code chhune ki zaroorat nahi.
-OWNER_USERNAME = (os.getenv("OWNER_USERNAME", "").strip().lstrip("@")
-                  or "Supermannn_x")
+
+
+OWNER_USERNAME = (_env_str("OWNER_USERNAME", "") or "Supermannn_x").lstrip("@")
 SUPPORT_USERNAME = "@" + OWNER_USERNAME
 SUPPORT_URL = f"https://t.me/{OWNER_USERNAME}"
 SUPPORT_LINK = f'<a href="{SUPPORT_URL}">@{OWNER_USERNAME}</a>'
-# v57: BRAND_TAG pehle bot.py me DEFINED hi nahi tha par numinfo card me use hota tha
-# -> AttributeError/NameError crash (kabhi live hit nahi hua kyunki wo branch galat
-# number par nahi chalti thi). Ab Render env se padha jaata hai (default wahi brand).
-BRAND_TAG = (os.getenv("BRAND_TAG", "").strip() or SUPPORT_USERNAME)
-# clickable version (HTML messages ke liye) — tap karo → owner se chat khul jaaye
+BRAND_TAG = (_env_str("BRAND_TAG", "") or SUPPORT_USERNAME)
 BRAND_LINK = f'🔥 Powered by <a href="{SUPPORT_URL}">{BRAND_TAG}</a>'
-REFER_NEED = _env_int("REFER_NEED", 5, lo=1, hi=10000)
+
 HTML = "HTML"
 BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
-# NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
-# gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
-# check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v107.0 PRO-SPEED — ⚡ IG engines LIVE-AUDIT order (parth/embed pehle, 30s loader aakhir me; budget 40/26s) + 🩸 RAM-SAVER-III (phonenumbers geocoder 95MB lazy + emergency valve; boot 224→~120MB) + 🧼 raw upstream errors user ko kabhi nahi (\"Media number out of range\" fix) + 🛠️ self-check fix | v106 IG-FAST | v105.2 RAM-SAVER — 🧠 Render free 512MB: lazy imports + max 1 heavy job + bounded media downloads; bina premium | v105.1 WALL-OSINT — 🔐 force-join channel REPLACE: ab @osint_xpert (id -1004393596502, link t.me/osint_xpert) — purana @CypherGrid hataa; code-default bana diya (env missing ho to bhi naya channel) | v105.0 BEST-ONLY — 🚀 YouTube: QUALITY-PICKER HATAA — link bhejo = seedha server-ki-best HD (0 taps) + 🎬 IG reels/videos LIVE (loader-ig engine, 12-19s) + parth-dl wala aaya (720p reels, full-quality albums) | v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
-               "Instagram img_index + saaf self-restart + RAM safety | "
-               "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
-               "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
-               "ab baaki 40 ko line me nahi khada karta; Telegram ke duplicate retry "
-               "drop) + 🔗 LINK CHECK PRO (obfuscated IP, homoglyph, typosquat, RTL, "
-               "percent-encoding + asli bank domains ab galat flag NAHI hote) | "
-               "🛡️ FORTRESS (crash-proof): bounded cache "
-               "(kabhi unlimited nahi badhta) + 🧹 JANITOR (temp safai · atke hue "
-               "ffmpeg process · disk watchdog) | 🧠 PRO ENGINE + SMART DETECT + "
-               "⚡ PROVIDER RACE & CIRCUIT BREAKER + 🗂️ /history + 📊 /toolstats "
-               "| NO-GYAAN + SPEED (purana base zinda)")
-START_TIME = datetime.now()
+WEBHOOK_URL = (_env_str("WEBHOOK_URL", "") or webhook_url_from_env()).rstrip("/")
 
-logging.basicConfig(format="%(asctime)s | %(levelname)s | %(message)s", level=logging.INFO)
+BOT_VERSION = (
+    "v108.0 SLIM — ✂️ 15 tools PERMANENTLY DELETE (YouTube/TikTok/Insta DL, "
+    "Cloner, Terabox, Whois X-Ray, Temp Mail, Temp Number, QR, Link Check, "
+    "URL Short, Business Studio, Bank→Excel, Media Studio, My Account, "
+    "Support) + 🪶 yt-dlp/ffmpeg/Pillow/reportlab/telethon dependencies gayi "
+    "— Render free 512MB par idle RAM ~450MB se girkar ~110MB | "
+    "✅ bache: 📱 NUMBER INFO + 👪 FAMILY INFO (code bilkul unchanged)"
+)
+START_TIME = time.time()
+
+logging.basicConfig(
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    level=logging.INFO,
+)
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-log = logging.getLogger("utility-super-bot")
+logging.getLogger("telegram.ext.Application").setLevel(logging.WARNING)
+log = logging.getLogger("utility-duniya")
 
-# =====================================================================
-#  v93 — 🧯 HTML SAFETY NET (import time par hi ON)
-# ---------------------------------------------------------------------
-# bot.py me ~500 jagah parse_mode=HTML ke saath direct send/edit hota hai.
-# Text me zara si HTML gadbad (engine ke title me `<`, adhoora tag, user ke
-# naam me `&`) → Telegram poora message REJECT kar deta hai:
-#     BadRequest: Can't parse entities: can't find end tag 'b'
-# Kaam ho chuka hota hai, jawab taiyaar hota hai — par jaata nahi. User ko
-# "⚠️ Chhota sa ghatna ho gaya!" dikhta hai, yaani "bot crash ho gaya".
-# Ab wahi message repair karke (na ho to plain text) dobara chala jaata hai.
-# Ek jagah lagta hai, poore bot ko cover karta hai. Idempotent hai.
-# =====================================================================
+# v93: Telegram HTML ko hamesha repair karke bhejo (parse-entity crash band)
 try:
     from modules.core.htmlnet import patch_bot_html_safety
     patch_bot_html_safety()
-except Exception as _hn_e:                                      # noqa: BLE001
-    # Net na lag paaye to bhi bot pehle jaisa chalega — ye sirf extra bachav hai
-    logging.getLogger("ud.htmlnet").warning("HTML safety net skip: %s", str(_hn_e)[:120])
+except Exception as _he:                                         # noqa: BLE001
+    log.debug("html net skip: %s", str(_he)[:80])
+
+# ALL_FREE: dono tools sabke liye khule (koi VIP / credit nahi)
+ALL_FREE = _env_bool("ALL_FREE", True)
+PREMIUM_ONLY = False
 
 
-# =====================================================================
-#  v60 — 🛡️ EVERY PREMIUM GRANT = INSTANT BACKUP
-# ---------------------------------------------------------------------
-# Sabse bada darr ye tha ki "premium user delete na ho". Isko pakka karne ke
-# liye hum `grant_premium` ko wrap kar dete hain: jaise hi kisi ko VIP milta
-# hai (payment approve, admin grant, referral VIP — kuch bhi), uske 1-2 second
-# ke andar encrypted backup uth jata hai.
-#
-# Matlab: agar aaj raat 11 baje kisi ne VIP liya aur 11:05 par Render ne
-# service restart kar di — to bot dobara uthte hi us VIP ko WAPAS le aayega.
-# Zero loss window.
-# =====================================================================
-_grant_premium_raw = grant_premium
+# Info-tools ka shared cache (IFSC / pincode / IP / area) — same sawaal par
+# API call dobara nahi hoti. 30 min TTL: ye data din bhar change nahi hota.
+INFO_CACHE = TTLCache(maxsize=_env_int("INFO_CACHE_SIZE", 4096, lo=64, hi=200000),
+                      default_ttl=_env_int("INFO_CACHE_TTL", 1800, lo=30, hi=86400))
 
 
-def _grant_premium_autosave(uid: int, days: int):
-    """grant_premium ka safe wrapper + turant vault backup."""
-    out = _grant_premium_raw(uid, days)
-    try:
-        loop = None
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = None
-        if loop is not None and loop.is_running():
-            loop.create_task(vault.backup_soon(reason=f"grant:{uid}"))
-        else:
-            # v66: naya loop MAT banao (wahi "different event loop" crash tha) —
-            #      vault khud main loop par bhej dega, ya CLI me chalayega
-            from modules.core.vault import run_coro_blocking as _rcb
-            threading.Thread(target=_rcb,
-                             args=(vault.backup_soon(reason=f"grant:{uid}"),),
-                             daemon=True).start()
-    except Exception as _e:                                      # noqa: BLE001
-        log.debug("grant autosave skip: %s", str(_e)[:90])
-    return out
+# har tool ki rate limit: (kitni baar, kitne second me, naam)
+TOOL_RATE_LIMITS = {
+    "numinfo":    (10, 60, "Number Info"),
+    "familyinfo": (10, 60, "Family Info"),
+}
 
-
-grant_premium = _grant_premium_autosave      # poore bot me yahi use hoga
-log.info("🛡️ Premium auto-backup wrapper ON — har VIP grant par backup uthega")
+PREMIUM_TOOL_NAMES = {
+    "numinfo": "📱 Number Info",
+    "familyinfo": "👪 Family Info",
+}
 
 
 # ---------------- AESTHETIC BOLD UNICODE HELPER ----------------
@@ -549,553 +174,6 @@ def to_bold(text: str) -> str:
     ab har button/prompt/card OSINT bot jaisa clean plain font dikhta hai.
     """
     return text
-
-
-
-
-# ============================================================
-#  PREMIUM TOOL SET (v102: kagaz/cxray members delete ho gaye)
-# ============================================================
-PREMIUM_TOOLS = {
-    "insta_dl",            # 📥 downloader ENGINE (27 alag tools isi par chalte hain)
-    "numinfo",             # 📱 NUMBER INFO
-    "familyinfo",          # 👪 FAMILY INFO (v100)
-    "cloner",              # 🔄 CHANNEL CLONER (auto-forward setup)
-    # ---- v38 MARU-TOAD PACK (chhupe tools) ----
-    "bankpdf",             # 🏦 BANK STATEMENT PDF → EXCEL
-    "mediastudio",         # ⚡ MEDIA STUDIO (MP3/STATUS/KARAOKE)
-    # ---- v41 IMEI / PHONE DETAILS (live API) ----
-    "imei",                # 📲 IMEI & PHONE SPEC CARD
-    # ---- v51: baaki saare tools bhi premium (earning model) ----
-    "terabox",             # ⚡ TERABOX / CLOUD DOWNLOADER
-    "vnum",                # 🌐 VIRTUAL NUMBERS (OTP)
-    "ifsc",                # 🏦 IFSC INFO
-    "osint_whois",         # 🌐 WEBSITE OWNER X-RAY (v70)
-    "vahan",               # 🚗 RC + CHALLAN (v71)
-    "pin",                 # 📮 PINCODE INFO
-    "tempmail",            # 📧 TEMP MAIL
-    "qr",                  # 📷 QR CODE (text/wifi/vcard)
-    "short",               # 🔗 URL SHORT
-    "linkcheck",           # 🔍 LINK CHECK
-    # ---- v60.4: 💼 BUSINESS STUDIO (10 earning tools) ----
-    "biz_invoice",         # 🧾 Invoice / GST Bill
-    "biz_resume",          # 💼 Resume / CV
-    "biz_biodata",         # 💍 Marriage Bio-data
-    "biz_certificate",     # 🎓 Certificate
-    "biz_idcard",          # 🪪 ID Card
-    "biz_vcard",           # 📇 Visiting Card
-    "biz_letter",          # 📄 Application / Letter
-    "biz_upi",             # 💳 UPI Scan & Pay Poster
-    "biz_labels",          # 🏷️ Price Label Sheet
-    "biz_emi",             # 🧮 EMI / Loan Card
-    # ---- v62: 2 naye earning tools ----
-    "biz_salary",          # 💰 Salary Slip
-    "biz_menucard",        # 🍽️ Menu / Rate Card
-}
-
-PREMIUM_TOOL_NAMES = {
-    "insta_dl": "📥 Video Downloader",
-    "numinfo": "📱 Number Info",
-    "familyinfo": "👪 Family Info",
-    "cloner": "🔄 Channel Cloner",
-    "bankpdf": "🏦 Bank Statement → Excel",
-    "mediastudio": "⚡ Media Studio (MP3/Status/Karaoke)",
-    "imei": "📲 IMEI / Phone Details",
-    "terabox": "⚡ Terabox / Cloud Downloader",
-    "vnum": "🌐 Virtual Numbers (OTP)",
-    "ifsc": "🏦 IFSC Info",
-    "osint_whois": "🌐 Website Owner X-Ray",
-    "vahan": "🚗 RC + Challan (Gaadi X-Ray)",
-    "pin": "📮 Pincode Info",
-    "tempmail": "📧 Temp Mail",
-    "qr": "📷 QR Code",
-    "short": "🔗 URL Short",
-    "linkcheck": "🔍 Link Check",
-    # ---- v60.4: 💼 BUSINESS STUDIO ----
-    "biz_invoice": "🧾 Invoice / GST Bill",
-    "biz_resume": "💼 Resume / CV Maker",
-    "biz_biodata": "💍 Marriage Bio-data",
-    "biz_certificate": "🎓 Certificate Maker",
-    "biz_idcard": "🪪 ID Card Maker",
-    "biz_vcard": "📇 Visiting Card Maker",
-    "biz_letter": "📄 Application / Letter",
-    "biz_upi": "💳 UPI Scan & Pay Poster",
-    "biz_labels": "🏷️ Price Label Sheet",
-    "biz_emi": "🧮 EMI / Loan Card",
-    "biz_salary": "💰 Salary Slip",
-    "biz_menucard": "🍽️ Menu / Rate Card",
-}
-
-
-def is_premium_tool(action: str) -> bool:
-    # v64: 27 downloader tools (dl_instagram, dl_youtube …) bhi premium ginti me
-    return action in PREMIUM_TOOLS or str(action or "").startswith("dl_")
-
-
-def credits_left(u: dict, uid: int = 0) -> int:
-    """Bache hue credits (VIP/admin/owner ke liye 999999 = unlimited).
-
-    v61: ALL_FREE mode me SABKE liye unlimited (999999) — isse credits
-    kabhi khatam nahi hote, "credits khatam, VIP lo" screen kabhi nahi
-    aati, aur saare premium tools sabke liye khul jaate hain.
-    """
-    if ALL_FREE:
-        return 999999
-    if uid and is_admin(uid):
-        return 999999
-    if is_premium(u):
-        return 999999
-    try:
-        return get_credits(uid or u.get("user_id", 0))
-    except Exception:
-        return 0
-
-
-def credits_line(u: dict, uid: int = 0) -> str:
-    """Chhoti line: credits kitne bache hain.
-
-    v58: VIP/unlimited par ye line AB KHALI rehti hai — user ka order tha ki
-    tool ke start me "⚡ Credits: ♾️ Unlimited (VIP)" kahi bhi na dikhe.
-    """
-    left = credits_left(u, uid)
-    if left >= 999999:
-        return ""
-    if left <= 0:
-        return "⚡ <b>Credits:</b> 0 / %d — <b>khatam!</b> Premium tools ke liye VIP lo: /premium" % CREDITS_START
-    return f"⚡ <b>Credits:</b> {left} / {CREDITS_START} (premium tools ke liye)"
-
-
-def can_use_premium_tool(u: dict, uid: int = 0) -> bool:
-    """Premium tool chalane layak hai? (VIP/admin hamesha, baaki credits hone par)"""
-    return credits_left(u, uid) > 0
-
-
-def get_credits_over_text(action: str = "") -> str:
-    # v64: dl_* ke liye DL_SITES se asli naam (jaise "Instagram Video Downloader")
-    _act = str(action or "")
-    if _act.startswith("dl_") and dl_key_of(_act):
-        tool_name = f"{DL_SITES[dl_key_of(_act)][0]} {DL_SITES[dl_key_of(_act)][1]} Downloader"
-    else:
-        tool_name = PREMIUM_TOOL_NAMES.get(action, "Ye tool")
-    return (
-        f"⚡ <b>{to_bold('CREDITS KHATAM')}</b>\n"
-        "──────────────────────\n"
-        f"{tool_name} ek <b>premium tool</b> hai — 1 use = 1 credit.\n"
-        f"Aapke <b>{CREDITS_START} free credits khatam ho gaye.</b>\n\n"
-        "👑 <b>VIP lene se POORA bot UNLIMITED ho jayega:</b>\n"
-        "• 📥 Instagram/YouTube/TikTok Downloader • 📱 Number Info\n"
-        "• 🔄 Channel Cloner\n"
-        "• 📸 Passport Photo • 🖨️ 8-in-1 Sheet • 📄 Doc PDF • 🏦 IFSC/Pin/IP\n"
-        "• 🏦 Bank PDF→Excel • ⚡ Media Studio\n"
-        "• 📲 IMEI • 📦 App Finder • aur saare tools\n"
-        "• 💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
-        "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n"
-        "• ♾️ 30/60/90/120 din ya LIFETIME — sab plans\n\n"
-        f"💎 <b>VIP plans:</b> 30d ₹49 • 60d ₹89 • 90d ₹129 • 120d ₹169 • Lifetime ₹199\n"
-        "👇 Neeche se VIP lo, unlimited use karo:"
-    )
-
-
-# ======================================================================
-# v49.4: VIP-ONLY MODE — saare tools sirf VIP / premium users ke liye
-# ======================================================================
-# Aapki marzi: "ab se sirf premium users hi use kar sakte hain."
-# PREMIUM_ONLY=off karte hi purana system wapas (free tools + credits).
-# ======================================================================
-#  v61: 🎉 ALL-FREE MODE  —  SAARE TOOLS SABKE LIYE FREE
-# ======================================================================
-#  Boss ka order: "premium features hata do, saare tools free hone chahiye."
-#
-#  Kaise kaam karta hai:
-#    ALL_FREE = on  (DEFAULT)  ->  har user har tool chala sakta hai.
-#                                  Koi credit nahi, koi VIP wall nahi,
-#                                  koi "premium lo" wala message nahi.
-#    ALL_FREE = off            ->  purana VIP/credits system wapas
-#                                  (ya PREMIUM_ONLY=on likh do — wahi
-#                                   kaam karega).
-#
-#  ⚠️ SABSE ZAROORI: is switch se KISI USER KA DATA DELETE NAHI HOTA.
-#     DB me premium_until, credits, payments, referrals — sab jaisa hai
-#     waisa hi rehta hai. Sirf darwaza khul jata hai. Kabhi bhi
-#     ALL_FREE=off karoge to purane VIP waale wapas VIP honge.
-# ======================================================================
-ALL_FREE = _env_bool("ALL_FREE", True)
-if _env_bool("PREMIUM_ONLY", False):
-    ALL_FREE = False          # saaf-saaf PREMIUM_ONLY=on likha hai -> premium mode
-PREMIUM_ONLY = not ALL_FREE
-
-VIP_WALL_TEXT = (
-    "👑 <b>YE TOOL SIRF VIP MEMBERS KE LIYE HAI</b>\n"
-    "──────────────────────\n"
-    "Aapka account <b>free</b> hai — is liye premium tools band hain.\n\n"
-    "💎 <b>VIP lene par aapko milega:</b>\n"
-    "• 📥 Video Downloader (Instagram, YouTube, FB, X, TikTok… 20+ sites)\n"
-    "• 📱 Number Info + 📲 IMEI full spec-sheet + 🏦 IFSC Info\n"
-    "• 🔄 Channel Cloner (auto-forward) + 📡 TG Public Info\n"
-    "• 🏦 Bank PDF → Excel · ⚡ Media Studio\n"
-    "• 📸 Passport Photo · 🖨️ 8-in-1 Sheet · 📄 Doc PDF · 🔍 Link Check\n"
-    "• ♾️ <b>Sab kuch unlimited</b> — koi credit, koi limit nahi\n"
-    "• ⚡ <b>Sabse fast</b> support + pehle naye tools\n\n"
-    "📌 <b>Jaise:</b> ek baar VIP lo → poora bot khul jata hai, koi rok nahi."
-)
-
-
-def vip_wall_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 VIP plan lo (💳 UPI / QR)", callback_data="open_vip_menu")],
-        [InlineKeyboardButton(f"💬 Support {SUPPORT_USERNAME}", url=SUPPORT_URL)],
-    ])
-
-
-# ---------- v61: FREE MODE ka apna card (VIP wall ki jagah) ----------
-FREE_MODE_TEXT = (
-    "🎉 <b>SAB TOOLS FREE HAIN!</b>\n"
-    "──────────────────────\n"
-    "Koi VIP nahi, koi credits nahi, koi limit nahi.\n"
-    "Aap seedha menu se <b>koi bhi tool</b> dabao — turant chalega. ✅\n\n"
-    "📥 Video Downloader · 📱 Number Info · 👪 Family Info\n"
-    "📲 IMEI Details · 🔍 Link Check · 🚗 RC + Challan\n"
-    "🏦 Bank PDF → Excel · ⚡ Media Studio\n"
-    "💼 Business Studio — Invoice, Resume, Biodata, Certificate,\n"
-    "   ID Card, Visiting Card, Letter, UPI QR, Price Tag, EMI Card\n\n"
-    "💡 <i>Naya tool chahiye? Batao — free me add kar dunga.</i>"
-)
-
-
-
-
-def dl_tools_text() -> str:
-    """v67: alag-alag downloader tools ki list — har app ka apna tool (koi
-    "sab apps wala" video downloader tool nahi hai)."""
-    _rows = [f"   {icon} {hesc(name)} Downloader"
-             for _k, (icon, name, _dom, _eg) in DL_SITES.items()]
-    return (f"<b>📥 {len(DL_SITES)} VIDEO DOWNLOADER TOOLS (sab ALAG-ALAG)</b>\n"
-            "(har app ka apna tool — jaise NUMBER INFO / IMEI alag hain)\n"
-            + "\n".join(_rows))
-
-
-
-
-def vip_ok(uid: int) -> bool:
-    """VIP / owner / admin — tool chala sakte hain? (PREMIUM_ONLY=off par sab allowed)."""
-    if not PREMIUM_ONLY:
-        return True
-    if uid and is_admin(uid):
-        return True
-    try:
-        return bool(is_premium(get_user(uid, "")))
-    except Exception:
-        return False
-
-
-def has_unlimited(uid: int) -> bool:
-    """ASLI premium/owner check — rate-limit aur unlimited-use ke liye.
-
-    ⚠️ `vip_ok()` iske liye use MAT karo: PREMIUM_ONLY=off (normal mode) me
-    wo SABKE liye True deta hai, kyunki wo ek *mode gate* hai, premium check nahi.
-    Ye function hamesha actual DB status dekhta hai.
-    """
-    if uid and is_admin(uid):
-        return True
-    try:
-        return bool(is_premium(get_user(uid, "")))
-    except Exception:
-        return False
-
-
-# Non-VIP users ke liye ye callbacks khule rehte hain (payment, refer, madad)
-VIP_FREE_CB_EXACT = {
-    "back_home", "cancel", "open_vip_menu", "mypay_list", "open_refer_menu",
-    "pay_utr_help", "premium_plans", "menu_home", "home", "start",
-}
-VIP_FREE_CB_PREFIX = ("buy_plan_", "adm", "admin", "ugrant:", "urevoke:", "uban:",
-                      "rpay:", "apay:", "askpay:", "refer",
-                      "tnum",     # v71.9: TEMP MAIL (NUMBER) — 100% FREE tool, hamesha khula
-                      "bsebr", "cbse_info", "rc_")   # v74.0: RESULT CHECK wizard — FREE
-
-
-def vip_free_cb(data: str) -> bool:
-    if data in VIP_FREE_CB_EXACT:
-        return True
-    return any(str(data).startswith(p) for p in VIP_FREE_CB_PREFIX)
-
-
-async def send_vip_wall(update: Update, context: ContextTypes.DEFAULT_TYPE = None):
-    """VIP wall — jahan se bhi call karo, sahi jagah bhej dega."""
-    kb = vip_wall_kb()
-    try:
-        msg = update.effective_message or (update.callback_query.message if update.callback_query else None)
-    except Exception:
-        msg = None
-    if msg is not None:
-        try:
-            await msg.reply_text(VIP_WALL_TEXT, reply_markup=kb, parse_mode=HTML)
-            return
-        except Exception:
-            pass
-    try:
-        tgt = update.effective_chat.id
-    except Exception:
-        return
-    try:
-        await context.bot.send_message(tgt, VIP_WALL_TEXT, reply_markup=kb, parse_mode=HTML)
-    except Exception:
-        pass
-
-
-async def vip_gate(update: Update) -> bool:
-    """True = allowed. False = wall bhej diya (aage kuch mat karo)."""
-    try:
-        uid = update.effective_user.id
-    except Exception:
-        return True
-    if vip_ok(uid):
-        return True
-    await send_vip_wall(update, None)
-    return False
-
-
-def clean_err(text: str, limit: int = 200) -> str:
-    """Error text ko user-friendly banao — URL/GitHub link/traceback/[youtube] kachra hata do."""
-    t = str(text or "")
-    t = re.sub(r"https?://\S+", "", t)
-    t = re.sub(r"\[\w+\]\s*", "", t)                 # [youtube] [instagram] etc.
-    t = re.sub(r"Traceback \(most recent call last\)[\s\S]*", "", t)
-    t = re.sub(r"File \"[^\"]+\", line \d+[\s\S]*", "", t)
-    t = re.sub(r"(ERROR:|warning:)\s*", "", t, flags=re.I)
-    t = re.sub(r"\s{2,}", " ", t).strip(" .;,-")
-    if len(t) > limit:
-        t = t[:limit].rsplit(" ", 1)[0] + "…"
-    return t or "Something went wrong on the server."
-
-
-def get_limit_exceeded_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 VIP lo (Unlimited)", callback_data="open_vip_menu")],
-        # v79: 🎬 (30 sec video) button hata diya — saare tutorial videos delete ho
-        # chuke hain, aur 🎁 Refer ka tool bhi user ki hiring se hataya gaya.
-        [InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
-    ])
-
-
-def check_limit_exceeded(u: dict, uid: int = 0) -> bool:
-    """Purana naam — ab matlab: 'premium tool ke liye credits nahi bache'.
-    Free tools par ab koi limit nahi hai."""
-    return not can_use_premium_tool(u, uid)
-
-
-def get_limit_exceeded_text(action: str = "") -> str:
-    return get_credits_over_text(action)
-
-
-def spend_credit_msg(uid: int, action: str = "") -> str:
-    """1 credit kharch hone ke baad chhota note."""
-    if ALL_FREE:
-        return ""            # v61: free mode me credit kat hi nahi raha
-    left = spend_credits(uid, 1)
-    name = PREMIUM_TOOL_NAMES.get(action, "Premium tool")
-    if left <= 0:
-        return (
-            f"⚡ <b>1 credit laga</b> — <b>ab 0 credit bacha!</b>\n\n"
-            f"{name} ka ye aakhri free use tha.\n"
-            "Ab poora bot VIP ke saath unlimited chalega. → /premium"
-        )
-    if left <= 5:
-        return (f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>\n"
-                f"<i>Sirf {left} premium use bache hain, uske baad VIP lena padega (/premium)</i>")
-    return f"⚡ <b>1 credit laga</b> — bacha: <b>{left}/{CREDITS_START}</b>"
-
-
-
-
-async def _reply_nonempty(msg, text, **kw):
-    """v82: khaali text par Telegram 'Message text is empty' error deta tha — aur media bhej
-    dene ke BAAD bhi user ko galat 'SEND FAILED' dikhta tha (free mode me credit note khaali
-    hota hai). Ab khaali ho to chup-chaap skip; warna normal reply."""
-    if text is None or not str(text).strip():
-        return None
-    return await msg.reply_text(text, **kw)
-
-
-def _parse_img_index(text: str):
-    """v82: Instagram link me ?img_index=N (carousel ka N-wan item). Nahi mila to None."""
-    m = re.search(r"[?&]img_index=(\d{1,3})", str(text or ""))
-    if not m:
-        return None
-    n = int(m.group(1))
-    return n if n >= 1 else None
-
-
-# =====================================================================================
-# v93 — 📸 ALBUM / CAROUSEL HELPERS
-# =====================================================================================
-ALBUM_CHUNK = 10          # Telegram ek media_group me max 10 media allow karta hai
-
-
-def clean_album_items(items) -> list:
-    """Album items me se khaali/ghatiya entries hatao — bina crash ke.
-
-    Koi engine `{"type":"photo"}` bina bytes ke bhej de, ya list me None/string
-    aa jaaye, to pehle `item["bytes"]` par KeyError/TypeError se poora handler
-    mar jaata tha (user ko "SEND FAILED"). Ab wo item chup-chaap skip hota hai.
-    """
-    out = []
-    for it in items or []:
-        if not isinstance(it, dict):
-            continue
-        b = it.get("bytes")
-        if not b:
-            continue
-        out.append({"type": str(it.get("type") or "photo").lower(), "bytes": b})
-    return out
-
-
-def build_album_chunks(items, cap_head: str = "", chunk_size: int = ALBUM_CHUNK) -> list:
-    """Album ko Telegram-safe chunks me todo: [[InputMedia, ...10], [...10], ...]
-
-    * 12-photo wala post pehle `items[:10]` se 2 photo CHUP-CHAAP kho deta tha.
-    * Caption sirf pehle chunk ke pehle media par (Telegram ka rule).
-    * 10 se zyada ho to har chunk ke pehle media par "position / total" caption.
-    """
-    good = clean_album_items(items)
-    if not good:
-        return []
-    total = len(good)
-    cs = max(1, int(chunk_size or ALBUM_CHUNK))
-    chunks = []
-    for start in range(0, total, cs):
-        piece = good[start:start + cs]
-        group = []
-        for n, item in enumerate(piece):
-            pos = start + n + 1                       # album me asli position (1-based)
-            if start == 0 and n == 0:
-                cap = cap_head                        # pehla media = full caption
-            elif total > cs and n == 0:
-                cap = f"📸 <b>ALBUM</b> • {pos}-{min(start + len(piece), total)} / {total}"
-            else:
-                cap = ""
-            buf = io.BytesIO(item["bytes"])
-            if item["type"] == "video":
-                buf.name = f"media_{pos}.mp4"
-                group.append(InputMediaVideo(media=buf, caption=cap, parse_mode=HTML,
-                                             supports_streaming=True))
-            else:
-                buf.name = f"media_{pos}.jpg"
-                group.append(InputMediaPhoto(media=buf, caption=cap, parse_mode=HTML))
-        chunks.append(group)
-    return chunks
-
-
-def _clean_link_in(text: str) -> str:
-    """v85: user ke bheje link ki gandagi (&amp; / markdown / aas-paas ka text) saaf karo."""
-    try:
-        if _UC is not None:
-            _c = _UC.clean_link(text)
-            if _c:
-                return _c
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        return (text or "").strip()
-    except Exception:  # noqa: BLE001
-        return ""
-
-
-def _safe_btn_url(url: str):
-    """v85: InlineKeyboardButton(url=...) ke liye valid URL ya None (galat URL = crash)."""
-    try:
-        if _UC is not None:
-            return _UC.safe_button_url(url)
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        u = (url or "").strip()
-        if u.startswith("http://") or u.startswith("https://"):
-            return u[:1000]
-    except Exception:  # noqa: BLE001
-        pass
-    return None
-
-
-def _album_chunks(items: list, per: int = 10, total_cap: int = 60 * 1048576) -> list:
-    """v86: carousel items → 10-10 ke groups (Telegram media-group limit) + total cap.
-
-    IG carousel me 20 tak items hote hain; Telegram ek group me 10 leta hai.
-    Isliye 20-photo album = 2 groups. Khaali items filter + total 60MB cap
-    (OOM safety). Kabhi exception nahi — hamesha list.
-    """
-    try:
-        clean = [it for it in (items or [])[:20]
-                 if isinstance(it, dict) and (it.get("bytes") or b"")]
-    except Exception:  # noqa: BLE001
-        return []
-    fit, tot = [], 0
-    for it in clean:
-        try:
-            sz = len(it.get("bytes") or b"")
-        except Exception:  # noqa: BLE001
-            continue
-        if tot + sz > total_cap and fit:
-            break
-        tot += sz
-        fit.append(it)
-    fit = fit or clean[:1]
-    if not fit:
-        return []
-    try:
-        per = max(1, min(10, int(per)))
-    except Exception:  # noqa: BLE001
-        per = 10
-    return [fit[i:i + per] for i in range(0, len(fit), per)]
-
-
-def inr(amount, decimals: int = 0) -> str:
-    """Indian style money format: 100000 -> ₹1,00,000 | 12500000 -> ₹1,25,00,000 (lakh/crore style)."""
-    try:
-        neg = amount < 0
-        n = abs(float(amount))
-        if decimals:
-            whole = int(n)
-            frac = round((n - whole) * (10 ** decimals))
-        else:
-            whole = int(round(n))      # rupee tak round (89,792.8 -> 89,793)
-            frac = 0
-        st = str(whole)
-        if len(st) > 3:
-            head, tail = st[:-3], st[-3:]
-            parts = []
-            while len(head) > 2:
-                parts.insert(0, head[-2:]); head = head[:-2]
-            if head:
-                parts.insert(0, head)
-            st = ",".join(parts) + "," + tail
-        out = f"₹{st}"
-        if decimals and frac:
-            out += f".{frac:0{decimals}d}"
-        return ("-₹" + out[1:]) if neg else out
-    except Exception:
-        return f"₹{amount}"
-
-
-def words_amount(amount) -> str:
-    """1,00,000 -> '1 lakh' | 1,25,00,000 -> '1.25 crore' (samajhne me aasan)."""
-    try:
-        n = float(amount)
-    except Exception:
-        return ""
-    if n >= 10000000:
-        return f"{n / 10000000:.2f} crore".replace(".00", "")
-    if n >= 100000:
-        return f"{n / 100000:.2f} lakh".replace(".00", "")
-    if n >= 1000:
-        return f"{n / 1000:.1f} hazaar".replace(".0", "")
-    return ""
-
-
-def fail_msg(title: str, reason: str = "") -> str:
-    # v74.3.1: sirf outcome — koi Tip/gyaan nahi (user ka rule #2)
-    body = f"\n\n{reason}" if reason else ""
-    return f"❌ <b>{to_bold(title)}</b>{body}"
 
 
 def unbold(text: str) -> str:
@@ -1114,351 +192,65 @@ def unbold(text: str) -> str:
     return "".join(res)
 
 
-# ---------------- VIRTUAL NUMBERS CONSTANTS ----------------
-VNUM_SERVICES = (
-    ("wa", "🟢 WhatsApp"),
-    ("fb", "🔵 Facebook"),
-    ("ig", "📸 Instagram"),
-    ("tt", "🎵 TikTok"),
-    ("tg", "✈️ Telegram"),
-    ("sc", "👻 Snapchat"),
-    ("xx", "𝕏 X (Twitter)"),
-    ("dc", "🎮 Discord"),
-    ("gg", "🔷 Google"),
-    ("yt", "▶️ YouTube"),
-)
-
-VNUM_COUNTRIES = (
-    ("my", "🇲🇾 Malaysia"),
-    ("iq", "🇮🇶 Iraq"),
-    ("ru", "🇷🇺 Russia"),
-    ("id", "🇮🇩 Indonesia"),
-    ("np", "🇳🇵 Nepal"),
-    ("sd", "🇸🇩 Sudan"),
-    ("us", "🇺🇸 USA"),
-    ("gb", "🇬🇧 UK"),
-    ("ca", "🇨🇦 Canada"),
-    ("de", "🇩🇪 Germany"),
-    ("fr", "🇫🇷 France"),
-    ("nl", "🇳🇱 Netherlands"),
-    ("ae", "🇦🇪 UAE"),
-    ("bd", "🇧🇩 Bangladesh"),
-    ("br", "🇧🇷 Brazil"),
-    ("tr", "🇹🇷 Turkey"),
-)
-
-VNUM_INTRO = (
-    f"🌐 <b>{to_bold('VIRTUAL NUMBERS (OTP)')}</b>\n"
-    "──────────────────────\n"
-    "OTP ke liye virtual number — 16 desh, 10 service.\n"
-    "📌 Jaise: WhatsApp ke liye number chahiye\n"
-    "──────────────────────\n"
-    "1️⃣ Service chuno → 2️⃣ Country chuno → 3️⃣ Number lo\n"
-    "<i>Sirf account verify karne ke liye. Spam nahi.</i>"
-)
+def clean_err(text: str, limit: int = 200) -> str:
+    """Error text ko user-friendly banao — URL/GitHub link/traceback/[youtube] kachra hata do."""
+    t = str(text or "")
+    t = re.sub(r"https?://\S+", "", t)
+    t = re.sub(r"\[\w+\]\s*", "", t)                 # [youtube] [instagram] etc.
+    t = re.sub(r"Traceback \(most recent call last\)[\s\S]*", "", t)
+    t = re.sub(r"File \"[^\"]+\", line \d+[\s\S]*", "", t)
+    t = re.sub(r"(ERROR:|warning:)\s*", "", t, flags=re.I)
+    t = re.sub(r"\s{2,}", " ", t).strip(" .;,-")
+    if len(t) > limit:
+        t = t[:limit].rsplit(" ", 1)[0] + "…"
+    return t or "Something went wrong on the server."
 
 
-def _vnum_intro_kb():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("📞 Get Number", callback_data="vnum_get")],
-        [InlineKeyboardButton(f"☎️ Contact {SUPPORT_USERNAME}", url=SUPPORT_URL)],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-    ])
+async def _reply_nonempty(msg, text, **kw):
+    """v82: khaali text par Telegram 'Message text is empty' error deta tha — aur media bhej
+    dene ke BAAD bhi user ko galat 'SEND FAILED' dikhta tha (free mode me credit note khaali
+    hota hai). Ab khaali ho to chup-chaap skip; warna normal reply."""
+    if text is None or not str(text).strip():
+        return None
+    return await msg.reply_text(text, **kw)
 
 
-def _vnum_svc_kb():
-    rows = []
-    for i in range(0, len(VNUM_SERVICES), 2):
-        rows.append([
-            InlineKeyboardButton(l, callback_data=f"vnum_svc:{sl}")
-            for sl, l in VNUM_SERVICES[i : i + 2]
-        ])
-    rows.append([
-        InlineKeyboardButton("⏪ Back", callback_data="vnum_open"),
-        InlineKeyboardButton("⌨️ Menu", callback_data="back_home"),
-    ])
-    return InlineKeyboardMarkup(rows)
+def credits_left(u: dict, uid: int = 0) -> int:
+    """v108: dono tools 100% free hain — hamesha unlimited."""
+    return 999999
 
 
-def _vnum_ctry_kb():
-    rows = []
-    for i in range(0, len(VNUM_COUNTRIES), 2):
-        rows.append([
-            InlineKeyboardButton(l, callback_data=f"vnum_ctry:{sl}")
-            for sl, l in VNUM_COUNTRIES[i : i + 2]
-        ])
-    rows.append([
-        InlineKeyboardButton("🔁 Service badlo", callback_data="vnum_get"),
-        InlineKeyboardButton("⌨️ Menu", callback_data="back_home"),
-    ])
-    return InlineKeyboardMarkup(rows)
+def can_use_premium_tool(u: dict, uid: int = 0) -> bool:
+    """Tool chalane layak hai? (v108: hamesha haan — sab free hai)"""
+    return True
 
 
-async def send_vnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    target = update.callback_query.message if update.callback_query else update.message
-    await target.reply_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(), parse_mode=HTML)
+def get_credits_over_text(action: str = "") -> str:
+    """v108: credits system hata diya — ye kabhi nahi dikhta, safe fallback."""
+    return "⚠️ Thodi der baad try karo."
 
 
-# ============================================================
-#  v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE temp number + OTP
-# ------------------------------------------------------------
-#  User ka order: alag tool (Virtual Numbers se bilkul alag), naam
-#  "Temp Mail", 100% FREE (koi credit/paise nahi), har Telegram user
-#  ko ALAG number (owner ko bhi alag), 10+ services + 10+ countries,
-#  bank/UPI/KYC OTP par SAAF warning.
-#  Engine: modules/temp_number.py (public receive-SMS sites, koi login nahi)
-# ============================================================
-# v71.10: key v2 — purane saare numbers fresh kar diye (user ka order:
-# "pichla message sab delete karo, saare number fresh karo").
-TNUM_META_KEY = "tnum_assign_v2"     # user_id -> uska number (alag-alag)
-TNUM_OLD_KEYS = ("tnum_assign_v1",)  # purani keys — ek baar saaf kar dete hain
-TNUM_REFRESH_GAP = 8                 # ek number par itne sec se pehle refresh nahi
-# v74.4: safety/gyaan lines hata di gayi (user ka rule #2 — sirf outcome)
-
-TNUM_INTRO = (
-    f"📞 <b>{to_bold('TEMP NUMBER')}</b>\n"
-    "──────────────────────\n"
-    "🌍 <b>Desh chuno</b> 👇"
-)
+def get_limit_exceeded_kb():
+    return None
 
 
-# v74.3: sirf 1 service (WhatsApp) — tab service picker skip, seedha desh chuno
-TNUM_ONE_SVC = ("whatsapp" if len(TN.SERVICES) == 1 else "")
+def spend_credit_msg(uid: int, action: str = "") -> str:
+    """v108: koi credit nahi katta — khaali string (card ke upar kuch nahi)."""
+    return ""
 
 
-def _tnum_svc_kb():
-    rows, buf = [], []
-    for k, lbl, em, _rec in TN.SERVICES:
-        buf.append(InlineKeyboardButton(f"{em} {lbl}", callback_data=f"tnum_svc:{k}"))
-        if len(buf) == 2:
-            rows.append(buf)
-            buf = []
-    if buf:
-        rows.append(buf)
-    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def _tnum_ctry_kb(svc_key: str = ""):
-    """Desh chuno — jo desh us app ke liye best hai wo ⭐ ke saath upar."""
-    rec_cc = (TN.SVC_BY_KEY.get(svc_key) or ("", "", ()))[2] or ()
-    order = {cc: i for i, cc in enumerate(rec_cc)}
-    items = sorted(TN.COUNTRIES, key=lambda c: (order.get(c["cc"], 99), c["name"]))
-    rows, buf = [], []
-    for c in items:
-        star = "⭐ " if c["cc"] in order else ""
-        buf.append(InlineKeyboardButton(f"{star}{c['flag']} {c['name']}",
-                                        callback_data=f"tnum_ctry:{c['cc']}"))
-        if len(buf) == 2:
-            rows.append(buf)
-            buf = []
-    if buf:
-        rows.append(buf)
-    rows.append([InlineKeyboardButton("🔁 App badlo", callback_data="tnum_open"),
-                 InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def _tnum_num_kb(rec: dict):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔁 Naya OTP check karo", callback_data="tnum_refresh")],
-        [InlineKeyboardButton("🔄 Doosra number", callback_data="tnum_change"),
-         InlineKeyboardButton("🌍 Desh badlo", callback_data="tnum_countries")],
-        [InlineKeyboardButton("📲 App badlo", callback_data="tnum_open"),
-         InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-    ])
-
-
-def _tnum_load() -> dict:
-    """Assignment store padho (user_id -> usko mila number)."""
-    try:
-        raw = meta_get(TNUM_META_KEY, "") or ""
-        d = json.loads(raw) if raw else {}
-        return d if isinstance(d, dict) else {}
-    except Exception:                                       # noqa: BLE001
-        return {}
-
-
-def _tnum_save(store: dict) -> None:
-    try:
-        meta_set(TNUM_META_KEY, json.dumps(store, ensure_ascii=False))
-    except Exception:                                       # noqa: BLE001
-        pass
-
-
-def tnum_get_number(uid: int, cc: str, svc_key: str = "", change: bool = False):
-    """User ko uska apna (alag) number do — dobara maangne par wahi milega.
-
-    v71.10 upgrade (user ka order):
-      • sabse ACCHA number chunte hain — jo abhi active ho aur usi app ke SMS aate hon
-      • assignment ke waqt inbox ka "baseline" (since) record hota hai
-        → card me sirf USKE BAAD aaye NAYE OTP dikhte hain
-      • app badalne par baseline refresh — purane SMS kabhi show nahi
-
-    Return: (rec | None, error-str).
-    rec = {cc, nid, num, dis, src, svc, rot, since[], t}
-    """
-    try:
-        # purani (v1) list ek baar saaf — fresh shuruaat
-        try:
-            for _oldk in TNUM_OLD_KEYS:
-                if meta_get(_oldk, ""):
-                    meta_set(_oldk, "")
-        except Exception:                                   # noqa: BLE001
-            pass
-        store = _tnum_load()
-        me = store.get(str(uid)) if isinstance(store.get(str(uid)), dict) else {}
-        taken = {v.get("nid") for k, v in store.items()
-                 if k != str(uid) and isinstance(v, dict) and v.get("nid")}
-        # ---- wahi number, wahi desh: reuse (app badla to sirf baseline refresh) ----
-        if me.get("nid") and me.get("cc") == cc and not change:
-            if svc_key and svc_key != me.get("svc"):
-                me["svc"] = svc_key
-                try:
-                    _ib = TN.inbox(me.get("nid"), force=True)
-                    if _ib.get("ok"):
-                        me["since"] = TN.snapshot(_ib.get("messages"))
-                except Exception:                           # noqa: BLE001
-                    pass
-                store[str(uid)] = me
-                _tnum_save(store)
-            return me, ""
-        # ---- naya number / number badla ----
-        avoid = set(me.get("avoid") or [])
-        rot = int(me.get("rot") or 0)
-        if change and me.get("nid"):
-            avoid.add(me.get("nid"))
-            rot += 1
-            avoid = set(list(avoid)[-6:])                   # last 6 yaad rakho
-        num, ib, err = TN.pick_best(cc, taken=taken, uid=int(uid) + rot * 7919,
-                                    svc_key=svc_key or me.get("svc") or "",
-                                    avoid=avoid, tries=3)
-        if not num:
-            return None, (err or "Is desh me abhi number nahi mila — doosra try karo.")
-        rec = {"cc": cc, "nid": num.get("nid"), "num": num.get("number") or "",
-               "dis": num.get("display") or "", "src": num.get("src") or "",
-               "svc": svc_key or me.get("svc") or "", "rot": rot,
-               "avoid": sorted(avoid),
-               "since": TN.snapshot(ib.get("messages")) if (ib or {}).get("ok") else [],
-               "t": int(time.time())}
-        store[str(uid)] = rec
-        if len(store) > 5000:                               # purane records hatao
-            olds = sorted(store, key=lambda x: int((store.get(x) or {}).get("t") or 0))
-            for k in olds[:1000]:
-                if k != str(uid):
-                    store.pop(k, None)
-        _tnum_save(store)
-        return rec, ""
-    except Exception as e:                                  # noqa: BLE001
-        return None, f"Technical dikkat ({type(e).__name__})."
-
-
-def tnum_card(rec: dict, ib: dict) -> str:
-    """📞 TEMP MAIL ka number card (v71.10).
-
-    v74.4: sirf outcome — number + naya OTP. Koi gyaan/warning line nahi.
-    """
-    rec = rec or {}
-    ib = ib or {}
-    cc = str(rec.get("cc") or "")
-    c = TN.COUNTRY_BY_CC.get(cc) or {}
-    svc_key = str(rec.get("svc") or "")
-    lbl, em, _ = TN.SVC_BY_KEY.get(svc_key, ("", "📱", ()))
-    num = str(ib.get("number") or rec.get("num") or "")
-    all_msgs = [m for m in (ib.get("messages") or []) if isinstance(m, dict)]
-    L = [pcard_title("📞", "TEMP NUMBER")]
-    if lbl:
-        L.append(f"{em} <b>App:</b> {hesc(str(lbl))} <i>(OTP {hesc(TN.svc_hint(svc_key))})</i>")
-    L.append(f"{c.get('flag', '🌍')} <b>Desh:</b> {hesc(c.get('name') or cc.upper())}")
-    _pretty = TN.pretty_number(num)
-    _num_line = f"📱 <b>Aapka number:</b> <code>+{hesc(num)}</code>"
-    if _pretty and _pretty != "+" + str(num):
-        _num_line += f"  <i>({hesc(_pretty)})</i>"
-    L.append(_num_line)
-    L.append(pcard_sep())
-
-    if not ib.get("ok"):
-        L.append("⚠️ Inbox abhi nahi khula — thodi der baad dobara dekho.")
-    else:
-        show, _hidden, _new_total = TN.fresh_and_matched(all_msgs, rec.get("since"),
-                                                         svc_key, limit=6)
-        _app = hesc(str(lbl or "is app"))
-        if show:
-            L.append(f"✅ <b>Naya OTP aa gaya!</b>  <i>({len(show)} naya SMS)</i>")
-            _first = True
-            for m in show:
-                code = TN.extract_code_svc(str(m.get("text") or ""), svc_key)
-                frm = hesc(str(m.get("from") or "SMS")[:16])
-                tm = hesc(str(m.get("time") or "")[:18])
-                if _first and code:
-                    L.append(f"🔑 <b>OTP:</b> <code>{hesc(code)}</code>")
-                    _first = False
-                L.append(f"├ <b>{frm}</b> · {tm}")
-                if code:
-                    L.append(f"│  🔑 <b>CODE:</b> <code>{hesc(code)}</code>")
-                L.append(f"│  {hesc(str(m.get('text') or '')[:130])}")
-                _note = TN.code_len_note(str(m.get("text") or ""), svc_key)
-                if _note:
-                    L.append(f"│  ⚠️ {hesc(_note)}")
-        else:
-            L.append(f"⏳ <b>Abhi naya OTP nahi aaya.</b>")
-    L.append("")
-    L.append(BRAND_LINK)
-    return "\n".join(L)
-
-
-async def send_tnum_card(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    target = update.callback_query.message if update.callback_query else update.message
-    if TNUM_ONE_SVC:                    # v74.3: seedha desh chuno (1 hi service hai)
-        await target.reply_text(TNUM_INTRO, reply_markup=_tnum_ctry_kb(TNUM_ONE_SVC),
-                                parse_mode=HTML)
-        return
-    await target.reply_text(TNUM_INTRO, reply_markup=_tnum_svc_kb(), parse_mode=HTML)
-
-
-# ---------------- SEPARATE DEDICATED KEYBOARD BUTTONS (ALL UPPERCASE MATHEMATICAL BOLD) ----------------
+# =====================================================================
+#  ⌨️  MENU — sirf 2 buttons (v108)
+# =====================================================================
 KB_BTNS = [
-    [f"🌐 {to_bold('VIRTUAL NUMBERS')}", f"⚡ {to_bold('TERABOX DOWNLOADER')}"],
-    # v102: ❌ 4 aur tools permanent delete (user order): 📜 SARKARI KAGAZ
-    #     SUITE · 💬 CHAT X-RAY · 📋 ALL TOOLS (FREE) · 📘 FACEBOOK DL —
-    #     buttons, prompts, handlers, modules sab repo se gaye.
-    [f"🔄 {to_bold('CHANNEL CLONER')}", f"🚗 {to_bold('RC + CHALLAN')}"],
-    [f"🌐 {to_bold('WEBSITE OWNER X-RAY')}", f"📮 {to_bold('PINCODE INFO')}"],
-    [f"🏦 {to_bold('IFSC INFO')}", f"📧 {to_bold('TEMP MAIL')}"],
-    [f"📞 {to_bold('TEMP NUMBER')}", f"📋 {to_bold('RESULT CHECK')}"],
-    [f"📷 {to_bold('QR CODE')}", f"📷 {to_bold('QR SCANNER')}"],
-    [f"🔗 {to_bold('URL SHORT')}", f"🔍 {to_bold('LINK CHECK')}"],
-    [f"📲 {to_bold('IMEI / PHONE DETAILS')}", f"💼 {to_bold('BUSINESS STUDIO')}"],
-    [f"⚡ {to_bold('MEDIA STUDIO (MP3/STATUS)')}", f"🏦 {to_bold('BANK STATEMENT → EXCEL')}"],
-    [f"💎 {to_bold('VIP PREMIUM')}", f"👤 {to_bold('MY ACCOUNT')}"],
-    [f"💬 {to_bold('SUPPORT / MADAD')}"],
+    [f"📱 {to_bold('NUMBER INFO')}", f"👪 {to_bold('FAMILY INFO')}"],
 ]
-
-
-# v102: 📋 ALL TOOLS (FREE) button hata diya — FREE mode me VIP cell ki jagah
-# ab 👤 MY ACCOUNT baithta hai aur dobara wala duplicate cell hat jaata hai.
-if ALL_FREE:
-    for _row_v in KB_BTNS:
-        for _i_v, _lab_v in enumerate(_row_v):
-            if "VIP PREMIUM" in unbold(_lab_v).upper():
-                _row_v[_i_v] = f"\U0001F464 {to_bold('MY ACCOUNT')}"
-    _seen_ac = False
-    for _row_v in KB_BTNS:
-        _keep_ac = []
-        for _lab_v in _row_v:
-            if "MY ACCOUNT" in unbold(_lab_v).upper():
-                if _seen_ac:
-                    continue
-                _seen_ac = True
-            _keep_ac.append(_lab_v)
-        _row_v[:] = _keep_ac
-    KB_BTNS[:] = [r for r in KB_BTNS if r]
 
 
 def main_keyboard(admin: bool = False):
     rows = [row[:] for row in KB_BTNS]
     if admin:
-        rows.append([f"🛠️ {to_bold('ADMIN PANEL')}", f"👑 {to_bold('OWNER MODE')}"])
+        rows.append([f"🛠️ {to_bold('ADMIN PANEL')}"])
     return ReplyKeyboardMarkup(
         [[KeyboardButton(t) for t in row] for row in rows],
         resize_keyboard=True,
@@ -1470,315 +262,75 @@ def kb_for(uid: int):
     return main_keyboard(admin=is_admin(uid))
 
 
-# Exact Action Mapping
+# Button ka text → tool ka mode
 BTN_MODE_MAP = {
-    "VIRTUAL NUMBERS": "vnum",
-    "TERABOX DOWNLOADER": "terabox",
-    "CHANNEL CLONER": "cloner",
-    # v66.1: ❌ "VIDEO DOWNLOADER" (ek hi tool me sab apps) POORI TARAH HATA
-    #        DIYA. Purane keyboard wale ye label dabayein to saaf message
-    #        milega: "ab har app ka apna alag tool hai" + 27 tools ki list.
-    "VIDEO DOWNLOAD (27 APPS)": "dl_gone",
-    "VIDEO DOWNLOAD (34 APPS)": "dl_gone",
-    "VIDEO DOWNLOADER (34 APPS)": "dl_gone",
-    "VIDEO DOWNLOAD": "dl_gone",
-    "DOWNLOADER": "dl_gone",
-    "VIDEO DOWNLOADER": "dl_gone",
-    "VIDEO DOWNLOADER (KOI BHI LINK)": "dl_gone",
-    "ANY VIDEO LINK": "dl_gone",
-    "UNIVERSAL VIDEO DOWNLOADER": "dl_gone",
-    "VIRAL VIDEO DOWNLOAD": "dl_gone",
-    # purane Instagram labels -> seedha INSTA tool (service apni jagah zinda)
-    "INSTA DOWNLOADER": "dl_instagram",
-    "INSTAGRAM DOWNLOADER": "dl_instagram",
-    "TEMP MAIL": "tempmail",
-    "TEMPMAIL": "tempmail",
-    "TEMP NUMBER": "tnum",                 # v74.4: naya naam
-    "TEMP MAIL (NUMBER)": "tnum",          # purana naam (compatibility)
-    "TEMP MAIL NUMBER": "tnum",
-    # v75.1: 📤 BULK MODE (earning tool)
-    # v79: BULK MODE ka tool hata diya gaya — isliye ye aliases bhi hataye
-    # (varna typing se wahi tool khul jaata).
-    "RESULT CHECK": "bsebr",               # v73.1: 📋 BSEB result by roll code + roll no
-    "BSEB RESULT": "bsebr_direct",
-    "BSEB RESULT CHECK": "bsebr_direct",
-    "BIHAR BOARD RESULT CHECK": "bsebr_direct",
-    "SAARE BOARDS": "bsebr",
-    "ALL BOARDS RESULT": "bsebr",
-    "BOARD RESULT": "bsebr",
-    "BIHAR BOARD RESULT": "bsebr",
-    "RESULT": "bsebr",
-    "CBSE RESULT": "cbse_info",            # CBSE ab DigiLocker par — saaf jaankari card
-    "DIGILOCKER RESULT": "cbse_info",
-    "QR (LINK / TEXT)": "qr",
-    "QR (WIFI SHARE)": "qr_wifi",
-    "QR (CONTACT CARD)": "qr_vcard",
-    "IMEI / PHONE DETAILS": "imei",
-    "IMEI INFO": "imei",
-    "IMEI LOOKUP": "imei",
-    "PHONE INFO (IMEI)": "imei",
     "NUMBER INFO": "numinfo",
+    "NUMBER": "numinfo",
+    "NUM INFO": "numinfo",
     "FAMILY INFO": "familyinfo",
-    "IFSC INFO": "ifsc",
-    "WEBSITE OWNER X-RAY": "osint_whois",
-    "WEBSITE OWNER": "osint_whois",
-    "WHOIS": "osint_whois",
-    "DOMAIN OWNER": "osint_whois",
-    "RC + CHALLAN": "vahan",
-    "RC CHALLAN": "vahan",
-    "GAADI X-RAY": "vahan",
-    "VEHICLE RC": "vahan",
-    "RC CHECK": "vahan",
-    "GAADI KA RECORD": "vahan",
-    "PINCODE INFO": "pin",
-    "QR CODE": "qr",
-    "QR SCANNER": "qr_scan",       # v86: naya tool (photo → QR text)
-    "QR SCAN": "qr_scan",
-    "SCAN QR": "qr_scan",
-    "URL SHORT": "short",
-    "LINK CHECK": "linkcheck",
-    "BANK STATEMENT → EXCEL": "bankpdf",
-    "BANK STATEMENT TO EXCEL": "bankpdf",
-    "BANK STATEMENT - EXCEL": "bankpdf",
-    "BANK PDF TO EXCEL": "bankpdf",
-    "MEDIA STUDIO (MP3/STATUS)": "mediastudio",
-    # ---- v60.4: 💼 BUSINESS STUDIO (earning tools) ----
-    "BUSINESS STUDIO": "bizstudio",
-    "BUSINESS TOOLS": "bizstudio",
-    "INVOICE": "biz_invoice", "INVOICE / BILL": "biz_invoice",
-    "BILL BANAO": "biz_invoice", "GST BILL": "biz_invoice",
-    "RESUME": "biz_resume", "RESUME / CV": "biz_resume", "CV MAKER": "biz_resume",
-    "BIODATA": "biz_biodata", "MARRIAGE BIODATA": "biz_biodata",
-    "SHAADI BIODATA": "biz_biodata", "VIVAH PARICHAY": "biz_biodata",
-    "CERTIFICATE": "biz_certificate", "CERTIFICATE MAKER": "biz_certificate",
-    "ID CARD": "biz_idcard", "ID CARD MAKER": "biz_idcard",
-    "VISITING CARD": "biz_vcard", "VISITING CARD MAKER": "biz_vcard",
-    "APPLICATION LETTER": "biz_letter", "LETTER MAKER": "biz_letter",
-    "LEAVE APPLICATION": "biz_letter",
-    "UPI QR": "biz_upi", "UPI PAYMENT QR": "biz_upi", "SCAN AND PAY": "biz_upi",
-    "PRICE LABEL": "biz_labels", "RATE TAG": "biz_labels", "PRICE TAG": "biz_labels",
-    "EMI / INTEREST CALC": "biz_emi", "EMI CALC": "biz_emi",
-    "EMI CALCULATOR": "biz_emi", "EMI / VYAAJ CALC": "biz_emi",
-    "INTEREST CALC": "biz_emi", "INTEREST CALCULATOR": "biz_emi",
-    "EMI CARD": "biz_emi", "LOAN EMI": "biz_emi",
-    "MEDIA STUDIO": "mediastudio",
-    "MP3 STATUS STUDIO": "mediastudio",
-    "VIP PREMIUM": "premium",
-    # v79: "REFER & EARN" tool hataya (menu + alias dono)
-    "MY ACCOUNT": "account",
-    # v79: "HELP / TUTORIAL" tool hataya (menu + alias dono)
-    "SUPPORT / MADAD": "support",
-    "MADAD / TUTORIAL": "tutorial",
-    "MADAD": "tutorial",
-    "ADMIN PANEL": "admin",
-    "OWNER MODE": "owner",
+    "FAMILY": "familyinfo",
+    "ADMIN PANEL": "admin_panel",
 }
 
-# =====================================================================
-#  v58 — NAYA TOOL PROMPT SYSTEM (aapka diya hua format)
+
 # ---------------------------------------------------------------------
-#  Har tool ka prompt ab teen hisson me:
-#     1. Header  — 🔐 𝐈𝐌𝐄𝐈 𝐕𝟐 & 𝐆𝐒𝐌𝐀𝐑𝐄𝐍𝐀 𝐒𝐏𝐄𝐂𝐒 𝐄𝐍𝐆𝐈𝐍𝐄
-#     2. Ask     — ✨ 15-digit IMEI Number ya Device Model Name / Code bhejein:
-#     3. Examples— 📝 Examples: • 862407054987700 (IMEI Number) ...
-#
-#  ⚠️ v58 ki khaas baat: tool start par ab NA "⚡ Credits: ♾️ Unlimited (VIP)"
-#     dikhta hai na "Tap /cancel any time to stop." — user ka order.
-#
-#  Ek jagah se poora bot badalta hai: neeche PROMPT_DATA me sirf
-#  head/ask/examples badlo, saare 22 tools ka prompt apne aap badal jayega.
+#  v108: DELETE ho chuke tools — purane keyboard wale users agar inme se
+#  koi button daba dein to crash/silence nahi, saaf jawab milta hai.
+# ---------------------------------------------------------------------
+_REMOVED_TOOLS = {
+    "YOUTUBE DL": "▶️ YouTube DL", "YOUTUBE": "▶️ YouTube DL",
+    "TIKTOK DL": "🎵 TikTok DL", "TIKTOK": "🎵 TikTok DL",
+    "INSTA DL": "📸 Insta DL", "INSTAGRAM DL": "📸 Insta DL",
+    "INSTAGRAM": "📸 Insta DL", "INSTA": "📸 Insta DL",
+    "FACEBOOK DL": "📘 Facebook DL",
+    "CHANNEL CLONER": "🔄 Channel Cloner", "CLONER": "🔄 Channel Cloner",
+    "TERABOX DOWNLOADER": "⚡ Terabox Downloader", "TERABOX": "⚡ Terabox Downloader",
+    "WEBSITE OWNER X-RAY": "🌐 Website Owner X-Ray", "WHOIS": "🌐 Website Owner X-Ray",
+    "TEMP MAIL": "📧 Temp Mail", "TEMPMAIL": "📧 Temp Mail",
+    "TEMP NUMBER": "📞 Temp Number", "TEMP MAIL (NUMBER)": "📞 Temp Number",
+    "VIRTUAL NUMBERS": "🌐 Virtual Numbers", "VNUM": "🌐 Virtual Numbers",
+    "QR CODE": "📷 QR Code", "QR SCANNER": "📷 QR Scanner", "QR": "📷 QR Code",
+    "LINK CHECK": "🔍 Link Check", "LINKCHECK": "🔍 Link Check",
+    "URL SHORT": "🔗 URL Short", "SHORT": "🔗 URL Short",
+    "BUSINESS STUDIO": "💼 Business Studio", "BIZ STUDIO": "💼 Business Studio",
+    "BANK STATEMENT → EXCEL": "🏦 Bank Statement → Excel",
+    "BANK STATEMENT TO EXCEL": "🏦 Bank Statement → Excel",
+    "BANK STATEMENT - EXCEL": "🏦 Bank Statement → Excel",
+    "BANKPDF": "🏦 Bank Statement → Excel",
+    "MEDIA STUDIO (MP3/STATUS)": "⚡ Media Studio", "MEDIA STUDIO": "⚡ Media Studio",
+    "MY ACCOUNT": "👤 My Account", "ACCOUNT": "👤 My Account",
+    "SUPPORT / MADAD": "💬 Support / Madad", "SUPPORT": "💬 Support / Madad",
+    "MADAD": "💬 Support / Madad",
+    "RC + CHALLAN": "🚗 RC + Challan", "GAADI X-RAY": "🚗 RC + Challan",
+    "PINCODE INFO": "📮 Pincode Info", "PINCODE": "📮 Pincode Info",
+    "IFSC INFO": "🏦 IFSC Info", "IFSC": "🏦 IFSC Info",
+    "RESULT CHECK": "📋 Result Check",
+    "IMEI / PHONE DETAILS": "📲 IMEI / Phone Details", "IMEI": "📲 IMEI / Phone Details",
+    "VIP PREMIUM": "💎 VIP Premium", "ALL TOOLS (FREE)": "📋 All Tools",
+}
+
+
+def removed_tool_text(name: str) -> str:
+    return (
+        f"🗑️ <b>{hesc(name)} ab is bot me nahi hai.</b>\n"
+        f"{PCARD_MID}\n\n"
+        "Ye tool permanently delete kar diya gaya hai taaki bot halka rahe "
+        "aur kabhi beech me na ruke.\n\n"
+        "✅ <b>Ab sirf 2 tools hain:</b>\n"
+        "   📱 <b>NUMBER INFO</b>  — 10 digit number bhejo\n"
+        "   👪 <b>FAMILY INFO</b>  — 12 digit Aadhaar bhejo\n\n"
+        "👇 Neeche naya menu use karo (ya /refresh dabao)"
+    )
+
+
 # =====================================================================
-# ======================================================================
-#  v64: 📥 VIDEO DOWNLOADER — 27 ALAG-ALAG TOOLS (ek-ek app ka apna tool)
-# ======================================================================
-#  Boss ka order: "video downloader me jitni services hain, sabko alag-alag
-#  tool bana do."
-#
-#  Pehle: ek hi tool tha (insta_dl) — user ko samajh nahi aata tha ki kaunsa
-#  link chalega. Ab: har app ka apna tool, apna button, apna prompt, apni
-#  example. Purana "VIDEO DOWNLOADER" button ab YE list kholta hai.
-#
-#  Format: key -> (icon, naam, [domains], example-link)
-DL_SITES = {
-    # ================================================================
-    #  v67: ✅ SIRF 4 DOWNLOADER TOOLS (user ka order)
-    #  ❌ 23 services POORI TARAH DELETE (code + bot + GitHub history)
-    # ================================================================
-    # v71: examples ab ASLI (valid) links hain — "xxxxx" wale dummy nahi
-    "instagram":   ("📸", "Instagram",      ["instagram.com", "instagr.am"],
-                    "https://www.instagram.com/reel/C8xYzAbCdEf/"),
-    "youtube":     ("▶️", "YouTube",        ["youtube.com", "youtu.be"],
-                    "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
-    "tiktok":      ("🎵", "TikTok",         ["tiktok.com"],
-                    "https://vt.tiktok.com/ZS6rQpLmK/"),
-}
-
-DL_POPULAR = ("instagram", "youtube", "tiktok")  # v102: facebook gaya
-
-# ----------------------------------------------------------------------
-# v67: 📥 4 DOWNLOADER TOOLS — har app apna ALAG tool
-# ----------------------------------------------------------------------
-#  Har service ka apna keyboard button hai (jaise NUMBER INFO / IMEI alag
-#  hain). "sabhi apps ek saath" wala purana tool bot me NAHI hai.
-# ----------------------------------------------------------------------
-DL_SHORT = {
-    "instagram": "INSTA", "youtube": "YOUTUBE",
-    "tiktok": "TIKTOK",
-}
-
-
-def dl_tool_label(key: str) -> str:
-    """Ek service ka keyboard label — official emoji + naam."""
-    _icon, _name = DL_SITES[key][0], DL_SHORT.get(key, key.upper())
-    return f"{_icon} {to_bold(_name)} DL"
-
-
-def dl_kb_rows(per_row: int = 2):
-    """4 downloader tools keyboard rows (submenu nahi, seedhe tools)."""
-    _labels = [dl_tool_label(k) for k in DL_SITES]
-    return [_labels[i:i + per_row] for i in range(0, len(_labels), per_row)]
-
-
-# har label ka apna mode (standalone tool) — label ka key wahi tarika jo
-# on_text use karta hai (aage ka emoji hata kar, upper case)
-for _dk in DL_SITES:
-    _lbl_key = re.sub(r"^[^\w\s]+\s*", "", unbold(dl_tool_label(_dk))).strip().upper()
-    BTN_MODE_MAP[_lbl_key] = "dl_" + _dk
-
-
-def dl_prompt_data(mode: str) -> dict:
-    """Ek downloader tool ka prompt (head / ask / examples) — auto banta hai."""
-    _k = str(mode)[3:] if str(mode).startswith("dl_") else ""
-    if _k not in DL_SITES:
-        return {}
-    _icon, _name = DL_SITES[_k][0], DL_SITES[_k][1]
-    _eg = DL_SITES[_k][3]
-    return {
-        "head": f"{_icon} {_name.upper()} VIDEO DOWNLOADER",
-        "ask": f"{_name} ka video / reel ka link bhejein:",
-        "ex": [(_eg, f"{_name} ka link")],
-        "tip": "Share button se copy kiya pura link bhi chalega",
-        "foot": "HD quality · bina watermark · 30 second me tayyar",
-    }
-
-
-# 4 downloader tools seedhe main keyboard me (submenu NAHI) — row 2 ke baad
-try:
-    _dl_rows = dl_kb_rows(2)
-    # v102: 📘 Facebook delete ke baad TIKTOK akela row me tha — use pichhli
-    #     row me jod do (INSTA · YOUTUBE · TIKTOK — 3 buttons, ek row).
-    if len(_dl_rows) > 1 and len(_dl_rows[-1]) == 1:
-        _dl_rows[-2].append(_dl_rows[-1].pop(0))
-        del _dl_rows[-1]
-    # v68: 🥇 PREMIUM/SABSE ZAROORI TOOLS SABSE UPAR (user ka order) —
-    # v101: NUMBER INFO + FAMILY INFO sabse pehli row (user ka order).
-    KB_BTNS[0:0] = [[f"📱 {to_bold('NUMBER INFO')}", f"👪 {to_bold('FAMILY INFO')}"]] + _dl_rows
-    # v102: koi bhi ek-button row bache to use right wale se merge karo
-    #     (index-safe loop).
-    _i_c = 0
-    while _i_c < len(KB_BTNS) - 1:
-        if len(KB_BTNS[_i_c]) == 1:
-            KB_BTNS[_i_c].append(KB_BTNS[_i_c + 1].pop(0))
-            if not KB_BTNS[_i_c + 1]:
-                del KB_BTNS[_i_c + 1]
-        else:
-            _i_c += 1
-except Exception as _dke:                                        # noqa: BLE001
-    print("dl keyboard rows skip:", _dke)
-
-
-
-
-def dl_key_of(mode: str) -> str:
-    """'dl_instagram' -> 'instagram' (warna '')."""
-    m = str(mode or "")
-    return m[3:] if m.startswith("dl_") and m[3:] in DL_SITES else ""
-
-
-def dl_name(mode: str) -> str:
-    k = dl_key_of(mode)
-    return (DL_SITES[k][1] if k else "Video Downloader")
-
-
-def dl_url_matches(mode: str, url: str) -> bool:
-    """Ye link is app ka hai? (kabhi crash nahi)"""
-    k = dl_key_of(mode)
-    if not k:
-        return True
-    try:
-        u = str(url or "").lower()
-        return any(d in u for d in DL_SITES[k][2])
-    except Exception:                                            # noqa: BLE001
-        return True
-
-
-# ----------------------------------------------------------------------
-# v67: ❌ PURANA PICKER CODE (dl_menu_kb / DL_MENU_TEXT) POORI TARAH DELETE.
-#      Ab 4 tools seedhe keyboard par hain — koi picker menu nahi.
-# ----------------------------------------------------------------------
-
-
-# v71: premium card/prompt frame — boxes ┏─┓ ┃ ┗─┛ + dotted separator.
-# (PROMPT_DATA se PEHLE hona zaroori hai — prompt renderer inhi ko use karta hai)
-PCARD_TOP = ""  # v102: box frames gaye — OSINT-style plain lines
+#  CARD / PROMPT STYLE (v102 OSINT-plain — bilkul pehle jaisa)
+# =====================================================================
+PCARD_TOP = ""
 PCARD_MID = "━━━━━━━━━━━━━━━━━━━━━━"
-PCARD_BOT = ""  # v102: box frames gaye
+PCARD_BOT = ""
 
 PROMPT_DATA = {
-    # ---------------------------------------------------------- DOWNLOADERS
-    "terabox": {
-        "head": "⚡ TERABOX / CLOUD ENGINE",
-        "ask": "Terabox / Drive / MediaFire ka link bhejein:",
-        "ex": [('https://terabox.com/s/1XrQk2mBnPqRtYvWx3cde', 'TeraBox ka share link')],
-        "tip": "TeraBox app se 'Share' dabao → 'Copy link' → wahi link yahan bhejo",
-        "foot": 'Bina ad · bina VIP · seedha download',
-    },
-    "insta_dl": {
-        "head": "📥 VIDEO DOWNLOAD (Insta · YouTube · TikTok)",
-        "ask": "Apne app ka video link bhejein:",
-        "ex": [('https://www.instagram.com/reel/C8xYzAbCdEf/', 'Instagram reel ka link')],
-        "tip": "App me reel par 'Share' → 'Copy link' → yahan paste karo",
-        "foot": 'HD · bina watermark · 30 second me',
-    },
-    # ---------------------------------------------------------- PHOTO TOOLS
-    # ------------------------------------------------------------- FINANCE
-    "bankpdf": {
-        "head": "🏦 BANK STATEMENT PDF → EXCEL",
-        "ask": "Bank statement ka PDF bhejein (photo nahi, asli PDF):",
-        "ex": [('(file bhejein) — bank statement ka asli PDF', 'SBI / HDFC / PNB / ICICI sab chalega')],
-        "tip": 'Photo nahi — bank se mila ASLI PDF bhejo, warna table galat banega',
-        "foot": 'PDF se seedha Excel · hisaab 2 minute me',
-    },
-    "ifsc": {
-        "head": "🏦 IFSC BANK BRANCH ENGINE",
-        "ask": "IFSC code bhejein (11 characters):",
-        "ex": [('SBIN0000001', 'SBI — Kolkata Main Branch')],
-        "tip": 'IFSC aapke passbook ya cheque par likha hota hai',
-        "foot": 'Bank + branch + MICR ek hi card me',
-    },
-    "vahan": {
-        "head": "🚗 RC + CHALLAN (GAADI X-RAY)",
-        "ask": "Gaadi ka number plate bhejein:",
-        "ex": [("BR01AB1234", "RC + challan + insurance sab")],
-        "tip": "Number plate bina space likhein (jaise BR01AB1234) — sabhi state chalte hain",
-        "foot": "RC · owner · insurance · PUC · loan · challan — sab ek card me",
-    },
-    "osint_whois": {
-        "head": "🌐 WEBSITE OWNER X-RAY (WHOIS)",
-        "ask": "Website ka naam ya link bhejein:",
-        "ex": [('flipkart.co.in', 'website ka naam (link bhi chalega)')],
-        "tip": 'Poora link bhejo ya sirf website ka naam — dono chalega',
-        "foot": 'Site purani hai ya nayi — paisa dene se pehle pata karo',
-    },
-    # ------------------------------------------------------------- GAMING
-    # -------------------------------------------------------- PHONE / OSINT
-    "imei": {
-        "head": "🔐 IMEI V2 & GSMARENA SPECS ENGINE",
-        "ask": "15-digit IMEI Number ya direct Device Model Name / Code bhejein:",
-        "ex": [('862407054987700', '15 digit ka IMEI number')],
-        "tip": 'Phone par *#06# dabao — IMEI apne aap dikh jayega',
-        "foot": 'Phone ka naam · photo · poore specs',
-    },
     "numinfo": {
         "head": "📱 NUMBER INFO V2 ENGINE",
         "ask": "10 Digit Number bhejein:",
@@ -1792,188 +344,6 @@ PROMPT_DATA = {
         "ex": [('401635555849', '12-digit Aadhaar number')],
         "tip": 'Aadhaar hamesha masked rehta hai (XXXX-XXXX-1234) — poora kabhi nahi dikhta',
         "foot": 'Ration card · family members · eKYC',
-    },
-    # ------------------------------------------------------------ LOCATION
-    "bsebr": {
-        "head": "📋 RESULT CHECK (BSEB)",
-        "ask": "Roll Code aur Roll Number bhejein (dono, ek saath):",
-        "ex": [('11001 100001', 'roll code + roll number')],
-        "tip": '',
-        "foot": '',
-    },
-    "pin": {
-        "head": "📮 PINCODE / AREA INFO ENGINE",
-        "ask": "Pincode ya area ka naam bhejein:",
-        "ex": [('800001', 'Patna GPO')],
-        "tip": '6 digit ka PIN code bhejo — ya ilaake ka naam likho',
-        "foot": 'Post office · taluk · district sab',
-    },
-    # ---------------------------------------------------------------- LINKS
-    "qr": {
-        "head": "📷 QR CODE MAKER",
-        "ask": "Text ya link bhejein (HD QR ban jayega):",
-        "ex": [('https://t.me/telegram', 'koi bhi link ya text')],
-        "tip": 'Link, text, number — kuch bhi bhejo, QR ban jayega',
-        "foot": 'Branded QR · scan karte hi khul jaye',
-    },
-    "qr_scan": {   # v86: 📷 QR SCANNER (naya tool — purane prompts untouched)
-        "head": "📷 QR SCANNER",
-        "ask": "QR code wali photo bhejein:",
-        "ex": [('(QR wali photo bhejein) — text/link nikal aayega', 'UPI QR / link QR / text QR')],
-        "tip": 'QR code ki saaf photo bhejo — andar ka text ya link mil jayega',
-        "foot": 'Link · text — sab scan hota hai',
-    },
-    "short": {
-        "head": "🔗 URL SHORTENER · 6 ENGINES",
-        "ask": "Lamba link bhejein:",
-        "ex": [('https://www.amazon.in/dp/B0CX23V2ZK?ref=abc123', 'koi bhi lamba link')],
-        "tip": 'Lamba link bhejo — chhota saaf link wapas milega',
-        "foot": 'WhatsApp/SMS me bhejne layak chhota link',
-    },
-    "linkcheck": {
-        "head": "🔍 LINK CHECK · 6-LAYER SCAN",
-        "ask": "Link bhejein — safe hai ya fraud, poora check karunga:",
-        "ex": [('https://google.com', 'check karne wala link')],
-        "tip": 'Kisi khaas link par shak ho to bhejo — bot pehle check karega',
-        "foot": 'Khatarnak ya safe — pehle pata karo',
-    },
-    "qr_wifi": {
-        "head": "📶 WIFI SHARE QR",
-        "ask": "WiFi ka naam (SSID) bhejein:",
-        "ex": [('JioFiber_Home | 12345678', 'WiFi ka naam | password')],
-        "tip": 'Beech me | (pipeline) lagana mat bhoolna',
-        "foot": 'Mehmaan ko password bina bataye WiFi',
-    },
-    "qr_vcard": {
-        "head": "👤 CONTACT CARD QR",
-        "ask": "Apna naam bhejein (contact card bane ga):",
-        "ex": [('Himanshu Kumar | 9876543210', 'naam | mobile')],
-        "tip": 'Naam aur mobile ke beech | lagao — aur bhejo',
-        "foot": 'Scan karte hi number save ho jaye',
-    },
-    # ---------------------------------------------------------- MENU TOOLS
-    "tempmail": {
-        "head": "📧 TEMP MAIL ENGINE",
-        "ask": "Naya email banane ke liye <code>NEW</code> bhejein:",
-        "ex": [('NEW', 'naya mail id banane ke liye')],
-        "tip": '',
-        "foot": 'Bina number ke email · 10 minute me',
-    },
-    # ------------------------------------------------- v60.4 BUSINESS STUDIO
-    "biz_invoice": {
-        "head": "🧾 INVOICE / GST BILL MAKER",
-        "ask": "Ek line me likhein: <code>dukaan ka naam | grahak | items</code>",
-        "ex": [("Sharma Electronics | Ramesh | LED 4x120, Wire 1x450",
-                "2 item ka bill"),
-               ("Kumar Store | Suresh | Sugar 2x48",
-                "1 item, GST ke bina")],
-        "tip": 'Ek line me: dukaan ka naam | customer | saaman aur rate',
-    },
-    "biz_resume": {
-        "head": "💼 RESUME / CV MAKER",
-        "ask": "Ek line me: <code>naam | pad/role | phone | education | skills</code>",
-        "ex": [("Himanshu Kumar | Software Engineer | 9876543210 | B.Tech CSE | Python, SQL",
-                "engineer ka CV"),
-               ("Anjali Kumari | Accounts Assistant | 9812345678 | B.Com | Tally, Excel",
-                "accounts ka CV")],
-        "tip": 'Ek line me: naam | kaam | padhai | mobile',
-    },
-    "biz_biodata": {
-        "head": "💍 MARRIAGE BIO-DATA MAKER",
-        "ask": "Ek line me: <code>naam | dob | education | job | father | phone</code>",
-        "ex": [("Himanshu Kumar | 15-08-1998 | B.Tech | Engineer | Ram Kumar | 9876543210",
-                "ladke ka biodata"),
-               ("Anjali Kumari | 12-03-2000 | B.A | Teacher | Suresh Singh | 9812345678",
-                "ladki ka biodata")],
-        "tip": 'Ek line me: naam | janm tarikh | padhai | kaam | mobile',
-    },
-    "biz_certificate": {
-        "head": "🎓 CERTIFICATE MAKER",
-        "ask": "Ek line me: <code>sanstha | student ka naam | kaam/class | date</code>",
-        "ex": [("Saraswati Coaching | Anjali Kumari | Class 10 Maths | 06-10-2026",
-                "achievement certificate"),
-               ("ABC Institute | Rahul Raj | Computer Course | 06-10-2026",
-                "course certificate")],
-        "tip": 'Ek line me: coaching ka naam | student | course | tarikh',
-    },
-    "biz_idcard": {
-        "head": "🪪 ID CARD MAKER (A4 par 10 card)",
-        "ask": "Ek line me: <code>sanstha | naam | father | class | roll | phone</code>",
-        "ex": [("Saraswati School | Anjali Kumari | Ramesh Kumar | X-A | 1042 | 9876543210",
-                "student ID"),
-               ("Patna Coaching | Rahul Raj | Suresh Raj | XI-B | 2051 | 9812345678",
-                "coaching ID")],
-        "tip": 'Ek line me: school/coaching | naam | class | roll number',
-    },
-    "biz_vcard": {
-        "head": "📇 VISITING CARD MAKER (A4 par 10 card)",
-        "ask": "Ek line me: <code>naam | dukaan | phone | address</code>",
-        "ex": [("Himanshu Kumar | Kumar Electronics | 9876543210 | Main Road Bihta",
-                "dukaan ka card"),
-               ("Dr. S. Sharma | Sharma Clinic | 9812345678 | Kankarbagh Patna",
-                "clinic ka card")],
-        "tip": 'Ek line me: dukaan/kaam | naam | mobile | pata (optional)',
-    },
-    "biz_letter": {
-        "head": "📄 APPLICATION / LETTER MAKER",
-        "ask": "Ek line me: <code>kaam | naam | sanstha | karan</code>",
-        "ex": [("leave | Himanshu Kumar | Saraswati School | sister wedding",
-                "chhutti ka application"),
-               ("character | Anjali Kumari | Patna College | passport ke liye",
-                "character certificate")],
-        "tip": 'Ek line me: kis liye (leave/character) | naam | jagah',
-    },
-    "biz_upi": {
-        "head": "💳 UPI PAYMENT POSTER MAKER",
-        "ask": "Ek line me: <code>UPI ID | dukaan ka naam | phone</code>",
-        "ex": [("kumar@upi | Kumar Electronics | 9876543210", "dukaan ka QR board"),
-               ("sharma@ybl | Sharma General Store | 9812345678", "kirana dukaan")],
-        "tip": 'Ek line me: UPI ID | dukaan ka naam | mobile',
-    },
-    "biz_labels": {
-        "head": "🏷️ PRICE LABEL / RATE TAG SHEET",
-        "ask": "Ek line me: <code>dukaan | item:rate:MRP, item2:rate</code>",
-        "ex": [("Kumar Store | Sugar:48:55, Rice:95:110, Oil:165:180",
-                "3 rate tag ek line me"),
-               ("Sharma Kirana | Tea:130:150, Dal:140:155", "2 tag")],
-        "tip": 'Ek line me: dukaan | saaman:rate:MRP',
-    },
-    "biz_salary": {
-        "head": "💰 SALARY SLIP MAKER",
-        "ask": "Ek line me: <code>company | naam | post | month | salary | advance</code>",
-        "ex": [("Sharma Kirana | Ramesh Kumar | Salesman | September 2026 | 18000",
-                "poora pay slip — PF, ESI, net pay ke saath"),
-               ("Jai Maa Traders | Sunita Devi | Accountant | Oct 2026 | 25000 | 2000",
-                "advance bhi kat jayega"),
-               ("ABC Coaching | Rahul Sir | Teacher | " + "%B %Y" + " | 30000",
-                "month khali chhodo to aaj ka mahina")],
-        "tip": 'Ek line me: company | naam | kaam | salary',
-    },
-    "biz_menucard": {
-        "head": "🍽️ MENU / RATE CARD",
-        "ask": "Ek line me: <code>naam | tagline | item:rate, item:rate</code>",
-        "ex": [("Hotel Shivam | Shudh Desi Khana | Chai:10, Samosa:15, Veg Thali:80",
-                "dhaba ka menu card"),
-               ("Sharma Kirana | Best Rate in Town | Sugar:48, Rice:95, Atta:32",
-                "dukaan ka rate list"),
-               ("Menu | | Idli:30, Dosa:50, Uttapam:60, Filter Coffee:20",
-                "tagline khali chhodo to sirf list")],
-        "tip": 'Ek line me: dukaan ka naam | saaman:rate, saaman:rate',
-    },
-    "biz_emi": {
-        "head": "🧮 EMI / LOAN CALCULATOR + CARD",
-        "ask": "Ek line me: <code>loan amount | byaaj % | mahine</code>",
-        "ex": [("250000 | 11.5 | 36", "2.5 lakh, 36 mahine"),
-               ("500000 | 9.5 | 60", "5 lakh home loan"),
-               ("50000 | 18 | 12", "50 hazaar personal loan")],
-        "tip": 'Ek line me: loan kitna | byaaz % | kitne mahine',
-    },
-    "mediastudio": {
-        "head": "⚡ MEDIA STUDIO",
-        "ask": "Neeche se option chunein:",
-        "ex": [('https://www.youtube.com/watch?v=dQw4w9WgXcQ', 'YouTube link ya apna text')],
-        "tip": 'YouTube link bhejo → MP3; ya apna text bhejo → Hindi awaaz',
-        "foot": 'MP3 · status video · ringtone sab',
     },
 }
 
@@ -2014,2675 +384,12 @@ def _render_tool_prompt(key: str) -> str:
     return "\n".join(L)
 
 
-# backward-compat: purana naam `PROMPTS` wahi rehta hai (tests/tutorial isko use karte hain)
-# v64: 27 downloader tools ke prompts apne aap ban jate hain (dictionary se)
-for _dlk in DL_SITES:
-    PROMPT_DATA.setdefault("dl_" + _dlk, dl_prompt_data("dl_" + _dlk))
-
 PROMPTS = {k: _render_tool_prompt(k) for k in PROMPT_DATA}
-
-TUTORIAL_TEXT = (
-    f"❓ <b>{to_bold('HELP — HAR TOOL EK LINE ME')}</b>\n"
-    "──────────────────────\n"
-    "📥 <b>Download:</b>\n"
-    "• 📥 <b>VIDEO DOWNLOAD = 3 ALAG TOOLS</b> (Insta, YouTube, TikTok)\n"
-    "   Keyboard par neeche 📸 INSTA DL · ▶️ YOUTUBE DL … wale buttons hain —\n"
-    "   apna app chuno aur uska link bhejo (YouTube par quality bhi chun sakte ho)\n"
-    "• ⚡ TERABOX / CLOUD → Terabox/Drive/MediaFire link bhejo → direct link mil jayega\n"
-    "• 🔄 CHANNEL CLONER → Source + Target set karo, FULL AUTO ON karo, posts khud copy honge\n"
-    "\n"
-    "📄 <b>Document:</b>\n"
-    "• 🖨️ 8-IN-1 SHEET → ek photo bhejo → 8 copies ki sheet\n"
-    "• 📄 DOC PDF → marksheet ki photo bhejo → chhoti size ka PDF\n"
-    "• 🏦 BANK PDF → EXCEL → statement PDF bhejo → Excel table\n"
-    "\n"
-    "🔍 <b>Information:</b>\n"
-    "• 📲 IMEI → <code>*#06#</code> se IMEI lo, bhejo → full phone details\n"
-    "• 📱 NUMBER INFO → number bhejo → operator + circle\n"
-    "• 👪 FAMILY INFO → Aadhaar bhejo → ration family card\n"
-    "• 🏦 IFSC → code bhejo → bank + branch + MICR\n"
-    "• 📮 PINCODE → pincode ya area bhejo → district + post office\n"
-    "• 🏦 IFSC INFO → IFSC code bhejo → bank + branch + MICR mil jaata hai\n"
-    "• 📧 TEMP MAIL → NEW bhejo → ek-baar ka email + inbox (OTP/signup ke liye)\n"
-    "• 📞 TEMP MAIL (NUMBER) → FREE temp number + OTP (har user ko alag number, 10+ desh)\n"
-    "\n"
-    "⚡ <b>Media Studio:</b> YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, trim,\n"
-    "   🗣️ text→Hindi voice (asli desi awaaz me MP3)\n"
-    "\n"
-    "🧰 <b>Chhote tools:</b> QR code, URL short, link check, app finder\n"
-    "\n"
-    "──────────────────────\n"
-    "⌨️ <b>Commands:</b> /start /menu /help /cancel\n"
-    "\n"
-    "💬 <b>Atak gaye?</b> Tool band karne ke liye <b>/cancel</b> dabao, ya neeche <b>📩 Support</b> button se seedha pooch lo."
-)
-
-# ============================================================
-# TUTORIAL SYSTEM (v34): tutorial text ab bot ke andar nahi,
-# sirf ek PAGE par — bot me neeche link milta hai.
-# ============================================================
-TUTORIAL_FALLBACK_URL = (
-    os.getenv("TUTORIAL_URL", "").strip()
-    or "https://github.com/himanshu75919-coder/utility-duniya-bot/blob/main/TUTORIAL.md"
-)
-
-
-def tutorial_url() -> str:
-    """Tutorial page ka link: env TUTORIAL_URL > auto page (telegra.ph) > fallback."""
-    env = os.getenv("TUTORIAL_URL", "").strip()
-    if env:
-        return env
-    try:
-        saved = meta_get("tutorial_url", "")
-        if saved:
-            return saved
-    except Exception:
-        pass
-    return TUTORIAL_FALLBACK_URL
-
-
-def tutorial_kb():
-    """MADAD / TUTORIAL ka keyboard.
-
-    v79: 🎬 tutorial-video wale saare buttons HAT Gaye (user ki hiring — bot me
-    ek bhi tutorial video nahi rahega). Ab sirf 📩 Support + 🔙 Menu.
-    """
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔙 Menu", callback_data="menu")],
-    ])
-
-
-# MADAD — bot chalane ka chhota sa tarika (koi video/tutorial nahi hai)
-HELP_NOTICE = (
-        "❓ <b>MADAD</b>\n"
-        "──────────────────────\n"
-        "📌 <b>/menu</b> kholo → tool dabao → jo bola jaye wo bhejo. Bas.\n"
-        "🛑 Beech me tool band karna ho to <b>/cancel</b> dabao."
-    )
-
-
-def tool_support_kb(action: str = ""):
-    """v102: user ka order — "support seedha message karo" har tool se HATAO.
-
-    Ab tool ke neeche koi button nahi (return None). Username sirf result
-    card ke ant me dikhta hai (BRAND_LINK). `action` arg isliye rakha gaya
-    hai taaki saare call sites bina change ke chalein.
-    """
-    return None
-
-
-# Jin tools me aakhir me "bhejo" wali line nahi thi — unke liye ask line
-ASK_LINES = {
-    "pin": "📮 <b>Ab pincode ya area ka naam bhejo:</b>",
-    "qr_wifi": "📶 <b>Ab WiFi ka naam (SSID) bhejo:</b>",
-    "qr_vcard": "👤 <b>Ab apna naam bhejo:</b>",
-}
-
-
-
-HUB_KEY_MISSING_TEXT = (
-    "🔌 <b>API HUB not available</b>\n"
-    "──────────────────────\n"
-    "Ye check aapke API hub se chalta hai — abhi wo band hai.\n\n"
-    "<i>Owner:</i> Render → Environment me <code>HUB_API_KEY</code> = <code>Demo</code> "
-    "(ya apni key) daalo, aur <code>HUB_ENABLED=on</code> rakho."
-)
-
-MEDIA_MENU_TEXT = (
-    f"⚡ <b>{to_bold('MEDIA STUDIO')}</b>\n"
-    "YouTube→MP3, status video, ringtone, karaoke, 8D, bass, voice change, "
-    "trim/compress, 🗣️ text→Hindi voice. <b>No watermark.</b>\n"
-    "👇 <b>Neeche se chuno:</b>"
-)
-
-CITY_COORDS = {
-    "patna": (25.5941, 85.1376), "muzaffarpur": (26.1225, 85.3906), "gaya": (24.7955, 85.0002),
-    "bhagalpur": (25.2425, 86.9842), "darbhanga": (26.1542, 85.8918), "purnia": (25.7771, 87.4753),
-    "sitamarhi": (26.5921, 85.4835), "chapra": (25.7815, 84.7477), "chhapra": (25.7815, 84.7477),
-    "hajipur": (25.6858, 85.2094), "ara": (25.5541, 84.6603), "bihar sharif": (25.1975, 85.5235),
-    "motihari": (26.6472, 84.9149), "saharsa": (25.8798, 86.6015), "samastipur": (25.8629, 85.7811),
-    "begusarai": (25.4182, 86.1272), "katihar": (25.5548, 87.5586), "munger": (25.3708, 86.4734),
-    "nawada": (24.8876, 85.5432), "buxar": (25.5647, 83.9777), "siwan": (26.2196, 84.3561),
-    "sasaram": (24.9538, 84.0128), "dehri": (24.9048, 84.1870), "gopalganj": (26.4674, 84.4410),
-    "madhepura": (25.9219, 86.7921), "supaul": (26.1223, 86.6016), "araria": (26.1500, 87.5170),
-    "kishanganj": (26.0890, 87.9477), "jamui": (24.9204, 86.2244), "lakhisarai": (25.1778, 86.0961),
-    "sheikhpura": (25.1399, 85.8407), "arwal": (25.2450, 84.6660), "jehanabad": (25.2132, 84.9894),
-    "bhabua": (25.0405, 83.6088), "kaimur": (25.0405, 83.6088), "rohtas": (24.9538, 84.0128),
-    "sheohar": (26.5189, 85.2950), "madhubani": (26.3530, 86.0722),
-    "bettiah": (26.8020, 84.5028), "forbesganj": (26.2900, 87.2600),
-    "patna sahib": (25.5941, 85.1376),
-    # UP ke aas-paas
-    "varanasi": (25.3176, 82.9739), "lucknow": (26.8467, 80.9462), "gorakhpur": (26.7606, 83.3732),
-    "kanpur": (26.4499, 80.3319), "allahabad": (25.4358, 81.8463), "prayagraj": (25.4358, 81.8463),
-    "azamgarh": (26.0685, 83.1836), "ballia": (25.7585, 84.1488), "ghazipur": (25.5833, 83.5778),
-    "deoria": (26.5024, 83.7791), "mirzapur": (25.1337, 82.5644), "jaunpur": (25.7464, 82.6837),
-    # bade shehar
-    "delhi": (28.6139, 77.2090), "kolkata": (22.5726, 88.3639), "mumbai": (19.0760, 72.8777),
-    "ranchi": (23.3441, 85.3096), "jamshedpur": (22.8046, 86.2029), "dhanbad": (23.7957, 86.4304),
-    "bengaluru": (12.9716, 77.5946), "hyderabad": (17.3850, 78.4867), "jaipur": (26.9124, 75.7873),
-    "bhopal": (23.2599, 77.4126), "noida": (28.5355, 77.3910), "gurgaon": (28.4595, 77.0266),
-}
-
-
-def city_coords(text: str):
-    """User ke likhe shehar se coordinates (default Patna)."""
-    t = (text or "").lower().strip()
-    for name, xy in CITY_COORDS.items():
-        if name in t:
-            return xy, name.title()
-    return (25.5941, 85.1376), "Patna"
-
-
-
-
-def media_menu_kb():
-    rows = [
-        [InlineKeyboardButton("🎵 YouTube → MP3", callback_data="media_ytmp3")],
-        [InlineKeyboardButton("🎬 Status Video (photo+gaana+text)", callback_data="media_status")],
-        [InlineKeyboardButton("🎧 Ringtone cutter", callback_data="media_ringtone"),
-         InlineKeyboardButton("🎤 Karaoke (gaana hatao)", callback_data="media_karaoke")],
-        [InlineKeyboardButton("🔊 8D sound", callback_data="media_8d"),
-         InlineKeyboardButton("💥 Bass boost", callback_data="media_bass")],
-        [InlineKeyboardButton("🗣️ Voice change", callback_data="media_voice"),
-         InlineKeyboardButton("🎼 Video → MP3", callback_data="media_v2mp3")],
-        [InlineKeyboardButton("✂️ Video trim", callback_data="media_trim"),
-         InlineKeyboardButton("🗜️ Video compress", callback_data="media_compress")],
-        [InlineKeyboardButton("🗣️ Text → Hindi Voice (MP3)", callback_data="media_tts")],
-        [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-    ]
-    return InlineKeyboardMarkup(rows)
-
-
-
-def voice_preset_kb():
-    rows = [[InlineKeyboardButton(lbl, callback_data=f"mvoicepk:{k}")] for k, (lbl, _f) in VOICE_PRESETS.items()]
-    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-
-
-# ============================================================
-#  v58 — PERMANENT GUARD: ye do lines KABHI, KAHIN, KISI BHI
-#  HAALAT ME tool start par nahi dikh sakti (user ka strict order).
-#
-#  Code me se lines hata di gayi hain, PAR ab ek aakhri suraksha bhi hai:
-#  har prompt yahan se guzarta hai, aur agar kisi wajah se (purana cache,
-#  future edit, kisi module se aaya text) ye lines aa jayein to yahin
-#  delete ho jaati hain. Test bhi hai jo isko guard karta hai.
-# ============================================================
-_BANNED_PROMPT_PATTERNS = (
-    re.compile(r"^.*Credits:\s*♾️\s*Unlimited.*$", re.M),
-    re.compile(r"^.*Credits:\s*Unlimited.*$", re.M),
-    re.compile(r"^.*Tap\s*/cancel any time.*$", re.M),
-    re.compile(r"^.*/cancel any time to stop.*$", re.M),
-)
-
-
-def _sanitize_prompt(text: str) -> str:
-    """Banned lines (credits-unlimited + /cancel hint) nikaal do + extra blank hatао."""
-    if not text:
-        return ""
-    out = text
-    for rx in _BANNED_PROMPT_PATTERNS:
-        out = rx.sub("", out)
-    out = re.sub(r"\n{3,}", "\n\n", out).strip()
-    return out
 
 
 def tool_prompt(action: str) -> str:
-    """Tool ka prompt — v58 format (header + ✨ ask + 📝 Examples).
-
-    Har prompt `_sanitize_prompt()` se guzarta hai — isliye credits/cancel
-    wali lines **permanently** gayab hain (structural guarantee).
-    """
-    body = PROMPTS.get(action)
-    if not body:
-        # purane ASK_LINES wale sub-modes (agar koi bacha ho) — safe fallback
-        body = strip_tutorial_lines(ASK_LINES.get(action, "")).strip()
-    return _sanitize_prompt(body)
-
-
-def publish_tutorial_now(force: bool = False) -> str:
-    """Tutorial page banao/update karo (telegra.ph) — link wapas deta hai."""
-    try:
-        return publish_tutorial(meta_get, meta_set, prompts_map=PROMPTS,
-                                short_list=TUTORIAL_TEXT, force=force)
-    except Exception as e:
-        log.warning("Tutorial page did not publish: %s", e)
-        return ""
-
-
-WELCOME_TEXT = (
-    f"⚡ <b>{to_bold('UTILITY DUNIYA SUPER BOT')}</b> ⚡\n"
-    "<blockquote>Aapke saare daily kaam ke tools — ek hi jagah 🚀</blockquote>\n\n"
-    f"🔥 <b>{to_bold('SABSE ZYADA USE HONE WALE')}:</b>\n"
-    f"• 📲 <b>IMEI Details</b> — phone ka naam, photo + full specs\n"
-    f"• 📥 <b>Video Downloader</b> — Insta / YouTube / FB / X\n"
-    f"• ⚡ <b>Terabox</b> — bina ad ke seedha download\n"
-    f"• 📸 <b>Photo &amp; PDF</b> — passport photo, marksheet PDF, 8-in-1 sheet\n"
-    f"• 🏦 <b>Info Tools</b> — IFSC, Pincode, IP, Number info\n"
-    f"• 📦 <b>App Finder</b> — app ka naam bhejo → official link + size\n\n"
-    + ("\n\n🎉 <b>SAARE TOOLS 100% FREE HAIN</b> — na VIP, na credits, na limit ✅"
-       if ALL_FREE else "\n\n👇 <b>Neeche menu se koi bhi tool dabao</b>")
-)
-
-
-# ---------------- COMMANDS ----------------
-# v52 speed: welcome photo ka file_id cache — pehli baar upload hota hai, baad me
-# Telegram CDN se turant serve hota hai (har /start par dobara upload NAHI = fast).
-_WELCOME_FID = None
-
-
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    get_user(user.id, user.first_name or "")
-    save_username(user.id, user.username or "")
-    if is_banned(user.id):
-        await update.message.reply_text(BAN_MSG)
-        return
-
-    # Referral handling
-    if context.args and context.args[0].startswith("ref_"):
-        try:
-            ref_id = int(context.args[0].split("_")[1])
-            count = add_referral(user.id, ref_id)
-            if count:
-                await update.message.reply_text("🎉 Swagat! Referral link se aaye ho — dhanyavaad!")
-                if count % REFER_NEED == 0:
-                    grant_premium(ref_id, 30)
-                    try:
-                        await context.bot.send_message(ref_id, f"🎉 Badhai ho! {count} referral poore! 30 din VIP free mil gaya 💎")
-                    except Exception:
-                        pass
-        except Exception:
-            pass
-
-    # v81.0: 🔐 FORCE-JOIN WALL — referral handle karne ke BAAD, welcome se PEHLE.
-    # (Referral pehle isliye ki wall ke baad user wapas na aaye to referrer ka
-    # credit na kho — ye behaviour v52 se aisa hi chal raha hai.)
-    if not await JW.gate(update, context):
-        return
-
-    global _WELCOME_FID
-    # v52 speed: cache file_id use karo (CDN serve = instant, no re-upload)
-    if _WELCOME_FID:
-        try:
-            await update.message.reply_photo(photo=_WELCOME_FID, caption=WELCOME_TEXT,
-                                             reply_markup=kb_for(user.id), parse_mode=HTML)
-            return
-        except Exception:
-            _WELCOME_FID = None
-    banner_path = os.path.join(os.path.dirname(__file__), "welcome_banner.jpg")
-    if os.path.exists(banner_path):
-        try:
-            with open(banner_path, "rb") as f:
-                _m = await update.message.reply_photo(photo=f, caption=WELCOME_TEXT,
-                                                      reply_markup=kb_for(user.id), parse_mode=HTML)
-            try:
-                _WELCOME_FID = _m.photo.file_id   # agli baar CDN se turant
-            except Exception:
-                pass
-            return
-        except Exception:
-            pass
-    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
-
-
-async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
-
-
-async def cmd_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/refresh — keyboard/menu dobara set karo (purana menu hatane ke liye)."""
-    context.user_data.pop("mode", None)
-    await update.message.reply_text(
-        "🔄 <b>Menu refresh ho gaya!</b>\n"
-        "Purane buttons hata diye gaye hain — ab neeche wala naya menu use karo 👇",
-        reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
-
-
-async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data.clear()
-    await update.message.reply_text("✅ Band kar diya! Menu ready hai 👇", reply_markup=kb_for(update.effective_user.id))
-
-
-async def cmd_account(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid_ = update.effective_user.id
-    u = get_user(uid_, update.effective_user.first_name)
-    if ALL_FREE:
-        _st_f = "👑 OWNER/ADMIN" if is_admin(uid_) else "✅ ALL TOOLS FREE"
-        await update.message.reply_text(
-            f"👤 <b>{to_bold('MERI ACCOUNT')}</b>\n"
-            "──────────────────────\n"
-            f"• <b>Naam:</b> {hesc(u.get('name', 'User'))}\n"
-            f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
-            f"• <b>Status:</b> {_st_f}\n"
-            f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
-            "──────────────────────\n"
-            "🎉 <b>Poore bot ke saare tools aapke liye khule hain.</b>\n"
-            "❌ Na koi VIP, na credits, na limit.\n"
-            "👉 Neeche menu se seedha tool dabao.",
-            parse_mode=HTML)
-        return
-    vip_status = "👑 VIP ACTIVE" if is_premium(u) else ("👑 OWNER/ADMIN" if is_admin(uid_) else "🆓 Free User")
-    expiry = premium_expiry(u)
-    left = credits_left(u, uid_)
-    cred_line = "♾️ Unlimited (VIP)" if left >= 999999 else f"{left} / {CREDITS_START}"
-    if left < 999999 and left <= 0:
-        cred_line += " — <b>khatam!</b> (premium tools ke liye VIP lo)"
-    text = (
-        f"👤 <b>{to_bold('MERI ACCOUNT')}</b>\n"
-        "──────────────────────\n"
-        f"• <b>Naam:</b> {hesc(u.get('name', 'User'))}\n"
-        f"• <b>User ID:</b> <code>{u.get('user_id')}</code>\n"
-        f"• <b>Status:</b> {vip_status}\n"
-        f"• <b>VIP kab tak:</b> {expiry}\n"
-        f"• ⚡ <b>Credits (premium tools ke liye):</b> {cred_line}\n"
-        f"• <b>Referrals:</b> {u.get('referrals', 0)}\n"
-        "──────────────────────\n"
-        "💎 <b>AB SAARE tools PREMIUM hain</b> — 1 use = 1 credit\n"
-        "🎁 <b>Naye user ko 25 free credits</b> (ek baar ke) — unke baad VIP lo\n"
-        "👑 <b>VIP = POORA bot UNLIMITED</b> (koi credit nahi, koi limit nahi)\n\n"
-    )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 VIP lo / upgrade karo", callback_data="open_vip_menu")],
-        # v79: 🎁 Refer ka tool hataya (user ki hiring) — is card ka button bhi gaya
-    ])
-    await update.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
-
-
-async def cmd_refer(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    bot_info = await context.bot.get_me()
-    ref_link = f"https://t.me/{bot_info.username}?start=ref_{update.effective_user.id}"
-    u = get_user(update.effective_user.id)
-    text = (
-        f"🎁 <b>{to_bold('REFER KARO — VIP FREE LO')}</b>\n\n"
-        f"Doston ko bot share karo aur <b>30 din VIP FREE</b> pao!\n\n"
-        f"📊 <b>Aapke referrals:</b> {u.get('referrals', 0)}\n"
-        f"🎯 <b>Target:</b> har {REFER_NEED} referral = 30 din VIP Free\n\n"
-        f"🔗 <b>Aapka invite link:</b>\n<code>{ref_link}</code>"
-    )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📢 Telegram pe share karo", url=f"https://t.me/share/url?url={quote(ref_link)}&text={quote('🔥 Utility Duniya Super Bot dekho!')}")],
-    ])
-    await update.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
-
-
-# ============================================================
-# QUICK VIP ACTIVATE (v34) — dost / direct paisa wale ke liye
-#   /admin → plan chuno → /activate <user_id>
-# ============================================================
-def active_plan_key(uid: int) -> str:
-    key = ""
-    try:
-        key = meta_get(f"active_plan:{uid}", "")
-    except Exception:
-        pass
-    return key if key in VIP_PLANS else "plan_30"
-
-
-def activate_plan_kb(uid: int):
-    cur = active_plan_key(uid)
-    rows = []
-    for key, pl in VIP_PLANS.items():
-        mark = "✅" if key == cur else "🔸"
-        rows.append([InlineKeyboardButton(f"{mark} {pl['name']} · ₹{pl['price']}",
-                                          callback_data=f"admact_plan:{key}")])
-    rows.append([InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
-                 InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def activate_home_text(uid: int) -> str:
-    pl = VIP_PLANS[active_plan_key(uid)]
-    return (
-
-        "🎁 <b>VIP ACTIVATE (for friends / direct payment)</b>\n"
-        "──────────────────────\n"
-        "If someone paid you <b>directly by cash or UPI</b>, or you want to give <b>free VIP</b> to someone — no proof needed, just activate it.\n"
-        f"✅ <b>Selected plan:</b> {pl['name']}\n"
-        f"     ₹{pl['price']} · {pl['days']} days\n"
-        "<b>How to use:</b>\n"
-        "1️⃣ Pick a plan below (30/60/90/120 days or Lifetime)\n"
-        "2️⃣ Then type:\n"
-        "     <code>/activate 123456789</code> → gives the selected plan\n"
-        "     <code>/activate 123456789 90</code> → give a different number of days\n"
-        "     <code>/activate @username</code> → @username also works\n\n"
-        "ℹ️ The user instantly gets a 'VIP activated' message + the full record is saved."
-    )
-
-
-async def cmd_activate(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/activate <user_id> [days] — give VIP directly without payment (admin only)."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        return
-    args = [a.strip() for a in (context.args or []) if a.strip()]
-    plan_key = active_plan_key(uid)
-    plan = VIP_PLANS[plan_key]
-
-    if not args:
-        # bina ID: plan chooser
-        await update.message.reply_text(activate_home_text(uid), reply_markup=activate_plan_kb(uid), parse_mode=HTML)
-        return
-
-    raw_key = args[0]
-    key = raw_key.lstrip("@")
-    target = None
-    if key.isdigit():
-        target = int(key)
-    else:
-        found = find_by_username("@" + key)
-        if found:
-            try:
-                target = int(found[0])
-            except Exception:
-                target = None
-    if not target:
-        await update.message.reply_text(
-            f"❌ <b>User nahi mila:</b> <code>{hesc(raw_key)}</code>\n\n"
-            "• <b>User ID</b> (jaise <code>8607774564</code>) — us bande ne bot kabhi start kiya ho\n"
-            "• Ya wahi <b>@username</b> jo usne bot me set kiya hai\n\n"
-            "➡️ Aise bhejo: <code>/activate 123456789</code>",
-            parse_mode=HTML)
-        return
-
-    days = plan["days"]
-    if len(args) > 1 and args[1].isdigit():
-        days = int(args[1])
-    days = max(1, min(days, 99999))
-    dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} days VIP"
-
-    try:
-        grant_premium(target, days)
-    except Exception as e:
-        await update.message.reply_text(f"⚠️ Problem while setting VIP: {hesc(str(e))}", parse_mode=HTML)
-        return
-    add_vip_grant(target, days, uid, plan_key=plan_key, note="activate (direct/admin)")
-
-    u = get_user(target) or {}
-    row = get_user_row(target) or {}
-    uname = row.get("name") or u.get("name") or "-"
-    exp = "👑 LIFETIME" if str(u.get("premium_until")) == "lifetime" else (premium_expiry(u) or "-")
-
-    await update.message.reply_text(
-        "✅ <b>VIP ACTIVATED!</b>\n"
-        "──────────────────────\n"
-        f"🆔 <b>User:</b> <code>{target}</code> ({hesc(str(uname))[:24]})\n"
-        f"👑 <b>VIP:</b> {dur}\n"
-        f"📅 <b>Valid till:</b> {exp}\n"
-        f"💎 <b>Plan:</b> {plan['name']} · ₹{plan['price']}\n"
-        "──────────────────────\n"
-        "✉️ User has been notified. Full record is saved in <b>Manual VIP Log</b>.",
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}"),
-             InlineKeyboardButton("🎁 Plan Badlo", callback_data="admact_home")],
-            [InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
-             InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
-        ]),
-        parse_mode=HTML)
-
-    try:
-        await context.bot.send_message(
-            target,
-            f"🎉 <b>Congratulations!</b>\n"
-            "──────────────────────\n"
-            f"👑 <b>{dur}</b> activated!\n"
-            f"📅 Valid till: {exp}\n\n"
-            "Ab saare tools <b>unlimited</b> hain 🚀\n"
-            "(Ye VIP admin ne diya hai — koi payment nahi lagti.)",
-            parse_mode=HTML)
-    except Exception:
-        pass
-
-
-async def cmd_credits(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/credits <user_id> [n] — admin: give credits to a user (default 25)."""
-    if not is_admin(update.effective_user.id):
-        return
-    args = [a.strip() for a in (context.args or []) if a.strip()]
-    if not args or not args[0].lstrip("-").isdigit():
-        st_ = credits_stats()
-        await update.message.reply_text(
-            "🎟️ <b>CREDITS (for premium tools)</b>\n"
-            "──────────────────────\n"
-            f"• New user gets: <b>{CREDITS_START}</b> credits (one time, not daily)\n"
-            "• Premium: Video Downloader · Number Info · IMEI · Channel Cloner · "
-            "Bank PDF → Excel · Document Suite · Media Studio\n"
-            "• All other tools are <b>free</b> (no credits)\n\n"
-            "<b>How to use:</b>\n"
-            "<code>/credits 123456789</code> → give that user 25 credits\n"
-            "<code>/credits 123456789 50</code> → give 50 credits\n"
-            "<code>/credits 123456789 0</code> → remove all credits\n\n"
-            f"📊 Right now: <b>{st_['with_credits']}</b> users have credits · <b>{st_['out_of_credits']}</b> are finished.",
-            parse_mode=HTML)
-        return
-    target = int(args[0])
-    n = int(args[1]) if len(args) > 1 and args[1].lstrip("-").isdigit() else CREDITS_START
-    new_val = add_credits(target, n)
-    await update.message.reply_text(
-        f"✅ <b>Credits added!</b>\n\n🆔 User: <code>{target}</code>\n🎟️ Added: <b>+{n}</b>\n"
-        f"💰 Now left: <b>{new_val}</b>\n\n✉️ User has been notified.", parse_mode=HTML)
-    try:
-        await context.bot.send_message(
-            target,
-            f"🎁 <b>Great news!</b> You received <b>{n} credits</b> (total: {new_val}).\n"
-            "📥 Video Downloader · 📱 Number Info · 📲 IMEI · 🔄 Cloner · 🏦 Bank PDF → Excel · "
-            "📜 Document Suite · ⚡ Media Studio are now unlocked. 🚀",
-            parse_mode=HTML)
-    except Exception:
-        pass
-
-
-async def cmd_imeistatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/imeistatus — admin: check the IMEI API is working (live test)."""
-    if not is_admin(update.effective_user.id):
-        return
-    if not imei_api_ready():
-        await update.message.reply_text(
-            "⚠️ <b>IMEI API is not set.</b>\n\nAdd this on Render → Environment:\n"
-            "<code>HUB_API_KEY</code> = your hub key  <i>(ek hi key saare hub tools ke liye)</i>\n"
-            "<i>(base set hai: osint-api-hub.onrender.com/api — Demo key chalti hai)</i>",
-            parse_mode=HTML)
-        return
-    args = [a.strip() for a in (context.args or []) if a.strip()]
-    ok15, imei_in, imei_e = imei_validate(args[0] if args else "353010111111110")
-    if not ok15:
-        await update.message.reply_text(f"❌ {imei_e}", parse_mode=HTML)
-        return
-    st = await update.message.reply_text(f"🔎 Testing the IMEI API with <code>{imei_in}</code>…",
-                                         parse_mode=HTML)
-    res = fetch_imei_details(imei_in, use_cache=False)
-    if res.get("ok"):
-        await st.edit_text(
-            "✅ <b>IMEI API is working</b>\n"
-            f"📲 <b>{hesc(imei_title(res))}</b>\n"
-            f"• Brand: {hesc(str(res.get('brand') or '-'))}\n"
-            f"• Spec sections: {len(res.get('sections') or [])}\n"
-            f"• JSON file: {len(imei_specs_json(res))} bytes · {hesc(imei_specs_filename(res))}\n"
-            f"• Photo: {'✅' if res.get('photo') else '❌'}\n\n" +
-            hesc(render_imei_text(res))[:900], parse_mode=HTML)
-    else:
-        await st.edit_text(f"❌ <b>IMEI API test failed:</b> {safe_html_err(str(res.get('error'))[:200])}\n\n"
-                           "Check IMEI_API_BASE / IMEI_API_KEY.", parse_mode=HTML)
-
-
-async def cmd_hubstatus(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/hubstatus — admin: user ke API hub ka status + live test."""
-    if not is_admin(update.effective_user.id):
-        return
-    st = await update.message.reply_text("🔌 <b>API Hub check kar raha hoon…</b>", parse_mode=HTML)
-    card = hubapi.status_card()
-    if not hubapi.hub_ready():
-        await st.edit_text(card, parse_mode=HTML)
-        return
-    res = await asyncio.to_thread(hubapi.live_test)
-    if res.get("ok"):
-        await st.edit_text(card + f"\n• Live test: ✅ <b>working</b> ({hesc(str(res.get('say'))[:80])})\n"
-                                  "• Ab ye tools hub par chal rahe hain: IP · IFSC · PINCODE · TERABOX · "
-                                  "VIDEO DL (X) · "
-                                  "VEHICLE · IMEI · NUMBER INFO", parse_mode=HTML)
-    else:
-        await st.edit_text(card + f"\n• Live test: ❌ {safe_html_err(str(res.get('error'))[:150])}", parse_mode=HTML)
-
-
-async def cmd_tutrefresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/tutrefresh — rebuild the tutorial page (admin only)."""
-    if not is_admin(update.effective_user.id):
-        return
-    st = await update.message.reply_text("⏳ <b>Building the tutorial page...</b>", parse_mode=HTML)
-    try:
-        loop = asyncio.get_running_loop()
-        url = await loop.run_in_executor(None, publish_tutorial_now, True)
-    except Exception:
-        url = ""
-    if url:
-        await st.edit_text(
-            "✅ <b>Tutorial page ready!</b>\n\n"
-            f"📖 <a href=\"{url}\">{url}</a>\n\n"
-            "This link works under every tool and inside the HELP / TUTORIAL button.",
-            parse_mode=HTML, disable_web_page_preview=True)
-    else:
-        await st.edit_text(
-            "⚠️ <b>Page could not be created</b> (internet / telegra.ph problem).\n"
-            f"Fallback link is working for now:\n{TUTORIAL_FALLBACK_URL}\n\n"
-            "You can set <code>TUTORIAL_URL</code> on Render to use your own link.",
-            parse_mode=HTML, disable_web_page_preview=True)
-
-
-async def cmd_tutorial(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(HELP_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
-
-
-async def cmd_premium(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # v61: free mode me koi VIP bechna hi nahi hai — seedha free card
-    if ALL_FREE and not is_admin(update.effective_user.id):
-        await update.message.reply_text(FREE_MODE_TEXT, parse_mode=HTML)
-        return
-    if is_admin(update.effective_user.id):
-        st = payment_stats()
-        await update.message.reply_text(
-            "👑 <b>Aap is bot ke OWNER / ADMIN ho</b>\n"
-            "──────────────────────\n"
-            "✅ Aapke liye sab kuch <b>unlimited</b> hai — na daily limit, na VIP payment.\n"
-            "Aapko premium khareedne ki zaroorat kabhi nahi 😄\n"
-            f"💳 <b>Pending payments (to verify):</b> {st['pending']}\n"
-            "👉 Payments verify karne ke liye <b>/payments</b> ya <b>/admin</b> kholo.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"💳 Pending Payments ({st['pending']})", callback_data="admpay_list")],
-                [InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
-            ]),
-            parse_mode=HTML,
-        )
-        return
-
-    text = (
-        f"💎 <b>{to_bold('VIP PREMIUM')}</b>\n"
-        "<blockquote>Sab kuch unlimited — bina kisi limit ke</blockquote>\n\n"
-        f"⚡ <b>{to_bold('VIP ME KYA MILEGA')}:</b>\n"
-        "• ♾️ Sab tools unlimited (koi credit nahi)\n"
-        "• 📥 Video Downloader unlimited\n"
-        "• ⚡ Terabox high-speed stream + direct download\n"
-        "• 🔄 Channel Cloner + Auto-Forward\n"
-        "• 📲 IMEI / Phone Details unlimited\n"
-        "• 🏦 Bank PDF→Excel · ⚡ Media Studio\n\n"
-        f"🎟️ <i>Har naye user ko {CREDITS_START} free credits milte hain "
-        "(Video Downloader, Number Info, Cloner, Bank PDF, Media Studio, IMEI). "
-        "Baaki saare tools hamesha free hain.</i>\n\n"
-        "👉 Plan chuno aur QR code se pay karo:"
-    )
-    await update.message.reply_text(
-        text,
-        reply_markup=InlineKeyboardMarkup(
-            list(get_premium_plans_kb().inline_keyboard)),
-        parse_mode=HTML)
-
-
-async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    await admin_panel_send(update.message, context, update.effective_user.id)
-
-
-# ============================================================================
-#  v50: SYSTEM HEALTH — admin ko live internal stats
-# ============================================================================
-_BOOT_TS = time.time()
-
-# =====================================================================
-# v59.3: 🛡️ HARDCORE CRASH-PROOF CORE
-# ---------------------------------------------------------------
-# 1) _startup_selfcheck()  — boot par saaf report: version, commit, modules,
-#                            kaunsi API lagi hai (key KABHI print nahi hoti)
-# 2) _supervise()          — process-level self-heal: main() crash ho to
-#                            khud restart (Render ko 502 nahi milta)
-# 3) loop exception guard  — background task crash bhi process ko nahi giraata
-# =====================================================================
-_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "")[:7] or "local"
-_CRASH_STATE = {"count": 0, "last": "", "why": ""}   # self-heal counter (health me dikhta hai)
-
-
-def _startup_selfcheck() -> bool:
-    """Boot par checks chalao aur saaf report print karo. Kabhi crash nahi karta."""
-    ok = True
-    print("=" * 64)
-    print(f"🩺 SELF-CHECK | {BOT_VERSION}")
-    print(f"   commit: {_GIT_COMMIT} | python: {sys.version.split()[0]}")
-    # --- modules ---
-    import importlib as _il
-    _bad = []
-    for _mn in ("api_hub", "channel_cloner", "desi_tools", "general_tools",
-                "imei_lookup", "media_downloader", "mynum_api", "osint_hub",
-                "osint_tools", "payguard", "render_health", "temp_mail",
-                "toolkit_extras", "tutorial_hub", "vip_payment"):
-        try:
-            _il.import_module(f"modules.{_mn}")
-        except Exception as _e:                                  # noqa: BLE001
-            _bad.append(f"{_mn}: {type(_e).__name__}")
-    if _bad:
-        ok = False
-        print(f"   ❌ modules FAIL ({len(_bad)}): {', '.join(_bad[:4])}")
-    else:
-        print("   ✅ modules: sab OK")
-    # --- optional deps (availability check, IMPORT nahi) ---
-    # v105.2: importing yt_dlp/PDF/TTS at boot wasted RAM on the 512MB free plan.
-    # find_spec only checks installation; feature modules load only on first use.
-    from importlib.util import find_spec as _find_spec
-    _miss = []
-    for _dep in ("telegram", "requests", "PIL", "qrcode", "phonenumbers",
-                 "yt_dlp", "bs4", "pypdf", "img2pdf", "edge_tts"):
-        try:
-            if _find_spec(_dep) is None:
-                _miss.append(_dep)
-        except Exception:                                        # noqa: BLE001
-            _miss.append(_dep)
-    print(f"   ✅ optional deps: {'sab OK' if not _miss else 'missing ' + ', '.join(_miss)}")
-    # --- config (sirf set/not-set — key kabhi print nahi) ---
-    print(f"   🔑 BOT_TOKEN: {'set' if BOT_TOKEN else 'MISSING'}"
-          f" | 👑 ADMIN_ID: {'set' if os.environ.get('ADMIN_ID') else 'not set'}")
-    try:
-        print(f"   📱 Number Info API: {'🟢 set' if mynum.is_configured() else '⚪ not set'}"
-              f" | 🏦 hub key: {'🟢 set' if os.environ.get('HUB_API_KEY') else '⚪ not set'}")
-    except Exception:                                            # noqa: BLE001
-        pass
-    print(f"   🛡️  self-heal: crashes={_CRASH_STATE['count']}")
-    _db = os.environ.get("DB_PATH") or os.environ.get("DATA_DIR") or "default (auto)"
-    print(f"   🗄️  storage: {_db}"
-          f" | 🌐 mode: {'WEBHOOK' if webhook_url_from_env() else 'POLLING'}"
-          f" | 🔄 keepalive: {'ON' if os.environ.get('KEEPALIVE_ENABLED', '1') != '0' else 'OFF'}")
-    print("=" * 64)
-    return ok
-
-
-def _hard_restart(reason: str, delay: float = 3.0, extra_env: dict = None) -> None:
-    """v82: process ko SAAF restart karo — naya event loop, naya Application, koi leak nahi.
-    os.execv se PID same rehta hai (Render ko crash/naya deploy jaisa nahi lagta).
-    Fail ho to chup-chaap return — process isi state me chalta rahega."""
-    try:
-        _now = time.time()
-        _last = float(os.environ.get("UDB_LAST_RESTART") or 0)
-        _n = int(os.environ.get("UDB_RESTARTS") or 0) + 1
-        if _now - _last < 120:                           # bahut jaldi-jaldi ho raha ho to thoda ruko
-            delay = max(delay, 60.0)
-        if os.path.basename(sys.argv[0] if sys.argv else "") != "bot.py":
-            # v82: sirf `python bot.py` (Render) par process replace karo; tests/import me nahi
-            log.warning("🔁 restart skip (bot.py se nahi chal raha): %s", reason)
-            return
-        log.warning("🔁 HARD RESTART #%s: %s (%.0fs baad)", _n, reason, delay)
-        for _h in logging.getLogger().handlers:
-            try:
-                _h.flush()
-            except Exception:                            # noqa: BLE001
-                pass
-        sys.stdout.flush()
-        sys.stderr.flush()
-        time.sleep(delay)
-        _env = dict(os.environ)
-        _env.update({"UDB_RESTARTS": str(_n), "UDB_LAST_RESTART": str(time.time())})
-        if extra_env:
-            _env.update({k: str(v) for k, v in extra_env.items()})
-        os.execve(sys.executable, [sys.executable, os.path.abspath(__file__)], _env)
-    except Exception as _e:                              # noqa: BLE001
-        log.error("hard restart fail (%s) — isi process me chalta rahega", str(_e)[:120])
-
-
-def _supervise() -> None:
-    """main() ko chalao; crash ho to KHUD restart karo (Render ko 502 na mile)."""
-    _tries, _fast = 0, []
-    while True:
-        _tries += 1
-        try:
-            main()
-            print("ℹ️ main() normal band hua (koi crash nahi) — process exit")
-            return
-        except KeyboardInterrupt:
-            print("⛔ Manually band kiya gaya (KeyboardInterrupt) — exit")
-            return
-        except SystemExit:
-            raise
-        except BaseException as e:                               # noqa: BLE001
-            _now = time.time()
-            _fast = [t for t in _fast if _now - t < 600] + [_now]
-            _CRASH_STATE["count"] += 1
-            _CRASH_STATE["last"] = time.strftime("%d-%m-%Y %H:%M")
-            _CRASH_STATE["why"] = f"{type(e).__name__}: {str(e)[:80]}"
-            log.error("💥 CRASH #%s (%s: %s)", _tries, type(e).__name__, str(e)[:220])
-            try:
-                import traceback
-                traceback.print_exc()
-            except Exception:                                    # noqa: BLE001
-                pass
-            _wait = 60 if len(_fast) >= 8 else 5
-            log.warning("🔁 SELF-HEAL: %ss baad khud restart kar raha hoon (try #%s)",
-                        _wait, _tries + 1)
-            _hard_restart(f"crash {type(e).__name__}", delay=_wait)   # v82: saaf process restart
-            time.sleep(_wait)
-
-
-
-
-# ---------------- v59: /version — deploy hua hai ya nahi, turant pata karo ----------------
-async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/version — bot ka version + naye features ka status (sabke liye khula)."""
-    _n_tools = len(PROMPT_DATA)
-    _two_lines_gone = ("Credits: ♾️ Unlimited" not in PROMPTS.get("terabox", "")
-                       and "cancel" not in PROMPTS.get("terabox", "").lower())
-    _prompt_ok = "📝 <b>Examples:</b>" in PROMPTS.get("imei", "")
-    _numpanel = bool(mynum.is_configured())
-    _mode = "WEBHOOK (Conflict-free)" if webhook_url_from_env() else "POLLING"
-    await update.message.reply_text(
-        f"⚡ <b>{hesc(BOT_VERSION)}</b>\n"
-        "──────────────────────\n"
-        f"🔖 <b>Code commit:</b> <code>{hesc(_GIT_COMMIT or 'unknown')}</code>\n"
-        f"🌐 <b>Mode:</b> {_mode} | ⏱️ <b>chal raha:</b> {_uptime_str()}\n"
-        f"🩺 <b>Crashes:</b> {_CRASH_STATE['count']} (self-heal ON)\n"
-        f"🌐 <b>Webhook check:</b> {hesc(_WEBHOOK_DIAG['decision'])}\n"
-        f"🤖 <b>Live check:</b> {hesc(_last_update_line())}\n"
-        "──────────────────────\n"
-        f"🎨 <b>Naya prompt system:</b> {'✅ CHALU' if _prompt_ok else '❌ purana'}\n"
-        f"  • {_n_tools} tools me header + ✨ ask + 📝 Examples\n"
-        f"🚫 <b>Credits/cancel line:</b> {'✅ poori tarah gayi' if _two_lines_gone else '❌ abhi hai'}\n"
-        "📸 <b>IMEI photo:</b> ✅ chalu (device naam/code bhi chalta hai)\n"
-        f"📱 <b>Number Info API:</b> {'🟢 lagi hui' if _numpanel else '⚪ set nahi (/numapi)'}\n"
-        "🏦 <b>UPI tool:</b> 🗑️ hata diya gaya (poori code gayi)\n"
-        "⚡ <b>YouTube quality buttons:</b> ✅ instant (cache + background warm)\n"
-        "🧹 <b>Purane lecture/note lines:</b> ✅ saare tools se gayi\n"
-        "──────────────────────\n"
-        "<b>Naya version live hai ya nahi — kaise pakdo:</b>\n"
-        "1. Upar wala 🔖 commit Render ke latest commit jaisa hai = ✅ naya code LIVE\n"
-        "2. Alag hai = deploy abhi chal raha hai, thodi der baad /version dobara bhejo\n"
-        "3. Browser me <b>/health</b> kholo: "
-        "https://utility-duniya-bot.onrender.com/health\n"
-        "<i>(v59.9: /version aur /health me ab commit + mode dono dikhte hain — "
-        "pehle purana label chipka rehta tha, isliye confusion hoti thi.)</i>",
-        parse_mode=HTML)
-
-
-# ---------------- v59.7: /support — seedha owner se baat karo (clickable) ----------------
-SUPPORT_TEXT = (
-    "💬 <b>SUPPORT / MADAD</b>\n"
-        "──────────────────────\n"
-        f"Owner: {SUPPORT_LINK}\n\n"
-        "Neeche wala button dabao → seedha owner ki chat khul jaayegi → "
-        "<b>Start</b> dabao aur apni baat likho.\n\n"
-        "<b>Kab message karo:</b>\n"
-        "• Koi tool kaam na kare / error aaye\n"
-        "• VIP payment ka sawaal\n"
-        "• Koi naya tool chahiye\n"
-        "• Kuch bhi samajh na aaye\n\n"
-    "<i>Screenshot bhejo to sabse jaldi solve hota hai.</i>"
-)
-
-
-def support_card() -> tuple:
-    """Support card ka (text, keyboard) — command aur menu button dono use karte hain."""
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"📩 Message karo {SUPPORT_USERNAME}", url=SUPPORT_URL)],
-        [InlineKeyboardButton("👑 VIP lo", callback_data="open_vip_menu"),
-         InlineKeyboardButton("❓ Help", callback_data="back_home")],
-    ])
-    return (SUPPORT_TEXT, kb)
-
-
-async def cmd_support(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/support — owner se seedha baat karne ka card (ek tap me chat khul jaati hai)."""
-    _txt, kb = support_card()
-    await update.message.reply_text(_txt,
-        parse_mode=HTML, reply_markup=kb)
-
-
-# ---------------- v99: /numapi — Number API status + live test (purana provider gaya) ----------------
-async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/numapi — admin: number API status + live test (`/numapi 9876543210`)."""
-    if not is_admin(update.effective_user.id):
-        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
-        return
-    card = mynum.status_card()
-    args = [a.strip() for a in (context.args or []) if a.strip()]
-    if not args:
-        await update.message.reply_text(
-            card + "\n\n🧪 <b>Live test chalao:</b> <code>/numapi 9876543210</code>",
-            parse_mode=HTML)
-        return
-    test_no = args[0]
-    st = await update.message.reply_text(
-        f"🔎 Number API se <code>{hesc(test_no)}</code> test kar raha hoon… (30-40s lag sakta hai)",
-        parse_mode=HTML)
-    t0 = time.perf_counter()
-    res = await asyncio.to_thread(mynum.lookup, test_no)
-    ms = int((time.perf_counter() - t0) * 1000)
-    if res.get("ok"):
-        _ow = res.get("owner") or {}
-        await st.edit_text(
-            "✅ <b>API CHAL RAHI HAI!</b>\n"
-            "──────────────────────\n"
-            f"👤 <b>Name:</b> {hesc(str(_ow.get('name') or '—'))}\n"
-            f"🏢 <b>Operator:</b> {hesc(str(res.get('operator') or '—'))}\n"
-            f"📍 <b>Circle:</b> {hesc(str(res.get('circle') or '—'))}\n"
-            f"🆔 <b>Govt ID:</b> {hesc(str(_ow.get('govt_id') or '—'))}\n"
-            f"⚡ <b>Latency:</b> {ms}ms\n"
-            f"🗄️ <b>Cache:</b> {'Haan (6 ghante)' if res.get('cached') else 'Nahi (fresh)'}\n"
-            "──────────────────────\n"
-            "📱 Ab Number Info tool number API se <b>live data</b> dega. 🔥",
-            parse_mode=HTML)
-        return
-    await st.edit_text(
-        "❌ <b>API test fail</b>\n"
-        "──────────────────────\n"
-        f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:220])}\n"
-        "──────────────────────\n"
-        "<b>Ye 4 cheezein check karo:</b>\n"
-        "1️⃣ Number 10-digit sahi likha?\n"
-        "2️⃣ API slow hai — 30-40 second wait karo\n"
-        "3️⃣ Key dead? — Render me <code>MYNUM_API_KEY</code> check karo\n"
-        "4️⃣ <code>/numapi</code> se dobara test karo\n\n"
-        "📖 Poori guide: <code>NUMBER-INFO-API-SETUP.md</code>\n"
-        "ℹ️ <i>Tab tak Number Info offline mode se chal raha hai — band nahi hai.</i>",
-        parse_mode=HTML)
-
-
-# ======================================================================
-#  v60 — 🛡️ PREMIUM VAULT COMMANDS (admin/owner)
-#  Ye wahi 4 command hain jo aapko bharosa dilayenge ki premium safe hai.
-# ======================================================================
-async def cmd_vault(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/vault — premium vault ki poori health report."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        # normal user ko bas itna — andar ki baat nahi
-        await safe_reply(update.effective_message,
-                         "🛡️ Aapka data 24x7 safe rakha jata hai.\n"
-                         "Koi bhi cheez share karne ki zaroorat nahi hai.", parse_mode=HTML)
-        return
-    try:
-        card = vault.status_card()
-    except Exception as e:                                       # noqa: BLE001
-        card = f"⚠️ Vault report banane me dikkat: {safe_html_err(str(e)[:120])}"
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("📦 Abhi backup banao", callback_data="vault_backup")],
-        [InlineKeyboardButton("♻️ Backup se restore karo", callback_data="vault_restore")],
-        [InlineKeyboardButton("👑 VIP users list (file)", callback_data="vault_vips")],
-        [InlineKeyboardButton("🏠 Home", callback_data="back_home")],
-    ])
-    await safe_reply(update.effective_message, card, reply_markup=kb, parse_mode=HTML)
-
-
-async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/backup — turant backup (admin)."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        return
-    msg = await safe_reply(update.effective_message,
-                           "📦 <b>Backup ban raha hai…</b>\n<i>Bas thodi der — file taiyaar ho rahi hai.</i>",
-                           parse_mode=HTML)
-    try:
-        res = await vault.backup_now(reason=f"manual:{uid}", also_telegram=False)
-    except Exception as e:                                       # noqa: BLE001
-        res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
-    ok = res.get("ok")
-    txt = (f"{'✅' if ok else '⚠️'} <b>BACKUP {'OK' if ok else 'NAHI HUA'}</b>\n"
-           "──────────────────────\n"
-           f"📦 Size: {res.get('bytes', 0)/1024:.1f} KB\n"
-           f"🐙 GitHub: <code>{hesc(str(res.get('github') or '-'))[:80]}</code>\n"
-           f"👑 VIP count: {res.get('premium', {}).get('total_premium', '?')}\n")
-    if not ok:
-        txt += f"\n📄 <b>Wajah:</b> {safe_html_err(str(res.get('why') or 'unknown')[:200])}"
-    if msg and getattr(msg, "msg", None):
-        try:
-            await safe_answer_cb(update.callback_query, "Backup ho gaya" if ok else "Backup fail")
-            from modules.core.safesend import safe_edit
-            await safe_edit(msg.msg, txt, parse_mode=HTML)
-            return
-        except Exception:                                        # noqa: BLE001
-            pass
-    await safe_reply(update.effective_message, txt, parse_mode=HTML)
-
-
-async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/restore — sabse accha backup merge karo (premium-floor protected)."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        return
-    msg = await safe_reply(update.effective_message,
-                           "♻️ <b>Backup check kar raha hoon…</b>\n"
-                           "<i>VIP users ki ginti se pehle aur baad me milaan hoga.</i>",
-                           parse_mode=HTML)
-    try:
-        loop = asyncio.get_running_loop()
-        res = await loop.run_in_executor(None, functools_partial(vault.restore_now, "manual"))
-    except Exception as e:                                       # noqa: BLE001
-        res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
-    ok = res.get("ok")
-    b = res.get("premium_before", {})
-    a = res.get("premium_after", {})
-    txt = [f"{'✅' if ok else '⚠️'} <b>RESTORE {'OK' if ok else 'NAHI HUA'}</b>",
-           "──────────────────────",
-           f"👑 <b>VIP pehle:</b> {b.get('total_premium', '?')}",
-           f"👑 <b>VIP ab:</b> {a.get('total_premium', '?')}"]
-    if res.get("source"):
-        txt.append(f"📥 <b>Source:</b> <code>{hesc(str(res['source'])[:70])}</code>")
-    if res.get("safety_copy"):
-        txt.append(f"🛟 <b>Safety copy:</b> <code>{hesc(str(res['safety_copy'])[:60])}</code>")
-    if res.get("blocked"):
-        txt.append(f"\n🛑 <b>{len(res['blocked'])} backup BLOCK kiya gaya</b> "
-                   "(VIP ghatt raha tha — aapka data bacha liya)")
-    if not ok and res.get("why"):
-        txt.append(f"\n📄 <b>Wajah:</b> {safe_html_err(str(res['why'])[:200])}")
-    rep = res.get("report", {}).get("users", {})
-    if rep:
-        txt.append(f"\n📊 Users: {rep.get('total', '?')} (naye {rep.get('only_remote', 0)}, "
-                   f"premium upgraded {rep.get('premium_upgraded', 0)})")
-    await safe_reply(update.effective_message, "\n".join(txt), parse_mode=HTML)
-
-
-def functools_partial(fn, *a, **kw):
-    """functools.partial ka chhota wrapper (executor me chalane ke liye)."""
-    import functools as _f
-    return _f.partial(fn, *a, **kw)
-
-
-async def cmd_vips(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/vips — saare premium users ki CSV report (file)."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        return
-    try:
-        rows = vault.premium_list_rows()
-    except Exception as e:                                       # noqa: BLE001
-        await safe_reply(update.effective_message,
-                         f"⚠️ List nahi bani: {safe_html_err(str(e)[:120])}", parse_mode=HTML)
-        return
-    if not rows:
-        await safe_reply(update.effective_message,
-                         "👑 Abhi koi VIP user nahi hai.", parse_mode=HTML)
-        return
-    active = sum(1 for r in rows if not r["expired"])
-    lines = ["user_id,name,username,premium_until,status,credits,referrals,joined"]
-    for r in rows:
-        nm = str(r["name"]).replace(",", " ").replace("\n", " ")[:40]
-        un = str(r["username"]).replace(",", " ")[:30]
-        lines.append(f"{r['user_id']},{nm},{un},{r['premium_until']},"
-                     f"{'EXPIRED' if r['expired'] else 'ACTIVE'},{r['credits']},"
-                     f"{r['referrals']},{r['joined']}")
-    data = ("\ufeff" + "\n".join(lines)).encode("utf-8")
-    bio = io.BytesIO(data)
-    bio.name = f"vip_users_{datetime.now().strftime('%d%m%Y_%H%M')}.csv"
-    await safe_send_document(
-        update.effective_message.get_bot(), update.effective_chat.id, bio,
-        filename=bio.name,
-        caption=(f"👑 <b>PREMIUM USERS REPORT</b>\n"
-                 f"──────────────────────\n"
-                 f"✅ Active: <b>{active}</b>\n"
-                 f"🕓 Expired (record): {len(rows) - active}\n"
-                 f"📊 Total: <b>{len(rows)}</b>\n\n"
-                 f"💡 <i>Ye file kisi bhi backup se restore karne layak hai. "
-                 f"Ise sambhal kar rakhein.</i>"),
-        parse_mode="HTML",
-        fallback_text=(f"👑 PREMIUM USERS — {active} active VIP"
-                       f" + {len(rows) - active} expired (record)\n\n"
-                       + "\n".join(f"• {r['user_id']} — {r['premium_until']}"
-                                   + (" (expired)" if r["expired"] else "")
-                                   for r in rows[:40])))
-
-
-async def cmd_fixvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/fixvip <user_id> — ledger se kisi ka premium WAPAS lagao.
-
-    Naam se hi pata chal jata hai: agar kabhi kisi ka VIP ghumm gaya ho, to
-    ye command uska poora itihaas dekhegi aur sabse zyada wala premium wapas
-    laga degi. Ye bot ki "kabhi premium na kho" wali guarantee ka manual
-    control hai.
-    """
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        return
-    args = context.args or []
-    if not args or not str(args[0]).strip().lstrip("-").isdigit():
-        await safe_reply(update.effective_message,
-                         "📘 <b>Use:</b> <code>/fixvip 123456789</code>\n"
-                         "Ledger ke record se us user ka premium wapas lag jayega.",
-                         parse_mode="HTML")
-        return
-    target = int(str(args[0]).strip())
-    try:
-        before = ""
-        row = get_user_row(target) or {}
-        before = str(row.get("premium_until") or "")
-        after = restore_premium_from_ledger(target)
-    except Exception as e:                                       # noqa: BLE001
-        await safe_reply(update.effective_message,
-                         f"⚠️ Dikkat: {safe_html_err(str(e)[:120])}", parse_mode="HTML")
-        return
-    hist = ledger_for(target, 5)
-    lines = [f"👑 <b>PREMIUM LEDGER REPAIR</b>",
-             "──────────────────────",
-             f"👤 <b>User:</b> <code>{target}</code>",
-             f"📥 <b>Pehle:</b> {hesc(premium_rank_txt(before))}",
-             f"📤 <b>Ab:</b> {hesc(premium_rank_txt(after))}"]
-    if hist:
-        lines.append("\n🧾 <b>Itihaas (aakhri 5):</b>")
-        for h in hist:
-            lines.append(f"• {hesc(str(h.get('created_at', ''))[:16])} — {hesc(str(h.get('action')))}"
-                         f" ({h.get('days')} din) → {hesc(str(h.get('new_until') or '-'))}")
-    if not after and not before:
-        lines.append("\n⚪ Is user ka koi premium record nahi mila.")
-    await safe_reply(update.effective_message, "\n".join(lines), parse_mode="HTML")
-
-
-def premium_rank_txt(v: str) -> str:
-    if not v:
-        return "Free (koi VIP nahi)"
-    try:
-        if str(v).lower() == "lifetime":
-            return "👑 LIFETIME VIP"
-        d = parse_dt(v)
-        return d.strftime("%d-%m-%Y") if d else str(v)
-    except Exception:
-        return str(v)
-
-
-async def cmd_ledger(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/ledger — premium ka poora itihaas (kaun, kab, kitne din)."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        return
-    rows = ledger_all(30)
-    st = premium_ledger_stats()
-    lines = ["📒 <b>PREMIUM LEDGER (permanent record)</b>",
-             "──────────────────────",
-             f"✅ Grants: {st['grant']}  |  🚫 Revokes: {st['revoke']}  |  "
-             f"👥 Users: {st['unique_users']}", ""]
-    if not rows:
-        lines.append("Abhi koi entry nahi hai.")
-    for r in rows:
-        lines.append(f"• <code>{r['user_id']}</code> {hesc(str(r['action']))} "
-                     f"{r['days']}d → {hesc(str(r['new_until'] or '-')[:19])} "
-                     f"<i>{hesc(str(r['created_at'])[:16])}</i>")
-    lines += ["", "💡 <i>Ye record users table se alag hai — isliye premium ka "
-              "saboot kabhi nahi khota. Kisi ka VIP ghumm jaye to: "
-              "<code>/fixvip &lt;user_id&gt;</code></i>"]
-    await safe_reply(update.effective_message, "\n".join(lines), parse_mode="HTML")
-
-
-
-# ======================================================================
-#  v60.4 — 💼 BUSINESS STUDIO (10 earning tools)
-# ----------------------------------------------------------------------
-# Ye block menu, submenu, aur text-parser sab handle karta hai. Har tool ek
-# line ka input leta hai ("|" se alag) aur A4 print-ready file banata hai.
-# Har function KABHI crash nahi karta — error ho to saaf Hinglish message.
-# ======================================================================
-BIZ_MENU = {
-    "biz_invoice":     ("🧾", "Invoice / GST Bill",      "dukaan ka bill · estimate · quotation"),
-    "biz_resume":      ("💼", "Resume / CV",             "job ke liye professional CV"),
-    "biz_biodata":     ("💍", "Marriage Bio-data",       "shaadi ka biodata · Hindi me bhi"),
-    "biz_certificate": ("🎓", "Certificate",             "achievement · course · bonafide"),
-    "biz_idcard":      ("🪪", "ID Card (10 per page)",   "school / coaching / office"),
-    "biz_vcard":       ("📇", "Visiting Card (10)",      "dukaan / clinic ka card"),
-    "biz_letter":      ("📄", "Application / Letter",    "leave · NOC · character"),
-    "biz_upi":         ("💳", "UPI Scan & Pay Poster",   "dukaan ka payment board"),
-    "biz_labels":      ("🏷️", "Price Label Sheet",      "dukaan ke rate tag"),
-    "biz_salary":      ("💰", "Salary Slip",            "staff ka monthly pay slip"),
-    "biz_menucard":    ("🍽️", "Menu / Rate Card",       "dhaba · hotel · dukaan ka rate list"),
-    "biz_emi":         ("🧮", "EMI / Loan Card",         "poora hisaab + schedule"),
-}
-
-# ======================================================================
-#  v63: 🪜 BIZ_STEPS — BUSINESS STUDIO ka STEP-BY-STEP WIZARD
-# ======================================================================
-#  Boss ka order: "ek line ka format mushkil lagta hai — ek-ek step me poocho."
-#
-#  Kaise chalta hai:
-#    1. User tool chunta hai  ->  Step 1 ka sawal aata hai
-#    2. User jawab bhejta hai ->  Step 2 ... aise aage
-#    3. photo wale step par user PHOTO bheje -> bot use tool me laga deta hai
-#    4. Aakhri step ke baad output (PNG + PDF) ban kar chala jata hai
-#
-#  Har step = (key, sawal, hint/example, photo_hai?)
-#  photo_hai=True ka matlab: yahan user photo/logo bhej sakta hai (na bheje to skip).
-#  "SKIP" likhne par wo step khali chhod diya jata hai.
-BIZ_STEPS = {
-    "biz_invoice": [
-        ("shop", "🏪 <b>Step 1/5 — Dukaan / company ka naam?</b>\n<i>Jaise: Sharma Electronics</i>", "Sharma Electronics", False),
-        ("tagline", "✍️ <b>Step 2/5 — Ek line ka tagline?</b>\n<i>Neeche likha hua aata hai. Kuch na likhna ho to <code>SKIP</code> likhein.</i>", "Best in City", False),
-        ("logo", "🖼️ <b>Step 3/5 — Dukaan ka LOGO?</b>\nLogo ki <b>photo</b> bhej dein (bill ke upar lagega).\n<i>Logo nahi hai? <code>SKIP</code> likh dein.</i>", "LOGO PHOTO BHEJEIN", True),
-        ("buyer", "👤 <b>Step 4/5 — Grahak (customer) ka naam?</b>\n<i>Jaise: Ramesh Kumar</i>", "Ramesh Kumar", False),
-        ("items", "🛒 <b>Step 5/5 — Kya-kya becha? (item aur rate)</b>\n<i>Jaise: LED 4x120, Wire 1x450</i>\n<b>Qty x Rate</b> likhein", "LED 4x120, Wire 1x450", False),
-    ],
-    "biz_resume": [
-        ("name", "👤 <b>Step 1/4 — Aapka poora naam?</b>\n<i>Jaise: Himanshu Kumar</i>", "Himanshu Kumar", False),
-        ("role", "💼 <b>Step 2/4 — Kaunsi job / post chahiye?</b>\n<i>Jaise: Software Engineer</i>", "Software Engineer", False),
-        ("phone", "📞 <b>Step 3/4 — Phone number aur email?</b>\n<i>Jaise: 9876543210 | himanshu@gmail.com</i>", "9876543210 | himanshu@gmail.com", False),
-        ("education", "🎓 <b>Step 4/4 — Padhai aur skills?</b>\n<i>Jaise: B.Tech CSE 2024 | Python, SQL, Excel</i>", "B.Tech CSE 2024 | Python, SQL", False),
-        ("photo", "📸 <b>Bonus step — Aapki PHOTO?</b> (CV ke corner me lagegi)\n<i>Photo bhejein ya <code>SKIP</code> likhein.</i>", "PHOTO BHEJEIN", True),
-    ],
-    "biz_biodata": [
-        ("name", "👤 <b>Step 1/5 — Ladka/Ladki ka poora naam?</b>", "Anjali Kumari", False),
-        ("dob", "🎂 <b>Step 2/5 — Janm tithi (DOB)?</b>\n<i>Jaise: 12-08-1999</i>", "12-08-1999", False),
-        ("photo", "📸 <b>Step 3/5 — PHOTO?</b> (biodata me lagegi)\n<i>Photo bhejein ya <code>SKIP</code> likhein.</i>", "PHOTO BHEJEIN", True),
-        ("education", "🎓 <b>Step 4/5 — Padhai?</b>\n<i>Jaise: B.A. (Hindi), Patna University</i>", "B.A. Hindi", False),
-        ("job", "💼 <b>Step 5/5 — Kaam aur parivar?</b>\n<i>Jaise: Teacher | Father: Ram Kumar | 9876543210</i>", "Teacher | Ram Kumar | 9876543210", False),
-    ],
-    "biz_certificate": [
-        ("org", "🏫 <b>Step 1/5 — Sanstha / school ka naam?</b>", "Bindal Public School", False),
-        ("logo", "🖼️ <b>Step 2/5 — School ka LOGO?</b>\nLogo ki <b>photo</b> bhejein.\n<i>Nahi hai? <code>SKIP</code> likhein.</i>", "LOGO PHOTO BHEJEIN", True),
-        ("name", "👤 <b>Step 3/5 — Jisko certificate dena hai, uska naam?</b>", "Himanshu Kumar", False),
-        ("course", "🏆 <b>Step 4/5 — Kis cheez ka certificate?</b>\n<i>Jaise: Class X-E / English Speaking / Best Student</i>", "Class X-E", False),
-        ("extra", "📅 <b>Step 5/5 — Date aur photo?</b>\nDate likhein aur/ya <b>photo</b> bhej dein.\n<i>Jaise: 06-10-2026</i>", "06-10-2026", True),
-    ],
-    "biz_idcard": [
-        ("org", "🏫 <b>Step 1/6 — School / coaching ka naam?</b>", "Bindal Public School", False),
-        ("logo", "🖼️ <b>Step 2/6 — School ka LOGO?</b>\nLogo ki <b>photo</b> bhejein, ya <code>SKIP</code>.", "LOGO PHOTO BHEJEIN", True),
-        ("name", "👤 <b>Step 3/6 — Student ka naam?</b>", "Himanshu Kumar", False),
-        ("father", "👨 <b>Step 4/6 — Pita ka naam?</b>", "Ramesh Kumar", False),
-        ("class", "🎓 <b>Step 5/6 — Class aur Roll number?</b>\n<i>Jaise: X-E | 1042</i>", "X-E | 1042", False),
-        ("photo", "📸 <b>Step 6/6 — Student ki PHOTO?</b>\nID card me sabse zaroori cheez yahi hai!\n<i>Passport size photo bhejein, ya <code>SKIP</code>.</i>", "PHOTO BHEJEIN", True),
-    ],
-    "biz_vcard": [
-        ("owner", "👤 <b>Step 1/5 — Aapka naam?</b>", "Ramesh Kumar", False),
-        ("shop", "🏪 <b>Step 2/5 — Dukaan / company ka naam?</b>", "Sharma Kirana", False),
-        ("logo", "🖼️ <b>Step 3/5 — LOGO?</b> (card par lagega)\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
-        ("phone", "📞 <b>Step 4/5 — Phone aur address?</b>\n<i>Jaise: 9876543210 | Bihta, Patna</i>", "9876543210 | Bihta, Patna", False),
-        ("extra", "✉️ <b>Step 5/5 — Email / website? (optional)</b>\n<i>Nahi hai to <code>SKIP</code> likhein.</i>", "info@shop.com", False),
-    ],
-    "biz_letter": [
-        ("type", "📄 <b>Step 1/4 — Kaunsi application chahiye?</b>\n1 = Leave · 2 = NOC · 3 = Character · 4 = Bonafide\n<i>Number ya naam likhein</i>", "1", False),
-        ("name", "👤 <b>Step 2/4 — Aapka naam aur post?</b>\n<i>Jaise: Himanshu Kumar | Student</i>", "Himanshu Kumar | Student", False),
-        ("org", "🏫 <b>Step 3/4 — Kisko likhni hai? (sanstha ka naam)</b>", "Bindal Public School", False),
-        ("reason", "✍️ <b>Step 4/4 — Kyun chahiye? (karan)</b>\n<i>Jaise: 5 din ki chhutti chahiye, tabiyat kharab hai</i>", "5 din ki chhutti", False),
-    ],
-    "biz_upi": [
-        ("upi", "💳 <b>Step 1/4 — Aapki UPI ID?</b>\n<i>Jaise: 9876543210@ybl ya shop@paytm</i>", "9876543210@ybl", False),
-        ("shop", "🏪 <b>Step 2/4 — Dukaan / aapka naam?</b>", "Sharma Kirana", False),
-        ("logo", "🖼️ <b>Step 3/4 — LOGO?</b> (poster ke upar lagega)\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
-        ("phone", "📞 <b>Step 4/4 — Phone number?</b>", "9876543210", False),
-    ],
-    "biz_labels": [
-        ("shop", "🏪 <b>Step 1/4 — Dukaan ka naam?</b>", "Sharma Kirana", False),
-        ("logo", "🖼️ <b>Step 2/4 — LOGO?</b>\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
-        ("labels", "🏷️ <b>Step 3/4 — Saare item aur rate?</b>\n<i>Jaise: Sugar:48:55, Rice:95:110</i>\n<b>Naam : Rate : MRP</b> likhein", "Sugar:48:55, Rice:95:110", False),
-        ("extra", "📝 <b>Step 4/4 — Neeche kya likha aaye? (optional)</b>\n<i>Nahi chahiye to <code>SKIP</code></i>", "Rate 06-10-2026 se laagu", False),
-    ],
-    "biz_salary": [
-        ("company", "🏢 <b>Step 1/6 — Company / dukaan ka naam?</b>", "Sharma Kirana", False),
-        ("name", "👤 <b>Step 2/6 — Staff ka naam?</b>", "Ramesh Kumar", False),
-        ("post", "💼 <b>Step 3/6 — Post / kaam kya hai?</b>\n<i>Jaise: Salesman, Accountant, Driver</i>", "Salesman", False),
-        ("month", "📅 <b>Step 4/6 — Kis mahine ki salary?</b>\n<i>Jaise: September 2026</i>", "September 2026", False),
-        ("gross", "💰 <b>Step 5/6 — Poori salary (gross) kitni hai?</b>\n<i>Sirf number likhein, jaise: 18000</i>", "18000", False),
-        ("advance", "➖ <b>Step 6/6 — Advance / loan katta hai? (optional)</b>\n<i>Nahi to <code>0</code> ya <code>SKIP</code> likhein</i>", "500", False),
-    ],
-    "biz_menucard": [
-        ("name", "🍽️ <b>Step 1/4 — Hotel / dukaan ka naam?</b>", "Hotel Shivam", False),
-        ("tagline", "✍️ <b>Step 2/4 — Ek line ka tagline?</b>\n<i>Jaise: Shudh Desi Khana. Nahi chahiye to <code>SKIP</code></i>", "Shudh Desi Khana", False),
-        ("logo", "🖼️ <b>Step 3/4 — LOGO?</b> (menu ke upar lagega)\n<i>Photo bhejein ya <code>SKIP</code>.</i>", "LOGO PHOTO BHEJEIN", True),
-        ("items", "📋 <b>Step 4/4 — Saare item aur rate?</b>\n<i>Jaise: Chai:10, Samosa:15, Thali:80</i>\n<b>Naam : Rate</b> likhein", "Chai:10, Samosa:15", False),
-    ],
-    "biz_emi": [
-        ("loan_amount", "💰 <b>Step 1/3 — Loan kitne ka hai?</b>\n<i>Sirf number, jaise: 250000</i>", "250000", False),
-        ("rate", "📈 <b>Step 2/3 — Byaaj (interest) % saalana?</b>\n<i>Jaise: 11.5</i>", "11.5", False),
-        ("months", "🗓️ <b>Step 3/3 — Kitne mahine me chukana hai?</b>\n<i>Jaise: 36</i>", "36", False),
-    ],
-}
-# photo wale step ke field-naam — inme bytes jaate hain, text nahi
-BIZ_PHOTO_FIELDS = ("photo", "logo")
-
-# purane BIZ_STEPS ka dhaancha badla to bhi bot na gire — safe fallback
-def biz_steps(key: str) -> list:
-    try:
-        return list(BIZ_STEPS.get(key) or [])
-    except Exception:                                            # noqa: BLE001
-        return []
-
-
-def biz_total_steps(key: str) -> int:
-    return len(biz_steps(key))
-
-
-def biz_step_prompt(key: str, idx: int) -> str:
-    """Us step ka sawal + progress (Step 3/6) + format yaad dilana."""
-    steps = biz_steps(key)
-    if not steps or idx < 0 or idx >= len(steps):
-        return ""
-    _f, q, hint, is_photo = steps[idx][:4]
-    _icon, name, _sub = BIZ_MENU.get(key, ("📄", "Tool", ""))
-    bar_total = len(steps)
-    bar = "●" * (idx + 1) + "○" * max(0, bar_total - idx - 1)
-    return (f"{_icon} <b>{hesc(name)}</b>\n"
-            f"──────────────────────\n"
-            f"<code>{bar}</code>  <b>{idx + 1}/{bar_total}</b>\n\n"
-            f"{q}\n\n"
-            f"💡 <b>Example:</b> <code>{hesc(str(hint))[:70]}</code>")
-
-
-# ======================================================================
-#  v65: 🛡️ HARD CRASH-PROOF + 🚀 SPEED
-# ======================================================================
-#  Boss: "mere tools sab crash ho jaata hai — hard crash proof rakho,
-#         aur 2 minute kyun rukna — 15 second me jawab do."
-#
-#  3 layer ka ilaaj:
-#    1. `safe_tool_call()` — koi bhi tool ka function jo bhi galti kare,
-#       bot nahi girta: exception pakad kar saaf message + log.
-#    2. `with_tool_timeout()` — koi tool zyada atka rahe to usko ek
-#       TAY ki hui waqt ke baad chhod do (asyncio level par).
-#    3. `_progress_pinger()` — lamba kaam chale to har 5 second user ko
-#       "ho raha hai" batata rahe (user ko lagta nahi ki bot mar gaya).
-# ======================================================================
-TOOL_HARD_TIMEOUT = 120      # koi bhi tool isse zyada nahi chalega
-PROGRESS_EVERY = 5           # har 5 second progress ping
-
-
-async def safe_tool_call(fn, *args, **kwargs):
-    """Kisi bhi tool ko chalao — crash ho to (None, error) milega, bot gir nahi."""
-    try:
-        if asyncio.iscoroutinefunction(fn):
-            return (await fn(*args, **kwargs)), None
-        return await asyncio.get_running_loop().run_in_executor(
-            None, functools_partial(fn, *args, **kwargs)), None
-    except Exception as e:                                       # noqa: BLE001
-        log.error(f"🛡️ safe_tool_call: {type(e).__name__}: {e}")
-        return None, e
-
-
-async def with_tool_timeout(coro, seconds: int = TOOL_HARD_TIMEOUT, name: str = "tool"):
-    """Tool ko waqt ki hadd me chalao. Atka to None (bot zinda rehta hai)."""
-    try:
-        return await asyncio.wait_for(coro, timeout=seconds)
-    except asyncio.TimeoutError:
-        log.warning(f"⏱️ {name} ne {seconds}s me jawab nahi diya — chhod diya")
-        return None
-    except Exception as e:                                       # noqa: BLE001
-        log.error(f"🛡️ {name} error: {type(e).__name__}: {e}")
-        return None
-
-
-async def _progress_pinger(msg, text_fn, every: int = PROGRESS_EVERY,
-                           stop: "asyncio.Event" = None, max_pings: int = 6,
-                           edit_msg=None):
-    """Lamba kaam ke dauran user ko dikhe ki bot zinda hai.
-
-    v79: `edit_msg` diya ho to **usi ek message ko edit** karta hai — chat me
-    5-6 alag "kaam chal raha hai (10s) (16s) (22s)…" nahi bikherte (user ki
-    shikayat). Edit 2 baar fail ho (message delete ho gaya / flood-control) to
-    chup-chaap ruk jata hai, naya message bhej kar chat nahi bharta.
-    """
-    t0 = time.time()
-    _sent = 0
-    _fails = 0
-    try:
-        while (stop is not None and not stop.is_set()) and _sent < max_pings:
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=every)
-                break
-            except asyncio.TimeoutError:
-                pass
-            except Exception:                                    # noqa: BLE001
-                break
-            try:
-                el = int(time.time() - t0)
-                _txt = text_fn(el)
-                if edit_msg is not None:
-                    res = await safe_edit(edit_msg, _txt, parse_mode="HTML")
-                    if not getattr(res, "ok", True):
-                        _fails += 1
-                        if _fails >= 2:
-                            break
-                    else:
-                        _fails = 0
-                else:
-                    await safe_reply(msg, _txt, parse_mode="HTML")
-                _sent += 1
-            except Exception:                                    # noqa: BLE001
-                break
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-async def _st_edit(st, update, text: str, *, reply_markup=None, parse_mode: str = "HTML"):
-    """v79: status card edit karo — card delete ho chuka ho TO naya bhej do.
-
-    Pehle `st.edit_text(...)` seedha call hota tha aur status message delete ho
-    jaane par `BadRequest` upar crash-shield tak pahunchta tha — user ko
-    '⚠️ Ye kaam poora nahi ho paya' dikhta, jabki jawab bilkul bheja ja sakta
-    tha. Ab kabhi exception bahar nahi jaata.
-    """
-    try:
-        await st.edit_text(text, reply_markup=reply_markup, parse_mode=parse_mode)
-        return True
-    except Exception:                                            # noqa: BLE001
-        try:
-            await update.message.reply_text(text, reply_markup=reply_markup,
-                                            parse_mode=parse_mode)
-        except Exception:                                        # noqa: BLE001
-            pass
-        return False
-
-
-# ---------------- v101: ⏳ WAIT-FEW-SECONDS + TYPING PUMP ----------------
-# User ka order: tool me input bhejte hi sirf "Wait few seconds" dikhao,
-# phir result. Beech me bot "typing..." dikhata rahe (active lage) — jab tak
-# result na bheja jaaye. Typing pump khud ruk jaata hai jab bot koi bhi
-# message send/edit/delete karta hai (niche wala Bot-wrapper dekhता hai).
-WAIT_NOTE = "⏳ <b>Wait few seconds...</b>"
-_TYPING_STOP: dict = {}
-
-
-def _arm_typing(bot, chat_id: int):
-    """Chal raha typing pump 4.3s ke tick par 'typing...' bhejta rehta hai."""
-    try:
-        if chat_id in _TYPING_STOP:
-            return  # already pumping
-        _TYPING_STOP[chat_id] = False
-
-        async def _pump():
-            try:
-                for _ in range(40):                      # ~3 min hard cap
-                    if _TYPING_STOP.get(chat_id, True):
-                        return
-                    await bot.send_chat_action(chat_id=chat_id, action="typing")
-                    await asyncio.sleep(4.3)
-            except Exception:                            # noqa: BLE001
-                pass
-            finally:
-                _TYPING_STOP.pop(chat_id, None)
-
-        asyncio.get_running_loop().create_task(_pump())
-    except Exception:                                    # noqa: BLE001
-        pass
-
-
-def _stop_typing(chat_id):
-    if chat_id in _TYPING_STOP:
-        _TYPING_STOP[chat_id] = True
-
-
-async def _wait_st(target):
-    """⏳ 'Wait few seconds' note bhejo + typing pump arm karo. st lauta do."""
-    m = await target.reply_text(WAIT_NOTE, parse_mode=HTML)
-    try:
-        _stop_typing(target.chat_id)                     # purana pump (agar) reset
-        _arm_typing(target.get_bot(), target.chat_id)
-    except Exception:                                    # noqa: BLE001
-        pass
-    return m
-
-
-def _wrap_bot_typing_stop():
-    """Jab bhi bot user ko message bheje/edit kare → us chat ka typing pump band."""
-    from telegram import Bot as _TGBot
-    for _nm in ("send_message", "send_photo", "send_video", "send_audio", "send_document",
-                "send_animation", "send_voice", "edit_message_text", "edit_message_caption",
-                "edit_message_media", "delete_message"):
-        if getattr(_TGBot, "_v101_wrapped", False):
-            break
-        def _mk(name):
-            _orig = getattr(_TGBot, name)
-
-            async def _w(self, *a, **k):
-                r = await _orig(self, *a, **k)
-                try:
-                    cid = k.get("chat_id")
-                    if cid is None and a:
-                        cid = a[0]
-                    if cid is not None:
-                        _stop_typing(int(cid))
-                except Exception:                        # noqa: BLE001
-                    pass
-                return r
-            return _w
-        _nf = _mk(_nm)
-        try:  # v101: HTML-net (v93) ka marker zinda rakho — tests dhundhte hain
-            if getattr(_TGBot, _nm, None) is not None and getattr(getattr(_TGBot, _nm), "__ud_wrapped__", False):
-                _nf.__ud_wrapped__ = True
-        except Exception:                        # noqa: BLE001
-            pass
-        setattr(_TGBot, _nm, _nf)
-    try:
-        _TGBot._v101_wrapped = True
-    except Exception:                                    # noqa: BLE001
-        pass
-
-
-_wrap_bot_typing_stop()
-
-
-
-class _StatusMsg:
-    """v65: status message ka wrapper — jaise hi final result edit/delete hota hai,
-    progress pinger KHUD ruk jata hai (result ke upar purani line nahi likhti)."""
-
-    __slots__ = ("_msg", "_stop")
-
-    def __init__(self, msg, stop):
-        self._msg = msg
-        self._stop = stop
-
-    def _fin(self):
-        try:
-            if self._stop is not None:
-                self._stop.set()
-        except Exception:                                        # noqa: BLE001
-            pass
-
-    async def edit_text(self, *a, **kw):
-        self._fin()
-        return await self._msg.edit_text(*a, **kw)
-
-    async def delete(self, *a, **kw):
-        self._fin()
-        return await self._msg.delete(*a, **kw)
-
-    def __getattr__(self, name):
-        return getattr(self._msg, name)
-
-
-def _stop_ping(context):
-    """v65: purana progress pinger band karo (nayi request aane par)."""
-    try:
-        _ev = context.user_data.pop("_ping_stop", None)
-        if _ev is not None:
-            _ev.set()
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-async def _progress_edit(msg, base: str, every: int = PROGRESS_EVERY,
-                         stop: "asyncio.Event" = None, max_pings: int = 12):
-    """v65: EK HI message ko har `every` second update karo (live timer).
-    User ko lagta rahe ki bot zinda hai — spam ki tarah nayi message nahi."""
-    t0 = time.time()
-    _n = 0
-    try:
-        while (stop is not None and not stop.is_set()) and _n < max_pings:
-            try:
-                await asyncio.wait_for(stop.wait(), timeout=every)
-                break
-            except asyncio.TimeoutError:
-                pass
-            except Exception:                                    # noqa: BLE001
-                break
-            try:
-                _el = int(time.time() - t0)
-                await safe_edit(
-                    msg,
-                    f"{base}\n⏱️ <i>{_el} second ho gaye… bas thoda sa aur, file taiyaar ho rahi hai.</i>",
-                    parse_mode="HTML")
-                _n += 1
-            except Exception:                                    # noqa: BLE001
-                break
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-# ======================================================================
-#  v66: 🍪 /cookies — "Sign in to confirm you're not a bot" ka PAKKA ilaaj
-# ======================================================================
-#  YouTube cloud server (Render) ke IP par bot-check lagata hai. Jab admin
-#  apni YouTube cookies de deta hai to download hamesha chalta hai.
-#  Admin: /cookies -> bot kehta hai file bhejo -> admin cookies.txt bhejta hai
-#         -> bot usse save kar leta hai (DB me bhi, isliye redeploy par bachi
-#         rehti hai) -> wahi file bot kaam me leta hai.
-# ----------------------------------------------------------------------
-
-def cookies_boot_restore() -> bool:
-    """Boot par DB se cookies wapas likho (redeploy ke baad bhi kaam kare)."""
-    try:
-        txt = meta_get("yt_cookies", "") or ""
-        if txt and len(txt) > 40:
-            return bool(MD.save_cookies_text(txt))
-    except Exception as e:                                       # noqa: BLE001
-        log.debug("cookies boot restore skip: %s", str(e)[:90])
-    return False
-
-
-async def cmd_rcsetup(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/rcsetup — RC/Challan live karne ka sabse aasan tarika (free)."""
-    _on = carry = ""
-    try:
-        _on = "✅ LAGI HUI HAI" if vahan_provider_ready() else "❌ abhi nahi lagi"
-    except Exception:                                        # noqa: BLE001
-        _on = "❌ abhi nahi lagi"
-    await update.message.reply_text(
-        "🚗 <b>RC + CHALLAN — SETUP (v71.7)</b>\n"
-        "──────────────────────\n"
-        f"📌 <b>Provider status:</b> {_on}\n\n"
-        "⚠️ <b>SACH PEHLE:</b> is API ke free plan (BASIC) me <b>sirf 10 requests/"
-        "mahina</b> milti hain. Ek lookup = 1 request. Isliye bot aapse 1 hi request "
-        "leti hai, aur limit khatam hote hi SAFA message deti hai (429 ka matlab "
-        "yahi hota hai).\n\n"
-        "🔧 <b>Render → utility-duniya-bot → Environment me:</b>\n\n"
-        "<code>VEHICLE_PROVIDER_URL = https://vehicle-rc-information.p.rapidapi.com</code>\n"
-        "<code>VEHICLE_PROVIDER_KEY = &lt;aapki X-RapidAPI-Key&gt;</code>\n\n"
-        "🎯 <b>2 ya 3 free API jodni ho?</b> (limit shared ho jaati hai):\n"
-        "<code>VEHICLE_PROVIDER_URL = url1|url2</code>\n"
-        "<code>VEHICLE_PROVIDER_KEY = key1|key2</code>\n"
-        "Ek ki limit khatam → bot khud doosre par chala jaata hai.\n\n"
-        "⭐ <b>Zyada data chahiye?</b> (chassis, engine, owner mobile, PUCC):\n"
-        "Playground → <b>Vehicle Information v2 [Advance]</b> → <b>Request</b> tab se "
-        "poora URL copy karo → URL wali line me paste karo, aur ek line aur daalo:\n"
-        "<code>VEHICLE_PROVIDER_BODY = {\"vehicle_number\":\"{number}\"}</code>\n\n"
-        "✅ Baaki sab bot khud karta hai: sahi URL, sahi body, provider badalna, "
-        "quota bachana — aap sirf 2-3 line daalo aur plate bhejo.\n"
-        "🏆 Best value: <b>PRO ₹~880/mahina = 1000 lookups</b> (jab users badh jayein).\n"
-        "💡 Provider na ho to bhi bot state + RTO + challan ka <b>sarkari tarika</b> deta hai.",
-        parse_mode=HTML)
-    return
-
-
-async def cmd_speed(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/speed — bot kitna tez hai, cache kitna bhara, kaunsa client bad hai."""
-    try:
-        _st = MD.dl_cache_stats()
-        _fid = 0
-        try:
-            _fid = len([1 for _k in ("dlfid:test",)])  # placeholder
-        except Exception:                                        # noqa: BLE001
-            pass
-        _ladder = " → ".join(c[0] for c in MD.YT_CLIENT_SETS)
-        await update.message.reply_text(
-            "⚡ <b>SPEED REPORT</b>\n"
-            "──────────────────────\n"
-            f"⏱️ <b>Max time:</b> {MD.FAST_DEADLINE} second (hard limit)\n"
-            f"🧠 <b>Video cache:</b> {_st['items']} video "
-            f"({_st['mb']} MB) — ye sab INSTANT milte hain\n"
-            f"♻️ <b>Instant repeat:</b> ON (file_id cache, restart-proof)\n"
-            f"🤖 <b>Client ladder:</b> <code>{hesc(_ladder)}</code>\n"
-            f"🚫 <b>Bad-marked clients:</b> {_st['bad_clients']} "
-            "(bot-check wale, 15 min ke liye hata diye)\n"
-            f"🔀 <b>Parallel info:</b> ON (jo engine pehle jeete)\n"
-            f"💾 <b>Disk cache:</b> {MD.disk_cache_stats()['files']} file "
-            f"({MD.disk_cache_stats()['mb']} MB) — restart-proof\n"
-            "──────────────────────\n"
-            f"⏱️ <b>Keepalive:</b> har {int(os.environ.get('KEEPALIVE_MINUTES') or 3)} min",
-            parse_mode=HTML)
-    except Exception as e:                                       # noqa: BLE001
-        await update.message.reply_text(f"Speed report fail: {hesc(str(e))[:120]}",
-                                        parse_mode=HTML)
-
-
-async def cmd_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/cookies — YouTube/Instagram cookies ka status + tarika (admin)."""
-    uid = update.effective_user.id
-    if not is_admin(uid):
-        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
-        return
-    st = MD.cookies_status()
-    _ladder = " → ".join(c[0] for c in MD.YT_CLIENT_SETS)
-    txt = (
-        "🍪 <b>COOKIES STATUS</b>\n"
-        "──────────────────────\n"
-        f"{'✅' if st['set'] else '⚠️'} <b>Cookies:</b> "
-        f"{'LAGI HAIN — bot-check nahi aayega' if st['set'] else 'NAHI lagi hain'}\n"
-        f"📄 <b>Lines:</b> {st['lines']} | 📁 <code>{hesc(str(st['path'])[-40:]) or '—'}</code>\n"
-        f"🤖 <b>Client ladder:</b> <code>{hesc(_ladder)}</code>\n"
-        "──────────────────────\n"
-        "<b>🍪 Cookies kaise deni hai (2 minute):</b>\n"
-        "1️⃣ Android/iOS ke LIYE: <b>Telegram par wahi cookies.txt file</b> seedha "
-        "is bot ko bhej dein (neeche tarika).\n"
-        "2️⃣ PC par: Chrome me <b>\"Get cookies.txt LOCALLY\"</b> extension daalein → "
-        "<code>youtube.com</code> kholein → extension se <b>cookies.txt</b> download karein.\n"
-        "3️⃣ Wahi <b>cookies.txt</b> yahan bot ko <b>file ke roop me bhej dein</b> "
-        "(command likhne ki zaroorat nahi).\n"
-        "──────────────────────\n"
-        "<b>Maine badal diya kya:</b>\n"
-        "• 🤖 4 client ladder (android_vr → tv_embedded → android → web_safari)\n"
-        "• ⚡ progressive format + 16 parallel chunks = video 1-2 second me\n"
-        "• ⛔ 45 second hard limit — lambi wait hamesha ke liye khatam\n"
-        "• 🍪 Cookies = YouTube ka bot-check poora band\n\n"
-        "👉 Ab <b>cookies.txt file</b> bhej dijiye — main turant laga dunga."
-    )
-    await update.message.reply_text(txt, parse_mode=HTML)
-
-
-async def on_doc_cookies(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """v66: admin 'cookies.txt' bhejta hai to bot use laga leta hai (group=-5)."""
-    try:
-        msg = update.effective_message
-        u = update.effective_user
-        if not msg or not msg.document or u is None:
-            return
-        if not is_admin(u.id):
-            return
-        doc = msg.document
-        _name = (doc.file_name or "").lower()
-        if "cookie" not in _name and not context.user_data.get("await_cookies"):
-            return
-        if (doc.file_size or 0) > 3 * 1024 * 1024:
-            await msg.reply_text("❌ File bahut badi hai (3 MB se kam bhejein).",
-                                 parse_mode=HTML)
-            return
-        _f = await context.bot.get_file(doc.file_id)
-        _raw = bytes(await _f.download_as_bytearray())
-        _txt = _raw.decode("utf-8", "ignore")
-        if "youtube.com" not in _txt and "instagram.com" not in _txt:
-            await msg.reply_text(
-                "⚠️ Ye cookies file nahi lagti.\n"
-                "✅ <b>cookies.txt</b> (Netscape format) bhejein — "
-                "jisme <code>youtube.com</code> ki lines hon.", parse_mode=HTML)
-            return
-        _path = MD.save_cookies_text(_txt)
-        if not _path:
-            await msg.reply_text("❌ Cookies save nahi ho payi — dobara bhejein.",
-                                 parse_mode=HTML)
-            return
-        try:
-            meta_set("yt_cookies", _txt)     # redeploy ke baad bhi bachi rahe
-        except Exception:                                        # noqa: BLE001
-            pass
-        context.user_data.pop("await_cookies", None)
-        _st = MD.cookies_status()
-        await msg.reply_text(
-            "✅ <b>COOKIES LAG GAYIN!</b>\n"
-            "──────────────────────\n"
-            f"📄 <b>Lines:</b> {_st['lines']} | 🍪 <b>Status:</b> ON\n"
-            "🎉 Ab YouTube ka <i>\"Sign in to confirm you're not a bot\"</i> "
-            "error <b>nahi aayega</b>.\n"
-            "👉 Ab koi bhi video link bhej ke test karein — 1-2 second me video milegi.\n\n"
-            "🔒 Ye file safe hai (sirf download ke liye use hoti hai).",
-            parse_mode=HTML)
-    except Exception as e:                                       # noqa: BLE001
-        log.warning("cookies file handle fail: %s", str(e)[:140])
-
-
-# ======================================================================
-#  v68: ⚡ INSTANT REPEAT — ek hi video dobara = 0.1 second
-# ======================================================================
-#  Telegram har file ka "file_id" deta hai. Ek baar upload hone ke baad
-#  wahi file_id se dobara bhejna = 0 upload, 0 download, TURANT.
-#  (viral reel 10 log bhejte hain -> pehla 8s, baaki sab 0.1s)
-# ----------------------------------------------------------------------
-
-def dl_fid_key(url: str, tag: str = "") -> str:
-    # v84: ⚡ smart key — tracking params se farq nahi, ID case-sensitive (modules/core/dlkey.py)
-    try:
-        from modules.core.dlkey import dl_cache_key
-        return dl_cache_key(url, tag)
-    except Exception:                                            # noqa: BLE001
-        import hashlib as _h                                     # fallback: purana logic
-        _raw = (str(tag) + "|" + (url or "").strip().lower())[:400]
-        return "dlfid:" + _h.sha1(_raw.encode("utf-8", "ignore")).hexdigest()[:24]
-
-
-def dl_fid_get(url: str, tag: str = "") -> str:
-    try:
-        return meta_get(dl_fid_key(url, tag), "") or ""
-    except Exception:                                            # noqa: BLE001
-        return ""
-
-
-def dl_fid_set(url: str, file_id: str, tag: str = "") -> None:
-    try:
-        if file_id:
-            meta_set(dl_fid_key(url, tag), str(file_id))
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-def dl_fid_forget(url: str, tag: str = "") -> None:
-    try:
-        meta_set(dl_fid_key(url, tag), "")
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-def _biz_today() -> str:
-    return datetime.now().strftime("%d-%m-%Y")
-
-
-def biz_steps_kb(key: str, idx: int):
-    """Wizard ke buttons: ⬅️ Peeche · ❌ Cancel (+ agla step ka hint)."""
-    rows = []
-    if idx > 0:
-        rows.append([
-            InlineKeyboardButton("⬅️ Peeche", callback_data=f"bizstep:{key}:{idx - 1}"),
-            InlineKeyboardButton("❌ Cancel", callback_data="bizstudio"),
-        ])
-    else:
-        rows.append([InlineKeyboardButton("❌ Cancel", callback_data="bizstudio")])
-    rows.append([InlineKeyboardButton("💼 Business Studio", callback_data="bizstudio"),
-                 InlineKeyboardButton("🏠 Home", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def biz_answers_to_dict(key: str, ans: dict) -> dict:
-    """Wizard ke jawabon ko us tool ke dict me badlo — bilkul biz_parse jaisa.
-
-    Line-format wale parser se hi guzarta hai, is liye output BILKUL same aata hai
-    (purana one-line tarika bhi waise hi chalta rahega).
-    """
-    try:
-        a = dict(ans or {})
-        if key == "biz_invoice":
-            one = " | ".join([str(a.get("shop") or ""), str(a.get("buyer") or ""),
-                              str(a.get("items") or "")])
-            d = biz_parse(key, one)
-            d["tagline"] = str(a.get("tagline") or "").strip()
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            return d
-        if key == "biz_resume":
-            one = " | ".join([str(a.get("name") or ""), str(a.get("role") or ""),
-                              str(a.get("phone") or ""), "", ""])
-            d = biz_parse(key, one)
-            return d
-        if key == "biz_biodata":
-            one = " | ".join([str(a.get("name") or ""), str(a.get("dob") or ""),
-                              str(a.get("education") or ""), str(a.get("job") or ""),
-                              "", ""])
-            d = biz_parse(key, one)
-            if a.get("photo"):
-                d["photo"] = a["photo"]
-            return d
-        if key == "biz_certificate":
-            extra = str(a.get("extra") or "").strip()
-            _date, _photo = "", None
-            bits = [x.strip() for x in re.split(r"[|,]+", extra) if x.strip()] if extra else []
-            for b2 in bits:
-                if re.search(r"\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}", b2) or re.search(r"\d{4}", b2):
-                    _date = b2
-                else:
-                    _photo = None
-            d = biz_parse("biz_certificate",
-                          " | ".join([str(a.get("org") or ""), str(a.get("name") or ""),
-                                      str(a.get("course") or ""), _date or _biz_today()]))
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            if a.get("photo"):
-                d["photo"] = a["photo"]
-            return d
-        if key == "biz_idcard":
-            one = " | ".join([str(a.get("org") or ""), str(a.get("name") or ""),
-                              str(a.get("father") or "")])
-            d = biz_parse(key, one)
-            _cr = " | ".join([str(a.get("class") or ""), ""])
-            _cls, _roll = "", ""
-            parts = [x.strip() for x in re.split(r"[|,]+", str(a.get("class") or "")) if x.strip()]
-            if parts:
-                _cls = parts[0]
-            if len(parts) > 1:
-                _roll = parts[1]
-            _sc = (d.get("students") or [{}])
-            if _sc:
-                _sc[0]["class"] = _cls
-                _sc[0]["roll"] = _roll
-            d["students"] = _sc
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            if a.get("photo"):
-                try:
-                    d["students"][0]["photo"] = a["photo"]
-                except Exception:                                # noqa: BLE001
-                    pass
-            return d
-        if key == "biz_vcard":
-            phone, addr = str(a.get("phone") or ""), ""
-            parts = [x.strip() for x in re.split(r"[|,]+", phone) if x.strip()]
-            if parts:
-                phone = parts[0]
-            if len(parts) > 1:
-                addr = " ".join(parts[1:])
-            d = biz_parse(key, " | ".join([str(a.get("owner") or ""),
-                                           str(a.get("shop") or ""), phone, addr]))
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            _ex = str(a.get("extra") or "").strip()
-            if _ex and _ex.upper() != "SKIP":
-                d["email"] = _ex
-            return d
-        if key == "biz_letter":
-            t = str(a.get("type") or "").strip().lower()
-            t = {"1": "leave", "2": "noc", "3": "character", "4": "bonafide"}.get(t, t or "leave")
-            nm, post = str(a.get("name") or ""), ""
-            parts = [x.strip() for x in re.split(r"[|,]+", nm) if x.strip()]
-            if parts:
-                nm = parts[0]
-            if len(parts) > 1:
-                post = parts[1]
-            d = biz_parse(key, " | ".join([t, nm, str(a.get("org") or ""),
-                                           str(a.get("reason") or ""), post]))
-            return d
-        if key == "biz_upi":
-            d = biz_parse(key, " | ".join([str(a.get("upi") or ""),
-                                           str(a.get("shop") or ""),
-                                           str(a.get("phone") or "")]))
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            return d
-        if key == "biz_labels":
-            d = biz_parse(key, " | ".join([str(a.get("shop") or ""),
-                                           str(a.get("labels") or "")]))
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            _ex = str(a.get("extra") or "").strip()
-            if _ex and _ex.upper() != "SKIP":
-                d["footer"] = _ex
-            return d
-        if key == "biz_salary":
-            d = biz_parse(key, " | ".join([str(a.get("company") or ""),
-                                           str(a.get("name") or ""),
-                                           str(a.get("post") or ""),
-                                           str(a.get("month") or ""),
-                                           str(a.get("gross") or "0"),
-                                           str(a.get("advance") or "0")]))
-            return d
-        if key == "biz_menucard":
-            d = biz_parse(key, " | ".join([str(a.get("name") or ""),
-                                           str(a.get("tagline") or ""),
-                                           str(a.get("items") or "")]))
-            if a.get("logo"):
-                d["logo"] = a["logo"]
-            return d
-        if key == "biz_emi":
-            d = biz_parse(key, " | ".join([str(a.get("loan_amount") or "0"),
-                                           str(a.get("rate") or "10"),
-                                           str(a.get("months") or "12")]))
-            return d
-    except Exception:                                            # noqa: BLE001
-        pass
-    return {}
-
-
-BIZ_MENU_TEXT = (
-    "💼 <b>𝐁𝐔𝐒𝐈𝐍𝐄𝐒𝐒 𝐒𝐓𝐔𝐃𝐈𝐎</b>\n"
-    "──────────────────────\n"
-    "Dukaan, school, coaching, job aur loan — <b>12 kaam ki cheezein</b>\n"
-    "sirf ek line likh kar banao. Sab <b>print-ready A4 PDF</b> me.\n\n"
-    "👇 Neeche se tool chuno:"
-)
-
-
-def biz_menu_kb():
-    rows, pair = [], []
-    for key, (icon, name, _sub) in BIZ_MENU.items():
-        pair.append(InlineKeyboardButton(f"{icon} {name}", callback_data=f"biz:{key}"))
-        if len(pair) == 2:
-            rows.append(pair); pair = []
-    if pair:
-        rows.append(pair)
-    rows.append([InlineKeyboardButton("🏠 Home", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def _biz_split(line: str) -> list:
-    """Ek line ko '|' ya ',' par todta hai (smart)."""
-    t = str(line or "").strip()
-    if "|" in t:
-        return [x.strip() for x in t.split("|")]
-    return [t]
-
-
-def _biz_num(v, default=0.0):
-    try:
-        return float(str(v).replace(",", "").replace("₹", "").replace("Rs", "").strip() or default)
-    except Exception:                                            # noqa: BLE001
-        return float(default)
-
-
-def _biz_items(txt: str) -> list:
-    """'LED 4x120, Wire 1x450' -> [{name,qty,rate}]"""
-    out = []
-    for chunk in re.split(r"[,\n;]+", str(txt or "")):
-        chunk = chunk.strip()
-        if not chunk:
-            continue
-        m = re.search(r"(\d+(?:\.\d+)?)\s*[xX*×]\s*(\d+(?:\.\d+)?)", chunk)
-        if m:
-            name = chunk[:m.start()].strip(" -:") or "Item"
-            out.append({"name": name, "qty": _biz_num(m.group(1), 1),
-                        "rate": _biz_num(m.group(2))})
-        else:
-            m2 = re.search(r"(\d+(?:\.\d+)?)\s*(?:rs|₹)?\s*$", chunk, re.I)
-            if m2:
-                out.append({"name": chunk[:m2.start()].strip(" -:") or "Item",
-                            "qty": 1, "rate": _biz_num(m2.group(1))})
-            else:
-                out.append({"name": chunk, "qty": 1, "rate": 0})
-    return out
-
-
-def _biz_kind(kind: str) -> str:
-    return {"invoice": "biz_invoice", "bill": "biz_invoice",
-            "resume": "biz_resume", "cv": "biz_resume",
-            "biodata": "biz_biodata", "bio": "biz_biodata",
-            "certificate": "biz_certificate", "cert": "biz_certificate",
-            "idcard": "biz_idcard", "id": "biz_idcard",
-            "vcard": "biz_vcard", "visiting": "biz_vcard",
-            "letter": "biz_letter", "application": "biz_letter",
-            "upi": "biz_upi", "qr": "biz_upi",
-            "labels": "biz_labels", "label": "biz_labels", "price": "biz_labels",
-            "salary": "biz_salary", "payslip": "biz_salary", "slip": "biz_salary",
-            "menucard": "biz_menucard", "menu": "biz_menucard",
-            "ratecard": "biz_menucard", "ratelist": "biz_menucard",
-            "emi": "biz_emi", "loan": "biz_emi"}.get(str(kind or "").lower().strip(), "")
-
-
-def biz_parse(key: str, line: str, owner_name: str = "") -> dict:
-    """Ek line ke input ko us tool ke dict me badlo. Kabhi crash nahi."""
-    p = _biz_split(line)
-    d: dict = {}
-    try:
-        if key == "biz_invoice":
-            items = _biz_items(p[2]) if len(p) > 2 else _biz_items(p[-1])
-            d = {"shop": p[0] if p else "", "buyer": p[1] if len(p) > 1 else "",
-                 "items": items or [{"name": "Item", "qty": 1, "rate": 0}],
-                 "doc_type": "TAX INVOICE", "number": f"INV-{datetime.now().strftime('%d%m%H%M')}",
-                 "date": datetime.now().strftime("%d-%m-%Y"), "gstin": "",
-                 "upi": "", "discount": 0, "advance": 0}
-        elif key == "biz_resume":
-            d = {"name": p[0] if p else owner_name,
-                 "role": p[1] if len(p) > 1 else "", "phone": p[2] if len(p) > 2 else "",
-                 "education": [{"course": p[3], "institute": "", "year": "", "percent": ""}]
-                 if len(p) > 3 and p[3] else [],
-                 "skills": p[4] if len(p) > 4 else "",
-                 "email": p[5] if len(p) > 5 else "",
-                 "objective": f"To work in a growth oriented organisation where I can "
-                              f"use my skills as {p[1] if len(p) > 1 else 'a professional'}."}
-        elif key == "biz_biodata":
-            d = {"name": p[0] if p else owner_name, "dob": p[1] if len(p) > 1 else "",
-                 "education": p[2] if len(p) > 2 else "", "job": p[3] if len(p) > 3 else "",
-                 "father": p[4] if len(p) > 4 else "", "phone": p[5] if len(p) > 5 else ""}
-        elif key == "biz_certificate":
-            d = {"org": p[0] if p else "", "name": p[1] if len(p) > 1 else owner_name,
-                 "course": p[2] if len(p) > 2 else "",
-                 "date": p[3] if len(p) > 3 else datetime.now().strftime("%d-%m-%Y"),
-                 "title": "CERTIFICATE OF EXCELLENCE"}
-        elif key == "biz_idcard":
-            # v63: session sahi academic year (April se March) — pehle galat tha
-            _yr = datetime.now().year if datetime.now().month >= 4 else datetime.now().year - 1
-            d = {"org": p[0] if p else "",
-                 "tagline": "STUDENT IDENTITY CARD",
-                 "session": f"{_yr}-{str(_yr + 1)[-2:]}",
-                 "students": [{"name": p[1] if len(p) > 1 else owner_name,
-                               "father": p[2] if len(p) > 2 else "",
-                               "class": p[3] if len(p) > 3 else "",
-                               "roll": p[4] if len(p) > 4 else "",
-                               "phone": p[5] if len(p) > 5 else ""}],
-                 "footer": (p[0] if p else "")}
-        elif key == "biz_vcard":
-            d = {"owner": p[0] if p else owner_name, "shop": p[1] if len(p) > 1 else "",
-                 "phone": p[2] if len(p) > 2 else "", "address": p[3] if len(p) > 3 else "",
-                 "style": "band"}
-        elif key == "biz_letter":
-            d = {"type": (p[0] if p else "leave").lower().strip(),
-                 "name": p[1] if len(p) > 1 else owner_name,
-                 "org": p[2] if len(p) > 2 else "", "reason": p[3] if len(p) > 3 else ""}
-        elif key == "biz_upi":
-            d = {"upi": p[0] if p else "", "shop": p[1] if len(p) > 1 else "",
-                 "upi_name": p[1] if len(p) > 1 else "", "phone": p[2] if len(p) > 2 else "",
-                 "note": p[3] if len(p) > 3 else "Payment ka screenshot bhej dein"}
-        elif key == "biz_labels":
-            labels = []
-            for chunk in re.split(r"[,\n;]+", p[1] if len(p) > 1 else ""):
-                bits = [x.strip() for x in chunk.split(":") if x.strip()]
-                if len(bits) >= 2:
-                    labels.append({"name": bits[0], "price": _biz_num(bits[1]),
-                                   "mrp": _biz_num(bits[2]) if len(bits) > 2 else 0})
-            d = {"shop": p[0] if p else "", "labels": labels,
-                 "footer": "Rate " + datetime.now().strftime("%d-%m-%Y") + " se laagu"}
-        elif key == "biz_salary":
-            # COMPANY | NAAM | POST | MONTH | SALARY | ADVANCE
-            parts = [x.strip() for x in p if x.strip()]
-            nums = [x for x in parts if _biz_num(x) > 0]
-            texts = [x for x in parts if _biz_num(x) <= 0]
-            d = {"company": texts[0] if texts else (owner_name or "COMPANY"),
-                 "name": texts[1] if len(texts) > 1 else (owner_name or "Employee"),
-                 "post": texts[2] if len(texts) > 2 else "Staff",
-                 "month": texts[3] if len(texts) > 3 else datetime.now().strftime("%B %Y"),
-                 "gross": _biz_num(nums[0]) if nums else 0,
-                 "advance": _biz_num(nums[1]) if len(nums) > 1 else 0}
-        elif key == "biz_menucard":
-            # DHABA NAAM | TAGLINE | Chai:10, Samosa:15 | CONTACT
-            parts = [x.strip() for x in p if x.strip()]
-            items_src, rest = "", []
-            for x in parts:
-                if ":" in x and re.search(r":\s*\d", x) and not items_src:
-                    items_src = x
-                else:
-                    rest.append(x)
-            items = []
-            for chunk in re.split(r"[,\n;]+", items_src):
-                bits = [b.strip() for b in chunk.split(":") if b.strip()]
-                if len(bits) >= 2:
-                    items.append({"name": bits[0], "price": _biz_num(bits[1]),
-                                  "tag": bits[2] if len(bits) > 2 else ""})
-            _contact = ""
-            for x in rest[2:]:
-                if re.search(r"\d{6,}", x):
-                    _contact = x
-            d = {"name": rest[0] if rest else (owner_name or "MENU"),
-                 "tagline": rest[1] if len(rest) > 1 else "",
-                 "items": items, "contact": _contact,
-                 "footer": "Rates " + datetime.now().strftime("%d-%m-%Y") + " se laagu"}
-        elif key == "biz_emi":
-            d = {"bank": "EMI / LOAN SUMMARY", "borrower": owner_name,
-                 "loan_amount": _biz_num(p[0]) if p else 0,
-                 "rate": _biz_num(p[1]) if len(p) > 1 else 10,
-                 "months": int(_biz_num(p[2], 12)) if len(p) > 2 else 12}
-    except Exception:                                            # noqa: BLE001
-        pass
-    return d
-
-
-def biz_build(key: str, d: dict) -> dict:
-    """Sahi function chalao — safe."""
-    fn = {"biz_invoice": biz_invoice, "biz_resume": biz_resume,
-          "biz_biodata": biz_biodata, "biz_certificate": biz_certificate,
-          "biz_idcard": biz_idcard, "biz_vcard": biz_vcard,
-          "biz_letter": biz_letter, "biz_upi": biz_upi_qr,
-          "biz_labels": biz_labels, "biz_emi": biz_emi_card,
-          "biz_salary": biz_salary, "biz_menucard": biz_menucard}.get(key)
-    if fn is None:
-        return {"ok": False, "error": "tool nahi mila"}
-    return fn(d)
-
-
-async def biz_send_result(msg, key: str, res: dict, uid: int, used: bool = True) -> None:
-    """Result bhejo — image + PDF dono, aur credit ka message."""
-    if not res or not res.get("ok"):
-        why = (res or {}).get("error") or "kuch gadbad ho gayi"
-        await safe_reply(
-            msg,
-            f"⚠️ <b>File nahi ban payi</b>\n"
-            f"──────────────────────\n"
-            f"📄 {safe_html_err(str(why)[:200])}\n\n"
-            f"💡 <b>Format yaad rakhein:</b> ek line me <code>|</code> se alag likhein.\n"
-            f"Example dekhne ke liye tool ka naam dobara dabayein.",
-            parse_mode="HTML")
-        return
-    _icon, name, _sub = BIZ_MENU.get(key, ("📄", "File", ""))
-    bio = io.BytesIO(res["png"])
-    bio.name = f"{key.replace('biz_', '')}_{datetime.now().strftime('%d%m_%H%M')}.png"
-    cap = (f"✅ <b>{hesc(name)}</b> ready hai!\n"
-           f"──────────────────────\n"
-           f"🖨️ <i>A4 @ 200 DPI — seedha print karein</i>\n")
-    if res.get("count"):
-        cap += f"📦 Total: <b>{res['count']}</b>\n"
-    if res.get("emi"):
-        cap += (f"💰 EMI: <b>Rs. {biz_money(res['emi'])}</b>/month\n"
-                f"📊 Total: Rs. {biz_money(res['total'])} "
-                f"(byaaj Rs. {biz_money(res['interest'])})\n")
-    if res.get("amount"):
-        cap += f"💰 Total: <b>Rs. {biz_money(res['amount'])}</b>\n"
-    if res.get("notice"):
-        cap += f"📌 {hesc(str(res['notice'])[:120])}\n"
-    if used:
-        cap += spend_credit_msg(uid, key)
-    sent = await safe_send_photo(msg.get_bot(), msg.chat_id, bio, caption=cap,
-                                parse_mode="HTML")
-    # PDF bhi bhejo (print aur WhatsApp share ke liye)
-    try:
-        pages = res.get("pages") or [res.get("png")]
-        pdf = biz_to_pdf(pages)
-        if pdf:
-            from io import BytesIO as _B
-            pio = _B(pdf)
-            pio.name = f"{key.replace('biz_', '')}_{datetime.now().strftime('%d%m_%H%M')}.pdf"
-            await safe_send_document(msg.get_bot(), msg.chat_id, pio,
-                                     caption="📄 <b>PDF</b> — print / WhatsApp ke liye",
-                                     parse_mode="HTML", filename=pio.name)
-    except Exception as _e:                                      # noqa: BLE001
-        log.debug("biz pdf skip: %s", str(_e)[:90])
-
-
-def biz_money(v):
-    try:
-        from modules.business_tools import money as _m
-        return _m(v)
-    except Exception:                                            # noqa: BLE001
-        return str(v)
-
-
-# --------- helpers block khatam ---------
-
-def arm_all_handlers(app) -> int:
-    """🛡️ v60: HAR handler ko crash-shield me lapet do (ek hi jagah se).
-
-    Ye "code crash ho jaata hai" ka sabse bada ilaaj hai. Isse pehle har tool
-    ka code apne aap ko bachata tha — lekin koi bhi chhoti bug (kisi field ka
-    missing hona, kisi API ka ajeeb jawab, kisi photo ka kharab format) us
-    tool ke handler ko maar deti thi aur user ko "Chhota sa ghatna ho gaya"
-    dikhta tha (credit bhi kat chuka hota tha).
-
-    Ab: PTB ke saare handlers ka `callback` guard me lapet diya jata hai.
-    Iska matlab:
-      • koi bhi tool bug -> sirf wo ek tool ke liye message fail hota hai
-      • bot kabhi nahi girta
-      • user ko saaf message milta hai ("dobara try karo")
-      • admin ko /sys par "kitne sambhale gaye" dikhta hai
-
-    Returns: kitne handlers lapete gaye.
-    """
-    n = 0
-    try:
-        for group, handlers in (app.handlers or {}).items():
-            for h in handlers:
-                cb = getattr(h, "callback", None)
-                if cb is None or getattr(cb, "_ud_guarded", False):
-                    continue
-                try:
-                    wrapped = guarded(f"handler:{type(h).__name__}")(cb)
-                    wrapped._ud_guarded = True
-                    h.callback = wrapped
-                    n += 1
-                except Exception:                                # noqa: BLE001
-                    continue
-    except Exception as e:                                       # noqa: BLE001
-        log.warning("arm_all_handlers me dikkat (bot normal chalega): %s", str(e)[:130])
-    return n
-
-
-def _uptime_str() -> str:
-    s = int(time.time() - _BOOT_TS)
-    d, r = divmod(s, 86400)
-    h, r = divmod(r, 3600)
-    m, sec = divmod(r, 60)
-    if d:
-        return f"{d}d {h}h {m}m"
-    if h:
-        return f"{h}h {m}m {sec}s"
-    if m:
-        return f"{m}m {sec}s"
-    return f"{sec}s"
-
-
-def system_stats_text() -> str:
-    """Admin ke liye live system report — cache, rate-limit, memory, uptime."""
-    import gc
-
-    cs = INFO_CACHE.snapshot()
-    ls = limiter_stats()
-
-    # memory (best-effort — Render par /proc available hota hai)
-    mem = ""
-    try:
-        with open("/proc/self/status", "r", encoding="utf-8") as fh:
-            for line in fh:
-                if line.startswith("VmRSS:"):
-                    mem = f"{int(line.split()[1]) / 1024:.0f} MB"
-                    break
-    except Exception:  # noqa: BLE001
-        mem = "n/a"
-
-    threads = threading.active_count()
-    objs = len(gc.get_objects())
-
-    hit = cs["hit_rate"]
-    hit_icon = "🟢" if hit >= 40 else ("🟡" if hit > 0 else "⚪")
-    blk = ls["blocked"]
-    blk_icon = "🔴" if blk > 50 else ("🟡" if blk > 0 else "🟢")
-
-    return (
-        f"📡 <b>{to_bold('SYSTEM HEALTH')}</b>\n"
-        "──────────────────────\n"
-        f"⏱️ <b>Uptime:</b> {_uptime_str()}\n"
-        f"🧵 <b>Threads:</b> {threads}   |   🧠 <b>RAM:</b> {mem}\n"
-        f"📦 <b>Python objects:</b> {objs:,}\n"
-        "──────────────────────\n"
-        f"🗃️ <b>Cache entries:</b> {cs['entries']} / {cs['maxsize']}\n"
-        f"   {hit_icon} <b>Hit rate:</b> {hit}%  "
-        f"(hits {cs['hits']} · miss {cs['misses']})\n"
-        f"   💡 jitna zyada hit, utni kam API call = fast + free\n"
-        "──────────────────────\n"
-        f"🚦 <b>Rate limiter:</b>\n"
-        f"   ✅ allowed: {ls['allowed']:,}   "
-        f"{blk_icon} blocked: {blk:,}\n"
-        f"   🔑 active users tracked: {ls['active_buckets']}\n"
-        f"   ⚙️ default: {ls['default_limit']} req / {ls['default_window']}s\n"
-        "──────────────────────\n"
-        f"🌐 <b>Mode:</b> {'WEBHOOK' if webhook_url_from_env() else 'POLLING'}\n"
-        f"🔌 <b>Premium-only:</b> {'ON' if PREMIUM_ONLY else 'OFF'}\n"
-        f"👑 <b>Admins:</b> {len(ADMIN_IDS)}\n"
-        "──────────────────────\n"
-        # v53.0: per-tool telemetry — ab koi tool chup-chaap fail nahi ho sakta.
-        # DEAD upstream (jaise BGMI ke stats servers) sabse upar flag hota hai,
-        # aur saaf likha aata hai ki us tool par credit nahi katna chahiye.
-        + _telemetry_block()
-        + _vault_admin_block()
-        + "──────────────────────\n"
-        "<i>Ye stats live hain — /admin dobara dabao to refresh ho jayenge.</i>"
-    )
-
-
-def _vault_admin_block() -> str:
-    """v60: /sys me data-safety + crash-shield + memory ka block.
-
-    Kabhi crash nahi karta — kuch bhi fail ho to khaali string.
-    """
-    try:
-        from modules.core.guard import guard_stats
-        from modules.core.vault import premium_floor_report
-        g = guard_stats()
-        floor = premium_floor_report(vault_db_path())
-        st = vault.stats
-        lb = vault.last_backup or {}
-        lr = vault.last_restore or {}
-        lines = [
-            "🛡️ <b>PREMIUM VAULT (v60):</b>",
-            f"   👑 VIP users: <b>{floor['total_premium']}</b> "
-            f"(lifetime {floor['lifetime']} · active {floor['active']})",
-            f"   💾 DB: <code>{hesc(vault_db_path())[:60]}</code>",
-            f"   🔐 Backup: GitHub {'🟢' if vault.gh_ready() else '⚪'} · "
-            f"Telegram {'🟢' if vault.telegram_ready() else '⚪'} · "
-            f"har {vault.interval_minutes()} min",
-            f"   📦 {st.get('backups', 0)} ✅ backups · {st.get('restores', 0)} restore · "
-            f"{st.get('failures', 0)} fail",
-        ]
-        if lb.get("at"):
-            lines.append(f"   🕒 Aakhri backup: {hesc(str(lb.get('at'))[:19])}")
-        if lr.get("at"):
-            lines.append(f"   ♻️ Aakhri restore: {hesc(str(lr.get('at'))[:19])} "
-                         f"({'OK' if lr.get('ok') else 'fail'})")
-        lines += [
-            "",
-            "🛡️ <b>CRASH SHIELD (v60):</b>",
-            f"   🪖 Sambhale gaye: <b>{g.get('handled', 0)}</b> "
-            f"(handler {g.get('handler', 0)} · task {g.get('task', 0)} · "
-            f"thread {g.get('thread', 0)})",
-            f"   💥 Fatal crashes: {g.get('fatal', 0)}  |  "
-            f"🧠 RAM: {g.get('mem_mb', 0):.0f} MB (peak {g.get('mem_peak_mb', 0):.0f} MB)",
-            f"   🧹 GC runs: {g.get('gc_runs', 0)} · "
-            f"⏱️ loop lag: {g.get('heart_lag', 0)}s · beats {g.get('beats', 0)}",
-            f"   🏗️ {_heavy_health_line()}",
-        ]
-        if g.get("last_why"):
-            lines.append(f"   🔎 Aakhri: {hesc(str(g['last_why'])[:110])}")
-        # v76: bounded cache + janitor report
-        try:
-            _jb = _janitor_block()
-            if _jb:
-                lines.append("")
-                lines.append(_jb)
-            _br = _bounded_report() or {}
-            if _br.get("caches"):
-                _top = _br["caches"][:3]
-                lines.append(
-                    "   🪣 Cache: <b>%s</b>/%s entry · %s baar saaf"
-                    % (_br.get("total_entries", 0), _br.get("total_limit", 0),
-                       _br.get("clears", 0)))
-                for _c in _top:
-                    lines.append(
-                        f"      • {hesc(str(_c.get('name')))}: "
-                        f"{_c.get('size')}/{_c.get('maxsize')} "
-                        f"(hit {_c.get('hit_rate')}%)")
-        except Exception:                                        # noqa: BLE001
-            pass
-        lines.append("   💡 Commands: /vault · /backup · /restore · /vips · /ledger · /fixvip")
-        lines.append("──────────────────────")
-        return "\n".join(lines)
-    except Exception:                                            # noqa: BLE001
-        return ""
-
-
-def _telemetry_block(max_rows: int = 8) -> str:
-    """v53.0: per-tool health + upstream status (admin /sys card ke liye).
-
-    Fail-safe: telemetry me kuch bhi gadbad ho to system card phir bhi banta hai.
-    """
-    try:
-        snap = tel_snapshot()
-    except Exception:  # noqa: BLE001
-        return ""
-    if not snap.get("calls") and not snap.get("upstreams"):
-        return ("📡 <b>Tool telemetry:</b> abhi koi tool call record nahi hua\n"
-                "   <i>(bot start ke baad se koi tool use nahi hua)</i>\n")
-    L = []
-    L.append(f"📡 <b>Tool telemetry (v53.0):</b>")
-    L.append(f"   🔢 calls: <b>{snap['calls']:,}</b>   "
-             f"✅ {snap['ok']:,}   ❌ {snap['hard_fail']:,}   "
-             f"⚠️ service-side {snap['soft_fail']:,}")
-    L.append(f"   📈 success rate: <b>{snap['success_rate']}%</b>   "
-             f"💳 credits charged: <b>{snap['credits_charged']:,}</b>")
-    ups = snap.get("upstreams") or {}
-    if ups:
-        dead = snap.get("dead_upstreams") or []
-        L.append("   🔌 <b>Upstream APIs:</b>")
-        for name, u in sorted(ups.items(), key=lambda kv: (kv[1]["alive"] is not False, kv[0])):
-            mark = "🟢" if u["alive"] is True else ("🔴" if u["alive"] is False else "⚪")
-            age = f" · {u['age_sec']}s pehle" if u.get("age_sec") is not None else ""
-            L.append(f"      {mark} {name}: {u['ok']} ok / {u['fail']} fail{age}")
-            if u["alive"] is False and u["last_error"]:
-                L.append(f"         ↳ <code>{str(u['last_error'])[:64]}</code>")
-        if dead:
-            L.append(f"   ⚠️ <b>BAND services:</b> {', '.join(dead)}")
-            L.append("      → inke tools par credit NAHI katna chahiye")
-    try:
-        worst = tel_worst_tools(max_rows)
-    except Exception:  # noqa: BLE001
-        worst = []
-    worst = [w for w in worst if w.get("calls")]
-    if worst:
-        L.append("   🩺 <b>Sabse zyada fail:</b>")
-        for r in worst:
-            L.append(f"      • {r['name']}: {r['fail']}/{r['calls']} fail "
-                     f"({r['success_rate']}% ok, avg {r['avg_ms']}ms, p95 {r['p95_ms']}ms)")
-    return "\n".join(L) + "\n"
-
-
-async def admin_panel_send(message, context, uid: int):
-    """Naya advanced admin panel (buttons ke saath)."""
-    st = stats()
-    ps = payment_stats()
-    pend = pending_payments_count()
-    text = (
-        f"🛠️ <b>{to_bold('ADMIN CONTROL DASHBOARD')}</b>\n"
-        "──────────────────────\n"
-        f"👥 <b>Total Users:</b> {st['total_users']}   |   🟢 <b>Active today:</b> {st['active_today']}\n"
-        f"⚡ <b>Uses today:</b> {st['uses_today']}   |   💎 <b>Active VIP:</b> {st['vip_users']}\n"
-        "──────────────────────\n"
-        f"💳 <b>Pending Payments:</b> {pend}  {'🔴 (to verify!)' if pend else '✅'}\n"
-        f"✅ <b>Approved Total:</b> {ps['approved']}   |   ❌ <b>Rejected:</b> {ps['rejected']}\n"
-        f"💰 <b>Total Revenue:</b> ₹{ps['revenue']:,}\n"
-        f"🎁 <b>Manual VIP given today:</b> {vip_grants_today()}\n"
-        f"🎟️ <b>Credits wale users:</b> {credits_stats()['with_credits']} · <b>khatam:</b> {credits_stats()['out_of_credits']}\n"
-        "──────────────────────\n"
-        "👇 Neeche menu se koi bhi option chuno:"
-    )
-    kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"💳 Pending Payments ({pend})", callback_data="admpay_list"),
-         InlineKeyboardButton("🧾 Payment History", callback_data="admhist")],
-        [InlineKeyboardButton("🎁 VIP Activate (friend / direct payment)", callback_data="admact_home")],
-        [InlineKeyboardButton("👥 Recent Users", callback_data="admusers"),
-         InlineKeyboardButton("🔍 User Search / Give VIP", callback_data="admsearch")],
-        [InlineKeyboardButton("🚫 Ban / Unban", callback_data="admbanmenu"),
-         InlineKeyboardButton("📢 Broadcast", callback_data="admbcmenu")],
-        [InlineKeyboardButton("📜 Manual VIP diye gaye", callback_data="admgiftlist"),
-         InlineKeyboardButton("📖 Text tutorial page (admin)", callback_data="admtut")],
-        [InlineKeyboardButton("📡 System Health (live)", callback_data="admsys"),
-         InlineKeyboardButton("📊 Command List", callback_data="admcmds")],
-    ])
-    await message.reply_text(text, reply_markup=kb, parse_mode=HTML)
-
-
-async def cmd_sys(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/sys — admin only: live system health (cache / rate-limit / uptime)."""
-    if not is_admin(update.effective_user.id):
-        return
-    await update.message.reply_text(system_stats_text(), parse_mode=HTML)
-
-
-async def cmd_payments(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/payments — admin only: list of pending payments."""
-    if not is_admin(update.effective_user.id):
-        return
-    pend = pending_payments(10)
-    if not pend:
-        await update.message.reply_text("✅ <b>No pending payments!</b> All are verified.", parse_mode=HTML)
-        return
-    await update.message.reply_text(
-        f"💳 <b>{to_bold('PENDING PAYMENTS')}</b> ({len(pend)})\n"
-        "──────────────────────\n"
-        "Tap any payment to see the <b>full proof + approve/reject</b> buttons 👇",
-        reply_markup=admin_pending_kb(pend), parse_mode=HTML)
-
-
-def admin_pending_kb(pend: list):
-    rows = []
-    for p in pend:
-        amt = p.get("amount", 0)
-        rows.append([InlineKeyboardButton(
-            f"#{p['id']} · ₹{amt} · {str(p.get('plan_key') or p.get('plan_name'))[:14]} · user {p['user_id']}",
-            callback_data=f"admpay_view:{p['id']}")])
-    rows.append([InlineKeyboardButton("🔄 Refresh", callback_data="admpay_list")])
-    rows.append([InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def admin_payment_kb(pid: int):
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ Approve 30 days", callback_data=f"apay:{pid}:30"),
-         InlineKeyboardButton("✅ Approve 60 days", callback_data=f"apay:{pid}:60")],
-        [InlineKeyboardButton("✅ Approve 90 days", callback_data=f"apay:{pid}:90"),
-         InlineKeyboardButton("✅ Approve 120 days", callback_data=f"apay:{pid}:120")],
-        [InlineKeyboardButton("👑 Approve LIFETIME", callback_data=f"apay:{pid}:9999"),
-         InlineKeyboardButton("❌ Reject", callback_data=f"rpay:{pid}")],
-        [InlineKeyboardButton("📩 User se dobara poocho", callback_data=f"askpay:{pid}")],
-    ])
-
-
-async def cmd_mypay(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """User apni payments ka status dekh sakta hai."""
-    uid = update.effective_user.id
-    rows = user_payments(uid, 5)
-    if not rows:
-        await update.message.reply_text("📭 No payment sent yet. Tap <b>/premium</b> to get VIP.", parse_mode=HTML)
-        return
-    icons = {"pending": "⏳", "approved": "✅", "rejected": "❌"}
-    lines = []
-    for r in rows:
-        lines.append(f"{icons.get(r.get('status'), '❔')} <b>#{r['id']}</b> · {r.get('plan_name')} · ₹{r.get('amount')} · "
-                     f"UTR <code>{r.get('utr_ref')}</code> · <b>{str(r.get('status')).upper()}</b>")
-    await update.message.reply_text(
-        "🧾 <b>My Payments</b>\n──────────────────────\n" + "\n".join(lines) +
-        "\n──────────────────────\n⏳ admin is verifying · ✅ VIP active · ❌ rejected",
-        parse_mode=HTML)
-
-
-async def cmd_revoke(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Admin: /revoke [user_id] — VIP hata do."""
-    if not is_admin(update.effective_user.id):
-        return
-    if not context.args or not context.args[0].isdigit():
-        await update.message.reply_text("Format: <code>/revoke [user_id]</code>", parse_mode=HTML)
-        return
-    target = int(context.args[0])
-    revoke_premium(target)
-    await update.message.reply_text(f"🚫 VIP removed from user <code>{target}</code>.", parse_mode=HTML)
-
-
-async def cmd_grant(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    args = context.args
-    if len(args) < 2:
-        await update.message.reply_text(
-            "Format: <code>/grant [userid] [days]</code>\n\nDurations:\n• 30 (1 Month)\n• 60 (2 Months)\n• 90 (3 Months)\n• 120 (4 Months)\n• 9999 (Lifetime)",
-            parse_mode=HTML,
-        )
-        return
-    try:
-        target_uid = int(args[0])
-        days = int(args[1])
-        grant_premium(target_uid, days)
-        dur_str = "👑 LIFETIME VIP" if days >= 9999 else f"🌟 {days} Days VIP"
-        await update.message.reply_text(
-            f"✅ <b>Success!</b> <b>{dur_str}</b> granted to user <code>{target_uid}</code>.",
-            parse_mode=HTML,
-        )
-        try:
-            await context.bot.send_message(
-                target_uid,
-                f"🎉 <b>Congrats!</b> Your <b>{dur_str} Access</b> is active! Now you can use the bot with no daily limit! 💎",
-                parse_mode=HTML,
-            )
-        except Exception:
-            pass
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
-
-
-async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    msg_text = " ".join(context.args) if context.args else ""
-    if not msg_text:
-        await update.message.reply_text("Format: <code>/broadcast [message]</code>", parse_mode=HTML)
-        return
-    uids = all_user_ids()
-    success, failed = 0, 0
-    st = await update.message.reply_text(f"📢 Broadcasting to {len(uids)} users...")
-    for u in uids:
-        try:
-            await context.bot.send_message(u, msg_text, parse_mode=HTML)
-            success += 1
-        except Exception:
-            # v50: message me `<` jaisa character ho to HTML parse fail hota tha —
-            # ab plain text me dobara bhejo (user ko message zaroor mile)
-            try:
-                await context.bot.send_message(u, msg_text)
-                success += 1
-            except Exception:
-                failed += 1
-        await asyncio.sleep(0.04)
-    await st.edit_text(f"📢 <b>Broadcast Complete!</b>\n\n• ✅ Success: {success}\n• ❌ Failed: {failed}", parse_mode=HTML)
-
-
-async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    if not context.args:
-        await update.message.reply_text("Format: <code>/ban [userid]</code>", parse_mode=HTML)
-        return
-    try:
-        target_uid = int(context.args[0])
-        set_ban(target_uid, 1)
-        await update.message.reply_text(f"🚫 User <code>{target_uid}</code> has been banned.", parse_mode=HTML)
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
-
-
-async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not is_admin(update.effective_user.id):
-        return
-    if not context.args:
-        await update.message.reply_text("Format: <code>/unban [userid]</code>", parse_mode=HTML)
-        return
-    try:
-        target_uid = int(context.args[0])
-        set_ban(target_uid, 0)
-        await update.message.reply_text(f"✅ User <code>{target_uid}</code> has been unbanned.", parse_mode=HTML)
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {e}")
-
-
-# ---------------- CALLBACK QUERY HANDLER ----------------
-# Brand logo (center me lagta hai). Ek baar load, phir process-lifetime cache.
-_QR_LOGO_BYTES = None       # bytes | None — bot.py typing import nahi karta
-_QR_LOGO_TRIED = False
-# QR ~7089 bytes max (version 40, numeric). Text limit se upar DataOverflowError.
-QR_MAX_CHARS = 2000
-
-
-def _qr_logo_bytes():
-    """Bot ka profile pic center logo ke liye (na mile/corrupt ho to None)."""
-    global _QR_LOGO_BYTES, _QR_LOGO_TRIED
-    if _QR_LOGO_TRIED:
-        return _QR_LOGO_BYTES
-    _QR_LOGO_TRIED = True
-    try:
-        fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_profile_pic.jpg")
-        if os.path.exists(fp) and os.path.getsize(fp) < 4 * 1024 * 1024:
-            with open(fp, "rb") as f:
-                _QR_LOGO_BYTES = f.read(400_000) or None
-    except Exception as e:                                    # noqa: BLE001
-        log.debug("qr logo load fail: %s", str(e)[:80])
-        _QR_LOGO_BYTES = None
-    return _QR_LOGO_BYTES
-
-
-def _hex_ok(v: str) -> bool:
-    """Sirf valid 6-digit hex color accept karo (injection/bad-pixel se bachao)."""
-    return bool(re.fullmatch(r"#[0-9A-Fa-f]{6}", str(v or "").strip()))
-
-
-def _qr_luminance(hexcolor: str) -> float:
-    """Relative luminance 0(black)..1(white) — contrast check ke liye."""
-    try:
-        r, g, b = (int(hexcolor[i:i + 2], 16) for i in (1, 3, 5))
-    except Exception:                                         # noqa: BLE001
-        return 0.0
-    return (0.299 * r + 0.587 * g + 0.114 * b) / 255.0
-
-
-
-# ============================================================
-#  v57: PREMIUM CARD HELPERS — saare report cards ka EK hi look
-#  Pehle har tool apna alag style banata tha (koi boxed, koi plain).
-#  Ab ek jagah se: boxed header + source/time footer + brand line.
-# ============================================================
-
-
-
+    """Tool ka prompt (v102 plain format) — bilkul pehle jaisa."""
+    return PROMPTS.get(action, "")
 
 
 # ============================================================
@@ -4702,10 +409,14 @@ _SAFE_TAG_RE = re.compile(
     # Telegram "can't parse entities" de kar poora message reject karta hai.
     r"|<a\s+href=\"https?://[^\"<>]{1,200}\">[^<>]{0,300}</a>",
     re.IGNORECASE)
+
+
 # sirf ye tags Telegram HTML me allowed hain (whitelist)
 _SAFE_TAGS = frozenset(
     {"b", "strong", "i", "em", "u", "ins", "s", "strike", "del", "code",
      "pre", "tg-spoiler", "a"})
+
+
 _TAG_SCAN_RE = re.compile(r"</?([a-zA-Z-]+)[^>]*>")
 
 
@@ -4942,2218 +653,830 @@ def familyinfo_card(res: dict, src_line: str = "", ms: float = 0) -> str:
     return "\n".join(L)
 
 
-def vahan_card(res: dict, offline: dict | None = None, note: str = "") -> str:
-    """🚘 VEHICLE INFO REPORT — bilkul user ke diye format me (v71.1).
-
-    User ka order: "sirf ye format, SMS/lecture lines nahi". Isliye card me
-    sirf wahi rows jo user ne dikhaye — jo data na ho wahan "-" / "N/A".
-    """
-    res = res or {}
-    offline = offline or {}
-    rc = res.get("rc") or {}
-    ch = res.get("challans") or []
-
-    def _v(*keys, dash="-"):
-        for k in keys:
-            v = str(rc.get(k) or "").strip()
-            if v and v.lower() not in ("none", "null", "na", "n/a", "-"):
-                return v
-        return dash
-
-    _plate = (str(rc.get("plate") or offline.get("plate") or "")).upper()
-    _model = " ".join([x for x in (_v("maker", dash=""), _v("model", dash="")) if x]).strip() or "-"
-    _cc = _v("cc")
-    _engine = (f"{_cc} CC" if _cc != "-" else "N/A CC")
-    _ins = " · ".join([x for x in (_v("ins_company", dash=""), _v("ins_upto", dash="")) if x]) or "N/A"
-    _fin_raw = str(rc.get("financer") or "").strip()
-    if not _fin_raw or _fin_raw.lower() in ("null", "na", "n/a", "nan"):
-        _fin = "N/A"
-    elif _fin_raw.lower() in ("no", "none", "no loan", "not financed", "0"):
-        _fin = "✅ No Loan"
-    else:
-        _fin = _fin_raw
-    _rto = _v("authority", "office_code") if _v("authority", dash="") else \
-        (str(offline.get("district") or "N/A"))
-    _city = _v("city")
-    if _city == "-":
-        # v71.5: "BR30 RTA, Sitamarhi" → Sitamarhi ; "SANGRUR RTA, Punjab" → SANGRUR
-        _auth = str(rc.get("authority") or "").strip()
-        _toks = [t for t in (x.strip(".,") for x in re.split(r"\s+", _auth)) if t]
-        _toks = [t for t in _toks if not re.fullmatch(r"[A-Z]{2}\d{1,2}", t.upper())]
-        _off = next((i for i, t in enumerate(_toks) if t.upper() in (
-            "RTA", "RTO", "ARTO", "DTO", "SRTO", "ZRTO", "DTC", "STA")), None)
-        if _off == 0 and len(_toks) > 1:
-            _city = _toks[1]
-        elif _toks and _off not in (0, None):
-            _city = _toks[0]
-        elif _toks:
-            _city = _toks[-1] if len(_toks) > 1 and "," in _auth else _toks[0]
-        else:
-            _city = str(offline.get("district") or "-")
-    _status = _v("status", "rc_status")
-    _status = "⚠️ N/A" if _status == "-" else _status
-    _puc = _v("puc_upto")
-    _puc = "⚠️ N/A" if _puc == "-" else _puc
-
-    VS = "────────────────────"
-    L = [f"🚘 <b>{to_bold('VEHICLE INFO REPORT')}</b>",
-         PCARD_MID,
-         ""]
-    if note:
-        # v71.6: jab live data na aaye to SAAF wajah yahin dikhao
-        L += [f"⚠️ <b>Note:</b> {note}", ""]
-    L += [
-         f"🚗 <b>{to_bold('VEHICLE INFORMATION')}</b>",
-         f"🔢 <b>Number:</b> <code>{hesc(_plate)}</code>",
-         VS,
-         f"├ 👤 <b>Owner:</b> {hesc(_v('owner'))}",
-         f"├ 🚘 <b>Model:</b> {hesc(_model)}",
-         f"├ ⛽ <b>Fuel:</b> {hesc(_v('fuel'))}",
-         f"├ 🏙️ <b>City:</b> {hesc(_city or '-')}",
-         f"📞 <b>Phone:</b> {hesc(_v('mobile', dash='NA'))}",
-         f"📍 <b>RTO:</b> {hesc(_rto or 'N/A')}",
-         "🏠 <b>Address:</b>",
-         hesc(_v("address", dash="-")),
-         VS,
-         f"🏍️ <b>{to_bold('Technical')} &amp; {to_bold('RC Specifications')}</b>",
-         f"├ 🆔 <b>RC Status :</b> {hesc(_status)}",
-         f"├ 🎨 <b>Color :</b> {hesc(_v('colour', 'color', dash='N/A'))}",
-         f"├ ⚙️ <b>Engine :</b> {hesc(_engine)}",
-         f"├ 📅 <b>Reg Date :</b> {hesc(_v('reg_date', 'mfg_year', dash='N/A'))}",
-         f"├ 🛡️ <b>Insurance :</b> {hesc(_ins)}",
-         f"├ 🌫️ <b>PUC :</b> {hesc(_puc)}",
-         f"└ 🏦 <b>Finance :</b> {hesc(_fin)}",
-         VS,
-         ""]
-
-    # ---------- CHALLAN ----------
-    _cnt = int(res.get("count") or 0)
-    _pend = int(res.get("pending") or 0)
-    _amt = int(res.get("amount") or 0)
-    L.append(f"🚨 <b>{to_bold('CHALLAN SUMMARY')}</b>")
-    if ch:
-        L.append(f"📋 <b>Total:</b> {_cnt or len(ch)}  •  ❌ <b>Pending:</b> {_pend or len(ch)}"
-                 + (f"  •  💰 ₹{_amt:,}" if _amt else ""))
-        L.append(VS)
-        L.append(f"🚨 <b>{to_bold('CHALLAN INFO')}</b>")
-        for _c in ch[:6]:
-            L.append("")
-            L.append(f"🔹 <b>Challan #:</b> <code>{hesc(str(_c.get('number') or '-'))}</code>")
-            if _c.get("accused"):
-                L.append(f"   👤 <b>Accused:</b> {hesc(str(_c['accused']))}")
-            if _c.get("amount"):
-                L.append(f"   💰 <b>Amount:</b> ₹{hesc(str(_c['amount']))}")
-            if _c.get("date"):
-                L.append(f"   📅 <b>Date:</b> {hesc(str(_c['date']))}")
-            _st = str(_c.get("status") or "").upper()
-            if _st:
-                _st = ("❌ " + _st) if "PEND" in _st else ("✅ " + _st)
-                L.append(f"   {_st}")
-            if _c.get("offence"):
-                L.append(f"   🛑 <b>Offence:</b> {hesc(str(_c['offence']))}")
-    elif rc:
-        L.append("✅ Koi challan nahi — saaf record")
-    else:
-        L.append("⚠️ Challan check nahi ho paya — wajah upar ⚠️ Note me likhi hai.")
-
-    L.append("")
-    # v75.2: cache-hit par saaf dikhta hai (premium feel + bharosa)
-    if res.get("cached"):
-        L.append("⚡ <b>Instant</b> — ye pehle check kiya ja chuka tha "
-                 "(0 API call, turant jawab)")
-    L.append(BRAND_LINK)
-    return "\n".join([_l for _l in L if _l is not None])
+# ---------------- v101: ⏳ WAIT-FEW-SECONDS + TYPING PUMP ----------------
+# User ka order: tool me input bhejte hi sirf "Wait few seconds" dikhao,
+# phir result. Beech me bot "typing..." dikhata rahe (active lage) — jab tak
+# result na bheja jaaye. Typing pump khud ruk jaata hai jab bot koi bhi
+# message send/edit/delete karta hai (niche wala Bot-wrapper dekhता hai).
+WAIT_NOTE = "⏳ <b>Wait few seconds...</b>"
 
 
+_TYPING_STOP: dict = {}
 
 
-def whois_card(res: dict) -> str:
-    """🌐 WEBSITE OWNER X-RAY ka card (v70).
-
-    Sab data public registry (RDAP) se — koi link nahi, sab bot ke andar.
-    """
-    res = res or {}
-    L = [pcard_title("🌐", "WEBSITE OWNER X-RAY")]
-    L.append(f"🔖 <b>Domain:</b> <code>{hesc(str(res.get('domain') or ''))}</code>")
-
-    _created, _age = str(res.get("created_fmt") or ""), str(res.get("age") or "")
-    if _created:
-        L.append(f"📅 <b>Banaya:</b> {hesc(_created)}"
-                 + (f"  •  ⏳ {hesc(_age)} purana" if _age else ""))
-    _exp, _dl = str(res.get("expires_fmt") or ""), res.get("days_left")
-    if _exp:
-        _dl_txt = ""
-        if isinstance(_dl, int):
-            _dl_txt = (f"  •  ⚠️ sirf {_dl} din bache" if 0 <= _dl <= 30
-                       else (f"  •  ✅ {_dl} din bache" if _dl > 30 else "  •  ⛔ khatam ho gaya"))
-        L.append(f"⌛ <b>Khatam:</b> {hesc(_exp)}{_dl_txt}")
-    if res.get("changed_fmt"):
-        L.append(f"🔄 <b>Last update:</b> {hesc(str(res['changed_fmt']))}")
-    if res.get("registrar"):
-        L.append(f"🏢 <b>Registry Company:</b> {hesc(str(res['registrar']))}")
-    _own = str(res.get("registrant") or "").strip()
-    L.append("👤 <b>Owner:</b> "
-             + (hesc(_own) if _own else "🔒 Registry me chhupa hua (khula naam nahi mila)"))
-    if res.get("nameservers"):
-        L.append("🛰️ <b>Servers:</b> " + hesc(", ".join(res["nameservers"][:4])))
-    if res.get("status"):
-        L.append("📋 <b>Status:</b> " + hesc(" · ".join(res["status"])))
-    _dn = str(res.get("dnssec") or "").lower()
-    if _dn:
-        L.append("🔐 <b>Extra Security:</b> "
-                 + ("✅ haan (extra safe)" if _dn == "true" else "❌ nahi (basic hai)"))
-
-    # aam aadmi ke liye seedha matlab
-    # v70: umar "7 mahine" bhi ho sakti hai — sirf saal ginte hain (month bug fix)
-    _age_s = str(res.get("age") or "")
-    _ym = re.search(r"(\d+)\s*saal", _age_s)
-    _mm = re.search(r"(\d+)\s*mahine", _age_s)
-    _yrs = (int(_ym.group(1)) if _ym else 0) + ((int(_mm.group(1)) / 12) if _mm else 0)
-    if _yrs >= 5:
-        _verdict = "✅ Ye website purani hai — bharosa karne layak lagti hai."
-    elif _yrs >= 2:
-        _verdict = "🟡 Ye website 2-5 saal purani hai — theek hai, par badi payment se pehle soch lo."
-    elif _yrs:
-        _verdict = "🔴 Ye website nayi hai (2 saal se kam) — online paisa dene se pehle 100 baar soch lo."
-    else:
-        _verdict = ""
-    L.append(pcard_sep())
-    if _verdict:
-        L.append(f"💡 <b>Matlab:</b> {_verdict}")
-    L.append("ℹ️ Owner ka naam tabhi dikhta hai jab registry me khula ho — "
-             "warna registry khud chhupa deti hai.")
-    L.append(pcard_foot(ms=float(res.get("latency_ms") or 0),
-                        source="public registry record (RDAP)"
-                               + (" · cache" if res.get("cached") else "")))
-    return "\n".join([_l for _l in L if _l])
-
-
-def build_qr_image(text: str, *, fg: str = "#111111", bg: str = "#FFFFFF",
-                   logo: bool = True, size: int = 620,
-                   label: str = "", tool: str = "qr") -> dict:
-    """Branded QR PNG banao. Kabhi raise nahi karta — hamesha dict deta hai.
-
-    Returns: {"ok": True, "bytes": BytesIO, "logo": bool, "note": str}
-             {"ok": False, "error": "<hinglish>", "soft": bool}
-    `soft=True` matlab service/limit ki galti hai (credit charge mat karna);
-    `soft=False` matlab user ka input galat hai (message dikhao, credit bhi nahi).
-    """
-    t0 = time.time()
-    txt = str(text or "").strip()
-    note = ""
-
-    if not txt:
-        tel_note(tool, False, (time.time() - t0) * 1000, error="empty input")
-        return {"ok": False, "soft": False,
-                "error": "QR me kya daalna hai wo bhi bhejo — khaali message se QR nahi banta."}
-    if len(txt.encode("utf-8")) > 8000 or len(txt) > QR_MAX_CHARS:
-        tel_note(tool, False, (time.time() - t0) * 1000, error="text too long")
-        return {"ok": False, "soft": False,
-                "error": (f"Text bahut lamba hai ({len(txt):,} chars) — QR code me "
-                          f"{QR_MAX_CHARS:,} chars tak hi fit hota hai. Thoda chhota bhejo.")}
-
-    # colors: user ke hex validate karo, contrast kam ho to force-correct (QR scan
-    # na hone wala QR bhej dena "premium" nahi hota)
-    f = fg if _hex_ok(fg) else "#111111"
-    b = bg if _hex_ok(bg) else "#FFFFFF"
-    if f != fg or b != bg:
-        note += "• Color format galat tha, default black/white laga diya.\n"
-    if abs(_qr_luminance(f) - _qr_luminance(b)) < 0.30:
-        f, b = "#111111", "#FFFFFF"
-        note += ("• Aapke colors ka contrast bahut kam tha — QR scan nahi hota. "
-                 "Black/white laga diya.\n")
-
-    lg = _qr_logo_bytes() if logo else None
+def _arm_typing(bot, chat_id: int):
+    """Chal raha typing pump 4.3s ke tick par 'typing...' bhejta rehta hai."""
     try:
-        buf = make_branded_qr(txt, fg=f, bg=b, logo_bytes=lg, size=size, label=label)
-    except Exception as e:                                    # noqa: BLE001
-        tel_note(tool, False, (time.time() - t0) * 1000, error=f"qr_build:{str(e)[:60]}")
-        return {"ok": False, "soft": False,
-                "error": clean_err(f"QR nahi ban paya — {e}")}
-    tel_note(tool, True, (time.time() - t0) * 1000, credit=True)
-    return {"ok": True, "bytes": buf, "logo": bool(lg), "note": note}
+        if chat_id in _TYPING_STOP:
+            return  # already pumping
+        _TYPING_STOP[chat_id] = False
+
+        async def _pump():
+            try:
+                for _ in range(40):                      # ~3 min hard cap
+                    if _TYPING_STOP.get(chat_id, True):
+                        return
+                    await bot.send_chat_action(chat_id=chat_id, action="typing")
+                    await asyncio.sleep(4.3)
+            except Exception:                            # noqa: BLE001
+                pass
+            finally:
+                _TYPING_STOP.pop(chat_id, None)
+
+        asyncio.get_running_loop().create_task(_pump())
+    except Exception:                                    # noqa: BLE001
+        pass
 
 
+def _stop_typing(chat_id):
+    if chat_id in _TYPING_STOP:
+        _TYPING_STOP[chat_id] = True
 
-_YT_HD_RUNNING = {}   # v98: (chat_id, url, h) → True (double-tap = double transcode rokho)
 
-
-async def _yt_hd_bg(app, chat_id, uid, url, h, st, fname):
-    """v98: quality-tap ka background REAL-HD pipeline (transcode 1-4 min).
-
-    Tap handler turant free; video taiyaar hote hi yahin bhej di jati hai.
-    Credit sirf safal bhejne par kat-ta hai (fail par nahi — purana niyam)."""
-    _key = (chat_id, url, int(h or 0))
+async def _wait_st(target):
+    """⏳ 'Wait few seconds' note bhejo + typing pump arm karo. st lauta do."""
+    m = await target.reply_text(WAIT_NOTE, parse_mode=HTML)
     try:
-        if _YT_HD_RUNNING.get(_key):
-            try:
-                await st.edit_text("⏳ Ye quality pehle se taiyaar ho rahi hai — thoda ruko…")
-            except Exception:                                # noqa: BLE001
-                pass
-            return
-        _YT_HD_RUNNING[_key] = True
-        try:
-            res = await asyncio.wait_for(
-                asyncio.to_thread(_yt_quality_download, url, int(h or 720)), 600)
-        except asyncio.TimeoutError:
-            res = {"ok": False,
-                   "error": ("⏱️ Video bahut lambi/bhaari hai — 10 min me HD nahi "
-                             "ban paya. Chhoti video try karo. Credit nahi katta.")}
-        except Exception as e:                               # noqa: BLE001
-            res = {"ok": False, "error": str(e)[:150]}
-        res = res or {"ok": False, "error": "HD ban nahi paya — dobara try karo."}
-        if not res.get("ok"):
-            _ferr = str(res.get("error") or "") or friendly_dl_error(platform="YouTube")
-            try:
-                await st.edit_text(fail_msg("YOUTUBE DOWNLOAD FAILED", _ferr),
-                                   parse_mode=HTML)
-            except Exception:                                # noqa: BLE001
-                pass
-            return
-        if res.get("type") == "link" and res.get("direct_url"):
-            mb = res.get("size_mb") or 0
-            try:
-                await st.edit_text(
-                    f" <b>VIDEO — BEST ({h}p try)</b> — file badi hai ({mb} MB, Telegram limit 48MB).\n"
-                    "Neeche ke direct link se browser/IDM me poora video download ho jayega:\n"
-                    f"<code>{res['direct_url']}</code>\n\n"
-                    + (res.get("note") or ""),
-                    parse_mode=HTML)
-            except Exception:                                # noqa: BLE001
-                pass
-            try:
-                add_use(uid)
-                _t = spend_credit_msg(uid, "insta_dl")
-                if _t and str(_t).strip():
-                    await app.bot.send_message(chat_id=chat_id, text=_t, parse_mode=HTML)
-            except Exception:                                # noqa: BLE001
-                pass
-            return
-        if res.get("type") != "video" or not res.get("bytes"):
-            try:
-                await st.edit_text(
-                    fail_msg("VIDEO READY NAHI HUI", "Dobara try karo (link public hai kya?)"),
-                    parse_mode=HTML)
-            except Exception:                                # noqa: BLE001
-                pass
-            return
-        media_buf = io.BytesIO(res["bytes"])
-        media_buf.name = "youtube_video.mp4"
-        dur = res.get("duration") or 0
-        dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
-        qnote = res.get("note_quality") or ""
-        _q = res.get("quality") or f"{h}p"
-        _sentq = await app.bot.send_video(
-            chat_id=chat_id,
-            video=media_buf,
-            caption=(
-                f"📥 <b>YOUTUBE VIDEO — {hesc(str(_q))}</b>\n"
-                f"• 📝 {hesc(str(res.get('title') or '')[:60])}\n"
-                f"{dur_line}• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
-                f"• 🎞️ <b>Quality:</b> {hesc(str(_q))}\n"
-                f"• ⚙️ Engine: {hesc(str(res.get('engine') or ''))}\n"
-                + (f"⚠️ {qnote}\n" if qnote else "")
-            ),
-            parse_mode=HTML,
-            supports_streaming=True,
-        )
-        try:
-            dl_fid_set(url, _sentq.video.file_id, f"q{h}")
-        except Exception:                                    # noqa: BLE001
-            pass
-        try:
-            await st.delete()
-        except Exception:                                    # noqa: BLE001
-            pass
-        try:
-            add_use(uid)
-            _t2 = spend_credit_msg(uid, "insta_dl")
-            if _t2 and str(_t2).strip():
-                await app.bot.send_message(chat_id=chat_id, text=_t2, parse_mode=HTML)
-        except Exception:                                    # noqa: BLE001
-            pass
-    finally:
-        _YT_HD_RUNNING.pop(_key, None)
+        _stop_typing(target.chat_id)                     # purana pump (agar) reset
+        _arm_typing(target.get_bot(), target.chat_id)
+    except Exception:                                    # noqa: BLE001
+        pass
+    return m
 
-async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    q = update.callback_query
-    await q.answer()
-    data = q.data
-    uid = q.from_user.id
 
-    # ---------- v56: PURANI / INACCESSIBLE MESSAGE GUARD ----------
-    # PTB v21+ me `q.message` do tarah ka ho sakta hai:
-    #   Message            → normal (reply_text / edit_text chalta hai)
-    #   InaccessibleMessage→ bahut purana message (sirf chat + id hota hai,
-    #                        reply_text bilkul NAHI hota) → pehle crash hota tha.
-    # Yahan hum ek `cbmsg()` helper de dete hain jo dono case me safe rehta hai:
-    # purana message ho to usi chat me NAYA message bhej dete hain.
-    async def cbmsg():
-        """Callback wale chat me message bhejne ke liye safe jagah."""
-        m = getattr(q, "message", None)
-        chat = getattr(update, "effective_chat", None) or getattr(m, "chat", None)
-        if m is not None and getattr(m, "is_accessible", True) is not False and hasattr(m, "reply_text"):
-            return m
-        return chat if chat is not None else m
+def _wrap_bot_typing_stop():
+    """Jab bhi bot user ko message bheje/edit kare → us chat ka typing pump band."""
+    from telegram import Bot as _TGBot
+    for _nm in ("send_message", "send_photo", "send_video", "send_audio", "send_document",
+                "send_animation", "send_voice", "edit_message_text", "edit_message_caption",
+                "edit_message_media", "delete_message"):
+        if getattr(_TGBot, "_v101_wrapped", False):
+            break
+        def _mk(name):
+            _orig = getattr(_TGBot, name)
 
-    # ==================================================================
-    #  v75 — 🧠 SMART DETECT ka 1-tap button (PRO ENGINE)
-    #  ------------------------------------------------------------------
-    #  User ne input bheja -> bot ne pahchana -> "chalaun?" button dikhaya.
-    #  Ab wahi button daba hai. Hum user ka value server-side se uthate hain
-    #  aur on_text ko bilkul WAISA hi Update dete hain jaise user ne wo text
-    #  khud type kiya ho. Isliye tool ka poora flow, credits, rate-limit,
-    #  VIP gate — sab exactly same rehta hai (koi shortcut nahi).
-    # ==================================================================
-    if data.startswith("pro_go:"):
-        _tok = data.split(":", 1)[1]
-        _hit = pro.pending_get(_tok)
-        if not _hit:
-            await safe_answer_cb(q, "Ye button purana ho gaya — value dobara bhejo", show_alert=True)
-            return
-        # VIP wall wahi lagti hai jo normal input par lagti hai
-        if PREMIUM_ONLY and not vip_ok(uid):
-            await send_vip_wall(update, context)
-            return
-        # ---- v75: EARNING RULE — credits gate (button path ki tarah hi) ----
-        if is_premium_tool(_hit.action):
-            _u_pg = get_user(uid, q.from_user.first_name or "")
-            if not can_use_premium_tool(_u_pg, uid):
-                await safe_answer_cb(q, "Credits khatam", show_alert=False)
+            async def _w(self, *a, **k):
+                r = await _orig(self, *a, **k)
                 try:
-                    await q.message.reply_text(get_credits_over_text(_hit.action),
-                                               reply_markup=get_limit_exceeded_kb(),
-                                               parse_mode=HTML)
-                except Exception:                                # noqa: BLE001
+                    cid = k.get("chat_id")
+                    if cid is None and a:
+                        cid = a[0]
+                    if cid is not None:
+                        _stop_typing(int(cid))
+                except Exception:                        # noqa: BLE001
                     pass
-                return
-        try:
-            context.user_data["mode"] = _hit.action
-            context.user_data["_pro_tool"] = _hit.label
-            context.user_data["_pro_mode"] = _hit.action
-            _m = Message(
-                message_id=getattr(q.message, "message_id", 0) or 0,
-                date=datetime.now(timezone.utc),
-                chat=update.effective_chat,
-                from_user=q.from_user,
-                text=_hit.value,
-            )
-            try:
-                _m.set_bot(context.bot)
-            except Exception:                                    # noqa: BLE001
-                pass
-            _synth = Update(update_id=update.update_id, message=_m)
-            await safe_answer_cb(q, f"⚡ {_hit.label} chalu…")
-            await on_text(_synth, context)
-        except Exception as _pe:                                 # noqa: BLE001
-            log.warning("pro_go fail: %s", str(_pe)[:160])
-            context.user_data.pop("mode", None)
-            try:
-                await q.message.reply_text(
-                    f"⚠️ <b>{_hit.label}</b> abhi nahi chala.\n"
-                    f"Value dobara bhejo (tool khud pahchan lega):\n<code>{_hit.value}</code>",
-                    parse_mode=HTML)
-            except Exception:                                    # noqa: BLE001
-                pass
-        return
-
-    # ---------- v75.1: 📤 BULK MODE ke buttons ----------
-    if data == "bulk_cancel":
-        context.user_data.pop("mode", None)
-        context.user_data.pop("bulk_kind", None)
-        context.user_data.pop("bulk_entries", None)
-        await safe_answer_cb(q, "Cancel ho gaya")
-        await q.message.reply_text("❌ <b>Bulk mode band.</b>", parse_mode=HTML)
-        return
-
-    if data == "bulk_go":
-        _bk = str(context.user_data.get("bulk_kind") or "")
-        _be = list(context.user_data.get("bulk_entries") or [])
-        if not _bk or not _be:
-            await safe_answer_cb(q, "List purani ho gayi — dobara bhejo", show_alert=True)
-            return
-        _lim, _vip = BM.limits_for(uid)
-        _be = _be[:_lim]
-        # typing indicator — bhaari kaam ki suchna
-        await safe_answer_cb(q, f"⚡ {len(_be)} entries check ho rahi hain…")
-        _prog = await cbmsg().reply_text(
-            f"⚡ <b>Chalu…</b> 0/{len(_be)}", parse_mode=HTML)
-        _last = {"t": 0.0, "n": 0}
-
-        def _on_prog(i, total):
-            """Har entry par — par edit sirf har ~8 entries ya 1.2s me (limit safe)."""
-            now = time.time()
-            if i < total and (i - _last["n"]) < 8 and (now - _last["t"]) < 1.2:
-                return
-            _last["n"], _last["t"] = i, now
-            try:
-                asyncio.create_task(safe_edit(
-                    _prog, f"⚡ <b>Chalu…</b> {i}/{total}", parse_mode="HTML"))
-            except Exception:                                    # noqa: BLE001
-                pass
-
-        try:
-            _res = await asyncio.to_thread(BM.run_bulk, _bk, _be, _on_prog)
-        except Exception as _bex:                                # noqa: BLE001
-            log.warning("bulk run fail: %s", str(_bex)[:150])
-            _res = {"ok": False, "total": len(_be), "passed": 0, "failed": len(_be),
-                    "rows": [], "headers": [], "kind": _bk, "seconds": 0}
-        # progress message saaf
-        try:
-            await safe_delete(_prog)
-        except Exception:                                        # noqa: BLE001
+                return r
+            return _w
+        _nf = _mk(_nm)
+        try:  # v101: HTML-net (v93) ka marker zinda rakho — tests dhundhte hain
+            if getattr(_TGBot, _nm, None) is not None and getattr(getattr(_TGBot, _nm), "__ud_wrapped__", False):
+                _nf.__ud_wrapped__ = True
+        except Exception:                        # noqa: BLE001
             pass
-        if not _res.get("rows"):
-            await cbmsg().reply_text(
-                "❌ <b>Report nahi ban payi.</b>\n"
-                "Ek-ek karke try karo, ya thodi der baad dobara bhejo.", parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        # Excel file banao + bhejo
-        _fname = BM.file_name(_bk, int(_res.get("total") or len(_be)))
-        _blob = await asyncio.to_thread(BM.to_xlsx, _res)
-        if not _blob:
-            _blob = await asyncio.to_thread(BM.to_csv, _res)
-            _fname = _fname.rsplit(".", 1)[0] + ".csv"
-        _cap = BM.bulk_result_text(_res, _bk, _vip)
+        setattr(_TGBot, _nm, _nf)
+    try:
+        _TGBot._v101_wrapped = True
+    except Exception:                                    # noqa: BLE001
+        pass
+
+
+try:
+    _wrap_bot_typing_stop()
+except Exception as _we:                                         # noqa: BLE001
+    log.debug("typing wrap skip: %s", str(_we)[:80])
+
+
+# =====================================================================
+#  WELCOME
+# =====================================================================
+WELCOME_TEXT = (
+    f"⚡ <b>{to_bold('UTILITY DUNIYA BOT')}</b> ⚡\n"
+    "<blockquote>2 kaam ke tools — tez, free aur bina rukawat 🚀</blockquote>\n\n"
+    "📱 <b>NUMBER INFO</b>\n"
+    "   10 digit mobile number bhejo → operator, circle aur record\n\n"
+    "👪 <b>FAMILY INFO</b>\n"
+    "   12 digit Aadhaar bhejo → ration card + family members\n\n"
+    "🎉 <b>Dono 100% FREE hain</b> — na VIP, na credits, na limit ✅\n\n"
+    "👇 Neeche menu se tool dabao"
+)
+
+_WELCOME_FID = None
+
+
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    get_user(user.id, user.first_name or "")
+    save_username(user.id, user.username or "")
+    if is_banned(user.id):
+        await update.message.reply_text(BAN_MSG)
+        return
+
+    # Referral handling
+    if context.args and context.args[0].startswith("ref_"):
         try:
-            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
-                document=io.BytesIO(_blob), filename=_fname,
-                caption=_cap, parse_mode=HTML)
-        except Exception as _sd:                                 # noqa: BLE001
-            log.warning("bulk send fail: %s", str(_sd)[:140])
-            await cbmsg().reply_text(_cap, parse_mode=HTML)
-        # earning: credit/use count
-        try:
-            add_use(uid)
-            pro.record_result(uid, "bulk", title=f"Bulk ({_bk})",
-                              ok=True, ms=int(float(_res.get("seconds") or 0) * 1000))
-        except Exception:                                        # noqa: BLE001
-            pass
-        context.user_data.pop("mode", None)
-        context.user_data.pop("bulk_kind", None)
-        context.user_data.pop("bulk_entries", None)
-        return
-
-    # ---------- v75: 🗂️ /history ke buttons ----------
-    if data == "pro_histclear":
-        pro.results.clear(uid)
-        await safe_answer_cb(q, "🧹 History saaf ho gayi")
-        await q.message.reply_text("🧹 <b>History saaf ho gayi.</b>", parse_mode=HTML)
-        return
-
-    if data.startswith("pro_re:"):
-        _tool = data.split(":", 1)[1]
-        await safe_answer_cb(q, "🔁 Ready")
-        context.user_data["mode"] = _tool
-        context.user_data["_pro_tool"] = _tool
-        context.user_data["_pro_mode"] = _tool
-        await q.message.reply_text(
-            f"🔁 <b>{_tool}</b> ready — apna input bhejo.", parse_mode=HTML)
-        return
-
-    # ---------- v49.4: VIP-ONLY GATE ----------
-    # VIP lene / refer / madad / payment verify wale buttons sabke liye khule hain.
-    if PREMIUM_ONLY and not vip_ok(uid) and not vip_free_cb(data):
-        try:
-            await q.message.edit_text(VIP_WALL_TEXT, reply_markup=vip_wall_kb(), parse_mode=HTML)
-        except Exception:
-            await q.message.reply_text(VIP_WALL_TEXT, reply_markup=vip_wall_kb(), parse_mode=HTML)
-        return
-
-    # v83: "📋 Saare tools ki list" button (free mode) — pehle koi handler nahi tha (dead button)
-    # v83: "🔙 Menu" (help/tutorial keyboard) — pehle koi handler nahi tha; back_home jaisa hi
-    if data in ("back_home", "menu"):
-        await safe_edit(q.message, WELCOME_TEXT, reply_markup=None, parse_mode=HTML)
-        return
-
-    # ==================================================================
-    #  v60 — 🛡️ PREMIUM VAULT ke buttons (admin only)
-    # ==================================================================
-    if data in ("vault_backup", "vault_restore", "vault_vips"):
-        if not is_admin(uid):
-            await safe_answer_cb(q, "Ye sirf admin ke liye hai", show_alert=True)
-            return
-        class _Wrap:                                  # command functions ko Update chahiye
-            def __init__(self, q):
-                self.callback_query = q
-                self.effective_user = q.from_user
-                self.effective_chat = q.message.chat if q.message else None
-                self.effective_message = q.message
-        if data == "vault_backup":
-            await safe_answer_cb(q, "Backup shuru…")
-            await cmd_backup(_Wrap(q), context)
-        elif data == "vault_restore":
-            await safe_answer_cb(q, "Restore shuru…")
-            await cmd_restore(_Wrap(q), context)
-        else:
-            await safe_answer_cb(q, "Report bana raha hoon…")
-            await cmd_vips(_Wrap(q), context)
-        return
-
-    # Virtual Numbers Funnel
-    if data in ("vnum_open", "vnum_back"):
-        await q.message.edit_text(VNUM_INTRO, reply_markup=_vnum_intro_kb(), parse_mode=HTML)
-        return
-
-    if data == "vnum_get":
-        txt = (
-            f"📲 <b>{to_bold('STEP 1: SERVICE CHUNO')}</b>\n"
-            "──────────────────────\n"
-            "Number kis kaam ke liye chahiye? Neeche se chuno 👇"
-        )
-        await _vnum_say(q, txt, _vnum_svc_kb())
-        return
-
-    if data.startswith("vnum_svc:"):
-        sl = data.split(":")[1]
-        svc_name = dict(VNUM_SERVICES).get(sl, sl.upper())
-        context.user_data["vnum_svc"] = svc_name
-        txt = (
-            f"🌍 <b>{to_bold('STEP 2: DESH CHUNO')}</b>\n"
-            "──────────────────────\n"
-            f"Service: <b>{svc_name}</b>\n\n"
-            "Kis desh ka number chahiye? Neeche se chuno 👇"
-        )
-        await _vnum_say(q, txt, _vnum_ctry_kb())
-        return
-
-    if data.startswith("vnum_ctry:"):
-        cl = data.split(":")[1]
-        ctry_name = dict(VNUM_COUNTRIES).get(cl, cl.upper())
-        svc_name = context.user_data.get("vnum_svc", "WhatsApp")
-        order_text = f"Hi, I need a Virtual Number:\nService: {svc_name}\nCountry: {ctry_name}"
-        contact_url = f"{SUPPORT_URL}?text={quote(order_text)}"
-        _vnum_note = "" if is_admin(uid) else spend_credit_msg(uid, "vnum")
-        card = (
-            (f"{_vnum_note}\n" if _vnum_note else "")
-            + f"🎯 <b>{to_bold('STEP 3: NUMBER LO')}</b>\n"
-            "──────────────────────\n"
-            f"📲 <b>Service:</b> {svc_name}\n"
-            f"🌍 <b>Desh:</b> {ctry_name}\n"
-            "⚡ <b>Agla step:</b> turant — admin ko message bhejo\n"
-            "──────────────────────\n\n"
-            "👉 Number lene ke liye neeche <b>Contact Admin</b> dabao:"
-        )
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton(f"💬 Admin se baat karo {SUPPORT_USERNAME}", url=contact_url)],
-            [InlineKeyboardButton("🔁 Doosra chuno", callback_data="vnum_get")],
-            [InlineKeyboardButton("⌨️ Menu", callback_data="back_home")],
-        ])
-        await _vnum_say(q, card, kb)
-        return
-
-    # ---------- 📋 RESULT CHECK (BSEB) wizard (v74.0) ----------
-    if data in ("rc_new", "bsebr_new"):
-        context.user_data["mode"] = "rc_board"
-        context.user_data.pop("rcdb", None)
-        context.user_data.pop("rc_code_val", None)
-        await _vnum_say(q, _rc_pick_card(0), _rc_pick_kb(0))
-        return
-
-    if data == "rc_noop":
-        await q.answer("Yahi page hai 🙂")
-        return
-
-    if data.startswith("rc_page:"):
-        try:
-            pg = int(data.split(":", 1)[1])
-        except Exception:                                        # noqa: BLE001
-            pg = 0
-        context.user_data["mode"] = "rc_board"
-        await _vnum_say(q, _rc_pick_card(pg), _rc_pick_kb(pg))
-        return
-
-    if data.startswith("rcb:"):
-        key = data.split(":", 1)[1]
-        if key not in BRD.BOARDS:
-            await _vnum_say(q, _rc_pick_card(0), _rc_pick_kb(0))
-            return
-        context.user_data.pop("mode", None)
-        _cap, _kb = rc_board_card(key)
-        await _rc_say_photo(q, key, _cap, _kb)
-        return
-
-    if data.startswith("rc_how:"):
-        # v74.3: gyaan card hata diya — purane message ka button ab card kholta hai
-        key = data.split(":", 1)[1]
-        _cap, _kb = rc_board_card(key)
-        await _rc_say_photo(q, key, _cap, _kb)
-        return
-
-    if data.startswith("rc_cap:"):                     # v74.6: captcha bridge start
-        key = data.split(":", 1)[1]
-        _urls = RC_CAP_ENDPOINTS.get(key) or []
-        _form = None
-        _last_why = "form_nahi"
-        for _u in _urls:
-            _f = await asyncio.to_thread(CB.fetch_form, _u)
-            if _f.get("ok"):
-                _form = _f
-                break
-            _last_why = _f.get("why") or "form_nahi"
-        context.user_data.pop("mode", None)
-        if not _form:
-            _kb = InlineKeyboardMarkup([[InlineKeyboardButton(
-                "◀️ Saare boards", callback_data="rc_new")]])
-            await _vnum_say(q, rcap_fail_card(_last_why, key), _kb)
-            return
-        context.user_data["mode"] = "rc_cap_ans"
-        context.user_data["rcap"] = {"key": key, "form": _form, "tries": 0}
-        _ask = ("🔐 <b>Captcha likho + Roll Number</b>\n"
-                + ("<i>jaise: AB12C 1234567 dob</i>" if _form.get("needs_dob")
-                   else "<i>jaise: AB12C 1234567</i>"))
-        try:
-            await q.message.delete()
-        except Exception:                                    # noqa: BLE001
-            pass
-        try:
-            await q.message.reply_photo(io.BytesIO(_form["img"]), caption=_ask,
-                                        parse_mode=HTML)
-        except Exception:                                    # noqa: BLE001
-            await _vnum_say(q, _ask, None)
-        return
-
-    if data.startswith("rc_live:"):
-        key = data.split(":", 1)[1]
-        if key == "bseb":
-            context.user_data["mode"] = "rc_exam"
-            context.user_data.pop("rcdb", None)
-            await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
-            return
-        _cap, _kb = rc_board_card(key)
-        await _rc_say_photo(q, key, _cap, _kb)
-        return
-
-    if data == "rc_back_ex":
-        context.user_data["mode"] = "rc_exam"
-        await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
-        return
-
-    if data == "rc_back_yr":
-        db = context.user_data.get("rcdb") or {}
-        _ek = str(db.get("exam") or "matric")
-        context.user_data["mode"] = "rc_year"
-        await _vnum_say(q, rc_year_card(_ek), _rc_year_kb())
-        return
-
-    if data.startswith("rc_ex:"):
-        key = data.split(":", 1)[1]
-        if key not in BSEBR.EXAMS:
-            await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
-            return
-        db = context.user_data.get("rcdb") or {}
-        db["exam"] = key
-        context.user_data["rcdb"] = db
-        context.user_data["mode"] = "rc_year"
-        await _vnum_say(q, rc_year_card(key), _rc_year_kb())
-        return
-
-    if data.startswith("rc_yr:"):
-        try:
-            year = int(data.split(":", 1)[1])
-        except Exception:                                        # noqa: BLE001
-            year = BSEBR.CURRENT_YEAR
-        db = context.user_data.get("rcdb") or {}
-        _ek = str(db.get("exam") or "matric")
-        db["year"] = year
-        context.user_data["rcdb"] = db
-        if year != int(BSEBR.CURRENT_YEAR):
-            context.user_data.pop("mode", None)
-            await _vnum_say(q, rc_archive_card(_ek, year),
-                            InlineKeyboardMarkup([
-                                [InlineKeyboardButton(f"✅ {BSEBR.CURRENT_YEAR} ka result dekho",
-                                                      callback_data="rc_new")],
-                                [InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info")],
-                                [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")]]))
-            return
-        context.user_data["mode"] = "rc_code"
-        await _vnum_say(q, rc_ask_code_card(_ek, year), _rc_step_kb())
-        return
-
-    if data == "rc_retry":
-        db = context.user_data.get("rcdb") or {}
-        _rc = str(db.get("rc") or "")
-        _rn = str(db.get("rn") or "")
-        if _rc and _rn:
-            await q.answer("Dobara try kar raha hoon…")
-            await rc_deliver(q.message, context, uid, _rc, _rn)
-        else:
-            context.user_data["mode"] = "rc_exam"
-            await _vnum_say(q, rc_exam_card(), _rc_exam_kb())
-        return
-
-    if data == "cbse_info":
-        await _vnum_say(q, cbse_info_card(), _rc_result_kb())
-        return
-
-    # ---------- 📞 TEMP MAIL (NUMBER) inline buttons (v71.9) ----------
-    #  100% FREE tool (koi credit nahi) — har user ko apna ALAG number.
-    #  Virtual Numbers (vnum) se bilkul alag hai: uska kaam admin/manual hai.
-    if data == "tnum_open":
-        await _vnum_say(q, TNUM_INTRO,
-                        _tnum_ctry_kb(TNUM_ONE_SVC) if TNUM_ONE_SVC else _tnum_svc_kb())
-        return
-
-    if data.startswith("tnum_svc:"):
-        sk = data.split(":", 1)[1]
-        if sk not in TN.SVC_BY_KEY:
-            sk = "whatsapp"
-        context.user_data["tnum_svc"] = sk
-        lbl, em, _rc = TN.SVC_BY_KEY.get(sk, ("App", "📱", ()))
-        await _vnum_say(
-            q,
-            f"{em} <b>{to_bold('STEP 2: DESH CHUNO')}</b>\n"
-            "──────────────────────\n"
-            f"App: <b>{hesc(str(lbl))}</b>\n\n"
-            "⭐ wale desh is app ke liye sabse best chalte hain.\n"
-            "Neeche se desh chuno 👇",
-            _tnum_ctry_kb(sk))
-        return
-
-    if data == "tnum_countries":
-        sk = str(context.user_data.get("tnum_svc") or "whatsapp")
-        lbl, em, _rc = TN.SVC_BY_KEY.get(sk, ("App", "📱", ()))
-        await _vnum_say(
-            q,
-            f"{em} <b>{to_bold('DESH CHUNO')}</b>\n"
-            "──────────────────────\n"
-            f"App: <b>{hesc(str(lbl))}</b>\n\nNeeche se desh chuno 👇",
-            _tnum_ctry_kb(sk))
-        return
-
-    if data.startswith("tnum_ctry:") or data == "tnum_change":
-        sk = str(context.user_data.get("tnum_svc") or "")
-        _me = _tnum_load().get(str(uid)) or {}
-        if data == "tnum_change":
-            cc = str(_me.get("cc") or "")
-            if not cc:
-                await _vnum_say(q, TNUM_INTRO, _tnum_svc_kb())
-                return
-            change = True
-        else:
-            cc = data.split(":", 1)[1]
-            change = False
-        _rlm = check_limit(uid, "tnum", limit=25, window=300,
-                           bypass=has_unlimited(uid), tool_name="Temp Mail (Number)")
-        if _rlm:
-            await q.answer("Thoda slow 🙂", show_alert=False)
-            await _vnum_say(q, _rlm, _tnum_ctry_kb(sk))
-            return
-        await q.answer("Number nikaal raha hoon... ⌛")
-        rec, err = await asyncio.to_thread(tnum_get_number, uid, cc,
-                                           sk or str(_me.get("svc") or ""), change)
-        if not rec:
-            await _vnum_say(
-                q,
-                "⚠️ <b>Number nahi mila.</b>\n"
-                "──────────────────────\n"
-                f"{hesc(str(err or 'Site slow hai — dobara try karo.'))}\n\n"
-                "👉 Doosra desh chuno 👇",
-                _tnum_ctry_kb(sk))
-            return
-        ib = await asyncio.to_thread(TN.inbox, rec["nid"])
-        context.user_data["tnum_last_ref"] = 0
-        await _vnum_say(q, tnum_card(rec, ib), _tnum_num_kb(rec))
-        return
-
-    if data == "tnum_refresh":
-        _me = _tnum_load().get(str(uid)) or {}
-        if not _me.get("nid"):
-            await _vnum_say(q, TNUM_INTRO, _tnum_svc_kb())
-            return
-        _now = time.time()
-        _last = float(context.user_data.get("tnum_last_ref") or 0)
-        if _now - _last < TNUM_REFRESH_GAP:
-            await q.answer(f"⏳ {int(TNUM_REFRESH_GAP - (_now - _last))}s baad dobara dabao 🙂",
-                           show_alert=False)
-            return
-        _rlm = check_limit(uid, "tnum", limit=25, window=300,
-                           bypass=has_unlimited(uid), tool_name="Temp Mail (Number)")
-        if _rlm:
-            await q.answer("Thoda slow 🙂", show_alert=False)
-            await _vnum_say(q, _rlm, _tnum_num_kb(_me))
-            return
-        context.user_data["tnum_last_ref"] = _now
-        await q.answer("🔁 Naye SMS dekh raha hoon...")
-        ib = await asyncio.to_thread(TN.inbox, _me.get("nid"), 1.0, True)
-        await _vnum_say(q, tnum_card(_me, ib), _tnum_num_kb(_me))
-        return
-
-    # Sarkari & Student Portals
-
-
-    # VIP Buy Handlers
-    if data.startswith("buy_plan_"):
-        plan_key = data.replace("buy_", "")
-        qr_buf, plan_name, amt = generate_plan_payment_qr(UPI_ID, UPI_NAME, plan_key, uid)
-        pending_n = len(pending_payments(20))
-        if pending_n >= 3:
-            mine = [p for p in pending_payments(20) if p.get("user_id") == uid]
-            if len(mine) >= 3:
-                await q.answer("Aapke 3 payment already pending hain — admin check karega.", show_alert=True)
-                return
-        context.user_data["mode"] = f"pay_utr_{plan_key}"
-        context.user_data["pay_utr_tries"] = 0
-        context.user_data["pay_shot_tries"] = 0
-        caption = (
-            f"💎 <b>{to_bold(plan_name)}</b>\n"
-            "──────────────────────\n"
-            f"💰 <b>Paisa:</b> ₹{amt}\n"
-            f"🏦 <b>UPI ID:</b> <code>{UPI_ID}</code>\n"
-            "──────────────────────\n"
-            "📲 <b>Step 1:</b> Ye QR scan karke ₹" f"{amt} pay karo\n"
-            "   (PhonePe / GPay / Paytm / BHIM)\n\n"
-            "📝 <b>Step 2:</b> Pay karne ke baad <b>UTR / Transaction ID</b> yahan bhejo\n"
-            "📸 <b>Step 3:</b> Payment ka <b>screenshot</b> bhejo\n\n"
-            "⚠️ <b>Sakht check:</b> UTR sahi hona chahiye aur screenshot asli payment ka "
-            "(photo ya meme nahi). Galat proof = VIP nahi."
-        )
-        kb_pay = InlineKeyboardMarkup([
-            [InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")],
-            [InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
-        ])
-        await q.message.reply_photo(photo=qr_buf, caption=caption, reply_markup=kb_pay, parse_mode=HTML)
-        return
-
-    if data == "pay_utr_help":
-        await q.message.reply_text(utr_help_text(), parse_mode=HTML)
-        return
-
-    if data == "open_vip_menu":
-        await q.message.reply_text(
-            "💎 Select a plan:",
-            reply_markup=InlineKeyboardMarkup(
-                list(get_premium_plans_kb().inline_keyboard)),
-            parse_mode=HTML)
-        return
-
-    if data == "open_refer_menu":
-        bot_info = await context.bot.get_me()
-        ref_link = f"https://t.me/{bot_info.username}?start=ref_{uid}"
-        await q.message.reply_text(f"🎁 <b>Your Invite Link:</b>\n<code>{ref_link}</code>", parse_mode=HTML)
-        return
-
-    # ================= ADMIN: PAYMENT APPROVE / REJECT (v33 — FIXED + STRICT) =================
-    async def _edit_admin_msg(text, kb=None):
-        """Admin message chahe photo-caption ho ya text — dono me kaam kare (purana bug yahi tha)."""
-        for fn, kw in ((q.message.edit_caption, {"caption": text, "parse_mode": HTML, "reply_markup": kb}),
-                       (q.message.edit_text, {"text": text, "parse_mode": HTML, "reply_markup": kb})):
-            try:
-                await fn(**kw)
-                return True
-            except Exception:
-                continue
-        try:
-            await q.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
-            return True
-        except Exception:
-            return False
-
-    if data.startswith("apay:"):
-        if not is_admin(uid):
-            await q.answer("Admins only.", show_alert=True)
-            return
-        _, pid_s, days_s = data.split(":")
-        pid, days = int(pid_s), int(days_s)
-        pay = get_payment(pid)
-        if not pay:
-            await q.answer("❌ Ye payment record nahi mila.", show_alert=True)
-            return
-        if pay.get("status") == "approved":
-            await q.answer("✅ This payment is already approved!", show_alert=True)
-            return
-        target_uid = int(pay["user_id"])
-        grant_premium(target_uid, days)
-        set_payment_status(pid, "approved", reviewer=uid, note=f"{days} days")
-        dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} days VIP"
-        ok_edit = await _edit_admin_msg(
-            f"✅ <b>APPROVED — Payment #{pid}</b>\n"
-            "──────────────────────\n"
-            f"👤 <b>User:</b> <code>{target_uid}</code>\n"
-            f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
-            f"👑 <b>Given:</b> {dur}\n"
-            f"🕒 <b>Time:</b> {datetime.now().strftime('%d-%m-%Y %H:%M')}\n"
-            "──────────────────────\n"
-            "✅ User has been notified.",
-            kb=InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"💳 Aur Pending ({pending_payments_count()})", callback_data="admpay_list"),
-                 InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]))
-        await q.answer("✅ VIP activated!")
-        try:
-            user_obj = get_user(target_uid)
-            exp = "👑 LIFETIME" if days >= 9999 else (premium_expiry(user_obj) or "—")
-            await context.bot.send_message(
-                target_uid,
-                "🎉 <b>CONGRATS! VIP IS ACTIVE</b> 💎\n"
-                "──────────────────────\n"
-                f"🧾 <b>Payment ID:</b> #{pid}\n"
-                f"💰 <b>Amount:</b> ₹{pay.get('amount')}\n"
-                f"👑 <b>VIP:</b> {dur}\n"
-                f"📅 <b>Valid till:</b> {exp}\n"
-                "──────────────────────\n"
-                "⚡ Ab saare premium tools <b>unlimited</b> hain — credits khatam "
-                "hone ka koi tension nahi.\n\n"
-                "🚀 <b>Start:</b> /menu\n"
-                "📊 <b>My account:</b> /account\n\n"
-                "🙏 Thanks for supporting us!",
-                parse_mode=HTML)
-        except Exception:
-            pass
-        if not ok_edit:
-            await q.message.reply_text(f"✅ Payment #{pid} approved ({dur}).")
-        return
-
-    if data.startswith("rpay:"):
-        if not is_admin(uid):
-            await q.answer("Admins only.", show_alert=True)
-            return
-        pid = int(data.split(":")[1])
-        pay = get_payment(pid)
-        if not pay:
-            await q.answer("❌ Record nahi mila.", show_alert=True)
-            return
-        if pay.get("status") == "approved":
-            await q.answer("This payment is approved — it cannot be rejected.", show_alert=True)
-            return
-        set_payment_status(pid, "rejected", reviewer=uid, note="admin reject")
-        await _edit_admin_msg(
-            f"❌ <b>REJECTED — Payment #{pid}</b>\n\n"
-            f"👤 User: <code>{pay.get('user_id')}</code>\n💰 ₹{pay.get('amount')}\n🧾 UTR: <code>{pay.get('utr_ref')}</code>\n\n"
-            "<i>User ko reason ke saath message chala gaya.</i>",
-            kb=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]))
-        await q.answer("Rejected")
-        try:
-            await context.bot.send_message(
-                int(pay["user_id"]),
-                f"❌ <b>Payment #{pid} could not be verified</b>\n\n"
-                "Possible reasons:\n"
-                "• UTR is wrong or already used\n"
-                "• Screenshot was unclear or not of a payment\n"
-                "• Amount does not match\n\n"
-                "🔁 You can send correct proof again: <b>/premium</b>\n"
-                f"💬 Or talk to Support: {SUPPORT_LINK}",
-                parse_mode=HTML)
-        except Exception:
-            pass
-        return
-
-    if data.startswith("askpay:"):
-        if not is_admin(uid):
-            return
-        pid = int(data.split(":")[1])
-        pay = get_payment(pid)
-        if not pay:
-            await q.answer("❌ Record nahi mila.", show_alert=True)
-            return
-        await q.answer("User notified")
-        try:
-            await context.bot.send_message(
-                int(pay["user_id"]),
-                f"📩 <b>Admin needs some more details — Payment #{pid}</b>\n\n"
-                "Please send these:\n"
-                "1️⃣ A <b>clear screenshot</b> of the payment (amount + UTR visible)\n"
-                "2️⃣ UTR / Transaction ID <b>as text</b>\n"
-                "3️⃣ <b>Time and amount</b> of the transaction\n\n"
-                "👉 Send it here directly, the admin will check it.",
-                parse_mode=HTML)
-        except Exception:
-            await q.message.reply_text("⚠️ Could not message the user (maybe they blocked the bot).")
-        return
-
-    # ---------- Admin panel ke buttons ----------
-    if data == "admin_home":
-        if not is_admin(uid):
-            await q.answer("Admins only.", show_alert=True)
-            return
-        await admin_panel_send(q.message, context, uid)
-        return
-
-    if data == "admpay_list":
-        if not is_admin(uid):
-            return
-        pend = pending_payments(10)
-        if not pend:
-            await q.message.reply_text("✅ <b>No pending payments!</b>", parse_mode=HTML)
-            return
-        await q.message.reply_text(
-            f"💳 <b>Pending Payments ({len(pend)})</b>\nPoora proof dekhne + approve/reject karne ke liye tap karo 👇",
-            reply_markup=admin_pending_kb(pend), parse_mode=HTML)
-        return
-
-    if data == "admact_home":
-        if not is_admin(uid):
-            return
-        await q.message.reply_text(activate_home_text(uid), reply_markup=activate_plan_kb(uid), parse_mode=HTML)
-        return
-
-    if data.startswith("admact_plan:"):
-        if not is_admin(uid):
-            return
-        key = data.split(":", 1)[1]
-        pl = VIP_PLANS.get(key) or VIP_PLANS["plan_30"]
-        meta_set(f"active_plan:{uid}", key)
-        await q.answer(f"✅ Plan set: {pl['days']} days")
-        await q.message.reply_text(
-
-            f"✅ <b>Plan selected:</b> {pl['name']} ({pl['days']} days)\n"
-            f"<code>/activate 123456789</code> → gives that user <b>{pl['days']} days</b> VIP\n"
-            "<code>/activate 123456789 90</code> → for a different number of days\n"
-            "<code>/activate @username</code> → @username also works\n\n"
-            "<i>The user is notified instantly.</i>",
-            reply_markup=activate_plan_kb(uid), parse_mode=HTML)
-        return
-
-    if data == "admgiftlist":
-        if not is_admin(uid):
-            return
-        rows = list_vip_grants(10)
-        if not rows:
-            await q.message.reply_text(
-
-                "📜 <b>Manual VIP Log</b>\n"
-                "\n"
-                "No one has been given direct (no payment) VIP yet.\n"
-                "Use <b>/activate</b> to give VIP.",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
-                parse_mode=HTML)
-            return
-        lines = []
-        for r in rows:
-            d = int(r.get("days") or 0)
-            dur = "LIFETIME" if d >= 9999 else f"{d} days"
-            lines.append(f"• <code>{r.get('user_id')}</code> — {dur} · by <code>{r.get('by_admin')}</code> · "
-                         f"{str(r.get('created_at') or '')[:16]}")
-        await q.message.reply_text(
-            f"📜 <b>Manual VIP Log (last {len(rows)})</b>\n──────────────────────\n" + "\n".join(lines) +
-            "\n──────────────────────\n<i>These are the VIPs you gave with /activate (no payment).</i>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎁 Give VIP", callback_data="admact_home"),
-                                                 InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
-            parse_mode=HTML)
-        return
-
-    if data == "admtut":
-        if not is_admin(uid):
-            return
-        await q.answer("Building page...")
-        threading.Thread(target=publish_tutorial_now, kwargs={"force": True}, daemon=True).start()
-        await q.message.reply_text(
-            "📖 <b>Refreshing the tutorial page</b> (10-20 seconds).\n"
-            f"🔗 Current link: {tutorial_url()}",
-            parse_mode=HTML, disable_web_page_preview=True)
-        return
-
-    if data.startswith("imeiagain:"):
-        imei = re.sub(r"\D", "", data.split(":", 1)[1])[:15]
-        _u_ii = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_ii, uid):
-            await q.answer("Credits khatam — VIP lo, unlimited checks milenge.", show_alert=True)
-            return
-        await q.message.reply_text("🔎 <b>Checking this IMEI again…</b>", parse_mode=HTML)
-        res_ii = await asyncio.to_thread(fetch_imei_details, imei, False)
-        if res_ii.get("ok"):
-            await _reply_nonempty(q.message, spend_credit_msg(uid, "imei"), parse_mode=HTML)
-            if res_ii.get("photo") and not str(res_ii["photo"]).lower().endswith(".gif"):
-                try:
-                    await q.message.reply_photo(photo=res_ii["photo"],
-                                                caption=render_imei_caption(res_ii), parse_mode=HTML)
-                except Exception:
-                    pass
-            await q.message.reply_text(render_imei_text(res_ii), parse_mode=HTML,
-                                       disable_web_page_preview=True)
-        else:
-            await q.answer(str(res_ii.get("error"))[:180], show_alert=True)
-        add_use(uid)
-        return
-
-    if data == "imei_new":
-        context.user_data["mode"] = "imei"
-        _u_in = get_user(uid, q.from_user.first_name)
-        # v58: tool start par credits line NAHI (user ka order)
-        await q.message.reply_text(tool_prompt("imei"),
-                                   reply_markup=tool_support_kb("imei"), parse_mode=HTML)
-        return
-
-    if data.startswith("admpay_view:"):
-        if not is_admin(uid):
-            return
-        pid = int(data.split(":")[1])
-        pay = get_payment(pid)
-        if not pay:
-            await q.answer("❌ Record nahi mila.", show_alert=True)
-            return
-        card = admin_payment_card(pay, user_row=get_user_row(int(pay["user_id"])),
-                                  history=user_payment_history(int(pay["user_id"])))
-        await q.message.reply_text(card, reply_markup=admin_payment_kb(pid), parse_mode=HTML)
-        await q.answer("Card sent ✅")
-        return
-
-    if data == "mypay_list":
-        rows = user_payments(uid, 5)
-        if not rows:
-            await q.message.reply_text("📭 No payment sent yet. Tap <b>/premium</b> to get VIP.", parse_mode=HTML)
-            return
-        icons = {"pending": "⏳", "approved": "✅", "rejected": "❌"}
-        lines = [f"{icons.get(r.get('status'), '❔')} <b>#{r['id']}</b> · {r.get('plan_name')} · ₹{r.get('amount')} · "
-                 f"UTR <code>{r.get('utr_ref')}</code> · {str(r.get('status')).upper()}" for r in rows]
-        await q.message.reply_text(
-            "🧾 <b>My Payments</b>\n──────────────────────\n" + "\n".join(lines) +
-            "\n──────────────────────\n⏳ = admin is verifying · ✅ = VIP active · ❌ = rejected",
-            parse_mode=HTML)
-        return
-
-    if data == "admhist":
-        if not is_admin(uid):
-            return
-        rows = recent_payments(10)
-        if not rows:
-            await q.message.reply_text("No payment records.", parse_mode=HTML)
-            return
-        icons = {"pending": "⏳", "approved": "✅", "rejected": "❌"}
-        lines = [f"{icons.get(r.get('status'), '❔')} #{r['id']} · user <code>{r['user_id']}</code> · "
-                 f"₹{r.get('amount')} · {str(r.get('plan_name'))[:18]} · {str(r.get('created_at'))[:16]}" for r in rows]
-        ps = payment_stats()
-        await q.message.reply_text(
-            "🧾 <b>Last 10 Payments</b>\n──────────────────────\n" + "\n".join(lines) +
-            f"\n──────────────────────\n💰 Revenue: ₹{ps['revenue']:,} · ✅ {ps['approved']} · ❌ {ps['rejected']} · ⏳ {ps['pending']}",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
-            parse_mode=HTML)
-        return
-
-    if data == "admusers":
-        if not is_admin(uid):
-            return
-        users = recent_users(10)
-        lines = [f"• <code>{u[0]}</code> — {hesc(str(u[1] or '')[:20])}" for u in users]
-        await q.message.reply_text("👥 <b>Recent Users</b>\n\n" + "\n".join(lines), parse_mode=HTML)
-        return
-
-    if data == "admsys":
-        if not is_admin(uid):
-            return
-        await q.message.reply_text(system_stats_text(), parse_mode=HTML)
-        return
-
-    if data == "admcmds":
-        if not is_admin(uid):
-            return
-        await q.message.reply_text(
-
-            "📊 <b>Admin Commands</b>\n"
-            "──────────────────────\n"
-            "• <code>/payments</code> — verify pending payments\n"
-            "• <code>/activate [user_id] [days]</code> — give VIP directly (friend / direct payment, no proof)\n"
-            "• <code>/credits [user_id] [n]</code> — give credits (default 25)\n"
-            "• <code>/grant [user_id] [days]</code> — give VIP (9999 = lifetime)\n"
-            "• <code>/revoke [user_id]</code> — remove VIP\n"
-            "• <code>/broadcast [message]</code> — message all users\n"
-            "• <code>/ban [user_id]</code> / <code>/unban [user_id]</code>\n"
-            "• <code>/admin</code> — this panel",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🛠️ Panel", callback_data="admin_home")]]),
-            parse_mode=HTML)
-        return
-
-    if data == "admbcmenu":
-        if not is_admin(uid):
-            return
-        context.user_data["mode"] = "adm_broadcast"
-        await q.message.reply_text("📢 <b>Broadcast</b>\n\nType the message you want to send to all users.\n<i>(stop it any time with /cancel)</i>", parse_mode=HTML)
-        return
-
-    if data == "admbanmenu":
-        if not is_admin(uid):
-            return
-        context.user_data["mode"] = "adm_ban"
-        await q.message.reply_text(
-            "🚫 <b>Ban / Unban</b>\n\nType it like this:\n"
-            "<code>ban 123456789</code> → ban the user\n<code>unban 123456789</code> → unban the user",
-            parse_mode=HTML)
-        return
-
-    if data == "admsearch":
-        if not is_admin(uid):
-            return
-        context.user_data["mode"] = "adm_search"
-        await q.message.reply_text(
-            "🔍 <b>User Search</b>\n\nSend the user's <b>ID</b> or <b>@username</b> — you get full details + buttons to give or remove VIP.",
-            parse_mode=HTML)
-        return
-
-    if data.startswith("ugrant:"):
-        if not is_admin(uid):
-            return
-        _, t_uid, days = data.split(":")
-        t_uid, days = int(t_uid), int(days)
-        grant_premium(t_uid, days)
-        dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} days VIP"
-        await q.answer(f"✅ {dur} given")
-        await q.message.reply_text(f"✅ <b>Done!</b> {dur} given to user <code>{t_uid}</code>.", parse_mode=HTML)
-        try:
-            await context.bot.send_message(t_uid, f"🎉 <b>The admin gave you {dur}!</b> 💎\n\nNow use all tools unlimited 🚀", parse_mode=HTML)
-        except Exception:
-            pass
-        return
-
-    if data.startswith("urevoke:"):
-        if not is_admin(uid):
-            return
-        t_uid = int(data.split(":")[1])
-        revoke_premium(t_uid)
-        await q.answer("VIP removed")
-        await q.message.reply_text(f"🚫 VIP removed from user <code>{t_uid}</code>.", parse_mode=HTML)
-        return
-
-    if data.startswith("uban:"):
-        if not is_admin(uid):
-            return
-        _, t_uid, val = data.split(":")
-        set_ban(int(t_uid), int(val))
-        await q.answer("Done")
-        await q.message.reply_text(("🚫 User banned" if val == "1" else "🟢 User unbanned") + f" — <code>{t_uid}</code>", parse_mode=HTML)
-        return
-
-    # ---- PURANE messages ke buttons (backward compatible — pehle jo bheje the wo bhi chalenge) ----
-    if data.startswith("adm_appr_") and is_admin(uid):
-        parts = data.split("_")
-        target_uid = int(parts[2]); days = int(parts[3])
-        grant_premium(target_uid, days)
-        dur = "👑 LIFETIME VIP" if days >= 9999 else f"{days} days VIP"
-        ok_edit = await _edit_admin_msg(f"✅ <b>Approved!</b> {dur} given to user <code>{target_uid}</code>.")
-        await q.answer("✅ Done")
-        try:
-            await context.bot.send_message(target_uid, f"🎉 <b>Congrats!</b> Your payment is approved — {dur} activate! 💎", parse_mode=HTML)
-        except Exception:
-            pass
-        if not ok_edit:
-            await q.message.reply_text(f"✅ {dur} given to user {target_uid}.")
-        return
-
-    if data.startswith("adm_rej_") and is_admin(uid):
-        target_uid = int(data.split("_")[2])
-        ok_edit = await _edit_admin_msg(f"❌ <b>Rejected!</b> Payment of user <code>{target_uid}</code> was rejected.")
-        await q.answer("Rejected")
-        try:
-            await context.bot.send_message(target_uid, "❌ Your payment could not be verified. Send it again with a clear screenshot and correct UTR (/premium).")
-        except Exception:
-            pass
-        if not ok_edit:
-            await q.message.reply_text(f"❌ Payment of user {target_uid} rejected.")
-        return
-
-    # ============ AUTO FORWARD — WIZARD / GUIDE / TEST / STATUS ============
-    # ---------- v60.4: 💼 BUSINESS STUDIO buttons ----------
-    # ---------- v64: 📥 VIDEO DOWNLOADER ke 27 tools ----------
-    # v66: 🎯 27-app ka PICKER HATA DIYA (user ka order).
-    # Purane message par ye button dabaya jaye to naya tarika batao —
-    # picker dobara na khule.
-    if data == "dlmenu" or data.startswith("dlvpage:"):
-        context.user_data.pop("mode", None)
-        await safe_answer_cb(q, "Ab har app apna alag tool hai ⬇️")
-        _hint = ("🎯 <b>BADLAV — ab har app APNA ALAG TOOL hai</b>\n"
-                 "──────────────────────\n"
-                 "Pehle sab apps ek hi menu me the. Ab keyboard par "
-                 "<b>neeche wale</b> buttons dikhenge:\n"
-                 "   📸 INSTA DL · ▶️ YOUTUBE DL · 🎵 TIKTOK DL\n\n"
-                 "👉 Keyboard par <b>neeche</b> daba ke apna app chuno, "
-                 "ya seedha <b>link bhej do</b> — main khud pehchan lunga.\n\n"
-                 "📋 Saare tools keyboard par hain 👇")
-        await safe_reply(q.message, _hint, parse_mode=HTML)
-        return
-    if data.startswith("dlv:"):
-        _dk = str(data).split(":", 1)[1]
-        if _dk == "any":                 # v66.1: purana "sabhi apps" tool gaya
-            context.user_data.pop("mode", None)
-            await safe_answer_cb(q, "Ye purana tool hata diya gaya", show_alert=True)
-            await safe_reply(q.message,
-                             "❌ <b>\"VIDEO DOWNLOADER\" (sabhi apps wala) tool "
-                             "hata diya gaya hai</b>\n\n"
-                             "Ab <b>har app ka apna alag tool</b> hai 👇\n"
-                             + dl_tools_text(),
-                             parse_mode=HTML)
-            return
-        if _dk not in DL_SITES:
-            await safe_answer_cb(q, "Ye app nahi mila", show_alert=True)
-            return
-        _dmode = "dl_" + _dk
-        context.user_data["mode"] = _dmode
-        context.user_data.pop("biz_step", None)
-        context.user_data.pop("biz_ans", None)
-        await safe_answer_cb(q, "Link bhejein 👇")
-        _head = ("🌐 <b>SABHI APPS KA DOWNLOADER</b>" if _dk == "any"
-                 else f"{DL_SITES[_dk][0]} <b>{hesc(DL_SITES[_dk][1])} DOWNLOADER</b>")
-        _body = (f"{_head}\n"
-                 f"──────────────────────\n"
-                 f"✨ Is app ka video / reel / shorts ka <b>link bhejein</b>:\n\n"
-                 f"💡 <b>Example:</b> <code>{(DL_SITES[_dk][3] if _dk != 'any' else 'https://www.instagram.com/reel/xxxxx')}</code>\n\n"
-                 f"✅ HD · bina watermark · no ad")
-        await safe_reply(q.message, _body, parse_mode=HTML,
-                         reply_markup=InlineKeyboardMarkup([[
-                             InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
-        return
-
-    if data == "bizstudio":
-        context.user_data["mode"] = "biz_menu"
-        await safe_edit(q.message, BIZ_MENU_TEXT, reply_markup=biz_menu_kb(), parse_mode=HTML)
-        return
-    if data.startswith("biz:"):
-        _key = data.split(":", 1)[1]
-        if _key not in BIZ_MENU:
-            await safe_answer_cb(q, "Ye tool nahi mila", show_alert=True)
-            return
-        _u_b = get_user(uid, "")
-        if not can_use_premium_tool(_u_b, uid):
-            await safe_answer_cb(q, "Credits khatam — VIP lene par unlimited", show_alert=True)
-            await safe_reply(q.message, get_credits_over_text(_key),
-                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        context.user_data["mode"] = _key
-        context.user_data.pop("biz_wait", None)
-        context.user_data.pop("biz_ans", None)
-        _steps_v = biz_steps(_key)
-        if _steps_v:
-            # v63: EK-EK STEP me poocho — step 1 se shuru
-            await safe_answer_cb(q, "Chaliye, step by step 👇")
-            context.user_data["biz_step"] = 0
-            await safe_reply(q.message, biz_step_prompt(_key, 0),
-                             reply_markup=biz_steps_kb(_key, 0), parse_mode=HTML)
-            return
-        await safe_answer_cb(q, "Bhejein 👇")
-        _bk = _biz_kind(_key.replace("biz_", ""))
-        await safe_reply(q.message, tool_prompt(_bk or _key), parse_mode=HTML,
-                         reply_markup=InlineKeyboardMarkup([[
-                             InlineKeyboardButton("⬅️ Business Studio", callback_data="bizstudio"),
-                             InlineKeyboardButton("🏠 Home", callback_data="back_home")]]))
-        return
-
-    # v63: wizard ka ⬅️ Peeche / step-jump button
-    if data.startswith("bizstep:"):
-        try:
-            _sp = data.split(":", 2)
-            _k2, _i2 = _sp[1], int(_sp[2])
-        except Exception:                                        # noqa: BLE001
-            await safe_answer_cb(q, "Kuch gadbad hai", show_alert=True)
-            return
-        if _k2 not in BIZ_MENU:
-            await safe_answer_cb(q, "Tool nahi mila", show_alert=True)
-            return
-        _n2 = biz_total_steps(_k2)
-        _i2 = max(0, min(_i2, max(0, _n2 - 1)))
-        context.user_data["mode"] = _k2
-        context.user_data["biz_step"] = _i2
-        await safe_answer_cb(q, "Theek hai 👇")
-        try:
-            await safe_edit(q.message, biz_step_prompt(_k2, _i2),
-                            reply_markup=biz_steps_kb(_k2, _i2), parse_mode=HTML)
-        except Exception:                                        # noqa: BLE001
-            await safe_reply(q.message, biz_step_prompt(_k2, _i2),
-                             reply_markup=biz_steps_kb(_k2, _i2), parse_mode=HTML)
-        return
-
-    if data == "cloner_guide":
-        await q.message.reply_text(
-            "🔄 <b>AUTO FORWARD (CLONER) — 3 STEP</b>\n"
-            "──────────────────────\n"
-            "1️⃣ <b>SOURCE</b> set karo (jis channel se post copy hogi)\n"
-            "2️⃣ <b>TARGET</b> set karo (jis channel me post jayegi — bot wahan admin ho)\n"
-            "3️⃣ <b>FULL AUTO ON</b> karo — bas, posts khud copy hone lagengi\n",
-            reply_markup=InlineKeyboardMarkup([
-                # v79: 🎬 tutorial video button hataya (videos bot se delete ho chuke)
-                [InlineKeyboardButton("🚀 Setup shuru karo", callback_data="cloner_setup")],
-                [InlineKeyboardButton("📊 Meri settings", callback_data="cloner_status")],
-            ]),
-            parse_mode=HTML,
-        )
-        return
-
-    if data in ("cloner_setup", "cloner_status"):
-        _u = get_user(uid)
-        if not can_use_premium_tool(_u, uid) and data == "cloner_setup":
-            await q.answer("Credits finished — get VIP!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("cloner"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-
-    if data == "cloner_setup":
-        cfg = get_cloner_config(uid)
-        src_ok = "✅" if cfg.get("source_chat_id") else "1️⃣"
-        tgt_ok = "✅" if cfg.get("target_chat_id") else "2️⃣"
-        await q.message.reply_text(
-
-            "🚀 <b>AUTO FORWARD SETUP — only 3 steps</b>\n"
-            "──────────────────────\n"
-            "<b>Step 1:</b> SOURCE channel set karo (posts yahan se aayenge)\n"
-            "<b>Step 2:</b> TARGET channel set karo (posts yahan jayenge)\n"
-            "<b>Step 3:</b> FULL AUTO CHALU karo\n"
-            "──────────────────────\n"
-            f"📡 Source: <code>{cfg.get('source_chat_id') or '— set nahi'}</code>\n"
-            f"📑 Target: <code>{cfg.get('target_chat_id') or '— set nahi'}</code>\n\n"
-            "⚠️ <b>Yaad rakho:</b> Bot ko dono channels me <b>Admin</b> banao.",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton(f"{src_ok} Source set karo", callback_data="cloner_set_source")],
-                [InlineKeyboardButton(f"{tgt_ok} Target set karo", callback_data="cloner_set_target")],
-                [InlineKeyboardButton("🤖 FULL AUTO CHALU/BAND", callback_data="cloner_toggle_auto")],
-                [InlineKeyboardButton("🧪 Test Post Bhejo", callback_data="cloner_test")],
-                [InlineKeyboardButton("📘 Guide Padho", callback_data="cloner_guide")],
-            ]),
-            parse_mode=HTML,
-        )
-        return
-
-    if data == "cloner_status":
-        cfg = get_cloner_config(uid)
-        await q.message.reply_text(
-            cloner_summary_text(cfg),
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🚀 Fix Setup", callback_data="cloner_setup")],
-                [InlineKeyboardButton("📘 Guide", callback_data="cloner_guide")],
-            ]),
-            parse_mode=HTML,
-        )
-        return
-
-    if data == "cloner_test":
-        cfg = get_cloner_config(uid)
-        tgt = cfg.get("target_chat_id")
-        if not tgt:
-            await q.answer("Pehle Target channel set karo!", show_alert=True)
-            return
-        src = cfg.get("source_chat_id")
-        lines = []
-        try:
-            if src:
-                ch = await context.bot.get_chat(src)
-                me = await context.bot.get_chat_member(src, context.bot.id)
-                lines.append(f"📡 <b>Source:</b> {ch.title or src} — bot admin: {'✅' if me.status in ('administrator','creator') else '❌ Not an ADMIN there'}")
-            ch2 = await context.bot.get_chat(tgt)
-            me2 = await context.bot.get_chat_member(tgt, context.bot.id)
-            admin_ok = me2.status in ("administrator", "creator")
-            lines.append(f"📑 <b>Target:</b> {ch2.title or tgt} — bot admin: {'✅' if admin_ok else '❌ Not an ADMIN there'}")
-            if admin_ok:
-                test_msg = await context.bot.send_message(tgt, "🧪 <b>TEST POST</b>\n\nYe message ToolVault bot ne bheja hai.\nAgar aapko dikh raha hai → aapka <b>target channel sahi chal raha hai ✅</b>\n\n<i>Ye test message 5 second me delete ho jayega.</i>", parse_mode=HTML)
-                lines.append("\n✅ <b>Test post target par chala gaya</b> — apna channel check karo!")
-                import asyncio as _aio
-                async def _del_later():
-                    await _aio.sleep(5)
+            ref_id = int(context.args[0].split("_")[1])
+            count = add_referral(user.id, ref_id)
+            if count:
+                await update.message.reply_text("🎉 Swagat! Referral link se aaye ho — dhanyavaad!")
+                if count % REFER_NEED == 0:
+                    grant_premium(ref_id, 30)
                     try:
-                        await context.bot.delete_message(tgt, test_msg.message_id)
+                        await context.bot.send_message(ref_id, f"🎉 Badhai ho! {count} referral poore! 30 din VIP free mil gaya 💎")
                     except Exception:
                         pass
-                _aio.create_task(_del_later())
-            else:
-                lines.append("\n⚠️ Bot ko target channel me <b>Admin</b> banao (Post Messages permission ke saath) — phir dobara test karo.")
-        except Exception as e:
-            lines.append(f"\n❌ Dikkat: <code>{hesc(str(e))}</code>\n💡 Check karo: source/target username sahi hain? Bot dono me admin hai?")
-        await q.message.reply_text("🧪 <b>TEST RESULT</b>\n──────────────────────\n" + "\n".join(lines), parse_mode=HTML)
-        return
-
-    if data.startswith("fc_src:"):
-        cid = data.split(":", 1)[1]
-        try:
-            chat = await context.bot.get_chat(int(cid))
-            title = chat.title or str(cid)
         except Exception:
-            await q.answer("Bot ko us channel me admin banao, phir dobara try karo", show_alert=True)
-            return
-        save_cloner_config(uid, source_chat_id=cid)
-        context.user_data["mode"] = "cloner_target"
-        await q.message.reply_text(
-            f"✅ <b>Source set:</b> {hesc(str(title))}\n🆔 <code>{cid}</code>\n\n"
-            "👉 Ab <b>TARGET channel</b> bhejo (posts yahan jayenge):\n"
-            "(jaise <code>@MyChannel</code> ya <code>-1001234567890</code>)",
-            parse_mode=HTML)
+            pass
+
+    # v81.0: 🔐 FORCE-JOIN WALL — referral handle karne ke BAAD, welcome se PEHLE.
+    # (Referral pehle isliye ki wall ke baad user wapas na aaye to referrer ka
+    # credit na kho — ye behaviour v52 se aisa hi chal raha hai.)
+    if not await JW.gate(update, context):
         return
 
-    if data.startswith("fc_tgt:"):
-        cid = data.split(":", 1)[1]
-        save_cloner_config(uid, target=cid)
-        cfg_now = get_cloner_config(uid)
-        ready = bool(cfg_now.get("source_chat_id"))
-        await q.message.reply_text(
-            f"✅ <b>Target set:</b> <code>{cid}</code>\n\n"
-            + ("🎉 Dono set ho gaye — ab <b>FULL AUTO CHALU karo</b>!" if ready else "👉 Ab <b>SOURCE</b> channel set karo.")
-            ,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🤖 FULL AUTO CHALU karo", callback_data="cloner_toggle_auto")],
-                [InlineKeyboardButton("⚙️ Saari Settings", callback_data="cloner_status")],
-            ]),
-            parse_mode=HTML)
-        return
-
-    # ============ NAYE TOOL CALLBACKS ============
-
-    if data in ("bankpdf", "mediastudio"):
-        context.user_data.pop("mode", None)
-        if data == "mediastudio":
-            context.user_data["mode"] = "media_menu"
-            await q.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
-            return
-        context.user_data["mode"] = data
-        _u0 = get_user(uid, q.from_user.first_name)
-        if is_premium_tool(data) and not can_use_premium_tool(_u0, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text(data),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        # v58: tool start par credits line NAHI (user ka order)
-        await q.message.reply_text(tool_prompt(data), reply_markup=tool_support_kb(data), parse_mode=HTML)
-        return
-
-
-    if data.startswith("media_"):
-        kind = data.replace("media_", "")
-        _u_m = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_m, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("mediastudio"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        ask = {
-            "ytmp3": ("🎵 <b>YOUTUBE → MP3</b>\n\nAb <b>gaane ka YouTube link</b> bhejo:\n<i>(jaise https://youtu.be/xxxx)</i>", "media_ytmp3"),
-            "status": ("🎬 <b>STATUS VIDEO MAKER</b>\n\n1️⃣ First <b>send a photo</b> (the status is made on it)", "media_status_photo"),
-            "ringtone": ("🎧 <b>RINGTONE CUTTER</b>\n\nSend a song (MP3) or video — I make a 30 second ringtone from it.", "media_ringtone"),
-            "karaoke": ("🎤 <b>KARAOKE MAKER</b>\n\nGaana (MP3) ya video bhejo — awaaz hata kar sirf music rakh dunga.", "media_karaoke"),
-            "8d": ("🔊 <b>8D SOUND</b>\n\nGaana bhejo — 8D effect laga dunga.", "media_8d"),
-            "bass": ("💥 <b>BASS BOOST</b>\n\nGaana bhejo — poori bass, tez awaaz.", "media_bass"),
-            "voice": ("🗣️ <b>VOICE CHANGE</b>\n\nVoice note / audio / video bhejo — phir voice chuno.", "media_voice_wait"),
-            "v2mp3": ("🎼 <b>VIDEO → MP3</b>\n\nVideo bhejo — uska MP3 bana dunga.", "media_v2mp3"),
-            "tts": ("🗣️ <b>TEXT → HINDI VOICE</b>\n\n"
-                    "Ab apna <b>text bhejo</b> (Hindi me likhna best hai, max 1500 letters) —\n"
-                    "main usse <b>ekdum real desi Hindi awaaz</b> me MP3 bana dunga.\n"
-                    "📌 Jaise: <code>Bhai kaise ho? Aaj ka din bahut accha hai, chalo chai pe chalte hain.</code>\n"
-                    "🎙️ Phir awaaz chunni hai — mard ya aurat.", "media_tts"),
-            "trim": ("✂️ <b>VIDEO TRIM</b>\n\nVideo bhejo (max 2 minute) — phir time batao (jaise <code>0:10 to 0:45</code>).", "media_trim_wait"),
-            "compress": ("🗜️ <b>VIDEO COMPRESS</b>\n\nVideo bhejo (max 2 minute) — size chhota kar dunga (WhatsApp par bhejne layak).", "media_compress_wait"),
-        }.get(kind)
-        if not ask:
-            await q.message.reply_text("❌ Ye option nahi mila.", parse_mode=HTML)
-            return
-        text, mode = ask
-        context.user_data["mode"] = mode
-        await q.message.reply_text(text, parse_mode=HTML)
-        return
-
-    # ---------- v52: 🎞️ YOUTUBE QUALITY PICKER ----------
-    # ---------- 📧 TEMP MAIL inline buttons (v53.0) ----------
-    if data in ("tm_inbox", "tm_otp"):
-        sess = context.user_data.get("tempmail") or {}
-        if not sess.get("address") or not sess.get("token"):
-            await q.answer("Pehle NEW bhejo — temp email banao.", show_alert=True)
-            return
-        await q.answer("📬 Inbox check kar raha hoon…")
-        _t0 = time.perf_counter()
-        seen = context.user_data.get("tm_seen") or []
-        res = await asyncio.to_thread(tm_poll, sess["address"], sess["token"], seen)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if res.get("expired"):
-            context.user_data["tempmail"] = {}
-            context.user_data["tm_seen"] = []
-            await q.message.reply_text(
-                "⌛ Session expire ho gaya. <b>NEW</b> bhejo — naya email ban jayega.",
-                parse_mode=HTML)
-            return
-        if not res.get("ok"):
-            tel_note("tempmail", False, _ms, error=str(res.get("error") or "")[:120])
-            await q.message.reply_text(str(res.get("error") or "Inbox nahi khula."),
-                                       parse_mode=HTML)
-            return
-        tel_note("tempmail", True, _ms)
-        context.user_data["tm_seen"] = res.get("all_ids") or seen
-        msgs = res.get("messages") or []
-        codes = res.get("new_codes") or res.get("codes") or []
-        if data == "tm_otp":
-            if not codes:
-                await q.message.reply_text(
-                    "🔑 <b>Abhi koi OTP nahi mila.</b>\n"
-                    f"📮 <code>{hesc(sess['address'])}</code>\n\n"
-                    f"📊 Inbox me {len(msgs)} message hai.\n"
-                    "👉 Signup karo, phir 30-60 second baad <b>🔄 Inbox refresh</b> dabao.",
-                    parse_mode=HTML)
-                return
-            L = ["🔑 <b>AAPKE OTP / CODES</b>", "──────────────────────"]
-            for c in codes[:5]:
-                _src = f"\n   <i>se: {hesc(str(c.get('subject') or c.get('from') or '')[:44])}</i>"
-                L.append(f"  👉 <code>{hesc(str(c['code']))}</code>"
-                         f"  ({hesc(str(c.get('label') or ''))}){_src}")
-            L.append("\n──────────────────────")
-            L.append(f"🏆 <b>Sabse likely: <code>{hesc(str(codes[0]['code']))}</b></code>")
-            L.append("\n<i>⚠️ Ye code kisi ko mat batao — jis site par signup kiya "
-                     "hai sirf wahin daalo.</i>")
-            await q.message.reply_text(cut_html("\n".join(L), 3900), parse_mode=HTML)
-            return
-        # tm_inbox → chhota refresh summary
-        if not msgs:
-            await q.message.reply_text(
-                f"📭 Inbox abhi bhi khali hai.\n📮 <code>{hesc(sess['address'])}</code>\n\n"
-                "👉 Ye address signup me daalo, phir refresh dabao.", parse_mode=HTML)
-            return
-        L = [f"📧 <b>INBOX</b> — {res.get('count', 0)} message"
-             + (f" · <b>{res.get('new_count')} NAYA</b>" if res.get("new_count") else ""),
-             "──────────────────────"]
-        if codes:
-            L.append("🔑 <b>CODES:</b> " + " · ".join(
-                f"<code>{hesc(str(c['code']))}</code>" for c in codes[:4]))
-            L.append("")
-        for i, m in enumerate(msgs[:4], 1):
-            L.append(f"<b>{i}. {hesc(str(m.get('subject') or '')[:60])}</b>\n"
-                     f"   📨 <code>{hesc(str(m.get('from') or '')[:40])}</code>\n"
-                     f"   {hesc(str(m.get('body') or '')[:260])}\n")
-        L.append("<i>🔄 Baar-baar refresh dabao — OTP aate hi upar dikhega.</i>")
-        await q.message.reply_text(cut_html("\n".join(L), 3900), parse_mode=HTML)
-        return
-
-    if data == "tm_del":
-        sess = context.user_data.get("tempmail") or {}
-        if sess.get("address"):
-            await asyncio.to_thread(tm_delete, sess["address"], sess.get("token", ""))
-        context.user_data["tempmail"] = {}
-        context.user_data["tm_seen"] = []
-        await q.answer("🗑️ Temp email band ho gaya", show_alert=False)
-        await q.message.reply_text(
-            "🗑️ <b>Temp email band kar diya gaya.</b>\n"
-            "📧 Naya chahiye to <b>TEMP MAIL</b> → <b>NEW</b> bhejo.",
-            parse_mode=HTML)
-        return
-
-    if data.startswith("ytq:"):
-        hstr = data.split(":", 1)[1]
+    global _WELCOME_FID
+    # v52 speed: cache file_id use karo (CDN serve = instant, no re-upload)
+    if _WELCOME_FID:
         try:
-            h = int(hstr)
-        except ValueError:
-            h = 1080
-        if h == 0:  # ❌ Cancel (free)
-            context.user_data.pop("yt_url", None)
-            context.user_data.pop("mode", None)
-            await q.message.edit_text("❌ Cancel ho gaya. Jab zaroorat ho to naya YouTube link bhejo. 👇")
+            await update.message.reply_photo(photo=_WELCOME_FID, caption=WELCOME_TEXT,
+                                             reply_markup=kb_for(user.id), parse_mode=HTML)
             return
-        url = context.user_data.pop("yt_url", None)
-        context.user_data.pop("mode", None)
-        _u_y = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_y, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("insta_dl"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        if not url:
-            await q.answer("Pehle YouTube link bhejo (📥 Video Downloader)", show_alert=True)
-            return
-        # v65: "30 second - 2 minute" wala message HATA diya.
-        #      Ab turant shuru + har 5 second live timer (15 second ka target).
-        _stop_ping(context)
-        _yt_stop = asyncio.Event()
-        context.user_data["_ping_stop"] = _yt_stop
-        _raw_st = await q.message.reply_text(
-            f"⚡ <b>{h}p</b> — kaam shuru ho gaya!\n"
-            "🔄 <i>Video download ho rahi hai… zyada se zyada 30 second.</i>",
-            parse_mode=HTML)
-        st = _StatusMsg(_raw_st, _yt_stop)
-        asyncio.create_task(_progress_edit(
-            _raw_st, f"⚡ <b>{h}p</b> — download chal raha hai…",
-            every=PROGRESS_EVERY, stop=_yt_stop, max_pings=12))
-        # v68: yahi video+quality pehle bheji thi? file_id se TURANT
-        _fidq = dl_fid_get(url, f"q{h}")
-        if _fidq:
+        except Exception:
+            _WELCOME_FID = None
+    banner_path = os.path.join(os.path.dirname(__file__), "welcome_banner.jpg")
+    if os.path.exists(banner_path):
+        try:
+            with open(banner_path, "rb") as f:
+                _m = await update.message.reply_photo(photo=f, caption=WELCOME_TEXT,
+                                                      reply_markup=kb_for(user.id), parse_mode=HTML)
             try:
-                await q.message.reply_video(
-                    video=_fidq, supports_streaming=True, parse_mode=HTML,
-                    caption=(f"⚡ <b>INSTANT</b> — {h}p video pehle hi ready thi "
-                             f"(0.1 second)"))
-                await st.delete()
-                add_use(uid)
-                await _reply_nonempty(q.message, spend_credit_msg(uid, "insta_dl"),
-                                           parse_mode=HTML)
-                return
-            except Exception:                                    # noqa: BLE001
-                dl_fid_forget(url, f"q{h}")
-        # v98: REAL-HD background — transcode me 1-4 min lag sakta hai,
-        # isliye tap turant free + video taiyaar hote hi auto-bhej.
-        # (v105: tap ke neeche ka purana inline-send HATAA diya gaya — wo
-        #  _yt_hd_bg me hi ab live hai.)
-        try:
-            await st.edit_text(
-                f"⏳ <b>{h}p HD</b> taiyaar ho raha hai…\n"
-                "🎞️ Asli HD quality me convert ho raha hai (1–4 min). "
-                "Taiyaar hote hi video yahin aa jayegi 📥",
-                parse_mode=HTML)
-        except Exception:                                    # noqa: BLE001
-            pass
-        _fname_y = (q.from_user.first_name if q.from_user else "")
-        asyncio.create_task(_yt_hd_bg(context.application, q.message.chat_id,
-                                       uid, url, h, st, _fname_y))
-        try:
-            await q.answer("HD taiyaar ho raha hai… ⏳")
-        except Exception:                                    # noqa: BLE001
-            pass
-        return
-
-    if data.startswith("mvoicepk:"):
-        preset = data.split(":", 1)[1]
-        raw = context.user_data.pop("media_audio", None)
-        if not raw:
-            await q.message.reply_text("⚠️ Send the audio first.")
-            return
-        await q.message.reply_text("🗣️ Changing the voice... (10-30 seconds)")
-        res = desi.voice_change(raw, preset)
-        if not res.get("ok"):
-            await q.answer("Failed", show_alert=True)
-            await q.message.reply_text(f"❌ {res.get('error')}")
-            return
-        lbl = VOICE_PRESETS[preset][0]
-        await q.message.reply_audio(audio=res["bytes"], filename="voice_changed.mp3",
-                                    title=f"{lbl} — Utility Duniya", performer="HIMANSHU",
-                                    caption=f"🗣️ <b>{lbl}</b> ready!\n{spend_credit_msg(uid, 'mediastudio')}",
-                                    parse_mode=HTML)
-        return
-
-    if data.startswith("ttsvoice:"):
-        vkey = data.split(":", 1)[1]
-        _u_t = get_user(uid, q.from_user.first_name)
-        if not can_use_premium_tool(_u_t, uid):
-            await q.answer("Credits khatam!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("mediastudio"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        txt = context.user_data.pop("tts_text", "")
-        context.user_data.pop("mode", None)
-        if not txt:
-            await q.answer("Pehle text bhejo — Media Studio → Text → Hindi Voice", show_alert=True)
-            return
-        st = await _wait_st(q.message)
-        res = await desi.hindi_tts(txt, vkey)
-        if not res.get("ok"):
-            await st.edit_text(fail_msg("HINDI VOICE FAILED", res.get("error", "")), parse_mode=HTML)
-            return
-        await st.delete()
-        await q.message.reply_audio(
-            audio=io.BytesIO(res["bytes"]), filename="hindi-voice.mp3",
-            title="Hindi Voice — Utility Duniya", performer="Utility Duniya",
-            caption=("🗣️ <b>TEXT → HINDI VOICE READY</b>\n"
-                     f"🎙️ Awaaz: {vkey.upper()} · 📦 {res['size_mb']} MB\n\n"
-                     + spend_credit_msg(uid, "mediastudio")),
-            parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if data.startswith("ffimg:"):
-        # v54.0: FF character portrait / outfit breakdown on-demand
-        kind = data.split(":", 1)[1]
-        imgs = context.user_data.get("ff_img") or {}
-        url = imgs.get("char") if kind == "char" else imgs.get("outfit")
-        if not url:
-            await q.message.reply_text(
-                "❌ Pehle FF UID ka result aana chahiye — "
-                "🔥 FF UID me UID bhejo (e.g. <code>7860944073</code>).",
-                parse_mode=HTML)
-            return
-        st = await _wait_st(q.message)
-        try:
-            await q.message.reply_photo(
-                photo=url,
-                caption=("🧍 <b>Equipped character</b>" if kind == "char"
-                         else "👕 <b>Outfit / loadout breakdown</b>") +
-                        "\n<i>Free Fire public profile data.</i>",
-                parse_mode=HTML)
-            await st.delete()
-        except Exception as e:                               # noqa: BLE001
-            await st.edit_text(
-                f"❌ Image load nahi hui — <code>{hesc(str(e)[:60])}</code>\n"
-                f"🔗 Direct: <code>{hesc(url)}</code>", parse_mode=HTML)
-        tel_note("ffuid", True, 0, credit=False, cache_hit=True)
-        return
-
-    if data == "qr_wifi":
-        context.user_data["mode"] = "qr_wifi"
-        await q.message.reply_text(tool_prompt("qr_wifi"), reply_markup=tool_support_kb("qr_wifi"), parse_mode=HTML)
-        return
-    if data == "qr_vcard":
-        context.user_data["mode"] = "qr_vcard"
-        await q.message.reply_text(tool_prompt("qr_vcard"), reply_markup=tool_support_kb("qr_vcard"), parse_mode=HTML)
-        return
-
-    if data == "qr_text":
-        context.user_data["mode"] = "qr"
-        await q.message.reply_text(tool_prompt("qr"), reply_markup=tool_support_kb("qr"), parse_mode=HTML)
-        return
-
-    # v49.15: purane messages ke bache buttons (numrec/nsafe) - chup-chaap band, koi card nahi
-    if data.startswith("numrec:") or data.startswith("nsafe:"):
-        await q.answer()
-        return
-
-    # v51: deleted tools ke purane inline buttons — saaf message, koi crash nahi
-    if data in ("shot_hd", "shot_full", "make_pdf_now", "make_pdf_a4", "pdf_clear",
-                "cloner_private", "emi_calc", "emi_vyaaj"):
-        context.user_data.pop("mode", None)
-        context.user_data.pop("pdf_pages", None)
-        await q.answer("Ye tool ab nahi hai (remove kar diya gaya).", show_alert=True)
-        return
-
-    # Copy buttons (pincode / area results)
-    if data.startswith("copy_"):
-        await q.answer(f"📋 {data[5:]} — tap to copy", show_alert=True)
-        return
-
-    # Advanced Channel Cloner Settings Handlers
-    if data == "cloner_set_target":
-        context.user_data["mode"] = "cloner_target"
-        await q.message.reply_text("📑 <b>TARGET channel set karo:</b>\nUs channel ka username ya ID bhejo jahan post jayegi:\n(jaise: <code>@MyChannel</code> ya <code>-100123456789</code>)\n\n<i>Dhyan: target channel me bot ko Admin banao (Post permission ke saath).</i>", parse_mode=HTML)
-        return
-
-    if data == "cloner_set_source":
-        context.user_data["mode"] = "cloner_source"
-        await q.message.reply_text(
-            "📡 <b>SOURCE channel set karo:</b>\nJis channel se post copy karni hai uska username ya ID bhejo:\n"
-            "(jaise <code>@MySourceChannel</code> ya <code>-1001234567890</code>)\n\n"
-            "<i>Zaroori: us source channel me bhi bot ko ADMIN banao — tabhi nayi posts bot tak pahunchti hain.</i>",
-            parse_mode=HTML,
-        )
-        return
-
-    # v55: Remove Links toggle — cloned caption se URLs/@username hata deta hai
-    if data == "cloner_toggle_links":
-        cfg = get_cloner_config(uid)
-        new_val = not bool(cfg.get("remove_links"))
-        save_cloner_config(uid, remove_links=new_val)
-        if new_val:
-            txt = ("🔗 <b>LINKS HATAO: ON 🟢</b>\n\n"
-                   "Ab har cloned post ke caption se URLs, t.me links aur "
-                   "@username apne aap hat jaayenge.\n"
-                   "<i>(Normal text aur numbers jaise the waise rahenge.)</i>")
-        else:
-            txt = "🔗 <b>LINKS HATAO: OFF 🔴</b>\n\nAb caption jaisa hai waisa hi copy hoga."
-        await q.message.reply_text(txt, reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if data == "cloner_toggle_auto":
-        cfg = get_cloner_config(uid)
-        if cfg.get("auto_status") == "on":
-            save_cloner_config(uid, auto_status="off")
-            await q.message.reply_text(
-                "🛑 <b>FULL AUTO CLONE OFF!</b>\n\nAb nayi posts apne aap copy nahi hongi. (Manual forward phir bhi chalega.)",
-                reply_markup=get_cloner_settings_kb(uid),
-                parse_mode=HTML,
-            )
-            return
-        if not cfg.get("target_chat_id"):
-            await q.message.reply_text("⚠️ Pehle <b>📑 Target</b> channel set karo (jahan post jayegi).", parse_mode=HTML)
-            return
-        if not cfg.get("source_chat_id"):
-            await q.message.reply_text("⚠️ Pehle <b>📡 Source</b> channel set karo (jahan se post aayegi).", parse_mode=HTML)
-            return
-        if str(cfg.get("target_chat_id")).strip() == str(cfg.get("source_chat_id")).strip():
-            await q.message.reply_text("❌ Source aur Target ek hi nahi ho sakte (post ghoomti rehti rahegi).", parse_mode=HTML)
-            return
-
-        _u_c = get_user(uid)
-        if not can_use_premium_tool(_u_c, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("cloner"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        save_cloner_config(uid, auto_status="on")
-        if credits_left(_u_c, uid) < 999999:
-            await _reply_nonempty(q.message, spend_credit_msg(uid, "cloner").replace("1 credit used", "FULL AUTO ON — 1 credit used"),
-                                       parse_mode=HTML)
-        await q.message.reply_text(
-            "🤖 <b>FULL AUTO CLONE ON! 🟢</b>\n\n"
-            f"📡 Source: <code>{cfg.get('source_chat_id')}</code>\n"
-            f"📑 Target: <code>{cfg.get('target_chat_id')}</code>\n\n"
-
-            "Ab source channel ki har <b>nayi post</b> 2-5 second me aapke target channel me copy ho jayegi — caption, tag, watermark, replace/remove words aur thumbnail settings ke saath.\n"
-            "<i>Dhyan: sirf NAYI posts copy hoti hain (purani nahi). Rokne ke liye wahi button dobara dabao.</i>",
-            reply_markup=get_cloner_settings_kb(uid),
-            parse_mode=HTML,
-        )
-        return
-
-    if data == "cloner_set_tag":
-        context.user_data["mode"] = "cloner_tag"
-        await q.message.reply_text("🏷️ <b>Rename Tag set karo:</b>\nHar video/post ke title ke aage kaun sa tag lagega?\n(jaise <code>[🔥 4K HD]</code> ya <code>@MyChannel</code>)", parse_mode=HTML)
-        return
-
-    if data == "cloner_set_caption":
-        context.user_data["mode"] = "cloner_caption"
-        await q.message.reply_text("📝 <b>Apna Caption set karo:</b>\nPost me kaun sa caption judega?\n(jaise <code>Roz free updates ke liye @MyChannel join karo!</code>)", parse_mode=HTML)
-        return
-
-    if data == "cloner_set_replace":
-        context.user_data["mode"] = "cloner_replace"
-        await q.message.reply_text("🔄 <b>Replace Words / Links:</b>\nReplace old words with your words (format: <code>OldWord=>NewWord</code>):\n\n(example:\n<code>@old_channel=>@MyChannel\nOldSite.com=>MySite.com</code>)", parse_mode=HTML)
-        return
-
-    if data == "cloner_set_remove":
-        context.user_data["mode"] = "cloner_remove"
-        await q.message.reply_text("🗑️ <b>Words / Promo Links Hatana:</b>\nWo words/links bhejo jo posts se delete karne hain (comma ya new line se):\n(jaise: <code>@spam_bot, join now, https://t.me/fake</code>)", parse_mode=HTML)
-        return
-
-    if data == "cloner_set_thumb":
-        context.user_data["mode"] = "cloner_thumb"
-        await q.message.reply_text("🖼️ <b>Set Custom Thumbnail:</b>\nSend one PHOTO to use on videos and documents:", parse_mode=HTML)
-        return
-
-    if data == "cloner_clear_thumb":
-        save_cloner_config(uid, thumbnail_file_id="")
-        await q.message.reply_text("❌ Custom thumbnail removed!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if data == "cloner_set_wm":
-        context.user_data["mode"] = "cloner_wm"
-        await q.message.reply_text("💧 <b>Watermark set karo:</b>\nPost ke neeche kaun sa text/link dikhega?\n(jaise: <code>⚡ Forwarded by @MyChannel</code>)", parse_mode=HTML)
-        return
-
-    if data == "cloner_reset":
-        save_cloner_config(uid, target="", caption="", watermark="", rename_tag="", replace_words="", remove_words="", thumbnail_file_id="", source_chat_id="", auto_status="off", remove_links=False)
-        context.user_data.pop("mode", None)
-        await q.message.reply_text("🔄 <b>Settings reset ho gayi!</b> Cloner ki saari settings default par aa gayi.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if data == "cloner_start_mode":
-        _u_m = get_user(uid)
-        if not can_use_premium_tool(_u_m, uid):
-            await q.answer("Credits finished!", show_alert=True)
-            await q.message.reply_text(get_credits_over_text("cloner"),
-                                       reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        if credits_left(_u_m, uid) < 999999:
-            await _reply_nonempty(q.message, spend_credit_msg(uid, "cloner").replace("1 credit used", "Fast Forward ON — 1 credit used"),
-                                       parse_mode=HTML)
-        context.user_data["mode"] = "cloning_active"
-        await q.message.reply_text("🚀 <b>Fast Auto-Forward chalu!</b>\n\nAb kisi bhi channel se 10-15 post/video forward karo, ya media seedha bhejo — bot sab kuch 1-2 second me aapke target channel me daal dega!\n\nRokne ke liye /cancel dabao.", parse_mode=HTML)
-        return
-
-async def _vnum_say(q, text, kb):
-    try:
-        await q.message.edit_text(text, reply_markup=kb, parse_mode=HTML)
-    except Exception:
-        try:
-            await q.message.reply_text(text, reply_markup=kb, parse_mode=HTML)
-        except Exception:
-            pass
-
-
-async def submit_payment_proof(update, context, uid: int, plan_key: str, photo_obj):
-    """
-    Screenshot aane par: (1) strict image check, (2) DB me record, (3) admin ko full card + working buttons.
-    """
-    plan = VIP_PLANS.get(plan_key, VIP_PLANS["plan_30"])
-    utr = context.user_data.get("pay_utr") or ""
-    tries = context.user_data.get("pay_shot_tries", 0)
-    user = update.effective_user
-
-    st = await _wait_st(update.message)
-    try:
-        tg_file = await photo_obj.get_file()
-        buf = io.BytesIO()
-        await tg_file.download_to_memory(buf)
-        img_bytes = buf.getvalue()
-    except Exception as e:
-        await st.edit_text(f"❌ Could not download the screenshot. Please send it again.\n<i>{hesc(str(e))[:90]}</i>", parse_mode=HTML)
-        return
-
-    analysis = await asyncio.to_thread(analyze_screenshot, img_bytes, plan["price"])
-
-    # --- strict gate: photo/meme bhejne par reject (3 try tak) ---
-    if not analysis["ok"] and analysis["verdict"] == "bad" and tries < MAX_BAD_TRIES:
-        context.user_data["pay_shot_tries"] = tries + 1
-        await st.edit_text(
-
-            "❌ <b>Ye payment ka screenshot nahi lag raha!</b>\n"
-            "──────────────────────\n"
-            "📸 <b>Aise screenshot bhejo:</b>\n"
-            "1️⃣ Phone me PhonePe / GPay / Paytm kholo\n"
-            "2️⃣ <b>History / Passbook</b> me jao\n"
-            "3️⃣ Us payment par tap karo\n"
-            "4️⃣ <b>Screenshot</b> lo → yahan bhejo (amount, success aur UTR saaf dikhna chahiye)\n"
-            "⚠️ Selfie, photo ya meme proof nahi mane jayenge.\n"
-            "<i>Aapka UTR save hai — bas sahi screenshot bhejo.</i>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")]]),
-            parse_mode=HTML,
-        )
-        return
-
-    # --- duplicate checks (ek UTR / ek image sirf ek baar) ---
-    utr_dup = utr_exists(utr)
-    shot_dup = shot_exists(photo_obj.file_unique_id)
-    if shot_dup:
-        await st.edit_text(
-
-            "🚫 <b>Ye screenshot pehle use ho chuka hai!</b>\n"
-            "Ek screenshot se sirf ek baar VIP milta hai.\n"
-            "📸 Naya payment karo aur us naye payment ka <b>screenshot</b> bhejo.\n"
-            f"💬 Problem hai? Support: {SUPPORT_LINK}",
-            parse_mode=HTML)
-        return
-    flags = {
-        "username": user.username or "",
-        "name": user.first_name or "",
-        "shot": analysis,
-        "utr_dup": utr_dup,
-        "shot_dup": shot_dup,
-        "forced": bool(not analysis["ok"] and tries >= MAX_BAD_TRIES),
-    }
-
-    pid = create_payment(uid, plan_key, plan["name"], plan["price"], plan["days"], utr,
-                         photo_obj.file_id, photo_obj.file_unique_id, flags)
-    if not pid:
-        await st.edit_text("❌ Record save nahi ho paya. Thodi der baad try karo ya Support se baat karo.")
-        return
-
-    card = admin_payment_card(
-        {"id": pid, "user_id": uid, "plan_key": plan_key, "plan_name": plan["name"],
-         "amount": plan["price"], "plan_days": plan["days"], "utr_ref": utr,
-         "shot_file_id": photo_obj.file_id, "flags": json.dumps(flags),
-         "created_at": datetime.now().strftime("%d-%m-%Y %H:%M")},
-        user_row=get_user_row(uid), history=user_payment_history(uid))
-
-    sent_any = False
-    for admin_id in ADMIN_IDS:
-        try:
-            m = await context.bot.send_photo(chat_id=admin_id, photo=photo_obj.file_id, caption=card,
-                                             reply_markup=admin_payment_kb(pid), parse_mode=HTML)
-            set_payment_admin_msg(pid, admin_id, m.message_id)
-            sent_any = True
-        except Exception:
-            try:
-                m = await context.bot.send_message(chat_id=admin_id, text=card,
-                                                  reply_markup=admin_payment_kb(pid), parse_mode=HTML)
-                set_payment_admin_msg(pid, admin_id, m.message_id)
-                sent_any = True
+                _WELCOME_FID = _m.photo.file_id   # agli baar CDN se turant
             except Exception:
-                continue
+                pass
+            return
+        except Exception:
+            pass
+    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(user.id), parse_mode=HTML)
 
-    if not sent_any:
-        await st.edit_text(f"⚠️ Proof save ho gaya (ID #{pid}) par admin ko bhej nahi paya.\nSupport ko batao: {SUPPORT_LINK}", parse_mode=HTML)
-        return
 
+async def cmd_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
+
+
+async def cmd_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data.clear()
+    await update.message.reply_text("✅ Band kar diya! Menu ready hai 👇", reply_markup=kb_for(update.effective_user.id))
+
+
+async def cmd_refresh(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/refresh — keyboard/menu dobara set karo (purana menu hatane ke liye)."""
     context.user_data.pop("mode", None)
-    context.user_data.pop("pay_utr", None)
-    context.user_data.pop("pay_shot_tries", None)
-    context.user_data.pop("pay_utr_tries", None)
-    await st.edit_text(
-        user_payment_reply(pid, plan["name"], plan["price"], analysis),
-        reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔄 My payments", callback_data="mypay_list")],
-            [InlineKeyboardButton("💬 Support", url=SUPPORT_URL)],
-        ]),
+    await update.message.reply_text(
+        "🔄 <b>Menu refresh ho gaya!</b>\n"
+        "Purane buttons hata diye gaye hain — ab neeche wala naya menu use karo 👇",
+        reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
+
+
+def functools_partial(fn, *a, **kw):
+    """functools.partial ka chhota wrapper (executor me chalane ke liye)."""
+    import functools as _f
+    return _f.partial(fn, *a, **kw)
+
+
+# v60: memory watchdog in caches ko safai ke waqt khali kar sakta hai
+# (Render free plan par 512 MB se aage jaate hi "Killed" ho jata tha).
+def _clear_caches_mem() -> None:
+    try:
+        INFO_CACHE.clear()
+    except Exception:                                            # noqa: BLE001
+        pass
+    for _m in ("mynum_api", "familyinfo_api", "osint_tools"):
+        try:
+            _mod = sys.modules.get("modules." + _m)
+            for _at in ("_CACHE", "_INFO", "_MEM"):
+                _o = getattr(_mod, _at, None)
+                if _o is not None and hasattr(_o, "clear"):
+                    _o.clear()
+        except Exception:                                        # noqa: BLE001
+            pass
+    try:
+        _bounded_clear()
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+def _memtrace_boot() -> None:
+    """MEM_TRACE=on ho to tracemalloc chalu (MEM_TRACE_SECONDS baad apne aap band)."""
+    try:
+        from modules.core import memtrace as _mt
+        if _mt.maybe_start_from_env():
+            log.info("🩸 leak-hunt ON (MEM_TRACE) — /health par 'leak-hunt:' line dikhegi")
+    except Exception as e:                                         # noqa: BLE001
+        log.debug("memtrace skip: %s", str(e)[:80])
+
+
+def _mem_relief(tag: str = "") -> None:
+    """Bhaari kaam ke baad RAM foran wapas lao (OS ko pages lautao).
+
+    Kyun: guard ka watchdog ab har 15s chalta hai — RAM 389MB cross hote hi cache
+    trim hota hai, aur 410MB par naye heavy jobs rok diye jaate hain. free_memory() ab malloc_trim
+    bhi karta hai, isliye RSS sach me girta hai (pehle gc_runs=3 par bhi 0 MB gira
+    tha — 8 Oct ko yahi napa tha).
+    """
+    try:
+        from modules.core.guard import free_memory as _fm, mem_mb as _mm
+        soft = float(os.environ.get("MEM_RELIEF_MB") or 340)
+        m = _mm()
+        if m >= soft:
+            r = _fm(aggressive=m >= soft + 60)
+            if r.get("freed_mb", 0) >= 1:
+                log.info("🧹 mem-relief%s: %.0f → %.0f MB (trim=%s)", (" " + tag) if tag else "",
+                         r["before_mb"], r["after_mb"], r.get("trim"))
+    except Exception as e:                                          # noqa: BLE001
+        log.debug("mem relief skip: %s", str(e)[:80])
+
+
+def _leak_hunt_line() -> str:
+    """/health par tracemalloc ki line (MEM_TRACE=on par). Off ho to khaali."""
+    try:
+        from modules.core import memtrace as _mt
+        rep = _mt.report()
+        return (f"<p style='font-family:monospace'>{hesc(rep)}</p>" if rep else "")
+    except Exception:                                              # noqa: BLE001
+        return ""
+
+
+def _bot_idle() -> bool:
+    """Memory-pressure restart ka green signal: abhi koi kaam chal hi nahi raha."""
+    try:
+        u = _ug.stats() or {}
+        busy = int(u.get("parallel") or 0) + int(u.get("waiting_chat_lock") or 0)
+        return busy == 0
+    except Exception:                                            # noqa: BLE001
+        return False
+
+
+def _uptime_str() -> str:
+    s = int(time.time() - _BOOT_TS)
+    d, r = divmod(s, 86400)
+    h, r = divmod(r, 3600)
+    m, sec = divmod(r, 60)
+    if d:
+        return f"{d}d {h}h {m}m"
+    if h:
+        return f"{h}h {m}m {sec}s"
+    if m:
+        return f"{m}m {sec}s"
+    return f"{sec}s"
+
+
+def _cb_data_short(update) -> str:
+    """v83: log ke liye callback data ka chhota tukda (crash-free)."""
+    try:
+        return str(getattr(getattr(update, "callback_query", None), "data", "") or "")[:40]
+    except Exception:                                            # noqa: BLE001
+        return ""
+
+
+async def _cb_stale_reply(update, context) -> None:
+    """v83: callback me galti (purana/adhoora button) → user ko chhota saaf jawab, crash nahi."""
+    try:
+        _chat = getattr(update, "effective_chat", None)
+        if _chat is not None:
+            await context.bot.send_message(
+                _chat.id,
+                "❌ <b>Ye button purana ya adhoora ho gaya.</b>\n"
+                "Menu se tool dobara kholo — phir kaam karega.",
+                parse_mode=HTML)
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+async def _track_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Har update (message/callback) ka time note karo — /health par dikhta hai.
+
+    Koi reply nahi karta, sirf ginti karta hai (group=-10 me sabse pehle chalta hai).
+    """
+    try:
+        _UPDATE_STATE["n"] += 1
+        _UPDATE_STATE["last_ts"] = time.time()
+        _UPDATE_STATE["last_at"] = time.strftime("%d-%m-%Y %H:%M:%S")
+    except Exception:                                            # noqa: BLE001
+        pass
+
+
+# v59.10: "bot sach me jawab de raha hai?" — aakhri update kab aaya (user ki
+# sabse badi confusion: purana screenshot dekh kar lagta hai bot band hai).
+_UPDATE_STATE = {"n": 0, "last_ts": 0.0, "last_at": None}
+
+
+def _last_update_line() -> str:
+    """"Aakhri message: 3 min pehle" — 0 ho to saaf saaf likho."""
+    if not _UPDATE_STATE["n"] or not _UPDATE_STATE["last_ts"]:
+        return "abhi tak koi message nahi aaya (bot naya start hua hai)"
+    _ago = int(max(0, time.time() - _UPDATE_STATE["last_ts"]))
+    _ago_s = f"{_ago}s" if _ago < 60 else (f"{_ago // 60}m {_ago % 60}s" if _ago < 3600 else f"{_ago // 3600}h")
+    return (f"aakhri message {_ago_s} pehle ({_UPDATE_STATE['last_at']})"
+            f" | total {_UPDATE_STATE['n']} updates")
+
+
+# =====================================================================
+#  BOOT SELF-CHECK + CRASH SUPERVISOR
+# =====================================================================
+_BOOT_TS = time.time()
+_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "")[:7]
+_GIT_BRANCH = os.environ.get("RENDER_GIT_BRANCH") or ""
+if not _GIT_COMMIT:
+    try:
+        import subprocess as _sp
+        _GIT_COMMIT = _sp.check_output(["git", "rev-parse", "--short", "HEAD"],
+                                       stderr=_sp.DEVNULL, timeout=5
+                                       ).decode().strip()
+    except Exception:                                            # noqa: BLE001
+        _GIT_COMMIT = ""
+_START_TS = time.time()
+# self-heal counter — `_supervise()` isme ginti badhata hai, /health par dikhta hai
+_CRASH_STATE = {"count": 0, "last": "", "why": ""}
+
+
+def _startup_selfcheck() -> None:
+    """Boot par ek nazar ka check — v108 me sirf 2 tools, isliye chhota hai."""
+    print("=" * 62)
+    print(f"🔎 SELF-CHECK | {BOT_VERSION.split('—')[0].strip()}")
+    print("=" * 62)
+    ok = True
+    for _mn in ("mynum_api", "familyinfo_api", "osint_tools", "render_health"):
+        try:
+            __import__("modules." + _mn)
+            print(f"   ✅ modules/{_mn}.py")
+        except Exception as _e:                                  # noqa: BLE001
+            ok = False
+            print(f"   ❌ modules/{_mn}.py — {type(_e).__name__}: {str(_e)[:70]}")
+    print(f"   🧰 tools live: 📱 NUMBER INFO + 👪 FAMILY INFO (sirf 2)")
+    print(f"   📱 Number Info API: {'🟢 set' if mynum.is_configured() else '⚪ default'}")
+    try:
+        print(f"   👪 Family Info API: {'🟢 set' if faminfo.is_configured() else '⚪ default'}")
+    except Exception:                                            # noqa: BLE001
+        pass
+    print(f"   👑 ADMIN_ID: {'🟢 ' + str(ADMIN_ID) if ADMIN_ID else '🔴 set nahi'}")
+    print(f"   🔑 BOT_TOKEN: {'🟢 mil gaya' if BOT_TOKEN else '🔴 missing'}")
+    try:
+        print(f"   🧠 boot RAM: {_mem_mb():.0f} MB (Render free limit 512 MB)")
+    except Exception:                                            # noqa: BLE001
+        pass
+    try:
+        print(f"   🛡️ vault: {'🟢 on' if vault.enabled() else '⚪ off'}"
+              f" | github={'🟢' if vault.gh_ready() else '⚪'}")
+    except Exception:                                            # noqa: BLE001
+        pass
+    print(f"   🛡️ self-heal: crashes={_CRASH_STATE['count']}")
+    print("=" * 62)
+    if not ok:
+        print("⚠️ Upar ❌ wali line dekho — wahi module load nahi hua.")
+
+
+def _hard_restart(reason: str, delay: float = 3.0, extra_env: dict = None) -> None:
+    """v82: process ko SAAF restart karo — naya event loop, naya Application, koi leak nahi.
+    os.execv se PID same rehta hai (Render ko crash/naya deploy jaisa nahi lagta).
+    Fail ho to chup-chaap return — process isi state me chalta rahega."""
+    try:
+        _now = time.time()
+        _last = float(os.environ.get("UDB_LAST_RESTART") or 0)
+        _n = int(os.environ.get("UDB_RESTARTS") or 0) + 1
+        if _now - _last < 120:                           # bahut jaldi-jaldi ho raha ho to thoda ruko
+            delay = max(delay, 60.0)
+        if os.path.basename(sys.argv[0] if sys.argv else "") != "bot.py":
+            # v82: sirf `python bot.py` (Render) par process replace karo; tests/import me nahi
+            log.warning("🔁 restart skip (bot.py se nahi chal raha): %s", reason)
+            return
+        log.warning("🔁 HARD RESTART #%s: %s (%.0fs baad)", _n, reason, delay)
+        for _h in logging.getLogger().handlers:
+            try:
+                _h.flush()
+            except Exception:                            # noqa: BLE001
+                pass
+        sys.stdout.flush()
+        sys.stderr.flush()
+        time.sleep(delay)
+        _env = dict(os.environ)
+        _env.update({"UDB_RESTARTS": str(_n), "UDB_LAST_RESTART": str(time.time())})
+        if extra_env:
+            _env.update({k: str(v) for k, v in extra_env.items()})
+        os.execve(sys.executable, [sys.executable, os.path.abspath(__file__)], _env)
+    except Exception as _e:                              # noqa: BLE001
+        log.error("hard restart fail (%s) — isi process me chalta rahega", str(_e)[:120])
+
+
+def _supervise() -> None:
+    """main() ko chalao; crash ho to KHUD restart karo (Render ko 502 na mile)."""
+    _tries, _fast = 0, []
+    while True:
+        _tries += 1
+        try:
+            main()
+            print("ℹ️ main() normal band hua (koi crash nahi) — process exit")
+            return
+        except KeyboardInterrupt:
+            print("⛔ Manually band kiya gaya (KeyboardInterrupt) — exit")
+            return
+        except SystemExit:
+            raise
+        except BaseException as e:                               # noqa: BLE001
+            _now = time.time()
+            _fast = [t for t in _fast if _now - t < 600] + [_now]
+            _CRASH_STATE["count"] += 1
+            _CRASH_STATE["last"] = time.strftime("%d-%m-%Y %H:%M")
+            _CRASH_STATE["why"] = f"{type(e).__name__}: {str(e)[:80]}"
+            log.error("💥 CRASH #%s (%s: %s)", _tries, type(e).__name__, str(e)[:220])
+            try:
+                import traceback
+                traceback.print_exc()
+            except Exception:                                    # noqa: BLE001
+                pass
+            _wait = 60 if len(_fast) >= 8 else 5
+            log.warning("🔁 SELF-HEAL: %ss baad khud restart kar raha hoon (try #%s)",
+                        _wait, _tries + 1)
+            _hard_restart(f"crash {type(e).__name__}", delay=_wait)   # v82: saaf process restart
+            time.sleep(_wait)
+
+
+# =====================================================================
+#  ADMIN / STATUS COMMANDS
+# =====================================================================
+async def cmd_version(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/version — kaunsa code chal raha hai."""
+    _mem = ""
+    try:
+        _mem = f"\n🧠 <b>RAM:</b> {_mem_mb():.0f} MB / 512 MB"
+    except Exception:                                            # noqa: BLE001
+        pass
+    await update.message.reply_text(
+        f"🤖 <b>{to_bold('UTILITY DUNIYA BOT')}</b>\n"
+        f"{PCARD_MID}\n"
+        f"📦 <b>Version:</b> <code>{hesc(BOT_VERSION.split('|')[0].strip())}</code>\n"
+        f"🔖 <b>Commit:</b> <code>{hesc(_GIT_COMMIT or 'unknown')}</code>\n"
+        f"🌐 <b>Mode:</b> {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}\n"
+        f"⏱️ <b>Uptime:</b> {_uptime_str()}{_mem}\n"
+        f"🧰 <b>Tools:</b> 📱 Number Info · 👪 Family Info\n"
+        f"🛡️ <b>Self-heal:</b> crashes={_CRASH_STATE['count']}\n"
+        f"{PCARD_MID}\n{BRAND_LINK}",
         parse_mode=HTML)
 
 
-# ---------------- TEXT HANDLER ----------------
-def kv_row(label, val):
-    """Khaali value ho to line skip — GST/PAN card ke liye."""
-    return f"• <b>{label}:</b> {hesc(str(val))}\n" if str(val or "").strip() else ""
-
-
-# ======================================================================
-#  v75.1/v75.2 — 📤 BULK MODE (EXCEL) — earning tool
-#  ------------------------------------------------------------------
-#  User apni list deta hai (paste ya .xlsx/.csv/.txt FILE) -> hum pahchante
-#  hain, confirm button dete hain, phir parallel engine se saara check karke
-#  Excel bhejte hain.
-#  File support zaroori tha: CA / bank agent / insurance agent ke paas list
-#  FILE me hoti hai — "paste karo" unke liye ajeeb lagta hai.
-# ======================================================================
-async def _bulk_offer(update: Update, context: ContextTypes.DEFAULT_TYPE,
-                      raw_text: str, source_name: str = "") -> None:
-    """List (paste ya file se) pahchano -> confirm card dikhao."""
-    uid = update.effective_user.id if update.effective_user else 0
-    _b_lim, _b_vip = BM.limits_for(uid)
-    _ents, _lines = BM.extract_entries(raw_text, limit=BM.VIP_LIMIT)
-    if not _ents:
+# ---------------- v99: /numapi — Number API status + live test (purana provider gaya) ----------------
+async def cmd_numapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/numapi — admin: number API status + live test (`/numapi 9876543210`)."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    card = mynum.status_card()
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    if not args:
         await update.message.reply_text(
-            "📤 <b>List khaali lagi.</b>\n"
-            "Ek-ek entry nayi line me bhejo — ya <b>.xlsx / .csv / .txt</b> file "
-            "bhej do (dono chalta hai).", parse_mode=HTML)
+            card + "\n\n🧪 <b>Live test chalao:</b> <code>/numapi 9876543210</code>",
+            parse_mode=HTML)
         return
-    _b_kind, _b_match, _b_samp = BM.detect_kind(_ents)
-    if not _b_kind:
-        await update.message.reply_text(
-            "❓ <b>List pahchan nahi paya.</b>\n"
-            "Ye 5 cheezein chalti hain:\n"
-            "• 🏦 IFSC code (SBIN0001234)\n"
-            "• 📮 Pincode (800001)\n"
-            "• 📱 Mobile number (9876543210)\n"
-            "• 🚗 Gaadi number (BR01AB1234)\n"
-            "• 🔍 Link (https://…)\n\n"
-            "Sahi format me dobara bhejo.", parse_mode=HTML)
+    test_no = args[0]
+    st = await update.message.reply_text(
+        f"🔎 Number API se <code>{hesc(test_no)}</code> test kar raha hoon… (30-40s lag sakta hai)",
+        parse_mode=HTML)
+    t0 = time.perf_counter()
+    res = await asyncio.to_thread(mynum.lookup, test_no)
+    ms = int((time.perf_counter() - t0) * 1000)
+    if res.get("ok"):
+        _ow = res.get("owner") or {}
+        await st.edit_text(
+            "✅ <b>API CHAL RAHI HAI!</b>\n"
+            "──────────────────────\n"
+            f"👤 <b>Name:</b> {hesc(str(_ow.get('name') or '—'))}\n"
+            f"🏢 <b>Operator:</b> {hesc(str(res.get('operator') or '—'))}\n"
+            f"📍 <b>Circle:</b> {hesc(str(res.get('circle') or '—'))}\n"
+            f"🆔 <b>Govt ID:</b> {hesc(str(_ow.get('govt_id') or '—'))}\n"
+            f"⚡ <b>Latency:</b> {ms}ms\n"
+            f"🗄️ <b>Cache:</b> {'Haan (6 ghante)' if res.get('cached') else 'Nahi (fresh)'}\n"
+            "──────────────────────\n"
+            "📱 Ab Number Info tool number API se <b>live data</b> dega. 🔥",
+            parse_mode=HTML)
         return
-    _b_good, _b_skip = BM.filter_valid(_b_kind, _ents)
-    if not _b_good:
-        await update.message.reply_text("❌ Koi sahi entry nahi mili — format check karo.",
-                                        parse_mode=HTML)
-        return
-    context.user_data["bulk_kind"] = _b_kind
-    context.user_data["bulk_entries"] = _b_good[:BM.VIP_LIMIT]
-    _cnt = min(len(_b_good), _b_lim)
-    _kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"✅ Chalu karo ({_cnt} entries)", callback_data="bulk_go")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="bulk_cancel")],
-    ])
-    _card = (BM.table_preview_text(_b_kind, len(_b_good), _b_match, _b_samp, _lines,
-                                   _b_vip, _b_lim, source_name=source_name)
-             if source_name else
-             BM.preview_text(_b_kind, len(_b_good), _b_match, _b_samp, _lines,
-                             _b_vip, _b_lim))
-    if _b_skip:
-        _card += f"\n⚠️ <i>{_b_skip} line skip hui (format match nahi)</i>"
-    if len(_b_good) > _b_lim:
-        _card += (f"\n⚠️ <i>{len(_b_good) - _b_lim} extra entries chhoot jayengi "
-                  f"(free limit {_b_lim})</i>")
-    await update.message.reply_text(_card, reply_markup=_kb, parse_mode=HTML)
+    await st.edit_text(
+        "❌ <b>API test fail</b>\n"
+        "──────────────────────\n"
+        f"📄 <b>Wajah:</b> {safe_html_err(str(res.get('error') or 'unknown')[:220])}\n"
+        "──────────────────────\n"
+        "<b>Ye 4 cheezein check karo:</b>\n"
+        "1️⃣ Number 10-digit sahi likha?\n"
+        "2️⃣ API slow hai — 30-40 second wait karo\n"
+        "3️⃣ Key dead? — Render me <code>MYNUM_API_KEY</code> check karo\n"
+        "4️⃣ <code>/numapi</code> se dobara test karo\n\n"
+        "📖 Poori guide: <code>NUMBER-INFO-API-SETUP.md</code>\n"
+        "ℹ️ <i>Tab tak Number Info offline mode se chal raha hai — band nahi hai.</i>",
+        parse_mode=HTML)
 
 
-async def on_bulk_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """v75.2: BULK MODE me user FILE bheje (.xlsx / .csv / .txt) -> wahi flow.
-
-    Ye handler group=-4 me chalta hai (cookies handler ke baad, baaki sabse
-    pehle). File handle ho gayi to `ApplicationHandlerStop` raise karte hain —
-    isse baaki handlers (media/downloader) use dobara nahi chhoote.
-    """
+async def cmd_famapi(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/famapi — admin: Family Info API status + live test."""
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
     try:
-        msg = update.effective_message
-        u = update.effective_user
-        if not msg or not msg.document or u is None:
+        card = faminfo.status_card()
+    except Exception:                                            # noqa: BLE001
+        card = "👪 <b>FAMILY INFO API</b>\n(status card uplabdh nahi)"
+    args = [a.strip() for a in (context.args or []) if a.strip()]
+    if not args:
+        await update.message.reply_text(
+            card + "\n\n🧪 <b>Live test:</b> <code>/famapi 401635555849</code>",
+            parse_mode=HTML)
+        return
+    st = await update.message.reply_text("🔎 Family API test kar raha hoon…",
+                                         parse_mode=HTML)
+    t0 = time.perf_counter()
+    res = await asyncio.to_thread(faminfo.lookup, args[0])
+    ms = int((time.perf_counter() - t0) * 1000)
+    if res.get("ok"):
+        await st.edit_text(f"✅ <b>FAMILY API CHAL RAHI HAI</b> ({ms}ms)\n"
+                           f"{PCARD_MID}\n"
+                           f"🪪 Card: <code>{hesc(str(res.get('card_number') or '—'))}</code>\n"
+                           f"👥 Members: {hesc(str(res.get('family_count') or '—'))}",
+                           parse_mode=HTML)
+        return
+    await st.edit_text(f"❌ <b>Family API fail</b> ({ms}ms)\n{PCARD_MID}\n"
+                       f"<code>{hesc(str(res.get('error') or 'unknown')[:200])}</code>",
+                       parse_mode=HTML)
+
+
+# ======================================================================
+#  v60 — 🛡️ PREMIUM VAULT COMMANDS (admin/owner)
+#  Ye wahi 4 command hain jo aapko bharosa dilayenge ki premium safe hai.
+# ======================================================================
+async def cmd_vault(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/vault — premium vault ki poori health report."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        # normal user ko bas itna — andar ki baat nahi
+        await safe_reply(update.effective_message,
+                         "🛡️ Aapka data 24x7 safe rakha jata hai.\n"
+                         "Koi bhi cheez share karne ki zaroorat nahi hai.", parse_mode=HTML)
+        return
+    try:
+        card = vault.status_card()
+    except Exception as e:                                       # noqa: BLE001
+        card = f"⚠️ Vault report banane me dikkat: {safe_html_err(str(e)[:120])}"
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📦 Abhi backup banao", callback_data="vault_backup")],
+        [InlineKeyboardButton("♻️ Backup se restore karo", callback_data="vault_restore")],
+        [InlineKeyboardButton("👑 VIP users list (file)", callback_data="vault_vips")],
+        [InlineKeyboardButton("🏠 Home", callback_data="back_home")],
+    ])
+    await safe_reply(update.effective_message, card, reply_markup=kb, parse_mode=HTML)
+
+
+async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/backup — turant backup (admin)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    msg = await safe_reply(update.effective_message,
+                           "📦 <b>Backup ban raha hai…</b>\n<i>Bas thodi der — file taiyaar ho rahi hai.</i>",
+                           parse_mode=HTML)
+    try:
+        res = await vault.backup_now(reason=f"manual:{uid}", also_telegram=False)
+    except Exception as e:                                       # noqa: BLE001
+        res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
+    ok = res.get("ok")
+    txt = (f"{'✅' if ok else '⚠️'} <b>BACKUP {'OK' if ok else 'NAHI HUA'}</b>\n"
+           "──────────────────────\n"
+           f"📦 Size: {res.get('bytes', 0)/1024:.1f} KB\n"
+           f"🐙 GitHub: <code>{hesc(str(res.get('github') or '-'))[:80]}</code>\n"
+           f"👑 VIP count: {res.get('premium', {}).get('total_premium', '?')}\n")
+    if not ok:
+        txt += f"\n📄 <b>Wajah:</b> {safe_html_err(str(res.get('why') or 'unknown')[:200])}"
+    if msg and getattr(msg, "msg", None):
+        try:
+            await safe_answer_cb(update.callback_query, "Backup ho gaya" if ok else "Backup fail")
+            from modules.core.safesend import safe_edit
+            await safe_edit(msg.msg, txt, parse_mode=HTML)
             return
-        if str(context.user_data.get("mode") or "") != "bulk_wait":
-            return                                  # bulk mode me nahi hai -> aage jao
-        doc = msg.document
-        _name = (doc.file_name or "").lower()
-        if not _name.endswith((".xlsx", ".xlsm", ".csv", ".txt", ".tsv")):
-            raise ApplicationHandlerStop            # koi aur file -> normal handler
-        if (doc.file_size or 0) > 8 * 1024 * 1024:
-            await msg.reply_text("❌ File bahut badi hai (8 MB se kam bhejo).",
-                                 parse_mode=HTML)
-            raise ApplicationHandlerStop
-        _wait = await msg.reply_text("📥 <b>File padh raha hoon…</b>", parse_mode=HTML)
-        try:
-            _f = await context.bot.get_file(doc.file_id)
-            _blob = bytes(await _f.download_as_bytearray())
-            _txt = await asyncio.to_thread(BM.read_table_bytes, doc.file_name or "", _blob)
-        except Exception as _fe:                                 # noqa: BLE001
-            log.warning("bulk file read fail: %s", str(_fe)[:140])
-            _txt = ""
-        if not _txt.strip():
-            await _wait.edit_text(
-                "❌ <b>File padhi nahi gayi.</b>\n"
-                "Excel (.xlsx) ya CSV (.csv) bhejo — ya list seedha chat me paste kar do.",
-                parse_mode=HTML)
-            raise ApplicationHandlerStop
-        try:
-            await safe_delete(_wait)
         except Exception:                                        # noqa: BLE001
             pass
-        await _bulk_offer(update, context, _txt, source_name=doc.file_name or "file")
-        # ⚠️ ZAROORI: yahin rok do. Warna wahi Excel file group-0 ke media
-        # handler ko bhi mil jaati hai (downloader "unknown file" reply kar deta)
-        # — user ko do jawab aate aur confusion hota.
-        raise ApplicationHandlerStop
-    except ApplicationHandlerStop:
-        raise
-    except Exception as _be:                                     # noqa: BLE001
-        log.warning("on_bulk_file skip: %s", str(_be)[:140])
-        raise ApplicationHandlerStop
+    await safe_reply(update.effective_message, txt, parse_mode=HTML)
 
 
+async def cmd_restore(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """/restore — sabse accha backup merge karo (premium-floor protected)."""
+    uid = update.effective_user.id
+    if not is_admin(uid):
+        return
+    msg = await safe_reply(update.effective_message,
+                           "♻️ <b>Backup check kar raha hoon…</b>\n"
+                           "<i>VIP users ki ginti se pehle aur baad me milaan hoga.</i>",
+                           parse_mode=HTML)
+    try:
+        loop = asyncio.get_running_loop()
+        res = await loop.run_in_executor(None, functools_partial(vault.restore_now, "manual"))
+    except Exception as e:                                       # noqa: BLE001
+        res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
+    ok = res.get("ok")
+    b = res.get("premium_before", {})
+    a = res.get("premium_after", {})
+    txt = [f"{'✅' if ok else '⚠️'} <b>RESTORE {'OK' if ok else 'NAHI HUA'}</b>",
+           "──────────────────────",
+           f"👑 <b>VIP pehle:</b> {b.get('total_premium', '?')}",
+           f"👑 <b>VIP ab:</b> {a.get('total_premium', '?')}"]
+    if res.get("source"):
+        txt.append(f"📥 <b>Source:</b> <code>{hesc(str(res['source'])[:70])}</code>")
+    if res.get("safety_copy"):
+        txt.append(f"🛟 <b>Safety copy:</b> <code>{hesc(str(res['safety_copy'])[:60])}</code>")
+    if res.get("blocked"):
+        txt.append(f"\n🛑 <b>{len(res['blocked'])} backup BLOCK kiya gaya</b> "
+                   "(VIP ghatt raha tha — aapka data bacha liya)")
+    if not ok and res.get("why"):
+        txt.append(f"\n📄 <b>Wajah:</b> {safe_html_err(str(res['why'])[:200])}")
+    rep = res.get("report", {}).get("users", {})
+    if rep:
+        txt.append(f"\n📊 Users: {rep.get('total', '?')} (naye {rep.get('only_remote', 0)}, "
+                   f"premium upgraded {rep.get('premium_upgraded', 0)})")
+    await safe_reply(update.effective_message, "\n".join(txt), parse_mode=HTML)
+
+
+async def cmd_ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("Format: <code>/ban [userid]</code>", parse_mode=HTML)
+        return
+    try:
+        target_uid = int(context.args[0])
+        set_ban(target_uid, 1)
+        await update.message.reply_text(f"🚫 User <code>{target_uid}</code> has been banned.", parse_mode=HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+
+async def cmd_unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    if not context.args:
+        await update.message.reply_text("Format: <code>/unban [userid]</code>", parse_mode=HTML)
+        return
+    try:
+        target_uid = int(context.args[0])
+        set_ban(target_uid, 0)
+        await update.message.reply_text(f"✅ User <code>{target_uid}</code> has been unbanned.", parse_mode=HTML)
+    except Exception as e:
+        await update.message.reply_text(f"❌ Error: {e}")
+
+
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        return
+    msg_text = " ".join(context.args) if context.args else ""
+    if not msg_text:
+        await update.message.reply_text("Format: <code>/broadcast [message]</code>", parse_mode=HTML)
+        return
+    uids = all_user_ids()
+    success, failed = 0, 0
+    st = await update.message.reply_text(f"📢 Broadcasting to {len(uids)} users...")
+    for u in uids:
+        try:
+            await context.bot.send_message(u, msg_text, parse_mode=HTML)
+            success += 1
+        except Exception:
+            # v50: message me `<` jaisa character ho to HTML parse fail hota tha —
+            # ab plain text me dobara bhejo (user ko message zaroor mile)
+            try:
+                await context.bot.send_message(u, msg_text)
+                success += 1
+            except Exception:
+                failed += 1
+        await asyncio.sleep(0.04)
+    await st.edit_text(f"📢 <b>Broadcast Complete!</b>\n\n• ✅ Success: {success}\n• ❌ Failed: {failed}", parse_mode=HTML)
+
+
+def _telemetry_block(max_rows: int = 8) -> str:
+    """v53.0: per-tool health + upstream status (admin /sys card ke liye).
+
+    Fail-safe: telemetry me kuch bhi gadbad ho to system card phir bhi banta hai.
+    """
+    try:
+        snap = tel_snapshot()
+    except Exception:  # noqa: BLE001
+        return ""
+    if not snap.get("calls") and not snap.get("upstreams"):
+        return ("📡 <b>Tool telemetry:</b> abhi koi tool call record nahi hua\n"
+                "   <i>(bot start ke baad se koi tool use nahi hua)</i>\n")
+    L = []
+    L.append(f"📡 <b>Tool telemetry (v53.0):</b>")
+    L.append(f"   🔢 calls: <b>{snap['calls']:,}</b>   "
+             f"✅ {snap['ok']:,}   ❌ {snap['hard_fail']:,}   "
+             f"⚠️ service-side {snap['soft_fail']:,}")
+    L.append(f"   📈 success rate: <b>{snap['success_rate']}%</b>   "
+             f"💳 credits charged: <b>{snap['credits_charged']:,}</b>")
+    ups = snap.get("upstreams") or {}
+    if ups:
+        dead = snap.get("dead_upstreams") or []
+        L.append("   🔌 <b>Upstream APIs:</b>")
+        for name, u in sorted(ups.items(), key=lambda kv: (kv[1]["alive"] is not False, kv[0])):
+            mark = "🟢" if u["alive"] is True else ("🔴" if u["alive"] is False else "⚪")
+            age = f" · {u['age_sec']}s pehle" if u.get("age_sec") is not None else ""
+            L.append(f"      {mark} {name}: {u['ok']} ok / {u['fail']} fail{age}")
+            if u["alive"] is False and u["last_error"]:
+                L.append(f"         ↳ <code>{str(u['last_error'])[:64]}</code>")
+        if dead:
+            L.append(f"   ⚠️ <b>BAND services:</b> {', '.join(dead)}")
+            L.append("      → inke tools par credit NAHI katna chahiye")
+    try:
+        worst = tel_worst_tools(max_rows)
+    except Exception:  # noqa: BLE001
+        worst = []
+    worst = [w for w in worst if w.get("calls")]
+    if worst:
+        L.append("   🩺 <b>Sabse zyada fail:</b>")
+        for r in worst:
+            L.append(f"      • {r['name']}: {r['fail']}/{r['calls']} fail "
+                     f"({r['success_rate']}% ok, avg {r['avg_ms']}ms, p95 {r['p95_ms']}ms)")
+    return "\n".join(L) + "\n"
+
+
+def _vault_admin_block() -> str:
+    """Admin /sys card me vault (data-safety) ki chhoti report."""
+    try:
+        lb = vault.last_backup or {}
+        _st = vault.stats or {}
+        L = ["🛡️ <b>Premium Vault:</b> " + ("🟢 ON" if vault.enabled() else "🔴 OFF")]
+        L.append(f"   ☁️ GitHub: {'🟢 ready' if vault.gh_ready() else '⚪ off'}"
+                 f"   ·   ✈️ Telegram: {'🟢 ready' if vault.telegram_ready() else '⚪ off'}")
+        L.append(f"   🕒 last backup: {hesc(str(lb.get('at') or 'abhi nahi'))}"
+                 f"   ·   📦 {_st.get('backups', 0)} ok / {_st.get('failures', 0)} fail")
+        try:
+            _vk = vault.key_source()
+            if _vk != "env":
+                L.append("   ⚠️ <b>VAULT_KEY set karo</b> — BotFather se token badla "
+                         "to purane backup padhe nahi ja payenge")
+        except Exception:                                        # noqa: BLE001
+            pass
+        return "\n".join(L) + "\n"
+    except Exception as e:                                       # noqa: BLE001
+        return f"🛡️ <b>Vault:</b> status nahi mila ({type(e).__name__})\n"
+
+
+def system_stats_text() -> str:
+    """Admin ka /sys card (v108 — chhota aur saaf)."""
+    s = stats() or {}
+    try:
+        _m = f"{_mem_mb():.0f} MB / 512 MB"
+    except Exception:                                            # noqa: BLE001
+        _m = "n/a"
+    L = [
+        f"🛠️ <b>{to_bold('SYSTEM STATUS')}</b>",
+        PCARD_MID,
+        f"👥 <b>Users:</b> {s.get('users', 0):,}   ·   🚀 <b>Uses:</b> {s.get('uses', 0):,}",
+        f"⏱️ <b>Uptime:</b> {_uptime_str()}",
+        f"🧠 <b>RAM:</b> {_m}",
+        f"🌐 <b>Mode:</b> {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}"
+        f"   ·   🔖 <code>{hesc(_GIT_COMMIT or '?')}</code>",
+        f"🛡️ <b>Self-heal:</b> crashes={_CRASH_STATE['count']}",
+        f"🧰 <b>Tools:</b> 📱 Number Info · 👪 Family Info",
+        PCARD_MID,
+    ]
+    try:
+        L.append(_vault_admin_block())
+    except Exception:                                            # noqa: BLE001
+        pass
+    try:
+        L.append(_telemetry_block())
+    except Exception:                                            # noqa: BLE001
+        pass
+    try:
+        L.append(_janitor_block())
+    except Exception:                                            # noqa: BLE001
+        pass
+    L.append(BRAND_LINK)
+    return "\n".join([x for x in L if x])
+
+
+async def admin_panel_send(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔄 Refresh", callback_data="adm_sys")],
+        [InlineKeyboardButton("🛡️ Backup abhi", callback_data="adm_backup")],
+    ])
+    target = update.callback_query.message if update.callback_query else update.message
+    await target.reply_text(system_stats_text(), reply_markup=kb, parse_mode=HTML)
+
+
+async def cmd_sys(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_admin(update.effective_user.id):
+        await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+        return
+    await admin_panel_send(update, context)
+
+
+async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await cmd_sys(update, context)
+
+
+# =====================================================================
+#  📥 TEXT HANDLER — yahi dono tools chalate hain
+# =====================================================================
 async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     uid = user.id
@@ -7166,1640 +1489,66 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     norm_text = unbold(raw_text).strip().upper()
     clean_key = re.sub(r"^[^\w\s]+\s*", "", norm_text).strip()
 
-    # ---------- v49.4: VIP-ONLY GATE ----------
-    # Payment proof (pay_*) aur admin flows sabke liye khule rehte hain.
-    _mode_now = str(context.user_data.get("mode") or "")
-    # v59.7: madad/support sabke liye khula (VIP ho ya na ho — help chahiye to mile)
-    # v79: ❓ HELP / TUTORIAL tool hataya gaya — sirf SUPPORT/MADAD hi rehta hai
-    # (pehle is branch me tutorial card bhi jaata tha).
-    if norm_text in ("💬 SUPPORT / MADAD", "SUPPORT / MADAD", "MADAD"):
-        _txt, _kb = support_card()
-        await update.message.reply_text(_txt, reply_markup=_kb, parse_mode=HTML)
-        return
-    if PREMIUM_ONLY and not vip_ok(uid) and not _mode_now.startswith(("pay_", "adm_")):
-        context.user_data.pop("mode", None)
-        await send_vip_wall(update, context)
-        return
-
-    # Match Action
     action = BTN_MODE_MAP.get(clean_key) or BTN_MODE_MAP.get(norm_text)
 
-    # ---------- v49: purane keyboard ke hata diye gaye buttons ----------
-    # Jo users purane menu par hata diye gaye hue tools daba rahe hain —
-    # unko saaf message + naya keyboard mil jaye.
-    _removed_keys = {
-        "CLIP MAKER", "CLIPS MAKER", "VIDEO CLIP MAKER", "CLIPMAKER",
-        "LINK BYPASS", "LINKBYPASS", "BYPASS",
-        # v51: permanently delete hue tools
-        "ID & USERNAME FINDER", "ID FINDER", "USERNAME FINDER",
-        "PRIVATE CHANNEL SETUP",
-        "IMAGE→PDF", "IMAGE TO PDF", "IMAGE - PDF", "IMAGE TO PDF ",
-        "SITE SCREENSHOT", "SITE SCREENSHOT (HD)", "SITE SCREENSHOT (FULL PAGE)", "SCREENSHOT",
-        
-         "INTEREST", "VYAAJ CALC",
-        # v51.1: weather tool permanently removed
-        "WEATHER", "MAUSAM", "WEATHER / MAUSAM", "WEATHER / MAUSAM ",
-        # v52.1: GOVT SERVICES (v52.0) user order par hataya
-        "GOVT SERVICES", "GOVT", "GOVERNMENT", "GOVT SERVICE",
-        # v54.0: VEHICLE / RTO INFO + CHALLAN — live RC/challan ke liye licensed
-        # provider key chahiye jo available nahi hai (hub 410 "disabled" deta hai,
-        # govt portals timeout/CAPTCHA). User order par tool hamesha ke liye hataya.
-        "RTO VEHICLE INFO", "VEHICLE INFO + CHALLAN", "VEHICLE INFO",
-        "VEHICLE / RTO INFO", "VEHICLE", "RTO", "CHALLAN",
-        # v56.0: user order par 4 tools PERMANENTLY delete —
-        # (1) 🌐 DOMAIN OSINT / IP  (2) 📄 WEB SCRAPER
-        # (3) 🪪 AADHAAR EID       (4) 📡 TG PUBLIC INFO
-        "DOMAIN OSINT / IP", "DOMAIN OSINT", "OSINT", "DOMAIN INFO",
-        "IP INFO", "IP / DOMAIN INFO", "IP", "DOMAIN",
-        "WEB SCRAPER", "WEBSCRAPER", "SCRAPER", "WEB SCRAPE",
-        "AADHAAR EID", "AADHAAR STATUS", "AADHAAR", "AADHAR", "EID",
-        "TG PUBLIC INFO", "TG INFO", "TELEGRAM INFO", "TG PUBLIC",
-    }
-    if not action and clean_key in _removed_keys:
-        _why = {
-            "CLIP MAKER": "🎬 Clip Maker",
-            "CLIPS MAKER": "🎬 Clip Maker",
-            "VIDEO CLIP MAKER": "🎬 Clip Maker",
-            "CLIPMAKER": "🎬 Clip Maker",
-            "LINK BYPASS": "🔓 Link Bypass",
-            "LINKBYPASS": "🔓 Link Bypass",
-            "BYPASS": "🔓 Link Bypass",
-            "ID & USERNAME FINDER": "🆔 ID & Username Finder",
-            "ID FINDER": "🆔 ID Finder",
-            "USERNAME FINDER": "🆔 ID & Username Finder",
-            "PRIVATE CHANNEL SETUP": "🔒 Private Channel Setup",
-            "IMAGE→PDF": "🖼️ Image→PDF",
-            "IMAGE TO PDF": "🖼️ Image→PDF",
-            "IMAGE - PDF": "🖼️ Image→PDF",
-            "SITE SCREENSHOT": "🖼️ Site Screenshot",
-            "SITE SCREENSHOT (HD)": "🖼️ Site Screenshot",
-            "SITE SCREENSHOT (FULL PAGE)": "🖼️ Site Screenshot",
-            "SCREENSHOT": "🖼️ Site Screenshot",
-            "EMI / INTEREST CALC": "🧮 EMI / Interest Calc",
-            "EMI CALC": "🧮 EMI / Interest Calc",
-            "EMI CALCULATOR": "🧮 EMI / Interest Calc",
-            "EMI / VYAAJ CALC": "🧮 EMI / Interest Calc",
-                "WEATHER": "🌦️ Weather / Mausam",
-            "MAUSAM": "🌦️ Weather / Mausam",
-            "WEATHER / MAUSAM": "🌦️ Weather / Mausam",
-            "WEATHER / MAUSAM ": "🌦️ Weather / Mausam",
-            "GOVT SERVICES": "🏛️ Govt Services",
-            "GOVT": "🏛️ Govt Services",
-            "GOVERNMENT": "🏛️ Govt Services",
-            "GOVT SERVICE": "🏛️ Govt Services",
-            "RTO VEHICLE INFO": "🚗 Vehicle / RTO Info",
-            "VEHICLE INFO + CHALLAN": "🚗 Vehicle / RTO Info",
-            "VEHICLE INFO": "🚗 Vehicle / RTO Info",
-            "VEHICLE / RTO INFO": "🚗 Vehicle / RTO Info",
-            "VEHICLE": "🚗 Vehicle / RTO Info",
-            "RTO": "🚗 Vehicle / RTO Info",
-            "CHALLAN": "🚗 Vehicle / RTO Info",
-            # ---- v56.0: 5 tools permanently deleted (short label) ----
-            "DOMAIN OSINT / IP": "🌐 Domain OSINT / IP", "DOMAIN OSINT": "🌐 Domain OSINT",
-            "OSINT": "🌐 OSINT", "DOMAIN INFO": "🌐 Domain Info",
-            "IP INFO": "🌐 IP Info", "IP / DOMAIN INFO": "🌐 IP / Domain Info",
-            "IP": "🌐 IP Info", "DOMAIN": "🌐 Domain Info",
-            "WEB SCRAPER": "📄 Web Scraper", "WEBSCRAPER": "📄 Web Scraper",
-            "SCRAPER": "📄 Web Scraper", "WEB SCRAPE": "📄 Web Scraper",
-            "AADHAAR EID": "🪪 Aadhaar EID", "AADHAAR STATUS": "🪪 Aadhaar EID",
-            "AADHAAR": "🪪 Aadhaar EID", "AADHAR": "🪪 Aadhaar EID",
-            "EID": "🪪 Aadhaar EID",
-            "TG PUBLIC INFO": "📡 TG Public Info", "TG INFO": "📡 TG Public Info",
-            "TELEGRAM INFO": "📡 TG Public Info", "TG PUBLIC": "📡 TG Public Info",
-        }.get(clean_key, "Ye tool")
-        _alt = {
-            "CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
-            "CLIPS MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
-            "VIDEO CLIP MAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
-            "CLIPMAKER": "🎬 Clip Maker ki jagah → 📥 <b>Video Downloader</b> / ⚡ <b>Terabox DL</b>",
-            "LINK BYPASS": "🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>",
-            "LINKBYPASS": "🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>",
-            "BYPASS": "🔓 Link Bypass ki jagah → 🔍 <b>Link Check</b> / 📥 <b>Video Downloader</b>",
-            "ID & USERNAME FINDER": "🆔 ID Finder ki jagah → 📱 <b>Number Info</b> (legal operator/circle info)",
-            "ID FINDER": "🆔 ID Finder ki jagah → 📱 <b>Number Info</b> (legal operator/circle info)",
-            "USERNAME FINDER": "🆔 ID Finder ki jagah → 📱 <b>Number Info</b> (legal operator/circle info)",
-            "PRIVATE CHANNEL SETUP": "🔒 Private Channel Setup ki jagah → 🔄 <b>Channel Cloner</b>",
-            "IMAGE→PDF": "🖼️ Image→PDF ki jagah → 📄 <b>Document PDF</b>",
-            "IMAGE TO PDF": "🖼️ Image→PDF ki jagah → 📄 <b>Document PDF</b>",
-            "IMAGE - PDF": "🖼️ Image→PDF ki jagah → 📄 <b>Document PDF</b>",
-            "SITE SCREENSHOT": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
-            "SITE SCREENSHOT (HD)": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
-            "SITE SCREENSHOT (FULL PAGE)": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
-            "SCREENSHOT": "🖼️ Site Screenshot ki jagah → 🔍 <b>Link Check</b> / 🌐 <b>IP / Domain Info</b>",
-            "EMI / INTEREST CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "EMI CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "EMI CALCULATOR": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-            "EMI / VYAAJ CALC": "🧮 EMI Calc ki jagah → 📊 aap 🏦 <b>Bank PDF→Excel</b> se khud ka sheet bana sakte ho",
-                "WEATHER": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
-            "MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
-            "WEATHER / MAUSAM": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
-            "WEATHER / MAUSAM ": "🌦️ Weather abhi bot me nahi hai — aap 🌐 <b>IP / Domain Info</b> ya 📱 <b>Number Info</b> use kar sakte ho",
-            "GOVT SERVICES": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
-            "GOVT": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
-            "GOVERNMENT": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
-            "GOVT SERVICE": "🏛️ Govt Services abhi bot me nahi hai — aap 🏦 <b>IFSC / PINCODE / Bank Statement</b> wale tools use kar sakte ho",
-            "RTO VEHICLE INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            "VEHICLE INFO + CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            "VEHICLE INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            "VEHICLE / RTO INFO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            "VEHICLE": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            "RTO": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            "CHALLAN": "🚗 Vehicle/Challan info ke liye <b>official</b> source use karo: <b>VAHAN</b> (RC) vahan.parivahan.gov.in aur <b>eChallan</b> echallan.parivahan.gov.in — bot me ye tool ab nahi hai",
-            # ---------------- v56.0: 5 tools permanently deleted ----------------
-            # (ye "kya use karo" suggestion line hai — label _why me hai)
-            "DOMAIN OSINT / IP": "🌐 Domain OSINT / IP ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "DOMAIN OSINT": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "OSINT": "🌐 OSINT tools ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "DOMAIN INFO": "🌐 Domain info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "IP INFO": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "IP / DOMAIN INFO": "🌐 IP / Domain info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "IP": "🌐 IP info ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "DOMAIN": "🌐 Domain OSINT ki jagah → 📮 <b>Pincode Info</b> / 🏦 <b>IFSC Info</b> use karo",
-            "WEB SCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo, ya ⚡ <b>Media Studio</b> use karo",
-            "WEBSCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
-            "SCRAPER": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
-            "WEB SCRAPE": "📄 Web Scraper ki jagah → browser me <b>Ctrl+A → Copy</b> karke text le lo",
-            "AADHAAR EID": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
-            "AADHAAR STATUS": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
-            "AADHAAR": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
-            "AADHAR": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
-            "EID": "🪪 Aadhaar status khud check karo (official) → <b>resident.uidai.gov.in</b> ya <b>51969</b> par SMS",
-            "TG PUBLIC INFO": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo, naam ke neeche <b>subscribers</b> likha hota hai",
-            "TG INFO": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo, naam ke neeche <b>subscribers</b>",
-            "TELEGRAM INFO": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo",
-            "TG PUBLIC": "📡 Channel ki member count Telegram app me hi dikhti hai — channel kholo",
-        }.get(clean_key, "Neeche naya menu check karo")
+    # ---------- v108: delete ho chuke tool ka purana button ----------
+    if not action:
+        _gone = _REMOVED_TOOLS.get(clean_key) or _REMOVED_TOOLS.get(norm_text)
+        if _gone:
+            context.user_data.pop("mode", None)
+            await update.message.reply_text(removed_tool_text(_gone),
+                                            reply_markup=kb_for(uid),
+                                            parse_mode=HTML)
+            return
+
+    # ---------- admin panel ----------
+    if action == "admin_panel":
+        if not is_admin(uid):
+            await update.message.reply_text("🚫 Sirf admin ke liye.", parse_mode=HTML)
+            return
+        context.user_data.pop("mode", None)
+        await admin_panel_send(update, context)
+        return
+
+    # ---------- tool ka button daba → prompt dikhao ----------
+    if action in PROMPTS:
+        context.user_data["mode"] = action
+        await update.message.reply_text(tool_prompt(action), parse_mode=HTML)
+        return
+
+    mode = str(context.user_data.get("mode") or "")
+
+    # ---------- v108: bina button ke bhi seedha kaam kare ----------
+    # 10 digit = number info, 12 digit = family info (user ka time bache)
+    if not mode:
+        _d = re.sub(r"\D", "", raw_text)
+        if len(_d) == 10 and _d[0] in "6789":
+            mode = "numinfo"
+        elif len(_d) == 12:
+            mode = "familyinfo"
+
+    if not mode:
         await update.message.reply_text(
-            f"ℹ️ <b>{_why} hata diya gaya hai.</b>\n"
-            "──────────────────────\n"
-            f"• {_alt}\n\n"
-            "👇 Naya menu neeche hai:",
+            "👇 <b>Pehle neeche se tool chuno:</b>\n\n"
+            "   📱 <b>NUMBER INFO</b> — 10 digit mobile number\n"
+            "   👪 <b>FAMILY INFO</b> — 12 digit Aadhaar number\n\n"
+            "<i>Ya seedha number bhej do — bot khud pehchan lega.</i>",
             reply_markup=kb_for(uid), parse_mode=HTML)
         return
 
-    if action:
-        # 1. Virtual Numbers Funnel (v51: premium — 1 credit per use)
-        if action == "vnum":
-            _u_v = get_user(uid, user.first_name)
-            if not can_use_premium_tool(_u_v, uid):
-                await update.message.reply_text(get_credits_over_text("vnum"),
-                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                return
-            # v58: credits line hatayi (VIP par khaali aati thi)
-            await send_vnum_card(update, context)
-            return
-
-        # 1b. v71.9: 📞 TEMP MAIL (NUMBER) — 100% FREE, koi credit nahi.
-        #     Ye alag tool hai (Virtual Numbers se bilkul alag).
-        if action == "tnum":
-            await send_tnum_card(update, context)
-            return
-
-        # 3. Channel Cloner Dashboard (premium — 1 credit per FULL AUTO / Fast-Forward)
-        if action == "cloner":
-            _cfg = get_cloner_config(uid)
-            _u_cl = get_user(uid, user.first_name)
-            _auto = "🟢 CHALU" if _cfg.get("auto_status") == "on" else "🔴 BAND"
-            _cl_note = ""
-            if not can_use_premium_tool(_u_cl, uid):
-                _cl_note = ("\n⚠️ <b>Credits khatam</b> — FULL AUTO CHALU aur Fast-Forward band hain.\n"
-                            "👑 VIP me dono unlimited chalte hain (/premium).\n")
-            await update.message.reply_text(
-                f"🔄 <b>{to_bold('CHANNEL CLONER & AUTO-FORWARDER')}</b>\n"
-                "──────────────────────\n"
-                f"📡 Source: <code>{_cfg.get('source_chat_id') or 'Set nahi'}</code>\n"
-                f"📑 Target: <code>{_cfg.get('target_chat_id') or 'Set nahi'}</code>\n"
-                f"🤖 FULL AUTO: <b>{_auto}</b>\n"
-                "<i>(FULL AUTO CHALU aur Fast-Forward CHALU — dono 1-1 credit lete hain)</i>\n"
-                f"{_cl_note}\n"
-                "Apne posts ke liye settings badlo 👇",
-                reply_markup=get_cloner_settings_kb(uid),
-                parse_mode=HTML,
-            )
-            return
-
-        # 3a-bulk. v75.1: 📤 BULK MODE (EXCEL) — earning tool
-        if action == "bulk":
-            context.user_data["mode"] = "bulk_wait"
-            context.user_data["_pro_tool"] = "Bulk Mode"
-            context.user_data["_pro_mode"] = "bulk"
-            _bd, _ = BM.limits_for(uid)
-            await update.message.reply_text(BM.bulk_intro_text(vip=_bd >= BM.VIP_LIMIT),
-                                            parse_mode=HTML)
-            return
-
-        # 3b. v38: SARKARI KAGAZ SUITE (menu)
-
-        # 3c. v38: MEDIA STUDIO (menu)
-        if action == "mediastudio":
-            context.user_data["mode"] = "media_menu"
-            await update.message.reply_text(MEDIA_MENU_TEXT, reply_markup=media_menu_kb(), parse_mode=HTML)
-            return
-
-        # 3d. v60.4: 💼 BUSINESS STUDIO (10 earning tools)
-        if action == "bizstudio":
-            context.user_data["mode"] = "biz_menu"
-            await update.message.reply_text(BIZ_MENU_TEXT, reply_markup=biz_menu_kb(),
-                                            parse_mode=HTML)
-            return
-        if action and action.startswith("biz_"):
-            _u_b = get_user(uid, user.first_name)
-            if not can_use_premium_tool(_u_b, uid):
-                await update.message.reply_text(get_credits_over_text(action),
-                                                reply_markup=get_limit_exceeded_kb(),
-                                                parse_mode=HTML)
-                return
-            context.user_data["mode"] = action
-            context.user_data.pop("biz_wait", None)
-            _bk = _biz_kind(action.replace("biz_", ""))
-            await update.message.reply_text(
-                tool_prompt(_bk or action) or f"✍️ <b>{hesc(BIZ_MENU.get(action, ('', action, ''))[1])}</b>",
-                # v79: 🎬 Tutorial button hataya (tutorial videos bot se delete)
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("🏠 Home", callback_data="back_home")]]),
-                parse_mode=HTML)
-            return
-
-        # 4. Sarkari Portals (v51: premium — 1 credit per use)
-
-        # 6b. QR Code (4 types) (v51: premium — 1 credit per QR)
-        if action == "qr":
-            _u_qr = get_user(uid, user.first_name)
-            if not can_use_premium_tool(_u_qr, uid):
-                await update.message.reply_text(get_credits_over_text("qr"),
-                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                return
-            kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔗 QR of Link / Text", callback_data="qr_text")],
-                [InlineKeyboardButton("📶 WiFi Share QR", callback_data="qr_wifi")],
-                [InlineKeyboardButton("👤 Contact Card QR", callback_data="qr_vcard")],
-                [InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-            ])
-            await update.message.reply_text(
-                f"📷 <b>{to_bold('QR CODE GENERATOR')}</b> — 4 useful QR types\n"
-                "──────────────────────\n"
-                "🔗 <b>Link/Text</b> — website, YouTube, any text\n"
-                "📶 <b>WiFi</b> — guests scan and connect, no password to tell\n"
-                "👤 <b>Contact Card</b> — scan and the contact saves",
-                reply_markup=kb, parse_mode=HTML)
-            return
-
-        if action == "dl_gone":            # v66.1: purane "VIDEO DOWNLOADER" label
-            context.user_data.pop("mode", None)
-            await update.message.reply_text(
-                "❌ <b>\"VIDEO DOWNLOADER\" tool HATA diya gaya hai</b>\n"
-                "──────────────────────\n"
-                "Ab <b>har app ka apna ALAG tool</b> hai — jaise NUMBER INFO, "
-                "IMEI, CHANNEL CLONER alag-alag hain:\n\n"
-                + dl_tools_text()
-                + "\n\n👉 Keyboard par <b>neeche</b> wo 4 buttons dikhte hain — "
-                "apna app dabao aur link bhejo.\n"
-                "✅ HD video, bina watermark, 15 second ke andar.",
-                reply_markup=main_keyboard(is_admin(update.effective_user.id)),
-                parse_mode=HTML)
-            return
-
-        if action == "dlmenu":            # purane keyboard ka picker button
-            context.user_data.pop("mode", None)
-            await update.message.reply_text(
-                "🎯 <b>Ab har app ka apna ALAG tool hai</b>\n"
-                "──────────────────────\n"
-                + dl_tools_text()
-                + "\n\n👉 Keyboard par <b>neeche</b> wale buttons dabao — "
-                "📸 INSTA DL, ▶️ YOUTUBE DL, 🎵 TIKTOK DL …",
-                parse_mode=HTML)
-            return
-
-
-        # 9. VIP Premium, Refer & Account
-        if action == "premium":
-            await cmd_premium(update, context)
-            return
-        if action == "refer":
-            await cmd_refer(update, context)
-            return
-        if action == "account":
-            await cmd_account(update, context)
-            return
-        if action == "admin":
-            if not is_admin(uid):
-                await update.message.reply_text("⛔ Admins only.", parse_mode=HTML)
-                return
-            await admin_panel_send(update.message, context, uid)
-            return
-        if action == "owner":
-            if not is_admin(uid):
-                await update.message.reply_text("⛔ Owner only.", parse_mode=HTML)
-                return
-            await update.message.reply_text(
-                f"👑 <b>{to_bold('OWNER MODE')}</b>\n"
-                "──────────────────────\n"
-
-                "You are the owner of this bot — everything is unlimited ✅\n"
-                "• No daily limit\n"
-                "• No VIP payment\n"
-                "• All tools are open\n"
-                "──────────────────────\n"
-                "🛠️ <b>Owner tasks:</b>\n"
-                "• Verify payments → <b>/payments</b>\n"
-                "• Give / remove VIP → <b>/grant [user_id] [days]</b>\n"
-                "• Message all users → <b>/broadcast [message]</b>\n"
-                "• Admin panel → <b>/admin</b>",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("💳 Pending Payments", callback_data="admpay_list")],
-                    [InlineKeyboardButton("🛠️ Admin Panel", callback_data="admin_home")],
-                ]),
-                parse_mode=HTML,
-            )
-            return
-        if action in ("tutorial", "help"):
-            await update.message.reply_text(HELP_NOTICE, reply_markup=tutorial_kb(), parse_mode=HTML)
-            return
-        if action == "support":
-            # v59.7: menu ka "💬 SUPPORT / MADAD" button — ek tap me owner se baat
-            _txt, _kb = support_card()
-            await update.message.reply_text(_txt, reply_markup=_kb, parse_mode=HTML)
-            return
-
-        # v73.1: 📋 RESULT CHECK (BSEB) + CBSE jaankari — apna card + inline buttons
-        if action == "bsebr":
-            context.user_data["mode"] = "rc_board"
-            context.user_data.pop("rcdb", None)
-            await update.message.reply_text(_rc_pick_card(0),
-                                            reply_markup=_rc_pick_kb(0),
-                                            parse_mode=HTML)
-            return
-        if action == "bsebr_direct":
-            context.user_data["mode"] = "rc_exam"
-            context.user_data.pop("rcdb", None)
-            await update.message.reply_text(rc_exam_card(),
-                                            reply_markup=_rc_exam_kb(),
-                                            parse_mode=HTML)
-            return
-        if action == "cbse_info":
-            await update.message.reply_text(cbse_info_card(),
-                                            reply_markup=_rc_result_kb(), parse_mode=HTML)
-            return
-
-        # Standard prompt modes
-        context.user_data["mode"] = action
-        if action in PROMPTS:
-            u = get_user(uid, update.effective_user.first_name)
-            # SIRF premium tools par credits ka check (baaki saare tools FREE)
-            if is_premium_tool(action) and not can_use_premium_tool(u, uid):
-                await update.message.reply_text(get_credits_over_text(action),
-                                                reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                return
-            # v58: NA credits line, NA "/cancel" wali line — seedha tool prompt
-            await update.message.reply_text(tool_prompt(action),
-                                            reply_markup=tool_support_kb(action), parse_mode=HTML)
-            return
-
-    # Check Active Working Modes
-    mode = context.user_data.get("mode")
-
-    # ==================================================================
-    #  v75 — 🧠 SMART DETECT (PRO ENGINE, ENGINE-1)
-    #  ------------------------------------------------------------------
-    #  NAYA BEHAVIOUR: user ko button dabane ki zaroorat hi nahi.
-    #  Wo seedha "SBIN0001234" ya "9876543210" ya ek link bhej de — bot
-    #  khud pahchan leta hai ki ye kya hai aur SAHI tool chala deta hai.
-    #
-    #  Kab chalta hai (teeno sach hone chahiye):
-    #    1. Koi tool mode already active na ho (warna user ka input chori na ho)
-    #    2. Text kisi button se match na hua ho
-    #    3. User ne smart detect band na kiya ho (/smart se toggle)
-    #
-    #  High-confidence input (IFSC / IMEI / mobile / URL / gaadi / GST / PAN)
-    #  = turant chalta hai. Medium (pincode / username / domain / email)
-    #  = 1-tap confirm button, khud se nahi chalta (galat tool na khule).
-    # ==================================================================
-    if not action and not mode and raw_text and len(raw_text) <= 300 \
-            and pro.AUTO_MODE != "off" and pro.detect_enabled(uid):
-        try:
-            _hit = pro.detect(raw_text)
-            if _hit:
-                _autoran = bool(_hit.high and _hit.action in pro._AUTORUN)
-                # ---- v75: EARNING RULE — premium tool ka credit gate ----------
-                #  Auto-run se credits bypass NAHI hone chahiye. Ye bilkul wahi
-                #  check hai jo button dabane par lagta hai (isliye earning model
-                #  auto-detect se bilkul nahi tootta).
-                if _autoran and is_premium_tool(_hit.action):
-                    _u_p = get_user(uid, user.first_name or "")
-                    if not can_use_premium_tool(_u_p, uid):
-                        await update.message.reply_text(
-                            get_credits_over_text(_hit.action),
-                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-                        return
-                if _autoran and pro.AUTO_MODE == "auto":
-                    context.user_data["mode"] = _hit.action
-                    context.user_data["_pro_tool"] = _hit.label
-                    context.user_data["_pro_mode"] = _hit.action
-                    mode = _hit.action
-                    try:
-                        await update.message.reply_text(
-                            f"{_hit.get('emoji') or '🧠'} <b>{_hit.label}</b> chala raha hoon…",
-                            parse_mode=HTML)
-                    except Exception:                            # noqa: BLE001
-                        pass
-                else:
-                    _skb = pro.smart_kb(_hit)
-                    if _skb is not None:
-                        await update.message.reply_text(pro.smart_line(_hit),
-                                                        reply_markup=_skb,
-                                                        parse_mode=HTML)
-                        return
-        except Exception as _pe:                                 # noqa: BLE001
-            log.debug("smart detect skip: %s", str(_pe)[:110])
-
-    # ---------- v75: is run ka naam record karo (analytics ke liye) ----------
-    #  Kaunsa tool chal raha hai — `_pro_tool` me daal do. Handler poora hone
-    #  par `_on_text_pro` wrapper ise padh kar result history + tool stats me
-    #  likh deta hai (koi tool ka code chhue bina).
-    if mode and not context.user_data.get("_pro_tool"):
-        _mkey = str(mode)
-        _ptn = None
-        if _mkey in TOOL_RATE_LIMITS:
-            _ptn = TOOL_RATE_LIMITS[_mkey][2]
-        else:
-            for _k in TOOL_RATE_LIMITS:
-                if _mkey.startswith(_k + "_"):
-                    _ptn = TOOL_RATE_LIMITS[_k][2]
-                    break
-        context.user_data["_pro_tool"] = _ptn or _mkey.replace("_", " ").title()
-        context.user_data["_pro_mode"] = _mkey
-
-    # ---------- v50: CENTRAL RATE-LIMIT GATE ----------
-    # Ek hi jagah se SAARE tools par limit lagti hai — har tool me alag code
-    # likhne ki zaroorat nahi. Admin ko bypass; VIP ko bhi bypass.
-    # Sub-steps apne parent tool ki limit share karte hain, taaki multi-step
-    # tool ek hi use me 5 baar na gina jaye.
+    # ---------- CENTRAL RATE-LIMIT GATE (pehle jaisa) ----------
+    # Admin ko bypass. Limit lagti hai to user ko saaf message milta hai.
     if mode and not is_admin(uid):
-        _mstr = str(mode)
-        _rl_key = _mstr if _mstr in TOOL_RATE_LIMITS else None
-        if _rl_key is None:
-            for _k in TOOL_RATE_LIMITS:
-                if _mstr.startswith(_k + "_") and (_rl_key is None or len(_k) > len(_rl_key)):
-                    _rl_key = _k
-        if _rl_key:
-            _lim, _win, _tname = TOOL_RATE_LIMITS[_rl_key]
-            # NOTE: bypass ke liye has_unlimited() use hota hai, vip_ok() NAHI —
-            # vip_ok() PREMIUM_ONLY=off me sabke liye True deta hai, jisse
-            # rate-limit kabhi lagta hi nahi.
-            _rlmsg = check_limit(uid, _rl_key, limit=_lim, window=_win,
-                                 bypass=has_unlimited(uid), tool_name=_tname)
+        _rl = TOOL_RATE_LIMITS.get(mode)
+        if _rl:
+            _lim, _win, _tname = _rl
+            _rlmsg = check_limit(uid, mode, limit=_lim, window=_win,
+                                 bypass=is_admin(uid), tool_name=_tname)
             if _rlmsg:
                 await update.message.reply_text(_rlmsg, parse_mode=HTML)
                 return
 
-    # Cloner Mode Active
-    if mode == "cloning_active":
-        ok, msg_res = await forward_cloned_message(context.bot, update.message, uid)
-        await update.message.reply_text(msg_res, parse_mode=HTML)
-        return
 
-    if mode == "cloner_target":
-        raw_val = raw_text.strip()
-        resolved = raw_val
-        warn = ""
-        try:
-            chat = await context.bot.get_chat(raw_val)
-            resolved = str(chat.id)
-            try:
-                mem = await context.bot.get_chat_member(chat_id=chat.id, user_id=context.bot.id)
-                if mem.status not in ("administrator", "creator"):
-                    warn = "\n\n⚠️ <b>Bot wahan ADMIN nahi hai!</b> Us channel me jao aur bot ko Admin banao (Post Messages permission ke saath), warna posting fail hogi."
-            except Exception:
-                warn = "\n\n⚠️ <i>Admin check fail ho gaya. Ek baar confirm kar lo ki bot wahan admin hai.</i>"
-        except Exception:
-            warn = "\n\n<i>(Username resolve nahi ho paya — value jaisi hai waisi save kar di. Numeric ID (-100...) zyada safe hai.)</i>"
-
-        save_cloner_config(uid, target=resolved)
-        context.user_data.pop("mode", None)
-        cfg_now = get_cloner_config(uid)
-        ready = bool(cfg_now.get("source_chat_id")) and bool(cfg_now.get("target_chat_id"))
-        kb_done = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🤖 FULL AUTO CHALU karo (Step 3)", callback_data="cloner_toggle_auto")],
-            [InlineKeyboardButton("🧪 Test Post Bhejo", callback_data="cloner_test")],
-            [InlineKeyboardButton("📘 Guide Padho", callback_data="cloner_guide")],
-            [InlineKeyboardButton("⚙️ Saari Settings", callback_data="cloner_status")],
-        ])
-        await update.message.reply_text(
-            f"✅ <b>Step 2 done! Target set:</b> <code>{resolved}</code>{warn}\n\n"
-            + ("🎉 <b>Both channels are set!</b>\n\n"
-               "👉 <b>Step 3:</b> tap <b>FULL AUTO ON</b> below — after that every new post (video, PDF, photo, album) goes to the target automatically."
-               if ready else
-               "👉 <b>Step 1</b> bhi karo: <b>📡 SOURCE</b> channel bhejo (posts wahan se aayenge).")
-            + "\n\n<i>Bot dono channels me Admin hona chahiye.</i>",
-            reply_markup=kb_done,
-            parse_mode=HTML,
-        )
-        return
-
-    if mode == "cloner_source":
-        raw_val = raw_text.strip()
-        try:
-            chat = await context.bot.get_chat(raw_val)
-            resolved = str(chat.id)
-            title = chat.title or chat.username or resolved
-            bot_is_admin = False
-            try:
-                mem = await context.bot.get_chat_member(chat_id=chat.id, user_id=context.bot.id)
-                bot_is_admin = mem.status in ("administrator", "creator")
-            except Exception:
-                bot_is_admin = False
-
-            save_cloner_config(uid, source_chat_id=resolved)
-            context.user_data.pop("mode", None)
-
-            if bot_is_admin:
-                txt = (
-                    f"✅ <b>Step 1 done! Source set:</b> {hesc(str(title))}\n"
-                    f"🆔 <code>{resolved}</code>\n\n"
-                    "👉 Now <b>Step 2</b>: send me the <b>TARGET channel</b> (where posts go)"
-                )
-                if str(get_cloner_config(uid).get("target_chat_id") or "").strip() == resolved:
-                    txt += "\n\n⚠️ <b>Note:</b> Source and Target are the same channel — auto clone will not turn on."
-            else:
-                txt = (
-                    f"⚠️ <b>Step 1: Source saved</b> <code>{resolved}</code>\n\n"
-                    "❌ But the bot is <b>not ADMIN</b> there! Open that source channel and make the bot <b>Admin</b>.\n"
-                    "<i>Otherwise new posts will not reach the bot and auto clone will not work.</i>\n\n"
-                    "👉 Also do <b>Step 2</b>: send the TARGET channel (where posts go)"
-                )
-            context.user_data["mode"] = "cloner_target"
-            await update.message.reply_text(txt, reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        except Exception as e:
-            await update.message.reply_text(
-                f"❌ Channel nahi mila: <code>{hesc(raw_val)}</code>\n<i>{hesc(str(e))[:120]}</i>\n\n"
-                "Private channel ke liye numeric ID bhejo (jaise <code>-1001234567890</code>).\n"
-                "💡 ID nikalne ka aasan tarika: us channel ki koi ek <b>TEXT post</b> is bot ko forward karo — bot ID bata dega.",
-                reply_markup=get_cloner_settings_kb(uid),
-                parse_mode=HTML,
-            )
-        return
-
-    if mode == "cloner_tag":
-        save_cloner_config(uid, rename_tag=raw_text)
-        context.user_data.pop("mode", None)
-        await update.message.reply_text(
-            f"✅ Rename Tag set: <b>{hesc(raw_text)}</b>",
-            reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if mode == "cloner_caption":
-        save_cloner_config(uid, caption=raw_text)
-        context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ Custom Caption saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if mode == "cloner_replace":
-        save_cloner_config(uid, replace_words=raw_text)
-        context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ Replace Words rules saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if mode == "cloner_remove":
-        save_cloner_config(uid, remove_words=raw_text)
-        context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ Remove Words list saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    if mode == "cloner_wm":
-        save_cloner_config(uid, watermark=raw_text)
-        context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ Watermark saved!", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    # ---------- ADMIN: user search / ban / broadcast (text modes) ----------
-    if mode == "adm_search":
-        context.user_data.pop("mode", None)
-        target = None
-        key = raw_text.strip().lstrip("@")
-        if key.isdigit():
-            target = int(key)
-        else:
-            found = find_by_username("@" + key)
-            if found:
-                target = found[0]
-        if not target:
-            await update.message.reply_text(
-                "❌ User nahi mila. Numeric ID bhejo (jaise <code>8607774564</code>) "
-                "ya wahi @username jo user ne bot me set kiya hai.", parse_mode=HTML)
-            return
-        u = get_user(target)
-        row = get_user_row(target) or {}
-        prem = u.get("premium_until") or ""
-        hist = user_payment_history(target)
-        await update.message.reply_text(
-            f"👤 <b>USER DETAIL</b>\n──────────────────────\n"
-            f"🆔 <b>ID:</b> <code>{target}</code>\n"
-            f"👋 <b>Name:</b> {hesc(str(row.get('name') or u.get('name') or '-'))}\n"
-            f"👑 <b>VIP:</b> {'👑 LIFETIME' if prem == 'lifetime' else (premium_expiry(u) if prem else '❌ No')}\n"
-            f"⚡ <b>Uses today:</b> {u.get('uses_today', 0)}\n"
-            f"🎟️ <b>Credits left:</b> {get_credits(target)} / {CREDITS_START}\n"
-            f"🚫 <b>Banned:</b> {'Yes' if u.get('banned') else 'No'}\n"
-            f"📜 <b>Payments:</b> ✅ {hist['approved']} · ❌ {hist['rejected']} · ⏳ {hist['pending']}\n"
-            "──────────────────────",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("👑 Give 30 days VIP", callback_data=f"ugrant:{target}:30"),
-                 InlineKeyboardButton("👑 Give 90 days VIP", callback_data=f"ugrant:{target}:90")],
-                [InlineKeyboardButton("👑 Give LIFETIME", callback_data=f"ugrant:{target}:9999"),
-                 InlineKeyboardButton("🚫 VIP hatao", callback_data=f"urevoke:{target}")],
-                [InlineKeyboardButton("🚫 Ban", callback_data=f"uban:{target}:1"),
-                 InlineKeyboardButton("🟢 Unban", callback_data=f"uban:{target}:0")],
-            ]),
-            parse_mode=HTML)
-        return
-
-    if mode == "adm_broadcast":
-        context.user_data.pop("mode", None)
-        ids = all_user_ids()
-        sent = failed = 0
-        st = await update.message.reply_text(f"📢 {len(ids)} users...")
-        for i in ids:
-            try:
-                await context.bot.send_message(i, raw_text, parse_mode=HTML)
-                sent += 1
-            except Exception:
-                # v50: HTML parse fail ho to plain text me bhejo
-                try:
-                    await context.bot.send_message(i, raw_text)
-                    sent += 1
-                except Exception:
-                    failed += 1
-            if (sent + failed) % 25 == 0:
-                await asyncio.sleep(1)
-        await st.edit_text(f"✅ <b>Broadcast done!</b>\n• Sent: {sent}\n• Failed (may have blocked the bot): {failed}", parse_mode=HTML)
-        return
-
-    if mode == "adm_ban":
-        parts = raw_text.split()
-        if len(parts) < 2 or not parts[1].isdigit():
-            await update.message.reply_text("Format: <code>ban 123456789</code> ya <code>unban 123456789</code>", parse_mode=HTML)
-            return
-        act, target = parts[0].lower(), int(parts[1])
-        if act.startswith("unban"):
-            set_ban(target, 0)
-            await update.message.reply_text(
-                f"🟢 <b>Unbanned</b> — <code>{target}</code>\n\n"
-                "To ban/unban anyone else, type it the same way: <code>ban 123456</code>",
-                parse_mode=HTML)
-        else:
-            set_ban(target, 1)
-            await update.message.reply_text(
-                f"🚫 <b>Banned</b> — <code>{target}</code>\n\n"
-                "To unban send: <code>unban 123456</code>",
-                parse_mode=HTML)
-        return
-
-    # (v50: upar wala LIVE admin block ke baad ye poora DUPLICATE block delete kiya —
-    #  ye kabhi run hi nahi hota tha, code 70 lines dead tha)
-
-    # ---------- PAYMENT STEP 1: UTR (strict format check) ----------
-    if mode and mode.startswith("pay_utr_"):
-        plan_key = mode.replace("pay_utr_", "")
-        plan = VIP_PLANS.get(plan_key, VIP_PLANS["plan_30"])
-        res = validate_utr(raw_text)
-
-        if not res["ok"]:
-            tries = context.user_data.get("pay_utr_tries", 0) + 1
-            context.user_data["pay_utr_tries"] = tries
-            await update.message.reply_text(
-                f"❌ <b>Ye UTR sahi nahi hai!</b>\n"
-                "──────────────────────\n"
-                f"📝 <b>You sent:</b> <code>{hesc(raw_text[:40])}</code>\n"
-                f"⚠️ <b>Reason:</b> {res.get('reason')}\n"
-                "──────────────────────\n"
-                + utr_help_text() +
-                f"\n\n🔁 <b>Ab sahi UTR bhejo</b> ({tries}/5 try)",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
-                parse_mode=HTML,
-            )
-            if tries >= 5:
-                await update.message.reply_text(
-                    f"😅 Looks like you cannot find the UTR. No problem — talk to Support, "
-                    f"they will verify it manually: {SUPPORT_LINK}", parse_mode=HTML)
-                context.user_data.pop("mode", None)
-            return
-
-        utr = res["utr"]
-        if utr_exists(utr):
-            await update.message.reply_text(
-                "🚫 <b>This UTR was already used!</b>\n\n"
-                f"🧾 <code>{hesc(utr)}</code>\n\n"
-                "One UTR gives VIP only <b>once</b>. Make a new payment or send the correct UTR.",
-                parse_mode=HTML)
-            return
-
-        context.user_data["pay_utr"] = utr
-        context.user_data["pay_plan"] = plan_key
-        context.user_data["pay_shot_tries"] = 0
-        context.user_data["mode"] = f"pay_shot_{plan_key}"
-        context.user_data["pay_utr_kind"] = res.get("kind", "")
-        await update.message.reply_text(
-            "✅ <b>UTR sahi hai!</b>\n"
-            "──────────────────────\n"
-            f"🧾 <b>UTR:</b> <code>{hesc(utr)}</code>\n"
-            f"📋 <b>Type:</b> {res.get('kind')}\n"
-            f"💎 <b>Plan:</b> {plan['name']} (₹{plan['price']})\n"
-            "──────────────────────\n"
-
-            "📸 <b>Step 3:</b> Ab payment ka <b>screenshot</b> bhejo\n"
-            "⚠️ <b>Dhyan rakho:</b>\n"
-            "• Screenshot me payment <b>success</b> dikhna chahiye (amount + UTR)\n"
-            "• Selfie, normal photo ya random image <b>reject</b> ho jayegi\n"
-            "• Screenshot <b>jaldi</b> bhejo, warna flow reset ho jata hai",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan badlo", callback_data="open_vip_menu")]]),
-            parse_mode=HTML,
-        )
-        return
-
-    # ---------- PAYMENT STEP 3: text bhej diya screenshot ki jagah ----------
-    if mode and mode.startswith("pay_shot_"):
-        plan_key = mode.replace("pay_shot_", "")
-        await update.message.reply_text(
-
-            "📸 <b>Yahan screenshot chahiye (text nahi)!</b>\n"
-            "Phone me payment app kholo → us payment ka <b>screenshot</b> lo → yahan bhejo.\n"
-            "⚠️ Screenshot me dikhna chahiye: <b>amount, success/paid, aur UTR</b>.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🎫 Plan dobara kholo", callback_data=f"buy_plan_{plan_key}")]]),
-            parse_mode=HTML)
-        return
-
-    # Premium tool ka mode active hai to credit check (free tools par koi rok nahi)
-    u = get_user(uid, update.effective_user.first_name)
-    if mode and is_premium_tool(mode) and not can_use_premium_tool(u, uid):
-        context.user_data.pop("mode", None)
-        await update.message.reply_text(get_credits_over_text(mode),
-                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-        return
-
-    # Tool Execution Modes
-    # ---------- v60.4: 💼 BUSINESS STUDIO input ----------
-    if mode and str(mode).startswith("biz_") and mode != "biz_menu":
-        _u_b = get_user(uid, user.first_name)
-        if not can_use_premium_tool(_u_b, uid):
-            context.user_data.pop("mode", None)
-            await safe_reply(update.message, get_credits_over_text(mode),
-                             reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return
-        _owner = (user.first_name or "") + (f" {user.last_name}" if user.last_name else "")
-        _key_b = str(mode)
-        _steps_b = biz_steps(_key_b)
-
-        # ---------- v63: STEP-BY-STEP WIZARD ----------
-        if _steps_b:
-            _idx_b = int(context.user_data.get("biz_step") or 0)
-            _ans_b = dict(context.user_data.get("biz_ans") or {})
-            _txt_b = str(raw_text or "").strip()
-
-            # SMART: step 1 me hi poori line (jaise "A | B | C") aa gayi?
-            # to poora jawab maan lo aur seedha file bana do (purana tarika chalta rahe).
-            if _idx_b == 0 and _txt_b.count("|") >= 1 and len(_txt_b) > 12:
-                _d0 = biz_parse(_key_b, _txt_b, _owner.strip())
-                _r0 = await asyncio.get_running_loop().run_in_executor(
-                    None, functools_partial(biz_build, _key_b, _d0))
-                context.user_data.pop("biz_step", None)
-                context.user_data.pop("biz_ans", None)
-                _ok0 = bool(_r0 and _r0.get("ok"))
-                if _ok0 and not ALL_FREE:
-                    spend_credits(uid, 1)
-                await biz_send_result(update.message, _key_b, _r0 or {}, uid, used=_ok0)
-                return
-
-            # SKIP / nahi / -  -> step khali
-            if _txt_b.upper() in ("SKIP", "-", "NAHI", "NO", "NONE", "❌"):
-                _txt_b = ""
-            _fld_b, _q_b, _hint_b, _isphoto_b = _steps_b[min(_idx_b, len(_steps_b) - 1)][:4]
-            if not _isphoto_b:
-                _ans_b[_fld_b] = _txt_b
-            context.user_data["biz_ans"] = _ans_b
-            _idx_b += 1
-
-            if _idx_b < len(_steps_b):
-                context.user_data["biz_step"] = _idx_b
-                await safe_reply(update.message, biz_step_prompt(_key_b, _idx_b),
-                                 reply_markup=biz_steps_kb(_key_b, _idx_b), parse_mode=HTML)
-                return
-
-            # saare step ho gaye -> file banao
-            context.user_data.pop("biz_step", None)
-            context.user_data.pop("biz_ans", None)
-            _d = biz_answers_to_dict(_key_b, _ans_b)
-            _res = await asyncio.get_running_loop().run_in_executor(
-                None, functools_partial(biz_build, _key_b, _d))
-            _used = bool(_res and _res.get("ok"))
-            if _used and not ALL_FREE:      # v61: free mode me credit nahi katta
-                spend_credits(uid, 1)
-            await biz_send_result(update.message, _key_b, _res or {}, uid, used=_used)
-            return
-
-        # ---------- purana ONE-LINE tarika (agar upar wale steps na hon) ----------
-        _d = biz_parse(_key_b, raw_text, _owner.strip())
-        _res = await asyncio.get_running_loop().run_in_executor(
-            None, functools_partial(biz_build, _key_b, _d))
-        _used = bool(_res and _res.get("ok"))
-        if _used and not ALL_FREE:      # v61: free mode me credit nahi katta
-            spend_credits(uid, 1)
-        await biz_send_result(update.message, _key_b, _res or {}, uid, used=_used)
-        return
-
-    if mode == "terabox":
-        st = await _wait_st(update.message)
-        try:
-            # v82: ye pehle SYNC call tha — 6 engines ke timeouts me poora bot ruk jaata tha.
-            #      Ab thread me chalta hai + hard timeout; error ho to bhi user ko saaf jawab.
-            # v85: link ki safai resolve_cloud_url ke andar hoti hai (&amp;/markdown/fbclid).
-            res = await with_tool_timeout(asyncio.to_thread(resolve_cloud_url, raw_text), 75, "terabox")
-        except Exception as _tbe:                              # noqa: BLE001
-            log.warning("terabox resolve error: %s", str(_tbe)[:120])
-            res = None
-        if not res:
-            res = {"ok": False, "error": "⏱️ Server ne 75 second me jawab nahi diya — dobara try karo (credit nahi katta)."}
-
-        if res.get("ok"):
-            files = res.get("files") or []
-            # v101: 📦 FILE-DELIVERY — single file ≤46MB ho to bot khud download
-            # karke FILE bhejta hai (Telegram bot limit 50MB). Badi file ya fetch
-            # fail ho to purana link-card chalta hai — user kabhi khaali nahi jaata.
-            try:
-                _f0 = files[0] if len(files) == 1 else None
-                if _f0:
-                    _sb = int(_f0.get("size_bytes") or 0)
-                    _dl = str(_f0.get("dlink") or "")
-                    if _dl and 0 < _sb <= 46 * 1048576:
-                        await _st_edit(st, update, "📦 <b>File bhej raha hoon...</b>", parse_mode=HTML)
-                        _b, _derr = await with_tool_timeout(
-                            asyncio.to_thread(fetch_bytes, _dl, 46), 200, "terabox")
-                        if _b:
-                            import io as _io_t
-                            _nm = str(_f0.get("name") or "file.bin")
-                            _ext = _nm.rsplit(".", 1)[-1].lower() if "." in _nm else ""
-                            _buf = _io_t.BytesIO(_b)
-                            _buf.name = _nm[:60]
-                            _cap = (spend_credit_msg(uid, "terabox") + "\n"
-                                    + f"⚡ <b>{to_bold('TERABOX — FILE AA GAYI')}</b>\n"
-                                    + f"• 📁 <code>{hesc(_nm[:70])}</code>\n"
-                                    + f"• 📊 <b>{_sb / 1048576:.1f} MB</b> — direct file, koi link nahi!")
-                            if _ext in ("mp4", "mov", "webm", "mkv", "avi", "m4v"):
-                                await update.message.reply_video(video=_buf, caption=_cap,
-                                                                  supports_streaming=True, parse_mode=HTML)
-                            elif _ext in ("mp3", "m4a", "aac", "ogg", "wav", "flac"):
-                                await update.message.reply_audio(audio=_buf, caption=_cap, parse_mode=HTML)
-                            elif _ext in ("jpg", "jpeg", "png", "gif", "webp", "bmp"):
-                                await update.message.reply_photo(photo=_buf, caption=_cap, parse_mode=HTML)
-                            else:
-                                await update.message.reply_document(document=_buf, caption=_cap, parse_mode=HTML)
-                            try:
-                                await st.delete()
-                            except Exception:                       # noqa: BLE001
-                                pass
-                            add_use(uid)
-                            return
-                        if _derr:
-                            log.warning("v101 terabox delivery: %s", str(_derr)[:120])
-            except Exception as _fde:                               # noqa: BLE001
-                log.warning("v101 terabox delivery error: %s", str(_fde)[:120])
-            if len(files) > 1:
-                lines = []
-                for idx, f in enumerate(files[:12], 1):
-                    lines.append(f"{idx}. <b>{hesc(str(f.get('name'))[:52])}</b> — <code>{f.get('size', 'N/A')}</code>")
-                cap = (
-                    f"⚡ <b>{to_bold(str(res.get('provider', 'Cloud Direct')))}</b>\n\n"
-                    f"📂 <b>{len(files)} file(s) found:</b>\n" + "\n".join(lines) +
-                    "\n\n👇 Neeche buttons se koi bhi file download karo:"
-                )
-                # v85: dlink galat/khaali ho to button NA banao (button crash = poora handler fail)
-                rows = []
-                for f in files[:5]:
-                    _du = _safe_btn_url(f.get("dlink") or "")
-                    if _du:
-                        rows.append([InlineKeyboardButton(f"⬇️ {str(f.get('name'))[:32]}", url=_du)])
-            else:
-                cap = (
-                    f"⚡ <b>{to_bold(str(res.get('provider', 'Cloud Direct')))}</b>\n\n"
-                    f"📁 <b>Title:</b> {hesc(str(res.get('title', 'File'))[:80])}\n"
-                    f"📊 <b>Size:</b> {res.get('size', 'N/A')}\n"
-                )
-                if res.get("note"):
-                    cap += f"ℹ️ {hesc(str(res['note']))}\n"
-                cap += f"\n🔗 <b>High-Speed Link:</b>\n<code>{res.get('direct_url')}</code>"
-                rows = []
-                _du0 = _safe_btn_url(res.get("direct_url") or "")
-                if _du0:
-                    rows.append([InlineKeyboardButton("🚀 Download / Stream", url=_du0)])
-                _su0 = _safe_btn_url(res.get("stream_url") or "")
-                if _su0 and _su0 != _du0 and rows:
-                    rows[0].append(InlineKeyboardButton("▶️ Web Player", url=_su0))
-            await st.edit_text(spend_credit_msg(uid, "terabox") + "\n" + cap,
-                               reply_markup=InlineKeyboardMarkup(rows) if rows else None,
-                               parse_mode=HTML)
-        else:
-            # v93 — PEHLE: ek adhuri line ("📄 File mili: x.mp4 — 42.75 MB") aur 5
-            #       mar-chuke web downloader buttons. User ko lagta tha tool toota hai.
-            # AB  : poora FILE REPORT card — har file ka naam, size, type, video ki
-            #       length + resolution, total size, aur thumbnail photo. Listing
-            #       hamesha chalti hai; sirf download-link step Terabox ne lock kiya hai.
-            _report = str(res.get("report") or "")
-            cap = (
-                f"⚠️ <b>{to_bold('DOWNLOAD LINK LOCKED')}</b>\n\n"
-                f"{hesc(str(res.get('error', 'Could not resolve the cloud link.')))}\n\n"
-            )
-            if _report:
-                cap += _report + "\n\n"
-            if res.get("hint"):
-                cap += f"💡 {hesc(str(res['hint']))}\n\n"
-            _tb_rows = []   # v85: har button URL validate (galat URL = crash)
-            for _lbl, _u in (res.get("fallback_links") or [])[:5]:
-                _fu = _safe_btn_url(_u or "")
-                if _fu:
-                    _tb_rows.append([InlineKeyboardButton(str(_lbl)[:60], url=_fu)])
-            if res.get("surl"):
-                _tb_rows.append([InlineKeyboardButton(
-                    "🌐 Share page kholo",
-                    url=f"https://www.terabox.com/sharing/link?surl={res['surl']}")])
-            _kb = InlineKeyboardMarkup(_tb_rows) if _tb_rows else None
-            # Telegram ek caption me 1024 character hi allow karta hai — lamba report
-            # ho to photo alag + text alag, warna saath. Kabhi "message too long" crash nahi.
-            _thumb_b = None
-            if res.get("thumb"):
-                try:
-                    _thumb_b = await asyncio.to_thread(tb_fetch_thumb, res["thumb"])
-                except Exception:                                # noqa: BLE001
-                    _thumb_b = None
-            try:
-                if _thumb_b:
-                    _tb = io.BytesIO(_thumb_b)
-                    _tb.name = "terabox_preview.jpg"
-                    if len(cap) <= 900:
-                        await update.message.reply_photo(photo=_tb, caption=cap,
-                                                         parse_mode=HTML, reply_markup=_kb)
-                    else:
-                        await update.message.reply_photo(photo=_tb, parse_mode=HTML)
-                        await update.message.reply_text(cap[:4000], parse_mode=HTML,
-                                                        reply_markup=_kb)
-                elif len(cap) <= 4000:
-                    await st.edit_text(cap.strip(), parse_mode=HTML, reply_markup=_kb)
-                else:
-                    await st.edit_text(cap[:3900].strip() + "\n…", parse_mode=HTML,
-                                       reply_markup=_kb)
-            except Exception as _tbe2:                           # noqa: BLE001
-                # Caption/HTML me kuch bhi atke to chhota saaf jawab — user khali na jaaye
-                log.warning("terabox card fail (%s) — plain bhej raha hoon", type(_tbe2).__name__)
-                try:
-                    await st.edit_text("⚠️ Download link nahi mila — share page kholo.",
-                                       reply_markup=_kb)
-                except Exception:                                # noqa: BLE001
-                    pass
-        add_use(uid)
-        return
-
-    # UNIVERSAL VIDEO DOWNLOADER (Instagram + YouTube + Facebook + X + TikTok + 20 platforms)
-    # v64: 27 alag downloader tools — sab isi engine par chalte hain,
-    # bas platform ka naam/check alag. Purana "insta_dl" bhi waise hi chalta hai.
-    _dl_mode_orig = str(mode or "")
-    _dl_here = dl_key_of(_dl_mode_orig)
-    if _dl_here:
-        mode = "insta_dl"
-    if mode == "insta_dl":
-        if not is_supported_video_url(raw_text):
-            await update.message.reply_text(
-                fail_msg("UNSUPPORTED LINK",
-                         "This link is not supported. Send links from Instagram, YouTube or TikTok."),
-                parse_mode=HTML,
-            )
-            return
-
-        plat = platform_name(raw_text)
-        # v64: agar user sahi tool me nahi hai to use batao (par kaam ho jaye)
-        if _dl_here and not dl_url_matches(_dl_mode_orig, raw_text):
-            try:
-                await update.message.reply_text(
-                    f"ℹ️ Ye link <b>{hesc(plat)}</b> ka hai — aap "
-                    f"<b>{hesc(DL_SITES[_dl_here][1])}</b> ke tool me hain.\n"
-                    f"Koi baat nahi, main phir bhi download kar deta hoon 👇\n"
-                    f"<i>(Agli baar sahi app ka tool chuno — keyboard par "
-                    f"neeche 📸 INSTA DL · ▶️ YOUTUBE DL · 🎵 TIKTOK DL.)</i>",
-                    parse_mode=HTML)
-            except Exception:                                    # noqa: BLE001
-                pass
-        _u = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u, uid):
-            await update.message.reply_text(get_credits_over_text("insta_dl"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        # v65: TURANT jawab (1 second me) — user ko pata chale bot kaam kar raha hai
-        _stop_ping(context)
-        st = await _wait_st(update.message)
-        # v65: progress pinger — har 5 second "ho raha hai" (user ko lage na ki bot mar gaya)
-        _ping_stop = asyncio.Event()
-        _ping_task = asyncio.create_task(_progress_pinger(
-            update.message,
-            lambda el: (f"⚡ <b>{hesc(plat)}</b> — kaam chal raha hai… ({el}s)\n"
-                        "🔄 <i>Bas thoda sa aur — file taiyaar ho rahi hai.</i>"),
-            every=6, stop=_ping_stop, edit_msg=st))
-        context.user_data["_ping_stop"] = _ping_stop
-        # v105: YouTube ka QUALITY-PICKER PURI TARAH HATAA gaya (user ki order:
-        #       "quality chose karne wala option hi hta do"). Ab link bhejo =
-        #       server par jo BEST quality available hai wahi seedha HD me
-        #       milti hai — koi tap nahi, koi confusion nahi. Pehle ka
-        #       360/480/720/1080 chun-ne wala menu yahin se chalta tha.
-        if re.search(r"(youtube\.com|youtu\.be)/", raw_text):
-            _stop_ping(context)
-            _yt_stop = asyncio.Event()
-            context.user_data["_ping_stop"] = _yt_stop
-            try:
-                # best-format job ABHI shuru (loader.to v2 = asli 1080/720)
-                MD.yt_loader_prewarm(raw_text, 1080)
-            except Exception:                    # noqa: BLE001
-                pass
-            # v68 instant-hit: ye video pehle kisi ne mangi thi to TURANT wapas
-            _fid105 = dl_fid_get(raw_text, "q1080")
-            if _fid105:
-                try:
-                    await update.message.reply_video(
-                        video=_fid105, supports_streaming=True, parse_mode=HTML,
-                        caption=("⚡ <b>INSTANT</b> — ye video pehle hi ready thi "
-                                 "(0.1 second)"))
-                    _yt_stop.set()
-                    add_use(uid)
-                    await _reply_nonempty(update.message,
-                                          spend_credit_msg(uid, "insta_dl"),
-                                          parse_mode=HTML)
-                    return
-                except Exception:                # noqa: BLE001
-                    dl_fid_forget(raw_text, "q1080")
-            _st105 = _StatusMsg(st, _yt_stop)
-            asyncio.create_task(_progress_edit(
-                st, "🎞️ <b>BEST quality</b> nikaal raha hoon…",
-                every=PROGRESS_EVERY, stop=_yt_stop, max_pings=12))
-            await _st105.edit_text(
-                "🎞️ <b>YOUTUBE — BEST QUALITY</b>\n"
-                "⏳ Server par jo sabse upar quality available hai, wahi asli HD "
-                "me nikaal raha hoon (chhoti video = 30-60s; badi/long video par "
-                "1–4 min). Taiyaar hote hi video yahin aa jayegi 📥\n"
-                "💳 1 credit — sirf video milne par kat-ta hai (fail par nahi)",
-                parse_mode=HTML)
-            asyncio.create_task(_yt_hd_bg(
-                context.application, update.effective_chat.id,
-                uid, raw_text, 1080, _st105,
-                (update.effective_user.first_name if update.effective_user else "")))
-            return
-        # v68: ⚡ INSTANT REPEAT — yahi video pehle bheji thi? file_id se TURANT bhejo
-        _fid = dl_fid_get(raw_text)
-        if _fid:
-            try:
-                await update.message.reply_video(
-                    video=_fid, supports_streaming=True, parse_mode=HTML,
-                    caption=(f"⚡ <b>{to_bold('INSTANT')}</b> — ye video pehle hi "
-                             f"download ho chuki thi (0.1 second)\n"
-                             f"📥 {hesc(plat)} • HD • bina watermark"))
-                _ev = context.user_data.get("_ping_stop")
-                if _ev is not None:
-                    _ev.set()
-                add_use(uid)
-                await st.delete()
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"),
-                                                parse_mode=HTML)
-                return
-            except Exception:                                    # noqa: BLE001
-                dl_fid_forget(raw_text)      # purana file_id kharab — dobara download
-
-        # v68: hard timeout — koi bhi tool bot ko 40 second se zyada nahi rok sakta
-        res = await with_tool_timeout(download_video_async(raw_text), 75, "video-dl")  # v105: 40→75 (reel engine)
-        if res is None:
-            # v79: upar ka card kehta hai "Zyada se zyada 30 second — warna main
-            # direct link de dunga". Ab waada poora hota hai: 9 second me direct
-            # link nikaalne ki koshish, mil jaaye to wahi button de dete hain.
-            _lk = None
-            try:
-                _lk = await with_tool_timeout(
-                    asyncio.to_thread(MD._ytdlp_direct_link, raw_text), 9, "video-dl-link")
-            except Exception:                                    # noqa: BLE001
-                _lk = None
-            if _lk and _lk[0]:
-                _sz = _lk[2] or 0
-                res = {"ok": True, "type": "link", "platform": plat,
-                       "direct_url": _lk[0], "title": _lk[1] or "", "engine": "ytdlp-link",
-                       "size_mb": round(_sz / 1048576, 2) if _sz else 0,
-                       "note": ("File ban to gayi thi, par Telegram tak pahunchane me "
-                                "network slow tha — ye link browser me turant chalegi.")}
-            else:
-                res = {"ok": False,
-                       "error": ("⏱️ Server ne 40 second me jawab nahi diya (link bhaari "
-                                 "ya platform slow hai).\n✅ <b>Dobara try karo</b> — doosri "
-                                 "baar cache se TURANT milega.\n💳 Credit nahi katta.")}
-
-        if not res.get("ok"):
-            # v107: raw upstream kachra ("Media number out of range." jaisa)
-            # user ko KABHI nahi dikhega — saaf Hinglish me badal jaata hai.
-            reason = MD.user_safe_error(
-                str(res.get("error", "") or "Could not extract the media."), plat)
-            await _st_edit(st, update, 
-                fail_msg(f"{plat.upper()} DOWNLOAD FAILED", reason)
-                + "\n\n💡 <b>What to do:</b>\n"
-                  "• Check if the post is <b>public</b>\n"
-                  "• Try again after 30-60 seconds (server rate-limit)\n"
-                  "• For Instagram, setting the <code>IG_COOKIES_FILE</code> env makes it 100% reliable\n"
-                  "• Or take the direct link with the <b>LINK BYPASS</b> tool",
-                parse_mode=HTML,
-            )
-            return
-
-        _delivered = False          # v82: media pehle ja chuka? to baad ka error "SEND FAILED" nahi dikhega
-        try:
-            mtype = res.get("type")
-            # v85: FULL-ALBUM — img_index wala link ho to bhi POORI album jaati hai.
-            # (v82 me sirf N-wan item jaata tha = "6-7 photos me se 1 mili" shikayat.)
-            _img_idx = _parse_img_index(raw_text)
-            _album_note = (f" • slide {_img_idx} ka link tha" if _img_idx else "")
-            engine = hesc(str(res.get("engine", "")))
-            title = html.unescape(html.unescape(str(res.get("title") or "")))[:60]  # v95: &quot; fix (hesc usage par hota hai)
-
-            # 1) Album / Carousel — v94 MERGED: v86 intake (20-item + junk filter) + v93 45MB cap/note + chunk send
-            if mtype == "carousel" and res.get("items"):
-                # v86: 20-item intake + junk filter + 60MB pre-cap (helper unit-tested)
-                _intake = [it for _ch in _album_chunks(res["items"]) for it in _ch]
-                # v85: khaali/kharab items nikalo + total 45MB cap (OOM + Telegram limit safety)
-                # v93: `[:10]` hata diya — 12-photo wale post ke 2 photo chup-chaap
-                #      gayab ho jaate the. Ab Telegram ki 10-media hadd ko chunk se
-                #      handle karte hain (neeche), aur 45MB cap ab chup-chaap nahi:
-                #      jo chhoota uska note caption me jaata hai.
-                _all = [it for it in (_intake or [])
-                        if isinstance(it, dict) and (it.get("bytes") or b"")]
-                _n_total_items = len(_all)
-                items = _all
-                _tot, _fit = 0, []
-                for it in items:
-                    _sz = len(it.get("bytes") or b"")
-                    if _tot + _sz > 45 * 1048576 and _fit:
-                        break
-                    _tot += _sz
-                    _fit.append(it)
-                items = _fit or items[:1]
-                if not items:
-                    raise ValueError("album items khaali (download adhura)")
-                # v93: agar 45MB cap ne kuch roka ho to user ko BATAO (chup-chaap nahi)
-                if len(items) < _n_total_items:
-                    _album_note = (_album_note + f" • ⚠️ {_n_total_items - len(items)} item"
-                                                 f" size-limit se chhoote")[:160]
-                # v93: Telegram ek media_group me 10 media allow karta hai — usse zyada
-                #      ho to chunk banao. (v85 `[:10]` se kaat deta tha = photo gayab.)
-                _cap0 = (f"📸 <b>{to_bold('ALBUM')}</b> • {len(items)} items • {plat}"
-                         f"{_album_note}")[:900]   # v85: caption 1024 limit guard
-                _sent_n = 0
-                _chunks = [items[_s:_s + ALBUM_CHUNK] for _s in range(0, len(items), ALBUM_CHUNK)]
-                for _gi, _part in enumerate(_chunks):
-                    _start = _gi * ALBUM_CHUNK
-                    _n_parts = len(_chunks)
-                    media_group = []
-                    for _n, item in enumerate(_part):
-                        _pos = _start + _n + 1                 # album me asli position
-                        m_buf = io.BytesIO(item["bytes"])
-                        if _start == 0 and _n == 0:
-                            cap = _cap0
-                        elif _n == 0 and _n_parts > 1:
-                            cap = (f"📸 <b>{to_bold('ALBUM')}</b> • "
-                                   f"Part {_gi + 1}/{len(_chunks)}")[:900]
-                        else:
-                            cap = ""
-                        if item.get("type") == "video":
-                            m_buf.name = f"media_{_pos}.mp4"
-                            media_group.append(InputMediaVideo(media=m_buf, caption=cap,
-                                                               parse_mode=HTML, supports_streaming=True))
-                        else:
-                            m_buf.name = f"media_{_pos}.jpg"
-                            media_group.append(InputMediaPhoto(media=m_buf, caption=cap, parse_mode=HTML))
-                    try:
-                        await update.message.reply_media_group(media=media_group)
-                        _sent_n += len(media_group)
-                        continue
-                    except Exception as _ag:
-                        # v85: group fail ho to ek-ek karke bhejo (user khaali haath na jaye)
-                        log.warning("album group fail, one-by-one bhej raha: %s", str(_ag)[:100])
-                    for _n, item in enumerate(_part):
-                        _pos = _start + _n + 1
-                        try:
-                            _b2 = io.BytesIO(item["bytes"])
-                            _c2 = (_cap0 if (_start == 0 and _n == 0)
-                                   else f"📸 <b>{to_bold('ALBUM')}</b> • {_pos}/{len(items)}")[:900]
-                            if item.get("type") == "video":
-                                _b2.name = f"media_{_pos}.mp4"
-                                await update.message.reply_video(video=_b2, caption=_c2 or None,
-                                                                 parse_mode=HTML, supports_streaming=True)
-                            else:
-                                _b2.name = f"media_{_pos}.jpg"
-                                if _c2:
-                                    await update.message.reply_photo(photo=_b2, caption=_c2, parse_mode=HTML)
-                                else:
-                                    await update.message.reply_photo(photo=_b2)
-                            _sent_n += 1
-                        except Exception:  # noqa: BLE001
-                            continue
-                if not _sent_n:
-                    raise ValueError("album ka koi bhi item Telegram par nahi ja saka")
-                _delivered = True
-                try:
-                    await st.delete()
-                except Exception:  # noqa: BLE001
-                    pass
-                add_use(uid)
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
-                return
-
-            # 2) Single Video
-            if mtype == "video" and res.get("bytes"):
-                media_buf = io.BytesIO(res["bytes"])
-                media_buf.name = f"{plat.replace(' ', '_')}_video.mp4"
-                dur = res.get("duration") or 0
-                dur_line = f"• ⏱️ Length: {int(dur) // 60}m {int(dur) % 60}s\n" if dur else ""
-                # v57: hesc — YouTube/IG title me `<`/`>` ho sakta hai
-                # ("Song <Official> Video"), warna Telegram pura message reject.
-                title_line = f"• 📝 {hesc(str(title))}\n" if title else ""
-                _vid_cap = (
-                    f"📥 <b>{to_bold(plat.upper() + ' VIDEO')}</b>\n"
-                    f"{title_line}{dur_line}"
-                    f"• 📊 <b>Size:</b> {res.get('size_mb')} MB\n"
-                    + (f"• 🎞️ <b>Quality:</b> {hesc(str(res.get('quality')))}"
-                       f"{' (FHD)' if str(res.get('quality')) in ('1080p','1440p') else ''}\n"
-                       if res.get("quality") else "• 🎞️ <b>Quality:</b> jo publicly available best thi\n")
-                    + f"• 🔊 <b>Audio:</b> Original ✅\n"
-                      f"• ⚙️ Engine: {engine}"
-                )
-                # v79: 48 MB se badi file Bot API bhej HI nahi sakti (Telegram ka
-                # rule). TG_API_ID/HASH se MTProto on ho to seedha 150 MB tak bhej
-                # dete hain — warna purana raasta (compress / direct link) jaisa tha.
-                if len(res["bytes"]) > 46 * 1048576 and BF.enabled():
-                    _r = await BF.mt_send(
-                        update.effective_chat.id, res["bytes"], kind="video",
-                        caption=re.sub(r"</?(?:b|i|code|s)>", "", _vid_cap),
-                        file_name=media_buf.name or "video.mp4")
-                    if _r.get("ok"):
-                        _delivered = True
-                        try:
-                            await st.delete()
-                        except Exception:                            # noqa: BLE001
-                            pass
-                        add_use(uid)
-                        await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"),
-                                                         parse_mode=HTML)
-                        return
-                _sent = await update.message.reply_video(
-                    video=media_buf,
-                    caption=_vid_cap,
-                    parse_mode=HTML,
-                    supports_streaming=True,
-                )
-                _delivered = True
-                # v68: agli baar ke liye file_id yaad rakho (0.1 second delivery)
-                try:
-                    dl_fid_set(raw_text, _sent.video.file_id)
-                except Exception:                                # noqa: BLE001
-                    pass
-                await st.delete()
-                add_use(uid)
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
-                return
-
-            # 3) Single Photo
-            if mtype == "photo" and res.get("bytes"):
-                media_buf = io.BytesIO(res["bytes"])
-                media_buf.name = "media_photo.jpg"
-                await update.message.reply_photo(
-                    photo=media_buf,
-                    caption=(f"🖼️ <b>{to_bold(plat.upper() + ' PHOTO')}</b>\n"
-                             + (f"• 📝 {hesc(str(title))}\n" if title else "")
-                             + f"• 📊 {res.get('size_mb')} MB"),
-                    parse_mode=HTML,
-                )
-                _delivered = True
-                await st.delete()
-                add_use(uid)
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
-                return
-
-            # 4) Bada file (48MB+): direct link dete hain — kaam rukta nahi
-            if mtype == "link" and res.get("direct_url"):
-                mb = res.get("size_mb") or 0
-                # v85: dono URLs validate (galat URL = button crash = handler fail)
-                rows = []
-                _dl_u = _safe_btn_url(res.get("direct_url") or "")
-                if _dl_u:
-                    rows.append([InlineKeyboardButton("🚀 Direct Download Link", url=_dl_u)])
-                _orig_u = _safe_btn_url(_clean_link_in(raw_text) or raw_text)
-                if _orig_u:
-                    rows.append([InlineKeyboardButton("🌐 Original page kholo", url=_orig_u)])
-                if not rows:   # dono links bekaar — text me link de do, crash nahi
-                    rows = None
-                await _st_edit(st, update, 
-                    f"📥 <b>{to_bold('DOWNLOAD LINK READY')}</b>\n\n"
-                    f"🎬 <b>Platform:</b> {plat}\n"
-                    + (f"📝 <b>Title:</b> {hesc(str(title))}\n" if title else "")
-                    + (f"📊 <b>Size:</b> {mb} MB\n" if mb else "")
-                    + f"⚙️ Engine: {engine}\n\n"
-                    + hesc(str(res.get("note") or ""))
-                    + "\n\n👇 Download karne ke liye neeche button par tap karo:",
-                    reply_markup=InlineKeyboardMarkup(rows) if rows else None,
-                    parse_mode=HTML,
-                )
-                add_use(uid)
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
-                return
-
-            await _st_edit(st, update, 
-                fail_msg("SEND FAILED", "Got the media but Telegram did not accept it."),
-                parse_mode=HTML)
-        except Exception as e:
-            if _delivered:          # v82: media pehle hi user tak pahunch chuka — galat 'SEND FAILED' nahi
-                log.warning("v82: media delivered; baad ka step fail (ignored): %s", str(e)[:120])
-                return
-            # v44: bade video par Telegram timeout → compressed version se dobara koshish
-            _raw = res.get("bytes") or b""
-            _fixed = False
-            if _raw and len(_raw) > 6 * 1048576 and res.get("type") == "video":
-                try:
-                    await _st_edit(st, update, "📦 <b>Telegram took too long.</b> Size chhota karke dobara bhej raha hoon…",
-                                       parse_mode=HTML)
-                    _c = await asyncio.to_thread(desi.video_compress, _raw, 16.0, ".mp4")
-                    if _c.get("ok"):
-                        _buf = io.BytesIO(_c["bytes"])
-                        _buf.name = f"{platform_name(raw_text).replace(' ', '_')}_compressed.mp4"
-                        await update.message.reply_video(
-                            video=_buf, parse_mode=HTML, supports_streaming=True,
-                            caption=(f"📥 <b>{to_bold(platform_name(raw_text).upper() + ' VIDEO')}</b>\n"
-                                     f"• 📊 <b>Size:</b> {_c.get('size_mb')} MB (compressed)\n"
-                                     "• 🔊 <b>Audio:</b> Original ✅\n"
-                                     "<i>Full-size file bhejne me network slow tha — ye compressed version hai.</i>"))
-                        _fixed = True
-                except Exception as _e2:
-                    log.warning("insta compress retry fail: %s", _e2)
-            if _fixed:
-                await st.delete()
-                add_use(uid)
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "insta_dl"), parse_mode=HTML)
-                return
-            await _st_edit(st, update, 
-                fail_msg("SEND FAILED", clean_err(e))
-                + "\n\n💡 <b>What to do:</b>\n"
-                  "• Tap the tool again and send the same link (2nd try usually works)\n"
-                  "• Big video? Use <b>✂️ MEDIA STUDIO → Video compress</b>\n"
-                  "• Ya <b>📥 VIDEO DOWNLOADER</b> dobara kholo aur link bhejo",
-                parse_mode=HTML)
-        return
-
-
-
-    if mode == "tempmail":
-        # v53.0: ab **OTP auto-detect** hota hai (temp mail ka asli use-case),
-        # inline buttons aate hain (Refresh / Copy / Delete), aur naye messages
-        # highlight hote hain. Pehle user ko 1200-char body dump me se 6-digit
-        # code khud dhoondhna padta tha.
-        cmd = (raw_text or "").strip().lower()
-        sess = context.user_data.get("tempmail") or {}
-        _tm_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔄 Inbox refresh", callback_data="tm_inbox"),
-             InlineKeyboardButton("🔑 OTP dhoondho", callback_data="tm_otp")],
-            [InlineKeyboardButton("🗑️ Ye email band karo", callback_data="tm_del"),
-             InlineKeyboardButton("⌨️ Menu", callback_data="back_home")],
-        ])
-
-        if cmd in ("inbox", "check", "box", "otp", "code", "refresh") and sess.get("address"):
-            _t0 = time.perf_counter()
-            seen_ids = context.user_data.get("tm_seen") or []
-            res = await asyncio.to_thread(tm_poll, sess["address"], sess["token"], seen_ids)
-            _ms = (time.perf_counter() - _t0) * 1000
-            if res.get("expired"):
-                context.user_data["tempmail"] = {}
-                context.user_data["tm_seen"] = []
-                tel_note("tempmail", False, _ms, error="session expired")
-                await update.message.reply_text(
-                    "⌛ Ye temp email session expire ho gaya hai.\n"
-                    "📧 <b>NEW</b> bhejo — naya address ban jayega.",
-                    parse_mode=HTML, reply_markup=_tm_kb)
-                add_use(uid)
-                return
-            if not res.get("ok"):
-                tel_note("tempmail", False, _ms, error=str(res.get("error") or "")[:120])
-                await update.message.reply_text(str(res.get("error") or "Inbox nahi khula."),
-                                                parse_mode=HTML, reply_markup=_tm_kb)
-                add_use(uid)
-                return
-            tel_note("tempmail", True, _ms)
-            context.user_data["tm_seen"] = res.get("all_ids") or seen_ids
-
-            msgs = res.get("messages") or []
-            codes = res.get("codes") or []
-            if not msgs:
-                await update.message.reply_text(
-                    f"📭 <b>Inbox abhi khali hai</b>\n"
-                    "──────────────────────\n"
-                    f"📮 Aapka email: <code>{hesc(sess['address'])}</code>\n\n"
-                    "Abhi is address par koi message nahi aaya.\n"
-                    "👉 Jahan signup kiya wahan ye address daalo, phir yahan "
-                    "<b>🔄 Inbox refresh</b> dabao.",
-                    parse_mode=HTML, reply_markup=_tm_kb)
-                add_use(uid)
-                return
-
-            L = [f"📧 <b>{to_bold('TEMP MAIL INBOX')}</b>\n"
-                 f"📮 <code>{hesc(sess['address'])}</code>\n"
-                 f"📊 {res.get('count', 0)} message"
-                 + (f" · <b>{res.get('new_count')} NAYA</b>" if res.get("new_count") else "")
-                 + "\n──────────────────────"]
-
-            # 🔑 OTP sabse upar — yahi cheez user dhoondh raha hota hai
-            if codes:
-                L.append("")
-                L.append("🔑 <b>AAPKE CODE (auto-detect):</b>")
-                for c in codes[:4]:
-                    _src = f" <i>({hesc(str(c.get('subject') or '')[:28])})</i>" if c.get("subject") else ""
-                    L.append(f"  • <code>{hesc(str(c['code']))}</code> — "
-                             f"{hesc(str(c.get('label') or ''))}{_src}")
-                L.append("")
-                L.append(f"👆 Sabse likely code: <b><code>{hesc(str(codes[0]['code']))}</b></code>")
-            else:
-                L.append("")
-                L.append("🔑 <i>Koi OTP/verification code nahi mila in messages me.</i>")
-
-            for i, m in enumerate(msgs[:5], 1):
-                _new = " 🆕" if m.get("id") in (res.get("new_messages") and
-                                               [x.get("id") for x in res.get("new_messages") or []]
-                                               or []) else ""
-                L.append(f"\n<b>{i}. {hesc(str(m.get('subject') or ''))}</b>{_new}\n"
-                         f"📨 Se: <code>{hesc(str(m.get('from_name') or m.get('from') or ''))}</code>"
-                         + (f" · {hesc(str(m.get('at'))[:16])}" if m.get("at") else "")
-                         + (f"\n📎 {len(m.get('attachments') or [])} attachment"
-                            if m.get("has_attachments") else "")
-                         + f"\n{hesc(str(m.get('body') or '')[:420])}")
-            L.append("\n──────────────────────")
-            L.append("<i>🔄 Refresh dabate raho — OTP aate hi upar highlight ho jayega.</i>")
-            await update.message.reply_text(cut_html("\n".join(L), 4000), parse_mode=HTML,
-                                            reply_markup=_tm_kb)
-            add_use(uid)
-            return
-
-        if cmd in ("del", "delete", "band", "close") and sess.get("address"):
-            _d = await asyncio.to_thread(tm_delete, sess["address"], sess.get("token", ""))
-            context.user_data["tempmail"] = {}
-            context.user_data["tm_seen"] = []
-            await update.message.reply_text(
-                "🗑️ Temp email band kar diya gaya.\n"
-                "📧 Naya chahiye to <b>NEW</b> bhejo.",
-                parse_mode=HTML, reply_markup=InlineKeyboardMarkup(
-                    [[InlineKeyboardButton("⌨️ Menu", callback_data="back_home")]]))
-            add_use(uid)
-            return
-
-        # NEW (ya koi bhi input) → naya mailbox
-        _t0 = time.perf_counter()
-        res = await asyncio.to_thread(tm_create)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if not res.get("ok"):
-            tel_note("tempmail", False, _ms, error=str(res.get("error") or "")[:120])
-            await update.message.reply_text(str(res.get("error") or "Email nahi bana."),
-                                            parse_mode=HTML)
-            add_use(uid)
-            return
-        tel_note("tempmail", True, _ms, credit=True)
-        # password sirf server-side (user_data) — user ko kabhi nahi dikhta
-        context.user_data["tempmail"] = {"address": res["address"],
-                                         "token": res["token"],
-                                         "password": res.get("password", ""),
-                                         "created": time.time()}
-        context.user_data["tm_seen"] = []
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "tempmail") + "\n" +
-            f"📧 <b>{to_bold('TEMP MAIL TAYAR')}</b>\n"
-            "──────────────────────\n"
-            f"📮 <b>Aapka ek-baar email:</b>\n"
-            f"<code>{hesc(res['address'])}</code>\n"
-            f"🌐 Domain: <code>{hesc(str(res.get('domain') or ''))}</code>\n"
-            "──────────────────────\n"
-            "✅ Ise kisi bhi jagah daalo — signup, OTP, password reset.\n"
-            "   <i>(Jahan real email zaroori ho — bank/office — wahan mat use karo.)</i>\n\n"
-            "🔑 <b>OTP khud nikal jayega</b> — message aate hi "
-            "<b>🔄 Inbox refresh</b> dabao, code sabse upar dikhega.\n"
-            f"⏳ Valid: ~{int((res.get('expires_in') or 2592000) // 86400)} din",
-            parse_mode=HTML, reply_markup=_tm_kb)
-        add_use(uid)
-        return
-
-    if mode == "imei":
-        _u_i = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u_i, uid):
-            await update.message.reply_text(get_credits_over_text("imei"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            add_use(uid)
-            return
-        _wi = await _wait_st(update.message)
-        ok15, imei_clean, imei_err = imei_validate(raw_text)
-        # ---------- v58: DEVICE NAAM / MODEL CODE ka rasta ----------
-        # Prompt me likha tha "ya direct Device Model Name / Code bhejein" par
-        # code sirf 15-digit IMEI leta tha — M2101K6P bhejne par seedha error.
-        # Ab: agar input me LETTER hain (device naam/code) to device search
-        # chalta hai — wahi premium card + PHONE KA PHOTO milta hai.
-        _dev_q = (raw_text or "").strip()
-        _dev_query = (not ok15) and bool(re.search(r"[A-Za-z]", _dev_q)) \
-            and 2 <= len(_dev_q) <= 60
-        if not ok15 and not _dev_query:
-            await update.message.reply_text(
-                "❌ <b>" + hesc(imei_err) + "</b>\n\n" + imei_help_card(),
-                parse_mode=HTML)
-            add_use(uid)
-            return                       # mode chalu rehta hai — dobara bhej sakte ho
-        if not imei_api_ready():
-            await update.message.reply_text(
-                imei_help_card("IMEI details abhi available nahi hain. Thodi der baad try karo."),
-                parse_mode=HTML)
-            add_use(uid)
-            return
-        wait = await update.message.reply_text(
-            ("🔎 <b>Device dhoondh raha hoon…</b>\n<i>5-15 second lagenge.</i>"
-             if _dev_query else
-             "🔎 <b>Phone ki details nikal raha hoon…</b>\n<i>5-15 second lagenge.</i>"),
-            parse_mode=HTML)
-        if _dev_query:
-            res_i = await asyncio.to_thread(imei_search_device, _dev_q)
-        else:
-            res_i = await asyncio.to_thread(fetch_imei_details, imei_clean)
-        try:
-            await wait.delete()
-        except Exception:
-            pass
-        if not res_i.get("ok"):
-            # v49.13: imei.info wale link buttons hata diye (user ka order)
-            await update.message.reply_text(
-                "❌ <b>DEVICE DETAILS NAHI MILE</b>\n"
-                "──────────────────────\n"
-                + (f"🔢 <b>Query:</b> <code>{hesc(_dev_q[:40])}</code>\n"
-                   if _dev_query else
-                   f"🔢 IMEI: <code>{hesc(imei_clean)}</code>\n")
-                + f"⚠️ {hesc(str(res_i.get('error'))[:160])}\n"
-                + ("✅ <b>Koi credit nahi kata</b> — poora device naam likho "
-                   "(jaise Redmi Note 10 Pro) ya 15-digit IMEI bhejein."
-                   if _dev_query else
-                   "✅ <b>Koi credit nahi kata</b> — IMEI check karke dobara bhejo "
-                   "(dial <code>*#06#</code>)."),
-                parse_mode=HTML)
-            add_use(uid)
-            return
-        # v54.3: CREDIT FAIRNESS — pehle credit message PEHLE bhej diya jaata
-        # tha, phir card bhejte waqt Telegram HTML error se crash ho jaata tha
-        # (live screenshot 2:03 PM: "1 credit used" ke baad "Chhota sa ghatna").
-        # Ab pehle card deliver hota hai, phir credit katta hai.
-        photo_sent = False
-        if res_i.get("photo") and not str(res_i["photo"]).lower().endswith(".gif"):
-            try:
-                await update.message.reply_photo(photo=res_i["photo"],
-                                                 caption=render_imei_caption(res_i), parse_mode=HTML)
-                photo_sent = True
-            except Exception as e:                                 # noqa: BLE001
-                log.debug("imei photo send fail: %s", str(e)[:80])
-                photo_sent = False
-        body = render_imei_text(res_i)
-        if not photo_sent and not body.startswith("📲"):
-            body = ("📲 <b>" + hesc(imei_title(res_i)) + "</b>\n"
-                    f"🔢 <b>IMEI:</b> <code>{hesc(str(res_i.get('imei') or ''))}</code>\n" + body)
-        _imei_sent = False
-        try:
-            await update.message.reply_text(body, parse_mode=HTML,
-                                            disable_web_page_preview=True)
-            _imei_sent = True
-        except Exception as e:                                     # noqa: BLE001
-            # HTML me koi masla ho to plain text (tags hata kar) bhejo —
-            # user ko result mile, crash nahi.
-            log.warning("imei card HTML fail, plain fallback: %s", str(e)[:100])
-            try:
-                await update.message.reply_text(
-                    strip_html(body)[:4000], disable_web_page_preview=True)
-                _imei_sent = True
-            except Exception:                                      # noqa: BLE001
-                pass
-        if not _imei_sent:
-            await update.message.reply_text(
-                "❌ Device card Telegram par bhej nahi paya.\n"
-                "✅ <b>Koi credit nahi kata.</b> Dobara try karo.", parse_mode=HTML)
-            add_use(uid)
-            return
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "imei"), parse_mode=HTML)
-        try:
-            buf_spec = io.BytesIO(imei_specs_json(res_i))
-            buf_spec.name = imei_specs_filename(res_i)  # device search me bhi kaam karta hai
-            await update.message.reply_document(
-                document=buf_spec,
-                caption=("📄 <b>" + hesc(imei_title(res_i)) + "</b> — full specifications\n"
-                         "<i>JSON copy file — open it or paste it anywhere (copy code style).</i>"),
-                parse_mode=HTML)
-        except Exception as e:
-            log.warning("imei json file send fail: %s", e)
-        # v49.13: device ke bahar wale links (imei.info/nanoreview) hata diye — sirf refresh
-        rows_i = [[InlineKeyboardButton("🔄 Doosra IMEI check karo", callback_data="imei_new")]]
-        await update.message.reply_text("👇 Next:", reply_markup=InlineKeyboardMarkup(rows_i), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return
 
 
     if mode == "numinfo":
@@ -8917,1722 +1666,130 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         add_use(uid)
         return
 
-    if mode == "vahan":
-        # v71: 🚗 GAADI X-RAY — provider laga ho to poora record BOT KE ANDAR,
-        # warna plate ka sarkari matlab + official SMS tarika (jhooth nahi).
-        _u_v = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u_v, uid):
-            await update.message.reply_text(get_credits_over_text("vahan"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        _wv = await _wait_st(update.message)
-        _t0v = time.perf_counter()
-        _off = await asyncio.to_thread(vahan_offline, raw_text)
-        _vres = {}
-        if _off.get("ok"):
-            try:
-                _vres = await asyncio.wait_for(asyncio.to_thread(vahan_lookup, raw_text), timeout=35)
-            except Exception:                                      # noqa: BLE001
-                _vres = {}
-        _msv = (time.perf_counter() - _t0v) * 1000
-        if not _off.get("ok") and not _vres.get("ok"):
-            tel_note("vahan", False, _msv, error="bad plate")
-            await update.message.reply_text(
-                "❌ " + str(_off.get("error") or _vres.get("error") or "Record nahi mila."),
-                parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        _vnote = ""
-        if not _vres.get("ok"):
-            _vnote = str(_vres.get("error") or _vres.get("hub_error") or "").strip()
-            if not _vnote and not vahan_provider_ready():
-                _vnote = ("Live record ke liye provider set nahi hai — <code>/rcsetup</code> "
-                          "bhejo (2 line, free). Neeche plate ka sarkari matlab dikh raha hai.")
-        _card_v = vahan_card(_vres if _vres.get("ok") else {}, _off, note=_vnote)
-        tel_note("vahan", True, _msv, credit=True)
-        await _reply_nonempty(update.message, spend_credit_msg(uid, "vahan") + "\n" + _card_v, parse_mode=HTML)
-        add_use(uid)
-        return
 
-    if mode == "osint_whois":
-        # v70: 🌐 WEBSITE OWNER X-RAY — sab result BOT KE ANDAR (koi link nahi)
-        _u_w = get_user(uid, update.effective_user.first_name)
-        if not can_use_premium_tool(_u_w, uid):
-            await update.message.reply_text(get_credits_over_text("osint_whois"),
-                                            reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        _ww = await _wait_st(update.message)
-        _t0w = time.perf_counter()
-        w_res = await asyncio.to_thread(lookup_whois, raw_text)
-        _msw = (time.perf_counter() - _t0w) * 1000
-        if w_res.get("ok"):
-            w_res["latency_ms"] = w_res.get("latency_ms") or _msw
-            tel_note("osint_whois", True, _msw, credit=True)
-            await _reply_nonempty(update.message, spend_credit_msg(uid, "osint_whois") + "\n" + whois_card(w_res),
-                parse_mode=HTML)
-        else:
-            tel_note("osint_whois", False, _msw, error=str(w_res.get("error"))[:90])
-            await update.message.reply_text(
-                "❌ " + str(w_res.get("error") or "Record nahi mila.") + "\n\n"
-                "💡 <b>Example:</b> <code>xyzshop.in</code> ya <code>flipkart.co.in</code>",
-                parse_mode=HTML)
-        add_use(uid)
-        return
-
-
-    # v75.2: list mili (paste ya file) -> poora flow ek hi jagah
-    if mode == "bulk_wait":
-        await _bulk_offer(update, context, raw_text)
-        return
-
-    if mode == "ifsc":
-        # v50: to_thread — event loop block nahi hoga (rate-limit central gate se lagta hai)
-        _t0 = time.perf_counter()
-        i_res = await asyncio.to_thread(lookup_ifsc, raw_text)
-        _ms = (time.perf_counter() - _t0) * 1000
-        if i_res.get("ok"):
-            rows = []   # v49.13: Google Maps link nahi
-            card = (
-                pcard_title("🏦", "IFSC BANK BRANCH REPORT") + "\n"
-                f"🏛️ <b>{hesc(str(i_res['bank']))}</b>\n"
-                + pcard_sep() + "\n"
-                f"🔑 <b>IFSC:</b> <code>{hesc(str(i_res['ifsc']))}</code>\n"
-                f"🏢 <b>Branch:</b> {hesc(str(i_res['branch']))}\n"
-                f"📍 <b>Address:</b> {hesc(str(i_res['address']))}\n"
-                f"🏙️ <b>City/State:</b> {hesc(str(i_res['city']))}, {hesc(str(i_res['state']))}\n"
-                + (f"📞 <b>Contact:</b> {hesc(str(i_res['contact']))}\n" if i_res.get('contact') else "")
-                + f"🔢 <b>MICR:</b> <code>{hesc(str(i_res['micr']))}</code>\n"
-                + pcard_sep() + "\n"
-                "💳 <b>Services:</b> "
-                + "  ".join([
-                    f"UPI {'✅' if i_res['upi'] else '❌'}",
-                    f"NEFT {'✅' if i_res['neft'] else '❌'}",
-                    f"RTGS {'✅' if i_res['rtgs'] else '❌'}",
-                    f"IMPS {'✅' if i_res['imps'] else '❌'}",
-                ]) + "\n"
-                + pcard_foot(ms=_ms, source="official bank registry (Razorpay IFSC)",
-                             cached=bool(i_res.get("cached")))
-            )
-            await _reply_nonempty(update.message, spend_credit_msg(uid, "ifsc") + "\n" + card,
-                                            reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
-        else:
-            await update.message.reply_text(f"❌ {i_res.get('error')}", parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if mode == "pin":
-        cleaned = re.sub(r"[^\d]", "", raw_text)
-        if len(cleaned) == 6:
-            _t0 = time.perf_counter()
-            p_res = await asyncio.to_thread(lookup_pincode, cleaned)
-            _ms = (time.perf_counter() - _t0) * 1000
-            if p_res.get("ok"):
-                rows = []   # v49.13: Map link nahi
-                _pos = list(p_res.get("post_offices") or [])
-                card = (
-                    pcard_title("📮", "PINCODE DETAILS") + "\n"
-                    f"🔢 <b>Pincode:</b> <code>{hesc(str(p_res['pincode']))}</code>\n"
-                    + pcard_sep() + "\n"
-                    f"🏙️ <b>District:</b> {hesc(str(p_res['district']))}\n"
-                    f"🗺️ <b>State:</b> {hesc(str(p_res['state']))}\n"
-                    + (f"🏘️ <b>Taluk:</b> {hesc(str(p_res['taluk']))}\n" if p_res.get('taluk') else "")
-                    # v57: khali field par line SKIP karo — pehle "📂 :  / " jaisa
-                    # adhoora text dikhta tha (India Post har pincode ka division/
-                    # circle nahi deta). Ab sirf jo data hai wahi dikhta hai.
-                    + (f"📂 <b>Division/Region:</b> {hesc(str(p_res['division']))}"
-                       + (f" / {hesc(str(p_res['region']))}" if p_res.get('region') else "")
-                       + "\n" if (p_res.get('division') or p_res.get('region')) else "")
-                    + (f"🔵 <b>Circle:</b> {hesc(str(p_res['circle']))}\n" if p_res.get('circle') else "")
-                    + (f"🚚 <b>Delivery:</b> {hesc(str(p_res['delivery']))}\n"
-                       if p_res.get('delivery') and str(p_res['delivery']).upper() not in ("N/A", "NA") else "")
-                    + (f"🏷️ <b>Type:</b> {hesc(str(p_res.get('branch_type')))}\n"
-                       if p_res.get('branch_type') and str(p_res['branch_type']).upper() not in ("N/A", "NA") else "")
-                    + f"🏤 <b>Total Post Offices:</b> {hesc(str(p_res['total_offices']))}\n"
-                    + pcard_sep() + "\n"
-                    + f"🏤 <b>Post Offices ({len(_pos)}):</b>\n"
-                    + "\n".join(f"   • {hesc(str(n))}" for n in _pos[:14])
-                    + (f"\n   <i>… aur {len(_pos) - 14} aur</i>" if len(_pos) > 14 else "")
-                    + "\n" + pcard_foot(ms=_ms, source="India Post official data",
-                                         cached=bool(p_res.get("cached")))
-                )
-                await _reply_nonempty(update.message, spend_credit_msg(uid, "pin") + "\n" + card,
-                                                reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
-            else:
-                await update.message.reply_text(f"❌ {p_res.get('error')}", parse_mode=HTML)
-        else:
-            # Area / post-office ke naam se pincode dhoondo
-            st = await _wait_st(update.message)
-            a_res = await asyncio.to_thread(search_by_area_name, raw_text)
-            if a_res.get("ok"):
-                lines = []
-                rows = []
-                for r in a_res["results"][:8]:
-                    lines.append(f"• <b>{hesc(r['name'])}</b> — <code>{r['pincode']}</code> ({hesc(r['district'])}, {hesc(r['state'])})")
-                    rows.append([InlineKeyboardButton(f"📋 {r['pincode']} — {r['name'][:28]}", callback_data=f"copy_{r['pincode']}")])
-                # v50: honest header — agar naam strip karke match hua to batao
-                note = ""
-                if a_res.get("approximate"):
-                    note = (f"\n⚠️ <i>'{hesc(a_res.get('matched_via') or a_res['query'])}' se match hua — "
-                            "apna district/state confirm kar lena.</i>")
-                elif a_res.get("total", 0) > 1:
-                    note = "\n💡 <i>Ek hi naam kai jagah hota hai — apna district dekh kar chuno.</i>"
-                if a_res.get("cached"):
-                    note += "\n⚡ <i>cache se (instant)</i>"
-                await st.edit_text(
-                    spend_credit_msg(uid, "pin") + "\n" +
-                    pcard_title("📮", "AREA SEARCH") + "\n"
-                    f"🔍 <b>Query:</b> <code>{hesc(a_res['query'])}</code>\n"
-                    f"🏤 <b>{a_res['total']} post offices</b> mili{note}\n"
-                    + pcard_sep() + "\n"
-                    + "\n".join(lines)
-                    + "\n" + pcard_foot(source="India Post official data", brand=False)
-                    + "\n\n💡 Pincode copy karne ke liye neeche button par tap karo:",
-                    reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML,
-                )
-            else:
-                await st.edit_text(f"❌ {a_res.get('error')}\n\n💡 Ya 6-digit pincode bhejo (jaise <code>800001</code>)", parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if mode == "qr_scan":
-        # v86: 📷 QR SCANNER — text aaya (photo chahiye thi) → photo maango, mode rakho
-        await update.message.reply_text(
-            "📷 <b>QR wali PHOTO bhejo</b> (text nahi) — photo me jo QR hoga uska text/link nikal dunga 👆",
-            parse_mode=HTML)
-        return
-
-    if mode == "qr":
-        # v53.0: branded QR (logo + colors + telemetry) aur credit SIRF success par.
-        # Color syntax: `<text> | #RRGGBB | #RRGGBB`  (2nd=foreground, 3rd=background)
-        parts = [x.strip() for x in raw_text.split("|")]
-        payload = parts[0]
-        fg = parts[1] if len(parts) > 1 else "#111111"
-        bg = parts[2] if len(parts) > 2 else "#FFFFFF"
-        want_color = len(parts) > 1
-        # 🛡️ logo sirf tab jab text chhota ho — lamba text = dense QR, logo se
-        #    kuch phone ke camera scan nahi kar paate.
-        res = await asyncio.to_thread(
-            build_qr_image, payload, fg=fg, bg=bg,
-            logo=not want_color and len(payload) <= 300,
-            size=680 if len(payload) <= 120 else 620,
-            label="UTILITY DUNIYA", tool="qr")
-        if not res.get("ok"):
-            # credit NAHI kata — QR bana hi nahi
-            await update.message.reply_text(
-                f"❌ {hesc(res.get('error'))}\n\n"
-                "💡 <i>Credit nahi kata. Plain QR ke liye sirf text bhejo.</i>",
-                parse_mode=HTML)
-            tel_note("qr", False, 0, error="user_input", credit=False)
-            return
-        note = res.get("note") or ""
-        cap = (spend_credit_msg(uid, "qr") + "\n" +
-               f"📷 <b>{to_bold('HD QR CODE TAYYAR')}</b>\n\n"
-               f"🔗 <code>{hesc(payload[:120])}{'…' if len(payload) > 120 else ''}</code>\n"
-               f"📏 <b>Size:</b> {res['bytes'].getbuffer().nbytes // 1024} KB · "
-               f"<b>Text:</b> {len(payload):,} chars\n")
-        if res.get("logo"):
-            cap += "🏷️ <b>Branded:</b> center logo + HD (error-correction H)\n"
-        if want_color:
-            cap += f"🎨 <b>Colors:</b> <code>{hesc(fg)}</code> / <code>{hesc(bg)}</code>\n"
-        cap += ("\n<i>Scan karte hi link khul jayega.</i>")
-        if note:
-            cap += "\n\n" + note.rstrip("\n")
-        await update.message.reply_photo(photo=res["bytes"], caption=cap, parse_mode=HTML)
-        add_use(uid)
-        return
-
-
-
-# ---------------- v102: 📜 KAGAZ SUITE delete (user order) ----------------
-    # ---------------- v74.0: RESULT CHECK (BSEB) wizard ----------------
-    if mode == "rc_code":
-        rc = BSEBR.clean_digits(raw_text)
-        if not re.match(r"^\d{3,6}$", rc):
-            await update.message.reply_text(
-                "❌ Roll Code 5 digit ka hota hai.\n\n"
-                "💡 <b>Example:</b> <code>11001</code>\n"
-                "<i>Admit card par 'Roll Code' likha hota hai.</i>", parse_mode=HTML)
-            return
-        db = context.user_data.get("rcdb") or {}
-        context.user_data["rc_code_val"] = rc
-        context.user_data["mode"] = "rc_roll"
-        await update.message.reply_text(
-            rc_ask_roll_card(str(db.get("exam") or "matric"),
-                             db.get("year") or BSEBR.CURRENT_YEAR, rc),
-            reply_markup=_rc_step_kb(), parse_mode=HTML)
-        return
-
-    if mode == "rc_roll":
-        nums = re.findall(r"\d{4,9}", re.sub(r"(?<=\d),(?=\d)", "", raw_text))
-        if not nums:
-            await update.message.reply_text(
-                "❌ Roll Number nahi mila.\n\n"
-                "💡 <b>Example:</b> <code>2600046</code>", parse_mode=HTML)
-            return
-        db = context.user_data.get("rcdb") or {}
-        await rc_deliver(update.message, context, uid,
-                         context.user_data.get("rc_code_val") or "", nums[0])
-        return
-
-    if mode == "rc_cap_ans":                           # v74.6: captcha jawab
-        st = context.user_data.get("rcap") or {}
-        form = st.get("form") or {}
-        key = str(st.get("key") or "")
-        bits = (raw_text or "").split()
-        cap_in = bits[0] if bits else ""
-        roll_in = bits[1] if len(bits) > 1 else ""
-        dob_in = bits[2] if len(bits) > 2 else ""
-        if not cap_in or not roll_in:
-            await update.message.reply_text(
-                "✍️ Aise likho: <code>AB12C 1234567</code>", parse_mode=HTML)
-            return
-        st["tries"] = int(st.get("tries") or 0) + 1
-        context.user_data["rcap"] = st
-        _res = await asyncio.to_thread(CB.submit, form, cap_in, roll_in, dob_in)
-        _kb_bs = InlineKeyboardMarkup([[InlineKeyboardButton(
-            "◀️ Saare boards", callback_data="rc_new")]])
-        if _res.get("ok"):
-            stu = _res.get("student") or {}
-            context.user_data.pop("mode", None)
-            context.user_data.pop("rcap", None)
-            _lbl = "Class 10 / Class 12"
-            await update.message.reply_text(rcap_result_card(stu, _lbl, 2026, key),
-                                            reply_markup=_kb_bs, parse_mode=HTML)
-            try:
-                _pdf = await asyncio.to_thread(BSEBR.build_pdf, stu, _lbl, 2026,
-                                               "board record", key)
-                if _pdf:
-                    await update.message.reply_document(
-                        io.BytesIO(_pdf),
-                        filename=f"{(key or 'board').upper()}_{roll_in}_2026.pdf",
-                        caption="📄 <b>Marksheet (WEB COPY)</b> — poora data isme hai ✅",
-                        parse_mode=HTML)
-            except Exception:                                # noqa: BLE001
-                pass
-            add_use(update.effective_user.id)
-            return
-        why = str(_res.get("why") or "")
-        if why == "captcha_galat" and st["tries"] < 4:
-            _f2 = await asyncio.to_thread(CB.fetch_form, (form.get("url") or ""))
-            if _f2.get("ok"):
-                st["form"] = _f2
-                context.user_data["rcap"] = st
-                try:
-                    await update.message.reply_photo(
-                        io.BytesIO(_f2["img"]),
-                        caption="❌ Captcha galat tha — <b>naya captcha likho</b>",
-                        parse_mode=HTML)
-                    return
-                except Exception:                            # noqa: BLE001
-                    pass
-        context.user_data.pop("mode", None)
-        context.user_data.pop("rcap", None)
-        await update.message.reply_text(rcap_fail_card(why, key),
-                                        reply_markup=_kb_bs, parse_mode=HTML)
-        return
-
-    if mode == "rc_board":
-        # user ne board ka naam likha — khojo
-        hits = BRD.find(raw_text)
-        if hits:
-            if len(hits) == 1:
-                key = hits[0][0]
-                context.user_data.pop("mode", None)
-                _cap, _kb = rc_board_card(key)
-                img = None
-                try:
-                    img = await asyncio.to_thread(BRD.photo_bytes, key)
-                except Exception:                                # noqa: BLE001
-                    img = None
-                try:
-                    if img:
-                        await update.message.reply_photo(io.BytesIO(img), caption=_cap,
-                                                         reply_markup=_kb, parse_mode=HTML)
-                    else:
-                        await update.message.reply_text(_cap, reply_markup=_kb, parse_mode=HTML)
-                except Exception:                                # noqa: BLE001
-                    await update.message.reply_text(_cap, reply_markup=_kb, parse_mode=HTML)
-                return
-            rows = [[InlineKeyboardButton(str(b.get("short"))[:24], callback_data=f"rcb:{k}")]
-                    for k, b in hits]
-            rows.append([InlineKeyboardButton("🇮🇳 Saare boards", callback_data="rc_new")])
-            await update.message.reply_text(
-                f"🔍 <b>{len(hits)} board mile</b> — jo chahiye wo dabayein:",
-                reply_markup=InlineKeyboardMarkup(rows), parse_mode=HTML)
-            return
-        await update.message.reply_text(
-            "❌ Is naam ka board nahi mila.\n\n"
-            "💡 Poora naam likhein (jaise <code>UP Board</code>, <code>Maharashtra</code>, "
-            "<code>Telangana</code>) — ya neeche se chuno:",
-            reply_markup=_rc_pick_kb(0), parse_mode=HTML)
-        return
-
-    if mode in RC_STEPS:
-        # user ne bina button dabe number type kar diya — sahi step dikha do
-        db = context.user_data.get("rcdb") or {}
-        _ek = str(db.get("exam") or "")
-        if mode == "rc_exam" or not _ek:
-            await update.message.reply_text(rc_exam_card(),
-                                            reply_markup=_rc_exam_kb(), parse_mode=HTML)
-        else:
-            await update.message.reply_text(rc_year_card(_ek),
-                                            reply_markup=_rc_year_kb(), parse_mode=HTML)
-        return
-
-    # ---------------- v73.0: CHAT X-RAY ----------------
-
-    # ---------------- v38: BANK STATEMENT ----------------
-    if mode == "bankpdf":
-        await update.message.reply_text(
-            "📄 <b>Bank statement ka PDF bhejo</b> (file/document ke roop me).\n"
-            "<i>Sirf PDF bhejo — screenshot ya photo nahi (unme table nahi hoti).</i>", parse_mode=HTML)
-        return
-
-    if mode == "bankpdf_pass":
-        pwd = raw_text.strip()
-        raw = context.user_data.get("bankpdf_bytes")
-        if not raw:
-            await update.message.reply_text("⚠️ Send the PDF first.", parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return
-        await update.message.reply_text("🔓 Opening the PDF...")
-        res = parse_bank_statement(raw, password=pwd)
-        if not res.get("ok"):
-            await update.message.reply_text(
-                f"❌ {res.get('error')}\n\n<i>Common passwords: last 4 digits of the account, or first 4 letters of the name + "
-                "year (example <code>rame1990</code>), or the pattern the bank sent you.</i>", parse_mode=HTML)
-            return
-        await deliver_statement(update, context, uid, res)
-        return
-
-    if mode == "media_menu":
-        await update.message.reply_text("👆 Upar wale buttons se option chuno.", parse_mode=HTML)
-        return
-
-    if mode == "media_ytmp3":
-        await do_ytmp3(update, context, uid, raw_text.strip())
-        return
-
-    if mode == "media_tts":
-        txt = raw_text.strip()
-        if len(txt) < 5:
-            await update.message.reply_text("❌ Thoda lamba text bhejo (min 5 letters).", parse_mode=HTML)
-            return
-        if len(txt) > 1500:
-            await update.message.reply_text(
-                f"❌ Text bahut lamba hai ({len(txt)} letters) — max 1500. Thoda chhota karke dobara bhejo.",
-                parse_mode=HTML)
-            return
-        context.user_data["tts_text"] = txt
-        context.user_data["mode"] = "media_tts_voice"
-        kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔊 MARD awaaz (Madhur)", callback_data="ttsvoice:male"),
-             InlineKeyboardButton("🔊 AURAT awaaz (Swara)", callback_data="ttsvoice:female")],
-        ])
-        await update.message.reply_text(
-            "✅ Text mil gaya!\n\nAb <b>awaaz chuno</b> (1 credit jayega):\n"
-            "🎙️ <i>Dono awaazein ekdum real desi Hindi me hain.</i>",
-            reply_markup=kb, parse_mode=HTML)
-        return
-
-    if mode in ("media_ringtone", "media_karaoke", "media_8d", "media_bass", "media_voice_wait",
-                "media_v2mp3", "media_trim_wait", "media_compress_wait", "media_status_audio"):
-        await update.message.reply_text("🎵 Pehle <b>audio/video file bhejo</b> (upar likhe tarike se).", parse_mode=HTML)
-        return
-
-    if mode == "media_ringtone_start":
-        raw = context.user_data.get("media_audio")
-        if not raw:
-            context.user_data["mode"] = "media_ringtone"
-            await update.message.reply_text("⚠️ Send the audio again.", parse_mode=HTML)
-            return
-        m = re.search(r"(\d{1,2}):(\d{2})", raw_text)
-        if m:
-            start = int(m.group(1)) * 60 + int(m.group(2))
-        else:
-            digits = re.sub(r"[^\d]", "", raw_text)
-            start = int(digits) if digits else 0
-        st = await _wait_st(update.message)
-        res = await asyncio.to_thread(desi.audio_cut, raw, str(start), str(start + 30), "mp3")
-        if not res.get("ok"):
-            await st.edit_text(fail_msg("RINGTONE FAILED", res.get("error", "")), parse_mode=HTML)
-            return
-        await st.delete()
-        await update.message.reply_audio(
-            audio=res["bytes"], filename="ringtone.mp3", title="Ringtone", performer="Utility Duniya",
-            duration=int(res.get("duration") or 30),
-            caption=(f"🎧 <b>RINGTONE READY</b> — {res.get('duration')}s\n"
-                     f"<i>starts at {start // 60}:{start % 60:02d}</i>\n\n" + spend_credit_msg(uid, "mediastudio")),
-            parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        context.user_data.pop("media_audio", None)
-        add_use(uid)
-        return
-
-    if mode == "media_trim_time":
-        m = re.findall(r"\d{1,2}:\d{2}|\d+", raw_text)
-        if len(m) < 2:
-            await update.message.reply_text("❌ Type it like: <code>0:10 0:45</code> (start to end)", parse_mode=HTML)
-            return
-        context.user_data["media_trim"] = (m[0], m[1])
-        raw = context.user_data.get("media_video")
-        if not raw:
-            context.user_data["mode"] = "media_trim_wait"
-            await update.message.reply_text("⚠️ Send the video again.")
-            return
-        await update.message.reply_text("✂️ Cutting the video... (10-60 seconds)")
-        res = desi.video_trim(raw, m[0], m[1])
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            return
-        await update.message.reply_video(video=res["bytes"], filename="trimmed.mp4", supports_streaming=True,
-                                         caption=f"✂️ <b>VIDEO READY</b> — {res.get('duration')}s · {res.get('size_mb')}MB\n\n"
-                                                 + spend_credit_msg(uid, "mediastudio"), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        context.user_data.pop("media_video", None)
-        add_use(uid)
-        return
-
-    if mode == "media_status_text":
-        txt = raw_text.strip()
-        img = context.user_data.get("media_status_photo")
-        aud = context.user_data.get("media_status_audio")
-        if not (img and aud):
-            await update.message.reply_text("⚠️ Pehle photo aur gaana dono bhejo.", parse_mode=HTML)
-            context.user_data["mode"] = "media_status_photo"
-            return
-        await update.message.reply_text("🎬 Making the status video... (20-90 seconds)")
-        res = desi.make_status_video(img, aud, txt, seconds=30)
-        if not res.get("ok"):
-            await update.message.reply_text(f"❌ {res.get('error')}", parse_mode=HTML)
-            return
-        await update.message.reply_video(video=res["bytes"], filename="status.mp4", supports_streaming=True,
-                                         caption=("🎬 <b>STATUS VIDEO TAIYAR ✅</b> (9:16 — WhatsApp/Instagram status)\n"
-                                                  "📥 Download karke seedha apne status par lagao.\n\n"
-                                                  + spend_credit_msg(uid, "mediastudio")), parse_mode=HTML)
-        for k in ("media_status_photo", "media_status_audio", "mode"):
-            context.user_data.pop(k, None)
-        add_use(uid)
-        return
-
-    if mode == "qr_wifi":
-        if not raw_text.strip():
-            await update.message.reply_text(
-                "❌ WiFi ka naam khaali nahi ho sakta.\n\n"
-                "📌 Jaise: <code>JioFiber_Home</code>\n"
-                "📶 <b>WiFi ka naam (SSID) bhejo:</b>", parse_mode=HTML)
-            return
-        context.user_data["qr_wifi_ssid"] = raw_text.strip()
-        context.user_data["mode"] = "qr_wifi_pass"
-        await update.message.reply_text(
-            "📶 <b>WiFi QR — Step 2/2</b>\n\n"
-            f"WiFi Name (SSID): <code>{hesc(raw_text)}</code>\n\n"
-            "Ab <b>WiFi password</b> bhejo:\n"
-            "(agar open WiFi hai to <code>none</code> bhejo)", parse_mode=HTML)
-        return
-
-    if mode == "qr_wifi_pass":
-        ssid = str(context.user_data.get("qr_wifi_ssid", "")).strip()
-        pwd = raw_text.strip()
-        open_net = pwd.lower() in ("none", "no", "skip", "-", "open", "")
-        context.user_data.pop("mode", None)
-        context.user_data.pop("qr_wifi_ssid", None)
-        if not ssid:
-            await update.message.reply_text(
-                "❌ WiFi ka naam (SSID) set nahi hua. /qr_wifi se dobara shuru karo.",
-                parse_mode=HTML)
-            return
-        # v53.0: special chars (`; : , " \`) engine escape karta hai — pehle raw
-        # jate the aur QR galat SSID/password le kar connect fail karta tha.
-        data = wifi_qr_data(ssid, "" if open_net else pwd)
-        # ⚠️ WiFi QR me logo NAHI lagate: ye dense hota hai aur wall par print
-        #    hota hai — logo se purane phones scan nahi kar paate. High-contrast
-        #    black/white hi sabse reliable hai.
-        res = await asyncio.to_thread(build_qr_image, data, logo=False, size=620,
-                                      tool="qr_wifi")
-        if not res.get("ok"):
-            await update.message.reply_text(
-                f"❌ {hesc(res.get('error'))}\n\n💡 <i>Credit nahi kata.</i>",
-                parse_mode=HTML)
-            return
-        cap = (spend_credit_msg(uid, "qr") + "\n" +
-               f"📶 <b>{to_bold('WIFI QR TAYYAR')}</b>\n\n"
-               f"• <b>WiFi (SSID):</b> <code>{hesc(ssid)}</code>\n"
-               f"• <b>Security:</b> {'Open (koi password nahi)' if open_net else 'WPA/WPA2'}\n"
-               f"• <b>Password:</b> {'— nahi hai —' if open_net else f'<code>{hesc(pwd)}</code>'}\n"
-               f"• <b>Hidden network:</b> nahi\n\n"
-               "📱 Guest ye QR scan karega → uska phone <b>khud WiFi se jud jayega</b> ✅\n"
-               "🖨️ <i>Isko print karke deewar par laga do — password kisi ko batana nahi padega!</i>\n\n"
-               "⚠️ <b>Ek baat:</b> password QR ke andar encode hota hai, isliye jo bhi "
-               "scan karega usse WiFi mil jayega. Sirf trusted logon ko scan karne do.")
-        await update.message.reply_photo(photo=res["bytes"], caption=cap, parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if mode == "qr_vcard":
-        name = raw_text.strip()
-        # v53.0: naam validate karo — pehle khaali naam bhi accept ho jata tha
-        # aur vCard me `FN:` khaali chali jati thi (phone contact "Unknown" banata).
-        if len(re.sub(r"\s", "", name)) < 2:
-            await update.message.reply_text(
-                "❌ Naam kam se kam 2 akshar ka hona chahiye.\n\n"
-                "📌 Jaise: <code>Himanshu Kumar</code>\n"
-                "👉 <b>Apna naam bhejo:</b>", parse_mode=HTML)
-            return
-        context.user_data["qr_vc_name"] = name[:40]
-        context.user_data["mode"] = "qr_vcard_phone"
-        await update.message.reply_text(
-            "👤 <b>Contact Card — Step 2/4</b>\n\n"
-            f"Naam: <b>{hesc(name)}</b>\n\n"
-            "Ab <b>phone number</b> bhejo:\n"
-            "📌 Jaise: <code>9876543210</code> ya <code>+91 98765 43210</code>",
-            parse_mode=HTML)
-        return
-
-    if mode == "qr_vcard_phone":
-        digits = re.sub(r"\D", "", raw_text)
-        if not (7 <= len(digits) <= 15):
-            await update.message.reply_text(
-                "❌ Ye phone number sahi nahi lag raha.\n\n"
-                "📌 Jaise: <code>9876543210</code> ya <code>+91 98765 43210</code>\n"
-                "👉 <b>Phone number dobara bhejo</b> (ya <code>skip</code>):", parse_mode=HTML)
-            return
-        context.user_data["qr_vc_phone"] = raw_text.strip()
-        context.user_data["mode"] = "qr_vcard_org"
-        await update.message.reply_text(
-            "👤 <b>Contact Card — Step 3/4</b>\n\n"
-            "Ab <b>company / dukaan ka naam</b> bhejo:\n"
-            "📌 Jaise: <code>Kumar Electronics</code>\n\n"
-            "<i>Nahi bharna? Sirf <code>skip</code> bhej do.</i>", parse_mode=HTML)
-        return
-
-    if mode == "qr_vcard_org":
-        v = raw_text.strip()
-        context.user_data["qr_vc_org"] = "" if v.lower() in ("skip", "-", "no", "none", "") else v[:60]
-        context.user_data["mode"] = "qr_vcard_email"
-        await update.message.reply_text(
-            "👤 <b>Contact Card — Step 4/4</b>\n\n"
-            "Ab <b>email</b> bhejo (optional):\n"
-            "📌 Jaise: <code>rahul@shop.com</code>\n\n"
-            "<i>Nahi bharna? Sirf <code>skip</code> bhej do.</i>", parse_mode=HTML)
-        return
-
-    if mode == "qr_vcard_email":
-        v = raw_text.strip()
-        email = ""
-        if v.lower() not in ("skip", "-", "no", "none", ""):
-            # sirf basic sanity — galat email par vCard phone me open hi nahi hota
-            if re.fullmatch(r"[^@\s,;]{1,64}@[^@\s,;]{2,255}", v):
-                email = v[:255]
-            else:
-                email = ""
-        name = str(context.user_data.get("qr_vc_name", "")).strip()
-        phone = str(context.user_data.get("qr_vc_phone", "")).strip()
-        org = str(context.user_data.get("qr_vc_org", "")).strip()
-        for k in ("mode", "qr_vc_name", "qr_vc_phone", "qr_vc_org"):
-            context.user_data.pop(k, None)
-        if not name or not phone:
-            await update.message.reply_text(
-                "❌ Naam ya phone number adhoora reh gaya. /qr_vcard se dobara shuru karo.",
-                parse_mode=HTML)
-            return
-        if email == "" and v.lower() not in ("skip", "-", "no", "none", ""):
-            await update.message.reply_text(
-                f"⚠️ <code>{hesc(v[:40])}</code> email sahi format me nahi laga, "
-                "isliye card me email nahi daala. Baaki card ban raha hai…",
-                parse_mode=HTML)
-        # v53.0: ab card me ORG + EMAIL bhi jata hai (pehle sirf naam/phone,
-        # aur org hardcoded "Utility Duniya Bot" tha — user ka business nahi).
-        data = vcard_data(name, phone, org=org, email=email)
-        # ⚠️ logo NAHI: vCard QR contact-save ke liye scan hota hai, reliability
-        #    sabse zaroori hai.
-        res = await asyncio.to_thread(build_qr_image, data, logo=False, size=620,
-                                      tool="qr_vcard")
-        if not res.get("ok"):
-            await update.message.reply_text(
-                f"❌ {hesc(res.get('error'))}\n\n💡 <i>Credit nahi kata.</i>",
-                parse_mode=HTML)
-            return
-        rows = [f"• <b>Naam:</b> {hesc(name)}", f"• <b>Phone:</b> <code>{hesc(phone)}</code>"]
-        if org:
-            rows.append(f"• <b>Company:</b> {hesc(org)}")
-        if email:
-            rows.append(f"• <b>Email:</b> <code>{hesc(email)}</code>")
-        cap = (spend_credit_msg(uid, "qr") + "\n" +
-               f"👤 <b>{to_bold('DIGITAL VISITING CARD TAYYAR')}</b>\n\n" +
-               "\n".join(rows) + "\n\n"
-               "📱 Scan karte hi contact phone me <b>save ho jayega</b> "
-               "(naam + number + company + email) ✅\n"
-               "🖨️ <i>Isko print karke counter par rakho, ya WhatsApp DP bana lo.</i>")
-        await update.message.reply_photo(photo=res["bytes"], caption=cap, parse_mode=HTML)
-        add_use(uid)
-        return
-
-    if mode == "short":
-        st = await _wait_st(update.message)
-        # v75.1 — ⚡ SPEED FIX: pehle `asyncio.gather` tha (SLOWEST ka wait).
-        #  `shorten_url` 6 provider try karta hai aur `expand_url` redirect chain
-        #  follow karta hai — dono me se koi ek slow ho to user dono ka time
-        #  jod kar wait karta tha. Ab `gather_soon`: jo time me aa gaya wahi.
-        _pair, _ms = await pro.gather_soon(
-            [asyncio.to_thread(shorten_url, raw_text, 3),
-             asyncio.to_thread(expand_url, raw_text)],
-            timeout=float(os.environ.get("SHORT_WAIT_S", "9")),
-        )
-        links = _pair[0] if _pair and _pair[0] else []
-        exp = _pair[1] if (len(_pair) > 1 and isinstance(_pair[1], dict)) else {}
-        clean = exp.get("cleaned", raw_text)
-        if links:
-            body = "\n\n".join(f"{i}️⃣ <b>{name}</b> → <code>{u}</code>" for i, (name, u) in enumerate(links, 1))
-            extra = ""
-            if clean and clean != raw_text:
-                extra = f"\n\n🧹 <b>Tracking-free original:</b>\n<code>{hesc(str(clean))}</code>"
-            # v86: short links bhi validate (provider ka ajeeb jawab = crash tha)
-            rows = []
-            for name, u in links:
-                _slu = _safe_btn_url(u or "")
-                if _slu:
-                    rows.append([InlineKeyboardButton(f"🔗 {name}", url=_slu)])
-            await st.edit_text(
-                spend_credit_msg(uid, "short") + "\n"
-                + pcard_title("🔗", "SHORT LINKS READY") + "\n"
-                + body + extra + "\n"
-                + pcard_foot(ms=_ms, source=f"{len(links)} shortener provider"),
-                reply_markup=InlineKeyboardMarkup(rows) if rows else None, parse_mode=HTML)
-        else:
-            await st.edit_text(
-                pcard_title("⚠️", "SHORT LINK NAHI BANA") + "\n"
-                "Sab providers busy hain (ye unki taraf se hota hai, aapki galti nahi).\n"
-                "🧹 <b>Tracking-free original link:</b>\n"
-                f"<code>{hesc(str(clean))}</code>\n"
-                + pcard_foot(ms=_ms, source="6 shortener providers", brand=False)
-                + "\n\n💡 1 minute baad dobara try karo.",
-                parse_mode=HTML,
-            )
-        add_use(uid)
-        return
-
-    if mode == "linkcheck":
-        st = await _wait_st(update.message)
-        _t0 = time.perf_counter()
-        chk = await asyncio.to_thread(analyze_link, raw_text)
-        _ms = (time.perf_counter() - _t0) * 1000
-        risk = chk.get("risk", 0)
-        bar = "█" * max(1, risk // 10) + "░" * (10 - max(1, risk // 10))
-        reasons_txt = "\n".join(f"• {r}" for r in chk.get("reasons", [])[:8])
-        sig = chk.get("signals", {})
-        cap = (
-            pcard_title("🛡️", "LINK CHECK REPORT") + "\n"
-            + pcard_sep() + "\n"
-            f"🎯 <b>Verdict:</b> {chk.get('verdict')}\n"
-            f"📊 <b>Risk Score:</b> <code>{bar}</code> {risk}/100\n"
-            f"🌐 <b>Final URL:</b> <code>{hesc(str(chk.get('final_url'))[:90])}</code>\n"
-            f"🔁 Redirects: {sig.get('redirect_hops', 0)} | 🔓 HTTPS: {'✅' if sig.get('https') else '❌'}\n"
-            "──────────────────────\n"
-            + pcard_sep() + "\n"
-            f"🔍 <b>What was found:</b>\n{reasons_txt}\n\n"
-            f"💡 <b>What to do:</b> {chk.get('advice')}\n"
-            + pcard_foot(ms=_ms, source="OpenPhish · URLScan · RDAP · 6-layer scan")
-        )
-        # v56: dead link par button banana bekaar tha + raw error dikhta tha.
-        _reach = sig.get("reachable", True)
-        if not _reach:
-            cap += ("\n\n🔌 <b>Note:</b> Ye link abhi <b>khul nahi raha</b> — "
-                    "domain galat/spelling galat hai, ya server band hai. "
-                    "Aise link par OTP / password / UPI PIN <b>kabhi na dalo</b>.")
-        kb_rows = []
-        if chk.get("final_url"):
-            _fu2 = _safe_btn_url(chk.get("final_url") or "")   # v86: galat URL = crash
-            if _fu2:
-                kb_rows.append([InlineKeyboardButton("🌐 Final link kholo", url=_fu2)])
-        await st.edit_text(spend_credit_msg(uid, "linkcheck") + "\n" + cap,
-                           reply_markup=InlineKeyboardMarkup(kb_rows) if kb_rows else None,
-                           parse_mode=HTML)
-        add_use(uid)
-        return
-
-
-    # Forwarded message for ID Finder + Auto-Forward channel pakadna
-    if hasattr(update.message, "forward_origin") and update.message.forward_origin:
-        orig = update.message.forward_origin
-        if hasattr(orig, "sender_user") and orig.sender_user:
-            f_user = orig.sender_user
-            await update.message.reply_text(f"🆔 <b>Forwarded User ID:</b> <code>{f_user.id}</code>\n• <b>Name:</b> {hesc(f_user.first_name)}", parse_mode=HTML)
-            return
-        elif hasattr(orig, "chat") and orig.chat:
-            f_chat = orig.chat
-            await update.message.reply_text(
-                f"🆔 <b>Channel found:</b> {hesc(str(f_chat.title or ''))}\n"
-                f"🆔 <b>ID:</b> <code>{f_chat.id}</code>\n\n"
-                "👇 Ye channel kya banega?",
-                reply_markup=InlineKeyboardMarkup([
-                    [InlineKeyboardButton("📡 Ye SOURCE banao (posts yahan se aayenge)", callback_data=f"fc_src:{f_chat.id}")],
-                    [InlineKeyboardButton("📑 Make this TARGET (posts go here)", callback_data=f"fc_tgt:{f_chat.id}")],
-                ]),
-                parse_mode=HTML,
-            )
-            return
-
-    # Default fallback
-    # v44: agar koi tool ka mode chalu hai to menu par na phenko — wahi tool dobara maango
-    _mode_now = context.user_data.get("mode")
-    if _mode_now and _mode_now in PROMPTS:
-        await update.message.reply_text(
-            "🤔 <b>Samajh nahi aaya</b> — lagta hai ye input is tool ke liye nahi tha.\n\n"
-            + tool_prompt(_mode_now), reply_markup=tool_support_kb(_mode_now), parse_mode=HTML)
-        return
-    if _mode_now:
-        _name = {"bankpdf_pass": "🏦 BANK PDF"}.get(_mode_now)
-        if _name:
-            await update.message.reply_text(
-                f"🤔 <b>Samajh nahi aaya.</b> {_name} tool chalu hai — "
-                "upar likhe steps ke hisaab se dobara bhejo, ya /cancel karke naya tool kholo.",
-                parse_mode=HTML)
-            return
-    await update.message.reply_text("👇 Neeche grid menu se tool chuno:", reply_markup=kb_for(uid))
-
-
-# ---------------- PHOTO / DOCUMENT HANDLERS ----------------
-async def deliver_statement(update, context, uid, res):
-    """Bank statement ka CSV + summary bhejo (1 credit)."""
-    if not can_use_premium_tool(get_user(uid), uid):
-        await update.message.reply_text(get_credits_over_text("bankpdf"),
-                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-        return
-    await update.message.reply_document(
-        document=res["csv"], filename=f"statement_{datetime.now().strftime('%d-%m-%Y')}.csv",
-        caption=statement_summary_text(res), parse_mode=HTML)
-    await _reply_nonempty(update.message, spend_credit_msg(uid, "bankpdf"), parse_mode=HTML)
+    # yahan tak pahunche = mode set tha par handle nahi hua
     context.user_data.pop("mode", None)
-    context.user_data.pop("bankpdf_bytes", None)
-    add_use(uid)
+    await update.message.reply_text(
+        "🤔 <b>Samajh nahi aaya.</b>\n\nNeeche menu se tool chuno 👇",
+        reply_markup=kb_for(uid), parse_mode=HTML)
 
 
-async def do_ytmp3(update, context, uid, url):
-    """YouTube link → MP3 (1 credit)."""
-    if "youtu" not in url.lower() and "youtube" not in url.lower():
-        await update.message.reply_text("❌ Ye YouTube link nahi lag raha. Aisa link bhejo: <code>https://youtu.be/xxxx</code>",
-                                        parse_mode=HTML)
+async def on_cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """v108: ab sirf admin panel + join-wall ke buttons bache hain."""
+    q = update.callback_query
+    await safe_answer_cb(q)
+    data = str(q.data or "")
+    uid = q.from_user.id
+
+    if data == "adm_sys" and is_admin(uid):
+        await admin_panel_send(update, context)
         return
-    if not can_use_premium_tool(get_user(uid), uid):
-        await update.message.reply_text(get_credits_over_text("mediastudio"),
-                                        reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-        return
-    st = await _wait_st(update.message)
-    res = await asyncio.to_thread(desi.youtube_mp3, url, "192")
-    if not res.get("ok"):
-        await st.edit_text(fail_msg("MP3 FAILED", res.get("error", "")), parse_mode=HTML)
-        return
-    dur = int(res.get("duration") or 0)
-    await st.delete()
-    await update.message.reply_audio(
-        audio=res["bytes"], filename="song.mp3",
-        title=(res.get("title") or "Audio")[:60], performer=(res.get("uploader") or "Utility Duniya")[:40],
-        duration=dur,
-        caption=(f"🎵 <b>{hesc((res.get('title') or 'AUDIO')[:80])}</b>\n"
-                 f"⏱️ {dur // 60}:{dur % 60:02d} · 📦 {res.get('size_mb')} MB\n\n"
-                 + spend_credit_msg(uid, "mediastudio")),
-        parse_mode=HTML)
-    context.user_data.pop("mode", None)
-    add_use(uid)
-
-
-# ============================================================
-#  v74.0: 📋 RESULT CHECK PRO (sirf BSEB — Bihar Board)
-# ------------------------------------------------------------
-#  Portal jaisa poora flow: EXAM chuno → YEAR chuno → Roll Code →
-#  Roll Number → Result card + PDF (web copy jaisi marksheet).
-#  Matric = official open API · Inter = official portal form.
-# ============================================================
-RC_STEPS = ("rc_exam", "rc_year", "rc_board")
-
-# v74.6: captcha bridge ke official endpoints (form khule to yahin se chalega)
-RC_CAP_ENDPOINTS = {
-    "cbse": ["https://cbseresults.nic.in/",
-             "https://results.cbse.nic.in/",
-             "https://cbseresults.nic.in/class10/",
-             "https://cbseresults.nic.in/class12/"],
-}
-
-
-def rcap_result_card(stu: dict, label: str, year, key: str) -> str:
-    """Bridge ka result card — sirf outcome."""
-    b = BRD.BOARDS.get(key) or {}
-    L = [pcard_title("📋", f"RESULT — {str(b.get('short') or key).upper()}"),
-         f"🎓 {hesc(str(label))} · <b>{year}</b>", pcard_sep()]
-    if stu.get("name"):
-        L.append(f"👤 <b>{hesc(str(stu['name']))}</b>")
-    for k2, lb in (("roll_no", "🔢 Roll"), ("school_name", "🏫 School"),
-                   ("father_name", "👨 Father"), ("mother_name", "👩 Mother")):
-        if stu.get(k2):
-            L.append(f"{lb}: {hesc(str(stu[k2]))}")
-    subs = stu.get("subjects") or []
-    if subs:
-        L.append("")
-        L.append("📚 <b>Marks:</b>")
-        for sub in subs[:15]:
-            L.append("├ " + BSEBR._sub_line(sub))
-    L.append(pcard_sep())
-    if stu.get("total"):
-        L.append(f"🎯 <b>Total:</b> {BSEBR._nice(stu.get('total'))}")
-    if stu.get("result"):
-        L.append(f"🏅 <b>Result:</b> {hesc(str(stu['result']))}")
-    L.append("📄 <b>PDF marksheet</b> neeche hai ✅")
-    L.append("")
-    L.append(BRAND_LINK)
-    return "\n".join(L)
-
-
-def rcap_fail_card(why: str, key: str = "") -> str:
-    b = BRD.BOARDS.get(key) or {}
-    line = {"login": "❌ Result abhi nahi mila (portal band/login maangta hai)",
-            "form_nahi": "❌ Result abhi nahi mila",
-            "captcha_img_fail": "❌ Captcha image nahi khuli — dobara try karo",
-            "roll_nahi": "❌ Ye roll number nahi mila",
-            "captcha_galat": "❌ Captcha galat tha",
-            "parse": "❌ Result aa gaya par padha nahi ja saka — dobara try karo",
-            }.get(why, "❌ Result nahi mila — dobara try karo")
-    return "\n".join([pcard_title("📋", f"RESULT — {str(b.get('short') or 'BOARD').upper()}"),
-                       pcard_sep(), line, "", BRAND_LINK])
-
-
-def _rc_pick_card(page: int = 0) -> str:
-    """Board chuno (v74.5: sirf BSEB + CBSE)."""
-    rows, pg, tot = BRD.page_boards(page)
-    L = [pcard_title("📋", "RESULT CHECK"),
-         f"🇮🇳 <b>Apna BOARD chuno</b>" + (f"  (page {pg + 1}/{tot})" if tot > 1 else ""),
-         ""]
-    for key, b in rows:
-        live = " ✅ <b>LIVE</b>" if b.get("status") == "live" else ""
-        L.append(f"{b.get('flag', '🔹')} <b>{hesc(str(b.get('short')))}</b>"
-                 f" — {hesc(str(b.get('state')))}{live}")
-    return "\n".join(L)
-
-
-def _rc_pick_kb(page: int = 0):
-    rows_b, pg, tot = BRD.page_boards(page)
-    rows, buf = [], []
-    for key, b in rows_b:
-        live = "✅" if b.get("status") == "live" else ""
-        buf.append(InlineKeyboardButton(f"{str(b.get('short'))[:22]}{live}",
-                                        callback_data=f"rcb:{key}"))
-        if len(buf) == 2:
-            rows.append(buf)
-            buf = []
-    if buf:
-        rows.append(buf)
-    if tot > 1:                                    # v74.5: 1 page ho to nav row nahi
-        nav = []
-        if pg > 0:
-            nav.append(InlineKeyboardButton("◀️ Peeche", callback_data=f"rc_page:{pg - 1}"))
-        nav.append(InlineKeyboardButton(f"{pg + 1}/{tot}", callback_data="rc_noop"))
-        if pg < tot - 1:
-            nav.append(InlineKeyboardButton("Aage ▶️", callback_data=f"rc_page:{pg + 1}"))
-        rows.append(nav)
-    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def rc_board_card(key: str) -> tuple:
-    """(caption, keyboard) — board ka apna card (official logo ke saath)."""
-    b = BRD.BOARDS.get(str(key)) or {}
-    if not b:
-        return "", _rc_pick_kb(0)
-    st = b.get("status")
-    L = [f"🏛️ <b>{hesc(str(b.get('name', '')))}</b>",
-         f"<b>{hesc(str(b.get('short', '')))}</b>"]
-    if b.get("hi"):
-        L.append(f"<i>{hesc(str(b['hi']))}</i>")
-    L.append(f"📍 <b>State:</b> {hesc(str(b.get('state', '')))}")
-    L.append(f"📚 <b>Exam:</b> {hesc(', '.join(b.get('exams') or []))}")
-    L.append(f"🔢 <b>Chahiye:</b> {hesc(', '.join(b.get('need') or []))}")
-    L.append(pcard_sep())
-    L.append("✅ <b>LIVE</b> — result yahin se nikalta hai"
-             if st == "live" else "⏳ <b>Jald live hoga</b>")
-    L.append("")
-    L.append(BRAND_LINK)
-    rows = []
-    if st == "live":
-        rows.append([InlineKeyboardButton("🔎 Result check karo (LIVE ✅)",
-                                          callback_data=f"rc_live:{key}")])
-    elif key in RC_CAP_ENDPOINTS:
-        rows.append([InlineKeyboardButton("🔎 Result check karo (🔐 captcha)",
-                                          callback_data=f"rc_cap:{key}")])
-    rows.append([InlineKeyboardButton("◀️ Saare boards", callback_data="rc_new")])
-    return "\n".join(L), InlineKeyboardMarkup(rows)
-
-
-async def _rc_say_photo(q, key, caption, kb):
-    """Board ka card PHOTO ke saath bhejo (official logo / color badge)."""
-    if q is None:
-        return
-    img = None
-    try:
-        img = await asyncio.to_thread(BRD.photo_bytes, key)
-    except Exception:                                            # noqa: BLE001
-        img = None
-    try:
-        if q is not None and getattr(q, "message", None) is not None:
-            try:
-                await q.message.delete()
-            except Exception:                                    # noqa: BLE001
-                pass
-            if img:
-                await q.message.reply_photo(io.BytesIO(img), caption=caption,
-                                            reply_markup=kb, parse_mode=HTML)
-                return
-            await q.message.reply_text(caption, reply_markup=kb, parse_mode=HTML)
-            return
-    except Exception:                                            # noqa: BLE001
-        pass
-    await _vnum_say(q, caption, kb)
-
-
-RC_STEPS_BOARD = True
-
-
-def _rc_exam_kb():
-    rows = [[InlineKeyboardButton(ex["btn"], callback_data=f"rc_ex:{k}")]
-            for k, ex in BSEBR.EXAMS.items()]
-    rows.append([InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info")])
-    rows.append([InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")])
-    return InlineKeyboardMarkup(rows)
-
-
-def _rc_year_kb():
-    rows, buf = [], []
-    for y in BSEBR.YEARS:
-        lab = f"{y} ✅" if int(y) == int(BSEBR.CURRENT_YEAR) else str(y)
-        buf.append(InlineKeyboardButton(lab, callback_data=f"rc_yr:{y}"))
-        if len(buf) == 2:
-            rows.append(buf)
-            buf = []
-    if buf:
-        rows.append(buf)
-    rows.append([InlineKeyboardButton("⏪ Exam badlo", callback_data="rc_back_ex")])
-    return InlineKeyboardMarkup(rows)
-
-
-def _rc_step_kb():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("⏪ Year badlo", callback_data="rc_back_yr"),
-         InlineKeyboardButton("⏪ Exam badlo", callback_data="rc_back_ex")],
-        [InlineKeyboardButton("❌ Cancel", callback_data="back_home")],
-    ])
-
-
-def _rc_result_kb():
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🔄 Naya check", callback_data="rc_new"),
-         InlineKeyboardButton("🔁 Dobara try", callback_data="rc_retry")],
-        [InlineKeyboardButton("ℹ️ CBSE result?", callback_data="cbse_info"),
-         InlineKeyboardButton("⌨️ Tools Grid", callback_data="back_home")],
-    ])
-
-
-def _rc_head(exam_key: str, year) -> str:
-    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
-    return f"📋 <b>RESULT CHECK (BSEB)</b>\n🎓 {ex.get('short', 'BSEB')} · <b>{year}</b>"
-
-
-def rc_exam_card() -> str:
-    return "\n".join([
-        pcard_title("📋", "RESULT CHECK (BSEB ✅ LIVE)"),
-        "🔗 <b>Pehle EXAM chuno</b> (neeche buttons se):",
-        "",
-        "     🎓 Matric (10th) Annual",
-        "     🎓 Inter (12th) Annual",
-        "     🔁 Inter Special / Compartmental",
-        "",
-        "<i>Bihar Board (BSEB) ka result.</i>",
-    ])
-
-
-def rc_year_card(exam_key: str) -> str:
-    return "\n".join([
-        _rc_head(exam_key, BSEBR.CURRENT_YEAR),
-        pcard_sep(),
-        "🔗 <b>Ab YEAR chuno</b> (neeche buttons se):",
-        "",
-        f"     {BSEBR.CURRENT_YEAR} ✅  ← is saal ka result",
-        "     2025 · 2024 · 2023 · 2022  (purane saal)",
-        "",
-        "<i>Purane saal ka result board ke live portal par nahi hota — "
-        "us par poori jaankari milegi.</i>",
-    ])
-
-
-def rc_ask_code_card(exam_key: str, year) -> str:
-    return "\n".join([
-        _rc_head(exam_key, year),
-        pcard_sep(),
-        "🔗 <b>Ab Roll Code bhejein</b>:",
-        "",
-        "     <code>11001</code>",
-        "",
-        "<i>Admit card par 'Roll Code' likha hota hai (5 digit).</i>",
-    ])
-
-
-def rc_ask_roll_card(exam_key: str, year, roll_code: str) -> str:
-    return "\n".join([
-        _rc_head(exam_key, year),
-        f"✅ Roll Code: <b>{hesc(str(roll_code))}</b>",
-        pcard_sep(),
-        "🔗 <b>Ab Roll Number bhejein</b>:",
-        "",
-        "     <code>2600046</code>",
-        "",
-        "<i>Admit card par 'Roll Number' likha hota hai (6-7 digit).</i>",
-    ])
-
-
-def rc_result_card(st: dict, exam_key: str, year) -> str:
-    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
-    L = [pcard_title("📋", "BSEB RESULT"),
-         f"🎓 <b>{hesc(str(ex.get('short', 'BSEB')))}</b> · {year}"]
-    L.append(f"👤 <b>{hesc(str(st.get('name') or '-'))}</b>")
-    if st.get("father"):
-        L.append(f"👨 {hesc(str(st['father']))}")
-    if st.get("school"):
-        L.append(f"🏫 {hesc(str(st['school']))}")
-    L.append(f"🔢 <b>Roll:</b> <code>{hesc(str(st.get('roll_code') or '-'))}"
-             f" / {hesc(str(st.get('roll_no') or '-'))}</code>")
-    if st.get("reg_no"):
-        L.append(f"🆔 <b>Reg No:</b> {hesc(str(st['reg_no']))}")
-    if st.get("bseb_id"):
-        L.append(f"🎫 <b>BSEB ID:</b> {hesc(str(st['bseb_id']))}")
-    if st.get("exam_type"):
-        L.append(f"🧾 <b>Exam Type:</b> {hesc(str(st['exam_type']))}")
-    subs = st.get("subjects") or []
-    if subs:
-        L.append(pcard_sep())
-        L.append("📚 <b>Marks (subject-wise):</b>")
-        for sub in subs[:15]:
-            L.append("├ " + BSEBR._sub_line(sub))
-    L.append(pcard_sep())
-    tot = st.get("total")
-    L.append(f"🎯 <b>Total:</b> {BSEBR._nice(tot)}")
-    L.append(f"🏅 <b>Result:</b> {BSEBR.result_text(st)}"
-             + (f" · {hesc(str(st.get('division')))}" if st.get("division") else ""))
-    if st.get("is_topper"):
-        L.append("🏆 <b>TOPPER!</b> — board ki topper list me naam 🎉")
-    L.append("")
-    L.append("📄 <b>PDF marksheet</b> neeche hai ✅")
-    L.append("")
-    L.append(BRAND_LINK)
-    return "\n".join(L)
-
-
-def rc_archive_card(exam_key: str, year) -> str:
-    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
-    return "\n".join([
-        _rc_head(exam_key, year),
-        pcard_sep(),
-        f"⚠️ <b>{year} ka result nahi mila</b> — sirf <b>{BSEBR.CURRENT_YEAR}</b> ka chalta hai.",
-        "",
-        BRAND_LINK,
-    ])
-
-
-def rc_notlive_card(exam_key: str, year, rc: str, rn: str) -> str:
-    ex = BSEBR.EXAMS.get(str(exam_key)) or {}
-    L = [_rc_head(exam_key, year),
-         f"👤 <b>{hesc(str(ex.get('short', 'BSEB')))}</b>",
-         f"🔎 <b>Check kiya:</b> <code>{hesc(rc)} / {hesc(rn)}</code>",
-         "",
-         "⏳ <b>Is roll ka result abhi live nahi hai</b>",
-         "<i>Board ne is roll ka result declare nahi kiya, ya number galat hai.</i>",
-         pcard_sep(),
-         "📅 <b>Result kab aata hai:</b>",
-         "• Matric (10th) — <b>March-April</b>",
-         "• Inter (12th) — <b>March-April</b>",
-         "• Compartment — <b>May-August</b>",
-         "",
-         "🔤 Roll Code aur Roll Number ulta ho gaya ho to dobara bhej dein.",
-         "✅ Result declare hote hi yahi se turant mil jayega.",
-         "",
-         BRAND_LINK]
-    return "\n".join(L)
-
-
-def rc_server_card(exam_key: str, year) -> str:
-    return "\n".join([
-        _rc_head(exam_key, year),
-        pcard_sep(),
-        "❌ <b>Bihar Board ka server abhi jawab nahi de raha</b>",
-        "<i>(result season me server par bahut load hota hai)</i>",
-        "",
-        "👉 1-2 minute baad <b>🔁 Dobara try</b> dabayein — aapke number yaad hain.",
-        "",
-        BRAND_LINK,
-    ])
-
-
-def rc_parse_card(exam_key: str, year) -> str:
-    return "\n".join([
-        _rc_head(exam_key, year),
-        pcard_sep(),
-        "⚠️ <b>Result nahi padha ja saka</b> — dobara try karein.",
-        "",
-        BRAND_LINK,
-    ])
-
-
-def cbse_info_card() -> str:
-    return "\n".join([
-        pcard_title("🏛️", "CBSE — CENTRAL BOARD OF SECONDARY EDUCATION"),
-        "🇮🇳 <b>All India</b>",
-        pcard_sep(),
-        "⏳ <b>Jald live hoga</b>",
-        "",
-        BRAND_LINK,
-    ])
-
-
-async def rc_deliver(target, context, uid: int, rc: str, rn: str):
-    """Result lao → card + PDF bhejo (kabhi khaali nahi)."""
-    db = context.user_data.get("rcdb") or {}
-    exam_key = str(db.get("exam") or "matric")
-    try:
-        year = int(db.get("year") or BSEBR.CURRENT_YEAR)
-    except Exception:                                            # noqa: BLE001
-        year = BSEBR.CURRENT_YEAR
-    db["rc"], db["rn"] = str(rc), str(rn)
-    context.user_data["rcdb"] = db
-    st = await _wait_st(target)
-    res = await asyncio.to_thread(BSEBR.check, exam_key, year, rc, rn)
-    try:
-        await st.delete()
-    except Exception:                                            # noqa: BLE001
-        pass
-    if res.get("ok"):
-        stu = res.get("student") or {}
-        await target.reply_text(rc_result_card(stu, exam_key, year),
-                                reply_markup=_rc_result_kb(), parse_mode=HTML)
+    if data == "adm_backup" and is_admin(uid):
         try:
-            _label = (BSEBR.EXAMS.get(exam_key) or {}).get("label") or "BSEB"
-            pdf = await asyncio.to_thread(BSEBR.build_pdf, stu, _label, year,
-                                          "board record")
-            if pdf:
-                await target.reply_document(
-                    io.BytesIO(pdf),
-                    filename=BSEBR.pdf_filename(exam_key, rc, rn, year),
-                    caption="📄 <b>Marksheet (WEB COPY)</b> — poora data isme hai "
-                            "(sirf jaankari ke liye) ✅",
-                    parse_mode=HTML)
+            # NOTE: vault.backup_now ek async method hai — await hi karna hai
+            res = await vault.backup_now(reason=f"admin-button:{uid}",
+                                         also_telegram=False)
         except Exception as e:                                   # noqa: BLE001
-            log.warning("result pdf fail: %s", str(e)[:120])
-        context.user_data.pop("mode", None)
-        context.user_data.pop("rc_code_val", None)
-        add_use(uid)
+            res = {"ok": False, "why": f"{type(e).__name__}: {str(e)[:120]}"}
+        await q.message.reply_text(
+            ("✅ <b>Backup ho gaya</b>" if res.get("ok") else
+             "⚠️ <b>Backup fail:</b> "
+             f"<code>{hesc(str(res.get('why'))[:150])}</code>"),
+            parse_mode=HTML)
         return
-    _stt = str(res.get("status") or "")
-    if _stt == "server":
-        await target.reply_text(rc_server_card(exam_key, year),
-                                reply_markup=_rc_result_kb(), parse_mode=HTML)
-    elif _stt == "parse":
-        await target.reply_text(rc_parse_card(exam_key, year),
-                                reply_markup=_rc_result_kb(), parse_mode=HTML)
-    else:
-        await target.reply_text(rc_notlive_card(exam_key, year, rc, rn),
-                                reply_markup=_rc_result_kb(), parse_mode=HTML)
-    context.user_data.pop("mode", None)
-    context.user_data.pop("rc_code_val", None)
+
+    # purana / delete ho chuka button
+    await _cb_stale_reply(update, context)
 
 
-async def handle_new_tool_file(update, context, uid, msg, mode, kind, data, mime=""):
-    """v38: aayi hui file ko mode ke hisaab se process karo. True = handle ho gaya."""
-    say = msg.reply_text
-
-    # ---------- 💬 CHAT X-RAY (v73.0) ----------
-
-    # ---------- 🏦 BANK PDF ----------
-    if mode in ("bankpdf", "bankpdf_pass") and kind == "pdf":
-        context.user_data["bankpdf_bytes"] = data
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("bankpdf"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            context.user_data.pop("mode", None)
-            return True
-        st = await _wait_st(msg)
-        res = await asyncio.to_thread(parse_bank_statement, data)
-        if res.get("ok"):
-            await st.delete()
-            await deliver_statement(update, context, uid, res)
-            return True
-        if res.get("locked") and not res.get("wrong_password"):
-            # v50 PRO: pehle KHUD common passwords try karo — user ko matlaagana nahi padega
-            st.edit_text("🔒 PDF locked hai — main common passwords khud try kar raha hoon (2-5 sec)…",
-                         parse_mode=HTML)
-            cands = [c for c in statement_passwords() if len(c) >= 4][:8]
-            for cand in cands:
-                r2 = await asyncio.to_thread(parse_bank_statement, data, cand)
-                if r2.get("ok"):
-                    await st.delete()
-                    await deliver_statement(update, context, uid, r2)
-                    await say("🔓 <b>Auto-unlock ho gaya!</b> PDF ka password khud mil chuka tha ✅",
-                              parse_mode=HTML)
-                    return True
-            context.user_data["mode"] = "bankpdf_pass"
-            await st.edit_text(
-                "🔒 <b>This PDF is locked with a password!</b>\n\nSend the password (as text).\n"
-                "<i>Common patterns:</i>\n"
-                "• last <b>4 digits</b> of the account (example <code>7561</code>)\n"
-                "• <b>first 4 letters of name + birth year</b> (example <code>rame1990</code>)\n"
-                "• or what the bank told you (example <code>ABCD1234</code>)\n\n"
-                "🔑 <b>Now send the password:</b>", parse_mode=HTML)
-            return True
-        await st.edit_text(fail_msg("PDF READ FAILED", res.get("error", "")), parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        return True
-
-    # ---------- ⚡ MEDIA STUDIO ----------
-    if mode == "media_menu":
-        await say("👆 Upar wale buttons me se option chuno (MP3 / Status / Karaoke...).")
-        return True
-
-    if mode == "media_ytmp3" and kind == "text":
-        return False
-
-    if mode in ("media_ringtone",) and kind in ("audio", "video", "voice", "video_note"):
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return True
-        context.user_data["media_audio"] = data
-        context.user_data["mode"] = "media_ringtone_start"
-        await say("⏱️ Ringtone kis second se shuru ho? (jaise <code>45</code> ya <code>1:20</code>)\n"
-                  "<i>Ringtone 30 second ka banega.</i>", parse_mode=HTML)
-        return True
-
-    if mode in ("media_karaoke", "media_8d", "media_bass") and kind in ("audio", "video", "voice", "video_note"):
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return True
-        names = {"media_karaoke": ("🎤 Karaoke", desi.make_karaoke),
-                 "media_8d": ("🔊 8D sound", desi.eff_8d),
-                 "media_bass": ("💥 Bass boost", desi.bass_boost)}
-        label, fn = names[mode]
-        st = await _wait_st(msg)
-        res = await asyncio.to_thread(fn, data)
-        if not res.get("ok"):
-            await st.edit_text(fail_msg("FAILED", res.get("error", "")), parse_mode=HTML)
-            return True
-        await st.delete()
-        extra = res.get("note") or ""
-        await msg.reply_audio(audio=res["bytes"], filename="audio.mp3", title=label, performer="Utility Duniya",
-                              caption=f"✅ <b>{label} ready!</b>\n{extra}\n\n" + spend_credit_msg(uid, "mediastudio"),
-                              parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return True
-
-    if mode == "media_v2mp3" and kind in ("video", "video_note"):
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return True
-        st = await _wait_st(msg)
-        res = await asyncio.to_thread(desi.video_to_mp3, data)
-        if not res.get("ok"):
-            await st.edit_text(fail_msg("FAILED", res.get("error", "")), parse_mode=HTML)
-            return True
-        await st.delete()
-        await msg.reply_audio(audio=res["bytes"], filename="audio.mp3", title="Audio of the video",
-                              performer="Utility Duniya",
-                              caption="🎼 <b>MP3 ready!</b>\n\n" + spend_credit_msg(uid, "mediastudio"),
-                              parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return True
-
-    if mode == "media_voice_wait" and kind in ("audio", "video", "voice", "video_note"):
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return True
-        context.user_data["media_audio"] = data
-        await say("🗣️ Ab <b>voice chuno</b> (kid / heavy / robot / ghost / gadget / echo):",
-                  reply_markup=voice_preset_kb(), parse_mode=HTML)
-        return True
-
-    if mode == "media_trim_wait" and kind in ("video", "video_note"):
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return True
-        context.user_data["media_video"] = data
-        context.user_data["mode"] = "media_trim_time"
-        await say("✂️ Kahan se kahan tak kaatna hai? Aise likho: <code>0:10 0:45</code>\n"
-                  "<i>(shuru ka time aur end ka time)</i>", parse_mode=HTML)
-        return True
-
-    if mode == "media_compress_wait" and kind in ("video", "video_note"):
-        if not can_use_premium_tool(get_user(uid), uid):
-            await say(get_credits_over_text("mediastudio"), reply_markup=get_limit_exceeded_kb(), parse_mode=HTML)
-            return True
-        st = await _wait_st(msg)
-        res = await asyncio.to_thread(desi.video_compress, data, 18.0)
-        if not res.get("ok"):
-            await st.edit_text(fail_msg("COMPRESS FAILED", res.get("error", "")) +
-                               ("\n\n✂️ <b>TRIM</b> first to make it short, then compress." if res.get("too_long") else ""),
-                               parse_mode=HTML)
-            return True
-        await st.delete()
-        await msg.reply_video(video=res["bytes"], filename="compressed.mp4", supports_streaming=True,
-                              caption=(f"🗜️ <b>VIDEO COMPRESSED</b> — {res.get('size_mb')} MB\n"
-                                       f"{res.get('note') or ''}\n\n" + spend_credit_msg(uid, "mediastudio")),
-                              parse_mode=HTML)
-        context.user_data.pop("mode", None)
-        add_use(uid)
-        return True
-
-    if mode == "media_status_audio" and kind in ("audio", "voice"):
-        context.user_data["media_status_audio"] = data
-        context.user_data["mode"] = "media_status_text"
-        await say("✍️ Ab <b>status par kya likhna hai</b>? (1-3 line)\n<i>jaise: Happy Birthday Rahul 🎂</i>", parse_mode=HTML)
-        return True
-
-    return False
-
-
-async def on_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    uid = update.effective_user.id
-    # v49.4: VIP-only (payment screenshot flow chhod kar)
-    _m = str(context.user_data.get("mode") or "")
-    if PREMIUM_ONLY and not vip_ok(update.effective_user.id) and not _m.startswith(("pay_", "adm_")):
-        await send_vip_wall(update, context)
+async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Join-wall gate ke baad asli text handler."""
+    if not await JW.gate(update, context):
         return
-    mode = context.user_data.get("mode")
-
-    # ==================================================================
-    #  v63: 💼 BUSINESS STUDIO WIZARD — photo/logo wala step
-    # ==================================================================
-    #  User jab tool ke step par ho aur us step me photo maangi gayi ho,
-    #  to yahan photo download kar ke usi tool ke dict me daal dete hain.
-    # v65: agar pichhla progress-pinger chal raha tha to use band karo
+    t0 = time.perf_counter()
     try:
-        _old_stop = context.user_data.get("_ping_stop")
-        if _old_stop is not None:
-            _old_stop.set()
-            context.user_data.pop("_ping_stop", None)
-    except Exception:                                            # noqa: BLE001
-        pass
-
-    if mode and str(mode).startswith("biz_") and mode != "biz_menu":
-        _steps_p = biz_steps(str(mode))
-        _idx_p = context.user_data.get("biz_step")
-        if _steps_p and _idx_p is not None:
-            _idx_p = int(_idx_p)
-            _fld_p, _q_p, _hint_p, _isphoto_p = _steps_p[min(_idx_p, len(_steps_p) - 1)][:4]
-            if _isphoto_p:
-                try:
-                    _tf = await update.message.photo[-1].get_file()
-                    _buf = io.BytesIO()
-                    await _tf.download_to_memory(_buf)
-                    _pbytes = _buf.getvalue()
-                except Exception:                                # noqa: BLE001
-                    _pbytes = b""
-                if _pbytes:
-                    _ans_p = dict(context.user_data.get("biz_ans") or {})
-                    _ans_p[_fld_p] = _pbytes
-                    context.user_data["biz_ans"] = _ans_p
-                    _idx_p += 1
-                    if _idx_p < len(_steps_p):
-                        context.user_data["biz_step"] = _idx_p
-                        await safe_reply(update.message,
-                                         "✅ <b>Photo lag gayi!</b> 👌\n\n"
-                                         + biz_step_prompt(str(mode), _idx_p),
-                                         reply_markup=biz_steps_kb(str(mode), _idx_p),
-                                         parse_mode=HTML)
-                        return
-                    # aakhri step tha -> file banao
-                    context.user_data.pop("biz_step", None)
-                    context.user_data.pop("biz_ans", None)
-                    _d_p = biz_answers_to_dict(str(mode), _ans_p)
-                    _r_p = await asyncio.get_running_loop().run_in_executor(
-                        None, functools_partial(biz_build, str(mode), _d_p))
-                    _ok_p = bool(_r_p and _r_p.get("ok"))
-                    if _ok_p and not ALL_FREE:
-                        spend_credits(uid, 1)
-                    await biz_send_result(update.message, str(mode), _r_p or {}, uid,
-                                          used=_ok_p)
-                    return
-                await safe_reply(update.message,
-                                 "⚠️ Photo padhi nahi ja saki. Dobara bhejein, "
-                                 "ya <code>SKIP</code> likh dein.", parse_mode=HTML)
-                return
-        else:
-            # photo-step nahi chal raha — to ye photo kisi aur kaam ka hai
+        await on_text(update, context)
+    finally:
+        try:
+            if (time.perf_counter() - t0) > 2.0:
+                _mem_relief("text")
+        except Exception:                                        # noqa: BLE001
             pass
 
-    # Cloner Mode Active
-    if mode == "cloning_active":
-        ok, msg_res = await forward_cloned_message(context.bot, update.message, uid)
-        await update.message.reply_text(msg_res, parse_mode=HTML)
-        return
 
-    # Custom Thumbnail Setup for Cloner
-    if mode == "cloner_thumb":
-        thumb_id = update.message.photo[-1].file_id
-        save_cloner_config(uid, thumbnail_file_id=thumb_id)
-        context.user_data.pop("mode", None)
-        await update.message.reply_text("✅ <b>Thumbnail save ho gaya!</b> Ab se saare forwarded video/document par ye hi thumbnail lagega.", reply_markup=get_cloner_settings_kb(uid), parse_mode=HTML)
-        return
-
-    # ---------- v38: STATUS VIDEO (photo) ----------
-    if mode == "media_status_photo":
-        photo_file = await update.message.photo[-1].get_file()
-        buf = io.BytesIO()
-        await photo_file.download_to_memory(buf)
-        context.user_data["media_status_photo"] = buf.getvalue()
-        context.user_data["mode"] = "media_status_audio"
-        await update.message.reply_text(
-            "🎵 Ab <b>gaana bhejo</b> (status ke liye MP3/audio file).\n"
-            "<i>YouTube se gaana chahiye to pehle 🎵 YouTube → MP3 se banao, phir yahan bhejo.</i>", parse_mode=HTML)
-        return
-
-    # ---------- PAYMENT: screenshot aane par strict verify ----------
-    if mode and mode.startswith("pay_shot_"):
-        plan_key = mode.replace("pay_shot_", "")
-        await submit_payment_proof(update, context, uid, plan_key, update.message.photo[-1])
-        return
-
-    # UTR ke intezaar me photo aa gayi?
-    if mode and mode.startswith("pay_utr_"):
-        plan_key = mode.replace("pay_utr_", "")
-        await update.message.reply_text(
-
-            "📝 <b>Pehle UTR bhejo</b> (text me), phir screenshot.\n"
-            "Payment app kholo → transaction details → <b>UTR / Ref No</b> (12 digit) copy karke yahan bhejo.\n"
-            "❓ Samajh nahi aa raha kahan milega? Neeche button par tap karo.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("❓ UTR kahan milega?", callback_data="pay_utr_help")]]),
-            parse_mode=HTML)
-        return
-
-    # Photo Studio: Name & DOP Stamp
-
-
-    # Signature Cleaner
-    # Printable 8-in-1 Sheet
-
-    # Document PDF Compressor (size option + grayscale)
-
-    # v86: 📷 QR SCANNER — photo aayi → QR decode karo
-    if mode == "qr_scan":
-        try:
-            photo_file = await update.message.photo[-1].get_file()
-            buf = io.BytesIO()
-            await photo_file.download_to_memory(buf)
-            _qr_bytes = buf.getvalue()
-        except Exception:  # noqa: BLE001
-            _qr_bytes = b""
-        if not _qr_bytes:
-            await safe_reply(update.message,
-                             "⚠️ Photo padhi nahi ja saki. Dobara bhejein.", parse_mode=HTML)
-            return
-        st = await _wait_st(update.message)
-        res = await asyncio.to_thread(qr_scan_bytes, _qr_bytes)
-        if res.get("ok"):
-            _txt = str(res.get("text") or "")
-            _kind = "🔗 <b>Link mila!</b>" if res.get("kind") == "url" else "📝 <b>Text mila!</b>"
-            cap = (spend_credit_msg(uid, "qr_scan") + "\n" +
-                   f"📷 <b>{to_bold('QR SCAN RESULT')}</b>\n\n{_kind}\n<code>{hesc(_txt[:1500])}</code>")
-            _kb = None
-            if res.get("kind") == "url":
-                _su = _safe_btn_url(_txt)
-                if _su:
-                    _kb = InlineKeyboardMarkup([[InlineKeyboardButton("🌐 Link kholo", url=_su)]])
-            await _st_edit(st, update, cap, reply_markup=_kb, parse_mode=HTML)
-            add_use(uid)
-        else:
-            await _st_edit(st, update,
-                           f"⚠️ <b>{to_bold('QR NAHI MILA')}</b>\n\n{safe_html_err(str(res.get('error') or 'QR code nahi mila')[:200])}\n\n"
-                           "💡 QR seedha, paas se, saaf roshni me photo bhejo.",
-                           parse_mode=HTML)
-        return
-
-
-
-# ---------------- FULL AUTO CLONER ENGINE (v31) ----------------
-# Album (media group) ko thoda wait karke ek saath bhejne ke liye buffer
-_ALBUM_BUFFER: dict = {}
-
-
-async def _flush_album(bot, key, delay: float = 1.4):
-    """Album ke saare items aane ka wait karta hai, phir ek saath (album) post karta hai."""
-    await asyncio.sleep(delay)
-    item = _ALBUM_BUFFER.pop(key, None)
-    if not item:
-        return
-    msgs = item.get("msgs", [])
-    if not msgs:
-        return
-    for uid in item.get("uids", []):
-        ok, res = await clone_messages(bot, msgs, uid)
-        if item.get("notify"):
+async def _on_cb_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Join-wall ka apna button pehle, phir gate, phir on_cb."""
+    _cb = getattr(update, "callback_query", None)
+    if _cb is not None and str(getattr(_cb, "data", "") or "").startswith("fj:"):
+        if await JW.handle_check(update, context):
             try:
-                await bot.send_message(chat_id=item["notify"], text=res, parse_mode=HTML)
-            except Exception:
+                _uid = int(update.effective_user.id)
+                if not context.user_data.get("_fj_menu"):
+                    context.user_data["_fj_menu"] = True
+                    await _cb.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(_uid),
+                                                 parse_mode=HTML)
+            except Exception:                                    # noqa: BLE001
                 pass
-        if not ok:
-            log.warning("Album clone fail (uid=%s): %s", uid, res)
-
-
-async def on_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """VIDEO / FILE / AUDIO / VOICE / GIF / STICKER handler (Manual Forward Mode + ID Finder)."""
-    # v49.4: VIP-only
-    if PREMIUM_ONLY and not vip_ok(update.effective_user.id):
-        await send_vip_wall(update, context)
         return
-    msg = update.message
-    if not msg:
+    if not await JW.gate(update, context):
         return
-    uid = update.effective_user.id
-    mode = context.user_data.get("mode")
+    try:
+        await on_cb(update, context)
+    except (ValueError, IndexError) as _bad:
+        log.warning("callback data galat/purana (%s): %s",
+                    _cb_data_short(update), str(_bad)[:120])
+        await _cb_stale_reply(update, context)
 
-    if is_banned(uid):
-        return
 
-    # Manual Cloner Mode Active
-    if mode == "cloning_active":
-        if msg.media_group_id:
-            key = ("manual", uid, msg.media_group_id)
-            item = _ALBUM_BUFFER.get(key)
-            if item:
-                item["msgs"].append(msg)
-            else:
-                _ALBUM_BUFFER[key] = {"msgs": [msg], "uids": [uid], "notify": update.effective_chat.id}
-                asyncio.create_task(_flush_album(context.bot, key))
+async def on_other(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Photo / video / file — v108 me inka koi tool nahi bacha."""
+    try:
+        if is_banned(update.effective_user.id):
             return
-        ok, res = await forward_cloned_message(context.bot, msg, uid)
-        await msg.reply_text(res, parse_mode=HTML)
-        return
-
-    # ---------- v38: naye tools ke files (PDF / audio / video / image) ----------
-    _our_modes = ("bankpdf", "bankpdf_pass", "media_ringtone", "media_ringtone_start",
-                  "media_karaoke", "media_8d", "media_bass", "media_voice_wait", "media_v2mp3",
-                  "media_trim_wait", "media_compress_wait", "media_status_audio")
-    if mode in _our_modes:
-        kind, att, fname, mime = None, None, "", ""
-        if msg.document:
-            fname = (msg.document.file_name or "").lower()
-            mime = (msg.document.mime_type or "").lower()
-            att = msg.document
-            if "pdf" in mime or fname.endswith(".pdf"):
-                kind = "pdf"
-            elif mime.startswith("image/") or fname.endswith((".jpg", ".jpeg", ".png", ".webp")):
-                kind = "image"
-            elif mime.startswith("audio/") or fname.endswith((".mp3", ".m4a", ".wav", ".ogg", ".opus", ".aac")):
-                kind = "audio"
-            elif mime.startswith("video/") or fname.endswith((".mp4", ".mkv", ".mov", ".webm", ".3gp")):
-                kind = "video"
-        elif msg.video:
-            kind, att = "video", msg.video
-        elif msg.animation:
-            kind, att = "video", msg.animation
-        elif msg.video_note:
-            kind, att = "video_note", msg.video_note
-        elif msg.audio:
-            kind, att = "audio", msg.audio
-        elif msg.voice:
-            kind, att = "voice", msg.voice
-        if kind and att is not None:
-            try:
-                # ---- v79: 20MB deewar → 150MB (MTProto, modules/core/bigfile.py) ----
-                # Bot API ki hadd 20MB hai; Telegram ka apna API (MTProto) 2GB tak
-                # de deta hai WAHI bot token se. TG_API_ID + TG_API_HASH env set ho
-                # to badi file disk par utarti hai (RAM nahi khata) aur tool ko
-                # milti hai; set NA ho to bilkul pehle jaisa hi behave karta hai.
-                _fsz = int(getattr(att, "file_size", 0) or 0)
-                _cap_mb = BF.cap_in_mb()
-                if _fsz and _fsz > _cap_mb * 1048576:
-                    await msg.reply_text("⚠️ The file is bigger than 20MB — that is the Telegram bot limit. Send a smaller file "
-                                         "(for videos, use ✂️ TRIM first)."
-                                         if not BF.enabled() else
-                                         f"⚠️ File {_fsz // 1048576} MB hai — is bot ki hadd {_cap_mb} MB tak hai. "
-                                         f"Chhoti file bhejein (videos ke liye ✂️ TRIM pehle).",
-                                         parse_mode=HTML)
-                    return
-                if _fsz > 20 * 1048576:
-                    # 20MB se upar: Bot API se milegi hi nahi → MTProto se DISK par
-                    _fn = (getattr(att, "file_name", "") or "")
-                    _r = await BF.download_to_path(msg, suffix=os.path.splitext(_fn)[1])
-                    if not _r.get("ok"):
-                        await msg.reply_text("⚠️ The file is bigger than 20MB — that is the Telegram bot limit. Send a smaller file "
-                                             "(for videos, use ✂️ TRIM first).", parse_mode=HTML)
-                        return
-                    _payload = (BF.MappedFile(_r["path"], _r["size"]) if _r.get("mapped")
-                                else open(_r["path"], "rb").read())
-                    try:
-                        handled = await handle_new_tool_file(update, context, uid, msg, mode,
-                                                             kind, _payload, mime)
-                    finally:
-                        try:
-                            _payload.unlink() if hasattr(_payload, "unlink") else os.remove(_r["path"])
-                        except Exception:                                    # noqa: BLE001
-                            pass
-                    if handled:
-                        return
-                else:
-                    tf = await att.get_file()
-                    buf = io.BytesIO()
-                    await tf.download_to_memory(buf)
-                    handled = await handle_new_tool_file(update, context, uid, msg, mode, kind, buf.getvalue(), mime)
-                    if handled:
-                        return
-            except Exception as e:
-                await msg.reply_text(fail_msg("FILE ERROR", str(e)[:150]), parse_mode=HTML)
-                return
-
-    # ID Finder: forwarded media ka original user/channel ID batao
-    if getattr(msg, "forward_origin", None):
-        orig = msg.forward_origin
-        if getattr(orig, "sender_user", None):
-            f_user = orig.sender_user
-            await msg.reply_text(
-                f"🆔 <b>Forwarded User ID:</b> <code>{f_user.id}</code>\n• <b>Name:</b> {hesc(f_user.first_name or '')}",
-                parse_mode=HTML,
-            )
-            return
-        if getattr(orig, "chat", None):
-            f_chat = orig.chat
-            await msg.reply_text(
-                f"🆔 <b>Forwarded Channel/Chat ID:</b> <code>{f_chat.id}</code>\n• <b>Title:</b> {hesc(f_chat.title or '')}",
-                parse_mode=HTML,
-            )
-            return
+        await update.message.reply_text(
+            "📵 <b>Is bot me file / photo / video ka koi tool nahi hai.</b>\n\n"
+            "   📱 <b>NUMBER INFO</b> — 10 digit number bhejo\n"
+            "   👪 <b>FAMILY INFO</b> — 12 digit Aadhaar bhejo",
+            reply_markup=kb_for(update.effective_user.id), parse_mode=HTML)
+    except Exception:                                            # noqa: BLE001
+        pass
 
 
-async def on_channel_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """FULL AUTO: Source channel me nayi post aayi -> uske sabhi auto-cloners ke target me bhej do.
-    (Bot ko us channel me admin hona chahiye, tabhi ye update milta hai.)"""
-    msg = update.effective_message
-    if not msg or not msg.chat:
-        return
+def arm_all_handlers(app) -> int:
+    """🛡️ v60: HAR handler ko crash-shield me lapet do (ek hi jagah se).
 
-    src_id = str(msg.chat.id)
-    cloners = get_auto_cloners_for_source(src_id)
-    if not cloners:
-        return
+    Ye "code crash ho jaata hai" ka sabse bada ilaaj hai. Isse pehle har tool
+    ka code apne aap ko bachata tha — lekin koi bhi chhoti bug (kisi field ka
+    missing hona, kisi API ka ajeeb jawab, kisi photo ka kharab format) us
+    tool ke handler ko maar deti thi aur user ko "Chhota sa ghatna ho gaya"
+    dikhta tha (credit bhi kat chuka hota tha).
 
-    # Target == Source ho to skip (infinite loop se bachne ke liye)
-    uids = [c["user_id"] for c in cloners if str(c.get("target_chat_id") or "").strip() != src_id]
-    if not uids:
-        return
+    Ab: PTB ke saare handlers ka `callback` guard me lapet diya jata hai.
+    Iska matlab:
+      • koi bhi tool bug -> sirf wo ek tool ke liye message fail hota hai
+      • bot kabhi nahi girta
+      • user ko saaf message milta hai ("dobara try karo")
+      • admin ko /sys par "kitne sambhale gaye" dikhta hai
 
-    if msg.media_group_id:
-        key = ("auto", src_id, msg.media_group_id)
-        item = _ALBUM_BUFFER.get(key)
-        if item:
-            item["msgs"].append(msg)
-        else:
-            _ALBUM_BUFFER[key] = {"msgs": [msg], "uids": uids, "notify": None}
-            asyncio.create_task(_flush_album(context.bot, key))
-        return
-
-    for uid in uids:
-        ok, res = await clone_messages(context.bot, [msg], uid)
-        if not ok:
-            log.warning("Auto clone fail (uid=%s): %s", uid, res)
+    Returns: kitne handlers lapete gaye.
+    """
+    n = 0
+    try:
+        for group, handlers in (app.handlers or {}).items():
+            for h in handlers:
+                cb = getattr(h, "callback", None)
+                if cb is None or getattr(cb, "_ud_guarded", False):
+                    continue
+                try:
+                    wrapped = guarded(f"handler:{type(h).__name__}")(cb)
+                    wrapped._ud_guarded = True
+                    h.callback = wrapped
+                    n += 1
+                except Exception:                                # noqa: BLE001
+                    continue
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("arm_all_handlers me dikkat (bot normal chalega): %s", str(e)[:130])
+    return n
 
 
 # ---------------- ERROR HANDLER ----------------
@@ -10684,63 +1841,27 @@ async def on_error(update: object, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------------- POST INIT ----------------
 async def _post_init(app: Application):
-    # v59.3: 🛡️ background task crash bhi process ko na giraaye — sirf log ho
     try:
-        import asyncio as _aio
-        _loop = _aio.get_running_loop()
-        # v66: vault ko batao ki MAIN loop kaun hai — thread se backup ab
-        #      isi loop par chalta hai (pehle "different event loop" crash tha)
+        _loop = asyncio.get_running_loop()
         try:
             vault_set_main_loop(_loop)
-            log.info("🛡️ Vault: main event loop register ho gaya (backup crash fix)")
+            log.info("🛡️ Vault: main event loop register ho gaya")
         except Exception as _ve:                                 # noqa: BLE001
             log.debug("vault loop register skip: %s", str(_ve)[:80])
-        # v66: cookies wapas laga do (admin ne pehle bheji thi to)
-        try:
-            if cookies_boot_restore():
-                log.info("🍪 YouTube cookies restore ho gayin (bot-check fix ON)")
-        except Exception as _ce:                                 # noqa: BLE001
-            log.debug("cookies restore skip: %s", str(_ce)[:80])
 
         def _loop_err(_loop2, _ctx):
             _ex = _ctx.get("exception")
             if _ex is None:
-                return          # v68: khaali context = asli error nahi (log na bharo)
-            # v85: source bhi log karo (task/future ka naam + message) — v84 tak
-            # "background task error" ka exact source pakka nahi tha, ab hoga.
-            _src = ""
-            try:
-                _f = _ctx.get("future") or _ctx.get("task")
-                if _f is not None:
-                    _src = f" [{type(_f).__name__}:{getattr(_f, 'get_name', lambda: '')() or ''}]"
-                _msg = str(_ctx.get("message") or "")
-                if _msg and _msg not in str(_ex)[:200]:
-                    _src += f" ({_msg[:80]})"
-            except Exception:  # noqa: BLE001
-                pass
-            log.warning("🛡️ background task error%s (bot chalta rahega): %s: %s",
-                        _src, type(_ex).__name__, str(_ex)[:200])
-            try:
-                import traceback as _tb
-                log.debug("background task traceback: %s",
-                          "".join(_tb.format_exception(
-                              type(_ex), _ex, _ex.__traceback__))[-1500:])
-            except Exception:  # noqa: BLE001
-                pass
+                return
+            log.warning("🛡️ background task error (bot chalta rahega): %s: %s",
+                        type(_ex).__name__, str(_ex)[:200])
         _loop.set_exception_handler(_loop_err)
-        # v60: heartbeat — hang watchdog ko pata chale ki loop zinda hai
         from modules.core.guard import start_heartbeat_task
         start_heartbeat_task(_loop)
     except Exception:                                            # noqa: BLE001
         pass
 
-    # ==================================================================
-    #  v60 — 🛡️ PREMIUM VAULT ko chalu karo
-    #  1) Boot par: pichhla backup MERGE karo (premium-floor protected)
-    #     -> Render ne filesystem wipe kiya ho to bhi premium users wapas
-    #  2) Background auto-backup thread chalu
-    #  Ye dono kabhi crash nahi karte.
-    # ==================================================================
+    # ---- 🛡️ PREMIUM VAULT: boot par pichhla backup merge + auto-backup ----
     try:
         vault.bot = app.bot
         vault.owner_id = OWNER_ID
@@ -10751,29 +1872,12 @@ async def _post_init(app: Application):
 
     try:
         if vault.enabled() and (vault.gh_ready() or vault.telegram_ready()):
-            import asyncio as _aio2
-            _res = await _aio2.get_running_loop().run_in_executor(
+            _res = await asyncio.get_running_loop().run_in_executor(
                 None, functools_partial(vault.restore_now, "boot"))
             if _res.get("ok"):
-                log.info("🛡️ BOOT RESTORE OK (%s) — VIP %s -> %s",
-                         _res.get("source"), _res.get("premium_before", {}).get("total_premium"),
-                         _res.get("premium_after", {}).get("total_premium"))
-                if _res.get("n_users_added") or _res.get("report", {}).get("users", {}).get("only_remote"):
-                    try:
-                        await app.bot.send_message(
-                            chat_id=OWNER_ID,
-                            text=(f"🛡️ <b>VAULT BOOT RESTORE</b>\n"
-                                  f"──────────────────────\n"
-                                  f"📥 Source: <code>{hesc(str(_res.get('source'))[:70])}</code>\n"
-                                  f"👑 VIP: {_res.get('premium_before', {}).get('total_premium')} ➜ "
-                                  f"{_res.get('premium_after', {}).get('total_premium')}\n"
-                                  f"ℹ️ <i>Pichhle backup se data wapas mila gaya.</i>"),
-                            parse_mode="HTML")
-                    except Exception:                            # noqa: BLE001
-                        pass
+                log.info("🛡️ BOOT RESTORE OK (%s)", _res.get("source"))
             else:
-                log.info("vault boot-restore skip: %s",
-                         str(_res.get("why") or "")[:150])
+                log.info("vault boot-restore skip: %s", str(_res.get("why") or "")[:150])
     except Exception as e:                                       # noqa: BLE001
         log.warning("boot restore me dikkat (bot normal chalega): %s", str(e)[:150])
 
@@ -10784,85 +1888,27 @@ async def _post_init(app: Application):
 
     commands = [
         BotCommand("start", "Bot chalu karo / menu kholo"),
-        BotCommand("menu", "Saare tools ka menu"),
-        BotCommand("premium", "Saare tools FREE — list dekho" if ALL_FREE
-                   else "VIP plan lo (unlimited)"),
-        # v79: /refer ka tool hataya gaya — command list se bhi hataya (warna
-        # Telegram ke "/" menu me dabba hua command dikhta).
-        BotCommand("account", "Mera account aur credits"),
+        BotCommand("menu", "Dono tools ka menu"),
         BotCommand("cancel", "Chalu kaam band karo"),
         BotCommand("refresh", "Menu / keyboard naya karo"),
     ]
-    await app.bot.set_my_commands(commands)
-    log.info("Commands set ho gaye ✅")
-
-    # v105.2: MTProto/Telethon boot par eagerly import/login nahi — idle RAM kam.
-    # Badi file aane par BF.mt_send() lazily start karega; BIGFILE_WARM=on se
-    # purana pre-login behavior optional hai.
-    if _env_bool("BIGFILE_WARM", False):
-        try:
-            asyncio.create_task(BF.warm())
-        except Exception as _we:                                 # noqa: BLE001
-            log.warning("bigfile warmup skip: %s", str(_we)[:120])
-    else:
-        print("   🐘 bigfile: lazy warm-up (BIGFILE_WARM=on to pre-login) — idle RAM bachi rahegi")
+    try:
+        await app.bot.set_my_commands(commands)
+        log.info("Commands set ho gaye ✅")
+    except Exception as e:                                       # noqa: BLE001
+        log.warning("set_my_commands skip: %s", str(e)[:100])
 
 
-# ---------------- v49.7 KEEPALIVE PINGER (hub ko ping -> dono 24/7 jaagte hain) ----------------
-# Render free plan 15 min inactivity par service sula deta hai. Bot aur hub ab ek dusre ko
-# ping karte hain, isliye dono hamesha jaagte rehte hain — koi bahar ki service nahi chahiye.
-_KEEPALIVE_PEERS = [u.strip() for u in (
-    os.environ.get("KEEPALIVE_PEERS") or "https://osint-api-hub.onrender.com/health"
-).replace(";", ",").split(",") if u.strip()]
-# v52: SELF-PING — bot apna hi public /health URL ping karta hai (Render LB ke through
-# ye INBOUND request banta hai) -> free instance ka 15-min sleep timer reset ho jata hai.
-# Result: cold start sirf pehli baar / deploy par; baad me bot ~24/7 jaagta hai = FAST respond.
-_self_url = (os.environ.get("BOT_SELF_URL") or os.environ.get("RENDER_EXTERNAL_URL")
-             or os.environ.get("RENDER_SERVICE_DNS_NAME") or "").strip()
-if _self_url:
-    if not _self_url.startswith("http"):
-        _self_url = "https://" + _self_url
-    _self_health = _self_url.rstrip("/") + "/health"
-    if _self_health not in _KEEPALIVE_PEERS:
-        _KEEPALIVE_PEERS.append(_self_health)
-try:
-    # v54.3: 10 → 4 minute. Render free instance 15 min inactivity par soti
-    # hai; 4-min ping se bot + hub dono jaagte rehte hain → pehla reply fast.
-    _KEEPALIVE_MINUTES = float(os.environ.get("KEEPALIVE_MINUTES") or 3)  # v74.3: 4→3 min
-except Exception:
-    _KEEPALIVE_MINUTES = 3.0
+_KEEPALIVE_PEERS = [p.strip().rstrip("/") for p in
+                    _env_str("KEEPALIVE_PEERS", "").split(",") if p.strip()]
+_self_url = _env_str("BOT_SELF_URL", "").strip().rstrip("/")
+if _self_url and _self_url not in _KEEPALIVE_PEERS:
+    _KEEPALIVE_PEERS.append(_self_url)
+_KEEPALIVE_MINUTES = _env_int("KEEPALIVE_MINUTES", 10, lo=2, hi=60)
 _KEEPALIVE_STATE = {"last_run": None, "last_ok": None, "runs": 0}
-# v59.9.2: webhook kyun on/off hua — /health par saaf dikhe (secret kabhi nahi).
-_WEBHOOK_DIAG = {"mode_env": "(not set)", "url_env": "not set", "ext_env": "not set",
-                 "decision": "abhi decide nahi hua", "why": "-"}
-
-# v59.10: "bot sach me jawab de raha hai?" — aakhri update kab aaya (user ki
-# sabse badi confusion: purana screenshot dekh kar lagta hai bot band hai).
-_UPDATE_STATE = {"n": 0, "last_ts": 0.0, "last_at": None}
-# v59.11: polling -> webhook switch ke waqt keepalive server ka port khaali karna
-# padta hai (warna PTB webhook usi port par bind nahi kar payega).
+_WEBHOOK_DIAG = {"mode_env": "", "url_env": "", "ext_env": "",
+                 "decision": "abhi decide nahi hua", "why": ""}
 _KEEPALIVE_SERVER = {"srv": None}
-
-# v54.1: /health par **git commit SHA** bhi dikhao.
-# Kyun: user screenshots bhejta hai aur pata nahi chalta tha ki Render par kaunsa
-# commit chal raha hai (version same rehne par bhi code alag ho sakta hai). Render
-# khud RENDER_GIT_COMMIT / RENDER_GIT_BRANCH env inject karta hai.
-_GIT_COMMIT = (os.environ.get("RENDER_GIT_COMMIT") or "").strip()[:7]
-_GIT_BRANCH = (os.environ.get("RENDER_GIT_BRANCH") or "").strip()
-if not _GIT_COMMIT:
-    try:  # local dev fallback (Render par ye branch chalega hi nahi)
-        import subprocess as _sp
-        _GIT_COMMIT = _sp.run(["git", "rev-parse", "--short=7", "HEAD"],
-                              capture_output=True, text=True, timeout=3,
-                              cwd=os.path.dirname(os.path.abspath(__file__))
-                              ).stdout.strip()[:7]
-    except Exception:                                            # noqa: BLE001
-        _GIT_COMMIT = ""
-_START_TS = time.time()
-
-# v81.1 — 🔌 "Telegram ne URL maan liya" se kaam nahi chalta: updates pahunch rahe
-# hain ya Telegram ke paas phans rahe hain, wahi asli nishani hai. Ye cache + watchdog
-# /health par saccha haal dikhate hain aur phansa hua webhook khud theek karte hain.
 _WH_STATE = {"at": 0.0, "data": {}, "fixes": 0, "last_fix": "", "checks": 0}
 _WH_TTL = 60.0
 
@@ -10945,76 +1991,6 @@ def _webhook_watchdog(url: str, path: str) -> None:
             log.debug("webhook watchdog loop: %s", e)
 
 
-# v74.4: jo boards abhi `portal` hain — inka result page har 6 ghante check hota
-# hai (Render se). Jis din page khulega (roll form + captcha nahi), admin ko
-# message jayega — usi din us board ko LIVE banayenge.
-_BOARD_WATCH = (
-    # v74.5: sirf CBSE (baaki boards hata diye). Jis din CBSE ka roll-number
-    # page bina login/captcha khulega, usi din LIVE add hoga.
-    ("cbse", "https://cbseresults.nic.in/"),
-    ("cbse2", "https://results.cbse.nic.in/"),
-)
-_BW_STATE = os.path.join(tempfile.gettempdir(), "ud_bw_seen.txt")
-
-
-def _board_watch_loop(app) -> None:
-    """Har 6 ghante boards ka result page check — khula mile to admin ko batao."""
-    import time as _t
-    import urllib.request
-    _aid = 0
-    try:
-        _aid = int(os.environ.get("ADMIN_ID") or 0)
-    except Exception:                                  # noqa: BLE001
-        _aid = 0
-    if not _aid:
-        return
-    while True:
-        _t.sleep(6 * 3600)
-        try:
-            seen = set()
-            try:
-                with open(_BW_STATE, "r", encoding="utf-8") as fh:
-                    seen = {x.strip() for x in fh if x.strip()}
-            except Exception:                          # noqa: BLE001
-                pass
-            found = []
-            for key, url in _BOARD_WATCH:
-                if key in seen:
-                    continue
-                try:
-                    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-                    with urllib.request.urlopen(req, timeout=15) as r:
-                        html = r.read(400000).decode("utf-8", "ignore")
-                    low = html.lower()
-                    if ("captcha" in low) or ("turnstile" in low):
-                        continue
-                    if "roll" not in low:
-                        continue
-                    found.append((key, url))
-                except Exception:                      # noqa: BLE001
-                    continue
-            if found:
-                for k, _u in found:
-                    seen.add(k)
-                try:
-                    with open(_BW_STATE, "w", encoding="utf-8") as fh:
-                        fh.write("\n".join(sorted(seen)))
-                except Exception:                      # noqa: BLE001
-                    pass
-                try:
-                    app.bot.send_message(
-                        chat_id=_aid,
-                        text=("📡 <b>BOARD WATCH</b> — in boards ka result page khula mila "
-                              "(roll + captcha nahi):\n"
-                              + "\n".join(f"• <code>{k}</code>" for k, _u in found)
-                              + "\nBolo to LIVE add kar dun."),
-                        parse_mode="HTML")
-                except Exception:                      # noqa: BLE001
-                    pass
-        except Exception:                              # noqa: BLE001
-            pass
-
-
 def _keepalive_pinger():
     """Pehli ping 90 sec me, phir har ~10 min — Render free plan par bot+hub 24/7 ON."""
     import time as _t
@@ -11042,154 +2018,100 @@ def _keepalive_pinger():
             log.debug("webhook delivery cache skip: %s", e)
 
 
-async def _track_update(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Har update (message/callback) ka time note karo — /health par dikhta hai.
-
-    Koi reply nahi karta, sirf ginti karta hai (group=-10 me sabse pehle chalta hai).
-    """
-    try:
-        _UPDATE_STATE["n"] += 1
-        _UPDATE_STATE["last_ts"] = time.time()
-        _UPDATE_STATE["last_at"] = time.strftime("%d-%m-%Y %H:%M:%S")
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-def _last_update_line() -> str:
-    """"Aakhri message: 3 min pehle" — 0 ho to saaf saaf likho."""
-    if not _UPDATE_STATE["n"] or not _UPDATE_STATE["last_ts"]:
-        return "abhi tak koi message nahi aaya (bot naya start hua hai)"
-    _ago = int(max(0, time.time() - _UPDATE_STATE["last_ts"]))
-    _ago_s = f"{_ago}s" if _ago < 60 else (f"{_ago // 60}m {_ago % 60}s" if _ago < 3600 else f"{_ago // 3600}h")
-    return (f"aakhri message {_ago_s} pehle ({_UPDATE_STATE['last_at']})"
-            f" | total {_UPDATE_STATE['n']} updates")
-
-
 def _vault_health_html() -> str:
-    """v60: /health par data-safety ki live proof (admin ko bharosa dilaane ke liye).
-
-    Ye kabhi crash nahi karta — kuch bhi na mile to khaali string.
-    """
+    """/health par data-safety + crash-shield ki live proof. Kabhi raise nahi karta."""
+    out = []
     try:
-        from modules.core.guard import guard_stats, mem_mb
+        from modules.core.guard import guard_stats
         g = guard_stats()
-        try:
-            floor = vault.premium_floor_report_public()
-        except Exception:                                        # noqa: BLE001
-            from modules.core.vault import premium_floor_report
-            floor = premium_floor_report(vault_db_path())
         lb = vault.last_backup or {}
         try:
-            _bf = BF.status()
-            _bfl = (f"bigfile: MTProto {'ON' if _bf.get('logged_in') else 'ready'} "
-                    f"| in ≤{_bf.get('max_in_mb')}MB out ≤{_bf.get('max_out_mb')}MB "
-                    f"| bot-api caps: in {BF.BOT_API_IN_MB}MB / out {BF.BOT_API_OUT_MB}MB"
-                    + (f" | note: {_bf.get('note')}" if not _bf.get('ready') else ""))
-        except Exception as _bfe:                                    # noqa: BLE001
-            _bfl = f"bigfile: (unavailable: {str(_bfe)[:40]})"
-        # v80.5: vault ki key kahan se — token-derived ho to token rotation data kha
-        # sakta hai, isliye ye health par dikhna chahiye (aur warning bhi).
-        try:
             _vk = vault.key_source()
-            _vk_note = "" if _vk == "env" else (
-                " ⚠️ VAULT_KEY set karo — BotFather se token rotate hote hi purane "
-                "vault backups padhe nahi ja payenge (key token se banti hai)")
-        except Exception:                                            # noqa: BLE001
-            _vk, _vk_note = "?", ""
-        out = [f"<p style='font-family:monospace'>{_bfl}</p>",
-               f"<p style='font-family:monospace'>{JW.health_line()}</p>",
-               "<p style='font-family:monospace'>--- v60 FORTRESS ---</p>",
-               f"<p style='font-family:monospace'>db: {vault_db_path()} "
-               f"| VIP users: {floor.get('total_premium', 0)} "
-               f"(lifetime {floor.get('lifetime', 0)} + active {floor.get('active', 0)})</p>",
-               f"<p style='font-family:monospace'>vault: enc=ON "
-               f"github={'on' if vault.gh_ready() else 'off'} "
-               f"tg={'on' if vault.telegram_ready() else 'off'} "
-               f"interval={vault.interval_minutes()}m "
-               f"| last_backup={lb.get('at') or 'abhi nahi'} "
-               f"| backups={vault.stats.get('backups', 0)} "
-               f"failures={vault.stats.get('failures', 0)} "
-               f"key={_vk}{_vk_note}</p>",
-               f"<p style='font-family:monospace'>crash-shield: caught="
-               f"{g.get('handled', 0)} (handler {g.get('handler', 0)} / task "
-               f"{g.get('task', 0)} / thread {g.get('thread', 0)}) "
-               f"| fatal={g.get('fatal', 0)}</p>",
-               f"<p style='font-family:monospace'>memory: {mem_mb():.0f} MB "
-               f"(peak {g.get('mem_peak_mb', 0):.0f} MB) | gc_runs={g.get('gc_runs', 0)} "
-               f"| loop_lag={g.get('heart_lag', 0)}s | beats={g.get('beats', 0)}"
-               f" | trim={g.get('trim_runs', 0)}/{g.get('trim_released', 0)}"
-               f" last_freed={g.get('last_freed_mb', 0)}MB"
-               f" | restart_at={g.get('restart_at_mb', 0):.0f}MB"
-               f" restarts={g.get('restarts', 0)}</p>",
-               f"{_leak_hunt_line()}",
-               f"<p style='font-family:monospace'>{hesc(_heavy_health_line())}</p>",
-               f"<p style='font-family:monospace'>{hesc(_ug.health_line())}</p>",
-               f"<p style='font-family:monospace'>loop: avg gap "
-               f"{g.get('heart_avg_gap', 0)}s | worst {g.get('heart_worst_gap', 0)}s "
-               f"(target {g.get('heart_interval', 20):.0f}s) | "
-               f"{'⚠️ STALLED' if g.get('heart_stalled') else 'ok'}</p>"]
-        if g.get("last_why"):
-            out.append(f"<p style='font-family:monospace'>last caught: "
-                       f"{hesc(str(g['last_why'])[:140])}</p>")
-        # v76: janitor (khud-safai) ki health — Render par crash ke chhupe kaaran
-        try:
-            js = _janitor_stats() or {}
-            br = _bounded_report() or {}
-            out.append(
-                f"<p style='font-family:monospace'>janitor: "
-                f"on={js.get('on')} runs={js.get('runs', 0)} "
-                f"tmp_cleaned={js.get('tmp_dirs', 0)}d/{js.get('tmp_files', 0)}f "
-                f"freed={js.get('mb_freed', 0)}MB "
-                f"procs_killed={js.get('procs_killed', 0)} "
-                f"disk={js.get('disk_pct', 0)}%</p>")
-            out.append(
-                f"<p style='font-family:monospace'>caches: "
-                f"{br.get('total_entries', 0)}/{br.get('total_limit', 0)} entries "
-                f"| clears={br.get('clears', 0)} "
-                f"evictions={br.get('evictions', 0)}</p>")
         except Exception:                                        # noqa: BLE001
-            pass
-        return "".join(out)
+            _vk = "?"
+        out.append(_hline(lambda: JW.health_line()))
+        out.append("<p style='font-family:monospace'>--- FORTRESS ---</p>")
+        out.append(_hline(lambda: f"db: {hesc(str(vault_db_path()))}"))
+        out.append(_hline(lambda: (
+            f"vault: enc=ON github={'on' if vault.gh_ready() else 'off'} "
+            f"tg={'on' if vault.telegram_ready() else 'off'} "
+            f"interval={vault.interval_minutes()}m "
+            f"| last_backup={hesc(str(lb.get('at') or 'abhi nahi'))} "
+            f"| backups={vault.stats.get('backups', 0)} "
+            f"failures={vault.stats.get('failures', 0)} key={_vk}")))
+        out.append(_hline(lambda: (
+            f"crash-shield: caught={g.get('handled', 0)} "
+            f"(handler {g.get('handler', 0)} / task {g.get('task', 0)} / "
+            f"thread {g.get('thread', 0)}) | fatal={g.get('fatal', 0)}")))
+        out.append(_hline(lambda: (
+            f"memory: {_mem_mb():.0f} MB (peak {g.get('mem_peak_mb', 0):.0f} MB) "
+            f"| gc_runs={g.get('gc_runs', 0)} | loop_lag={g.get('heart_lag', 0)}s "
+            f"| trim={g.get('trim_runs', 0)} | restart_at="
+            f"{g.get('restart_at_mb', 0):.0f}MB restarts={g.get('restarts', 0)}")))
+        out.append(_hline(lambda: _ug.health_line()))
+        out.append(_hline(lambda: (
+            f"janitor: {hesc(str((_janitor_stats() or {}).get('runs', 0)))} runs "
+            f"| caches: {(_bounded_report() or {}).get('total_entries', 0)} entries")))
+        if g.get("last_why"):
+            out.append(_hline(lambda: f"last caught: {hesc(str(g['last_why'])[:140])}"))
     except Exception as e:                                       # noqa: BLE001
-        return f"<p style='font-family:monospace'>vault status n/a ({type(e).__name__})</p>"
+        out.append("<p style='font-family:monospace'>"
+                   f"vault status n/a ({type(e).__name__})</p>")
+    return "".join(out)
 
 
-def _http_engine_line() -> str:
-    """v72.0: shared HTTP engine ki live stats (speed + auto-retry upgrade)."""
+def _hline(fn) -> str:
+    """/health ki ek line — isme error aaye to sirf WAHI line 'n/a' hoti hai.
+
+    ⚠️ v108 FIX (ye asli production bug tha): pehle health_html() ki koi ek
+    line exception de deti thi to POORA page khaali chala jaata tha. Render
+    ko 200 to milta tha par body khaali — isliye "zinda magar atka" app ko
+    Render dobara nahi uthata tha (render.yaml me v77 ka ye note likha tha).
+    Ab har line alag-alag guard me hai: page kabhi khaali nahi aayega.
+    """
     try:
-        st = http_engine.stats()
-        return (f"session=shared+auto-retry calls={st.get('calls', 0)} "
-                f"retries={st.get('retries', 0)} fails={st.get('fails', 0)} "
-                f"avg={st.get('avg_ms', 0)}ms")
+        return f"<p style='font-family:monospace'>{fn()}</p>"
     except Exception as e:                                       # noqa: BLE001
-        return f"n/a ({type(e).__name__})"
+        return (f"<p style='font-family:monospace'>"
+                f"(ye line nahi ban payi: {type(e).__name__})</p>")
 
 
 def health_html() -> str:
-    """/health ka poora report — POLLING (keepalive server) aur WEBHOOK dono me same.
-
-    v59.9: pehle webhook mode me /health sirf chhota JSON deta tha, isliye user
-    ko version/commit dikh hi nahi raha tha.
-    """
-    _ka = (f"keepalive pinger: last {_KEEPALIVE_STATE.get('last_run')} | ok={_KEEPALIVE_STATE.get('last_ok')}"
-           f" | runs={_KEEPALIVE_STATE.get('runs')}")
-    return ("<h1>Utility Duniya Super Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"
-            f"<p style='font-family:monospace'>version: {BOT_VERSION}</p>"
-            f"<p style='font-family:monospace'>commit: {_GIT_COMMIT or 'unknown'}"
-            f" | branch: {_GIT_BRANCH or 'unknown'}"
-            f" | mode: {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}"
-            f" | up: {int(time.time() - _START_TS) // 60}m</p>"
-            f"<p style='font-family:monospace'>{_ka}</p>"
-            f"<p style='font-family:monospace'>http engine: {_http_engine_line()}</p>"
-            f"<p style='font-family:monospace'>self-heal: crashes={_CRASH_STATE['count']}"
-            f"{' | last=' + _CRASH_STATE['last'] if _CRASH_STATE['last'] else ' (koi crash nahi)'}</p>"
-            f"{_vault_health_html()}"
-            f"<p style='font-family:monospace'>bot: {_last_update_line()}</p>"
-            f"<p style='font-family:monospace'>webhook: mode_env={_WEBHOOK_DIAG['mode_env']}"
-            f" | url_env={_WEBHOOK_DIAG['url_env']} | render_url={_WEBHOOK_DIAG['ext_env']}"
-            f" | decision={_WEBHOOK_DIAG['decision']} | why: {_WEBHOOK_DIAG['why']}</p>"
-            f"<p style='font-family:monospace'>{_webhook_delivery_line()}</p>"
-            f"<p style='font-family:monospace'>peers: {', '.join(_KEEPALIVE_PEERS)}</p>")
+    """/health ka report — POLLING aur WEBHOOK dono me same. Kabhi raise nahi karta."""
+    parts = ["<h1>Utility Duniya Bot chal raha hai - 24/7 ON. Status: 200 OK</h1>"]
+    parts.append(_hline(lambda: f"version: {hesc(BOT_VERSION)}"))
+    parts.append(_hline(lambda: "tools: NUMBER INFO + FAMILY INFO"))
+    parts.append(_hline(lambda: (
+        f"commit: {_GIT_COMMIT or 'unknown'} | branch: {_GIT_BRANCH or 'unknown'}"
+        f" | mode: {'WEBHOOK' if WEBHOOK_URL else 'POLLING'}"
+        f" | up: {int(time.time() - _START_TS) // 60}m")))
+    parts.append(_hline(lambda: f"ram: {_mem_mb():.0f} MB / 512 MB"))
+    parts.append(_hline(lambda: (
+        f"keepalive pinger: last {_KEEPALIVE_STATE.get('last_run')}"
+        f" | ok={_KEEPALIVE_STATE.get('last_ok')}"
+        f" | runs={_KEEPALIVE_STATE.get('runs')}")))
+    parts.append(_hline(lambda: (
+        f"self-heal: crashes={_CRASH_STATE['count']}"
+        + (" | last=" + _CRASH_STATE["last"] if _CRASH_STATE["last"]
+           else " (koi crash nahi)"))))
+    try:
+        parts.append(_vault_health_html())
+    except Exception:                                            # noqa: BLE001
+        pass
+    parts.append(_hline(lambda: f"bot: {_last_update_line()}"))
+    parts.append(_hline(lambda: (
+        f"webhook: mode_env={_WEBHOOK_DIAG['mode_env']}"
+        f" | url_env={_WEBHOOK_DIAG['url_env']}"
+        f" | render_url={_WEBHOOK_DIAG['ext_env']}"
+        f" | decision={_WEBHOOK_DIAG['decision']} | why: {_WEBHOOK_DIAG['why']}")))
+    if WEBHOOK_URL:
+        parts.append(_hline(_webhook_delivery_line))
+    try:
+        parts.append(_leak_hunt_line())
+    except Exception:                                            # noqa: BLE001
+        pass
+    parts.append(_hline(lambda: f"peers: {', '.join(_KEEPALIVE_PEERS)}"))
+    return "".join(p for p in parts if p)
 
 
 # ---------------- KEEPALIVE WEB SERVER ON RENDER PORT 10000 ----------------
@@ -11303,285 +2225,44 @@ def _force_webhook_after_conflict(app) -> bool:
 
 
 # =====================================================================
-#  v75 — 🧠 PRO ENGINE WRAPPERS + COMMANDS
+#  MAIN
 # =====================================================================
-#  Ye wrappers on_text / on_cb ko lapette hain — bas itna kaam:
-#    (1) tool ka time naapo,
-#    (2) result history + tool analytics me likho,
-#    (3) crash ho to bhi FAIL likho (chup-chaap gayab na ho).
-#  Isse KUCH BHI tool ka andar ka code nahi badla (aapke prompts bhi safe).
-# =====================================================================
-
-def _leak_hunt_line() -> str:
-    """/health par tracemalloc ki line (MEM_TRACE=on par). Off ho to khaali."""
-    try:
-        from modules.core import memtrace as _mt
-        rep = _mt.report()
-        return (f"<p style='font-family:monospace'>{hesc(rep)}</p>" if rep else "")
-    except Exception:                                              # noqa: BLE001
-        return ""
-
-
-def _bot_idle() -> bool:
-    """Memory-pressure restart ka green signal: abhi koi kaam chal hi nahi raha."""
-    try:
-        h = _heavy.stats() or {}
-        u = _ug.stats() or {}
-        busy = (int(h.get("in_flight") or 0) + int(h.get("queue_now") or 0)
-                + int(u.get("parallel") or 0) + int(u.get("waiting_chat_lock") or 0))
-        return busy == 0
-    except Exception:                                              # noqa: BLE001
-        return False
-
-
-def _memtrace_boot() -> None:
-    """MEM_TRACE=on ho to tracemalloc chalu (MEM_TRACE_SECONDS baad apne aap band)."""
-    try:
-        from modules.core import memtrace as _mt
-        if _mt.maybe_start_from_env():
-            log.info("🩸 leak-hunt ON (MEM_TRACE) — /health par 'leak-hunt:' line dikhegi")
-    except Exception as e:                                         # noqa: BLE001
-        log.debug("memtrace skip: %s", str(e)[:80])
-
-def _mem_relief(tag: str = "") -> None:
-    """Bhaari kaam ke baad RAM foran wapas lao (OS ko pages lautao).
-
-    Kyun: guard ka watchdog ab har 15s chalta hai — RAM 389MB cross hote hi cache
-    trim hota hai, aur 410MB par naye heavy jobs rok diye jaate hain. free_memory() ab malloc_trim
-    bhi karta hai, isliye RSS sach me girta hai (pehle gc_runs=3 par bhi 0 MB gira
-    tha — 8 Oct ko yahi napa tha).
-    """
-    try:
-        from modules.core.guard import free_memory as _fm, mem_mb as _mm
-        soft = float(os.environ.get("MEM_RELIEF_MB") or 340)
-        m = _mm()
-        if m >= soft:
-            r = _fm(aggressive=m >= soft + 60)
-            if r.get("freed_mb", 0) >= 1:
-                log.info("🧹 mem-relief%s: %.0f → %.0f MB (trim=%s)", (" " + tag) if tag else "",
-                         r["before_mb"], r["after_mb"], r.get("trim"))
-    except Exception as e:                                          # noqa: BLE001
-        log.debug("mem relief skip: %s", str(e)[:80])
-
-
-def _cb_data_short(update) -> str:
-    """v83: log ke liye callback data ka chhota tukda (crash-free)."""
-    try:
-        return str(getattr(getattr(update, "callback_query", None), "data", "") or "")[:40]
-    except Exception:                                            # noqa: BLE001
-        return ""
-
-
-async def _cb_stale_reply(update, context) -> None:
-    """v83: callback me galti (purana/adhoora button) → user ko chhota saaf jawab, crash nahi."""
-    try:
-        _chat = getattr(update, "effective_chat", None)
-        if _chat is not None:
-            await context.bot.send_message(
-                _chat.id,
-                "❌ <b>Ye button purana ya adhoora ho gaya.</b>\n"
-                "Menu se tool dobara kholo — phir kaam karega.",
-                parse_mode=HTML)
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
-async def _on_text_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """on_text ka wrapper — har tool run ka hisaab rakhta hai."""
-    # v81.0: 🔐 wall bina join ke text se tool khola ja sake, ye hole bhi band
-    if not await JW.gate(update, context):
-        return
-    t0 = time.perf_counter()
-    ok_done = True
-    try:
-        context.user_data.pop("_pro_tool", None)
-        context.user_data.pop("_pro_mode", None)
-        await on_text(update, context)
-    except Exception:
-        ok_done = False
-        raise
-    finally:
-        # v83: progress ticker handler ke saath hi band — warna quality picker/keyboard ko overwrite karta tha
-        _stop_ping(context)
-        try:
-            tool = context.user_data.pop("_pro_tool", None)
-            _mkey = context.user_data.pop("_pro_mode", None) or tool
-            if tool:
-                _uid = update.effective_user.id if update.effective_user else 0
-                _ms = int((time.perf_counter() - t0) * 1000)
-                pro.record_result(_uid, str(_mkey), title=str(tool),
-                                  ok=ok_done, ms=_ms)
-            if tool:
-                _mem_relief("text:" + str(tool)[:18])
-        except Exception:                                        # noqa: BLE001
-            pass
-
-
-async def _on_cb_pro(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """on_cb ka wrapper — callback wale tools ka bhi hisaab."""
-    # v81.0: 🔐 JOIN WALL — pehle wall ka apna button (warna check-karo khud block
-    # ho jaata), phir gate. Gate pass hone ke baad hi koi tool chalega.
-    _cb = getattr(update, "callback_query", None)
-    if _cb is not None and str(getattr(_cb, "data", "") or "").startswith("fj:"):
-        if await JW.handle_check(update, context):
-            # join ho gaya → ab usi ka asli menu (wahi copy/keyboard jo /start deta hai)
-            try:
-                _uid = int(update.effective_user.id)
-                if not context.user_data.get("_fj_menu"):
-                    context.user_data["_fj_menu"] = True
-                    await _cb.message.reply_text(WELCOME_TEXT, reply_markup=kb_for(_uid),
-                                                 parse_mode=HTML)
-            except Exception:
-                pass
-        return
-    if not await JW.gate(update, context):
-        return
-    t0 = time.perf_counter()
-    ok_done = True
-    try:
-        context.user_data.pop("_pro_tool", None)
-        context.user_data.pop("_pro_mode", None)
-        await on_cb(update, context)
-    except (ValueError, IndexError) as _bad:
-        # v83: khaali/galat callback ID (jaise "admpay_view:") → crash nahi, user ko saaf jawab
-        ok_done = False
-        log.warning("v83: callback data galat/purana (%s): %s", _cb_data_short(update), str(_bad)[:120])
-        await _cb_stale_reply(update, context)
-    except Exception:
-        ok_done = False
-        raise
-    finally:
-        _stop_ping(context)      # v83: progress ticker band (quality picker / result ke baad bhi na chale)
-        try:
-            tool = context.user_data.pop("_pro_tool", None)
-            _mkey = context.user_data.pop("_pro_mode", None) or tool
-            if tool:
-                _uid = update.effective_user.id if update.effective_user else 0
-                _ms = int((time.perf_counter() - t0) * 1000)
-                pro.record_result(_uid, str(_mkey), title=str(tool),
-                                  ok=ok_done, ms=_ms)
-                _mem_relief("cb:" + str(tool)[:18])
-        except Exception:                                        # noqa: BLE001
-            pass
-
-
-async def cmd_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """🗂️ /history — user ke aakhri results (1-tap dobara chalane ke saath)."""
-    uid = update.effective_user.id
-    get_user(uid, update.effective_user.first_name or "")
-    txt = pro.history_text(uid, 8)
-    kb = pro.history_kb(uid, 5)
-    await update.message.reply_text(txt, reply_markup=kb or None, parse_mode=HTML)
-
-
-async def cmd_bulk(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """📤 /bulk — ek saath poora Excel report (IFSC/pincode/mobile/gaadi/link)."""
-    uid = update.effective_user.id
-    get_user(uid, update.effective_user.first_name or "")
-    context.user_data["mode"] = "bulk_wait"
-    context.user_data["_pro_tool"] = "Bulk Mode"
-    context.user_data["_pro_mode"] = "bulk"
-    _lim, _vip = BM.limits_for(uid)
-    await update.message.reply_text(BM.bulk_intro_text(vip=_vip), parse_mode=HTML)
-
-
-async def cmd_smart(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """🧠 /smart — smart auto-detect ON/OFF + kya-kya pahchanta hai."""
-    uid = update.effective_user.id
-    on = pro.detect_enabled(uid)
-    new = pro.set_detect_enabled(uid, not on)
-    icon = "🟢 ON" if new else "🔴 OFF"
-    lines = [
-        "🧠 <b>SMART DETECT</b>",
-        "──────────────────────",
-        f"Status: <b>{icon}</b>",
-    ]
-    if new:
-        lines += [
-            "──────────────────────",
-            "Ab aap seedha input bhej sakte ho — bot khud tool chala lega:",
-            "• <code>SBIN0001234</code> → 🏦 IFSC",
-            "• <code>9876543210</code> → 📱 Number Info",
-            "• <code>800001</code> → 📮 Pincode",
-            "• <code>BR01AB1234</code> → 🚗 RC + Challan",
-            "• koi bhi link → 🔍 Link Check",
-            "• <code>@username</code> → 🕵️ Username Hunter",
-            "• 15-digit number → 🔐 IMEI",
-        ]
-    else:
-        lines += ["", "Ab tools sirf button se chalenge."]
-    await update.message.reply_text("\n".join(lines), parse_mode=HTML)
-
-
-async def cmd_toolstats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """📊 /toolstats — admin: kaunsa tool kitna chala, kitna pass (earning analytics)."""
-    if not is_admin(update.effective_user.id):
-        return
-    await update.message.reply_text(pro.toolstats_text(15), parse_mode=HTML)
-    try:
-        brk = pro.breaker_stats()
-        if brk:
-            _open = [b for b in brk if b["state"] != "closed"]
-            if _open:
-                await update.message.reply_text(
-                    "🔌 <b>PROVIDER HEALTH</b>\n──────────────────────\n"
-                    + "\n".join(f"• <b>{b['name']}</b> — {b['state']} "
-                                f"(fail {b['fails']}, heal {b['heals']})"
-                                for b in _open[:12]),
-                    parse_mode=HTML)
-    except Exception:                                            # noqa: BLE001
-        pass
-
-
 def main():
-    # =====================================================================
-    #  v60 — 🛡️ CRASH SHIELD SABSE PEHLE ON KARO
-    # =====================================================================
+    # ---- 🛡️ CRASH SHIELD sabse pehle ----
     try:
         install_global_guard()
     except Exception as _e:                                      # noqa: BLE001
         log.warning("guard install skip: %s", str(_e)[:100])
     try:
-        start_memory_watchdog()      # 💀 Render free 512MB — OOM kill se bachao
+        start_memory_watchdog()      # Render free 512MB — OOM kill se bachao
     except Exception as _e:                                      # noqa: BLE001
         log.warning("memory watchdog skip: %s", str(_e)[:100])
     try:
         from modules.core.guard import register_idle_check as _ric
         _ric(_bot_idle)
-    except Exception:
+    except Exception:                                            # noqa: BLE001
         pass
     _memtrace_boot()
     try:
-        start_hang_watchdog()        # 🧟 chup-chaap maut (hung loop) se bachao
+        start_hang_watchdog()
     except Exception as _e:                                      # noqa: BLE001
         log.warning("hang watchdog skip: %s", str(_e)[:100])
-    # v76: 🧹 JANITOR — temp safai + atke hue ffmpeg process + cache prune +
-    #       disk watchdog. (Crash ke 3 chhupe kaaran isi se band hote hain.)
     try:
         start_janitor()
     except Exception as _e:                                      # noqa: BLE001
         log.warning("janitor skip: %s", str(_e)[:100])
 
     if not BOT_TOKEN:
-        print("❌ ERROR: BOT_TOKEN is missing in environment variables or .env file!")
+        print("❌ ERROR: BOT_TOKEN missing (Render → Environment me daalo)")
         return
 
-    # Tutorial page (telegra.ph) — background me banta/update hota hai, bot rukta nahi
-    threading.Thread(target=publish_tutorial_now, daemon=True).start()
-
     # ---------- MODE DECIDE (crash-proof) ----------
-    # v49.4: webhook tabhi jab WEBHOOK_MODE=on ho AUR URL sach me kaam kare.
-    # Pehle yahi RENDER_EXTERNAL_URL se khud webhook on kar deta tha — Render ke
-    # free plan par deploy ke waqt DNS ready nahi hota tha aur bot
-    # "Bad webhook: failed to resolve host" par CRASH ho jata tha (aapka deploy fail).
     global WEBHOOK_URL
     _WEBHOOK_DIAG["mode_env"] = str(os.environ.get("WEBHOOK_MODE") or "(not set)")
     _wu_raw = str(os.environ.get("WEBHOOK_URL") or "").strip()
-    _WEBHOOK_DIAG["url_env"] = ("not set" if not _wu_raw else
-                                ("set ✅ (base only)" if "/webhook" not in _wu_raw.lower()
-                                 else "set — usme /webhook/… path bhi tha, strip kar diya"))
+    _WEBHOOK_DIAG["url_env"] = ("not set" if not _wu_raw else "set ✅")
     _WEBHOOK_DIAG["ext_env"] = "set" if os.environ.get("RENDER_EXTERNAL_URL") else "not set"
-    if os.environ.get("UDB_FORCE_POLLING") == "1":      # v82: webhook fail ke baad saaf restart → polling
+    if os.environ.get("UDB_FORCE_POLLING") == "1":
         WEBHOOK_URL = ""
     _wh_ok, _wh_why = (False, "polling mode (WEBHOOK_MODE=off ya koi URL nahi)")
     if WEBHOOK_URL:
@@ -11590,14 +2271,12 @@ def main():
             log.warning("WEBHOOK chalu nahi ho sakta (%s) — ab POLLING par chalega", _wh_why)
             WEBHOOK_URL = ""
         else:
-            # v59.9: Telegram se ek baar pooch lo — setWebhook maan gaya tabhi webhook.
-            # Fail hua to chup-chaap POLLING (bot kabhi nahi rukta, koi crash nahi).
             _secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
             _pf_ok, _pf_why = webhook_preflight(WEBHOOK_URL, f"/webhook/{_secret}", BOT_TOKEN,
                                                 os.environ.get("WEBHOOK_SECRET_TOKEN") or None)
             if _pf_ok:
                 _WEBHOOK_DIAG.update({"decision": "WEBHOOK", "why": "Telegram ne URL maan liya ✅"})
-                log.info("WEBHOOK MODE confirm (Telegram ne URL maan liya) — koi Conflict nahi hoga")
+                log.info("WEBHOOK MODE confirm — koi Conflict nahi hoga")
             else:
                 _WEBHOOK_DIAG.update({"decision": "POLLING (preflight fail)", "why": _pf_why})
                 log.warning("WEBHOOK preflight fail (%s) — POLLING par chalega", _pf_why)
@@ -11607,149 +2286,68 @@ def main():
         if _WEBHOOK_DIAG["decision"].startswith("abhi"):
             _WEBHOOK_DIAG.update({"decision": "POLLING (safe)", "why": _wh_why})
 
-    # Keepalive server SIRF polling mode me — webhook mode me yehi port PTB use karega
+    # Keepalive server SIRF polling mode me (webhook mode me PTB wahi port lega)
     if not WEBHOOK_URL:
         threading.Thread(target=_keepalive, daemon=True).start()
 
-    # v49.7: bahar ki taraf ping (hub ko) -> Render free plan par bot+hub dono jaagte rehte hain
     if os.environ.get("KEEPALIVE_ENABLED", "1") != "0" and _KEEPALIVE_PEERS:
         threading.Thread(target=_keepalive_pinger, daemon=True).start()
-        log.info("Keepalive pinger ON → %s (har %s min)", ", ".join(_KEEPALIVE_PEERS), _KEEPALIVE_MINUTES)
+        log.info("Keepalive pinger ON → %s (har %s min)",
+                 ", ".join(_KEEPALIVE_PEERS), _KEEPALIVE_MINUTES)
 
-    # v65: NetworkError ("Unknown error in HTTP implementation") ka pakka ilaaj —
-    #      bada connection pool + HTTP/1.1. Pehle pool chhota hone se
-    #      ek saath kai file/photo bhejne par connection toot jaata tha.
     _ug_proc = None
     try:
         _ug_proc = _ug.build_processor()
-    except Exception as _uge:                                      # noqa: BLE001
+    except Exception as _uge:                                    # noqa: BLE001
         log.warning("update gate build skip: %s", str(_uge)[:120])
     _app_builder = (Application.builder().token(BOT_TOKEN).post_init(_post_init)
-                    .connect_timeout(30.0).read_timeout(60.0).write_timeout(240.0)
-                    .media_write_timeout(300.0).pool_timeout(60.0)
-                    .connection_pool_size(64).http_version("1.1")
-                    .get_updates_connection_pool_size(16))
+                    .connect_timeout(30.0).read_timeout(60.0).write_timeout(120.0)
+                    .pool_timeout(60.0).connection_pool_size(32)
+                    .http_version("1.1").get_updates_connection_pool_size(16))
     if _ug_proc is not None:
         _app_builder = _app_builder.concurrent_updates(_ug_proc)
-        log.info("🚦 Update gate: %s updates parallel (per-chat order + retry-drop)",
-                 _ug_proc.stats().get("max_concurrent"))
     app = _app_builder.build()
 
-    # Commands
+    # ---------------- Commands ----------------
     app.add_handler(CommandHandler("start", cmd_start))
-    app.add_handler(CommandHandler("menu", cmd_menu))
+    app.add_handler(CommandHandler(["menu", "tools"], cmd_menu))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(CommandHandler(["refresh", "newmenu"], cmd_refresh))
-    app.add_handler(CommandHandler("help", cmd_tutorial))
-    app.add_handler(CommandHandler(["activate", "grantvip"], cmd_activate))
-    app.add_handler(CommandHandler("tutrefresh", cmd_tutrefresh))
-    app.add_handler(CommandHandler(["imeistatus", "imeiapi"], cmd_imeistatus))
-    app.add_handler(CommandHandler(["hubstatus", "hubapi", "api"], cmd_hubstatus))
     app.add_handler(CommandHandler(["version", "ver", "v"], cmd_version))
     app.add_handler(CommandHandler(["numapi", "numinfoapi", "numberapi"], cmd_numapi))
-    app.add_handler(CommandHandler(["support", "helpme", "owner", "contact"], cmd_support))
-    app.add_handler(CommandHandler(["credits", "addcredits"], cmd_credits))
-    app.add_handler(CommandHandler("account", cmd_account))
-    app.add_handler(CommandHandler("premium", cmd_premium))
+    app.add_handler(CommandHandler(["famapi", "familyapi"], cmd_famapi))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CommandHandler(["sys", "system", "health"], cmd_sys))
-    app.add_handler(CommandHandler(["payments", "pending"], cmd_payments))
-    app.add_handler(CommandHandler("mypay", cmd_mypay))
-    app.add_handler(CommandHandler("revoke", cmd_revoke))
-    app.add_handler(CommandHandler("grant", cmd_grant))
-    app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler("ban", cmd_ban))
     app.add_handler(CommandHandler("unban", cmd_unban))
-    # v60: 🛡️ PREMIUM VAULT commands (aapka data kabhi na khoye)
-    app.add_handler(CommandHandler(["speed", "tez", "fast"], cmd_speed))
-    app.add_handler(CommandHandler(["rcsetup", "rcsetup_"], cmd_rcsetup))
-    app.add_handler(CommandHandler(["cookies", "cookie", "biscuit"], cmd_cookies))
+    app.add_handler(CommandHandler("broadcast", cmd_broadcast))
     app.add_handler(CommandHandler(["vault", "premiumvault", "datavault"], cmd_vault))
     app.add_handler(CommandHandler(["backup", "save"], cmd_backup))
     app.add_handler(CommandHandler(["restore", "recover"], cmd_restore))
-    app.add_handler(CommandHandler(["vips", "viplist", "premiums"], cmd_vips))
-    app.add_handler(CommandHandler(["fixvip", "vipfix"], cmd_fixvip))
-    app.add_handler(CommandHandler(["ledger", "viphistory"], cmd_ledger))
-    # v75 — 🧠 PRO ENGINE commands
-    app.add_handler(CommandHandler(["history", "recent", "myrecent"], cmd_history))
-    app.add_handler(CommandHandler(["smart", "autodetect", "auto"], cmd_smart))
-    app.add_handler(CommandHandler(["toolstats", "analytics", "toolreport"], cmd_toolstats))
 
-    # Specific Tool Commands
-    # v49.4: tool commands bhi VIP-only (gate andar hai)
-    async def _cmd_vnum(u, c):
-        if await vip_gate(u):
-            await send_vnum_card(u, c)
-
-    async def _cmd_terabox(u, c):
-        if await vip_gate(u):
-            await u.message.reply_text(tool_prompt("terabox"), reply_markup=tool_support_kb("terabox"), parse_mode=HTML)
-
-    async def _cmd_cloner(u, c):
-        if await vip_gate(u):
-            await u.message.reply_text(f"🔄 <b>{to_bold('CHANNEL CLONER')}</b>", reply_markup=get_cloner_settings_kb(u.effective_user.id), parse_mode=HTML)
-
-
-    app.add_handler(CommandHandler("vnum", _cmd_vnum))
-    app.add_handler(CommandHandler("terabox", _cmd_terabox))
-    app.add_handler(CommandHandler("cloner", _cmd_cloner))
-
-    # Callbacks
-    # v59.10: har update ka hisaab (group=-10 = sabse pehle, koi reply nahi karta)
+    # ---------------- Updates ----------------
     app.add_handler(TypeHandler(Update, _track_update), group=-10)
-    # v75: on_cb ko PRO wrapper se jodo (tool analytics + history)
     app.add_handler(CallbackQueryHandler(_on_cb_pro))
 
-    # Message Handlers
-    # (a) FULL AUTO: source channel ki nayi posts (bot ko us channel me admin hona chahiye)
-    app.add_handler(MessageHandler(filters.UpdateType.CHANNEL_POSTS, on_channel_post))
-
-    # (b) Private / Group chats
     _dm_or_group = filters.ChatType.PRIVATE | filters.ChatType.GROUPS
-    _any_media = (
-        filters.VIDEO
-        | filters.ANIMATION
-        | filters.Document.ALL
-        | filters.AUDIO
-        | filters.VOICE
-        | filters.VIDEO_NOTE
-        | filters.Sticker.ALL
-    )
-    app.add_handler(MessageHandler(filters.PHOTO & _dm_or_group, on_photo))
-    app.add_handler(MessageHandler(filters.Document.ALL & _dm_or_group, on_doc_cookies),
-                    group=-5)          # v66: admin ki cookies.txt file
-    app.add_handler(MessageHandler(_any_media & _dm_or_group, on_media))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group, _on_text_pro))
-    # v75.2: 📤 BULK MODE ke liye FILE input (.xlsx/.csv/.txt) — group=-4
-    # (cookies handler -5 ke baad, baaki sabse pehle). File handle ho gayi to
-    # ApplicationHandlerStop se aage koi handler use nahi chhoota.
-    app.add_handler(MessageHandler(filters.Document.ALL & _dm_or_group, on_bulk_file),
-                    group=-4)
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & _dm_or_group,
+                                   _on_text_pro))
+    app.add_handler(MessageHandler(
+        (filters.PHOTO | filters.VIDEO | filters.Document.ALL | filters.AUDIO
+         | filters.VOICE | filters.ANIMATION) & _dm_or_group, on_other))
 
-    # 🛡️ v60: SAARE handlers ko crash-shield me lapeto (sabse zaroori line)
     _armed = arm_all_handlers(app)
-    log.info("🛡️ CRASH SHIELD: %s handlers lapete gaye — koi bhi tool crash ho to "
-             "bot zinda rahega", _armed)
-
+    log.info("🛡️ CRASH SHIELD: %s handlers lapete gaye", _armed)
     app.add_error_handler(on_error)
 
-    # v51.3: purana "v30 Ultra" hardcode text the — ab asli version dikhta hai logs me
-    # v59.3: version + commit + self-check — ek nazar me pata chal jaye ki KAUNSA
-    #        code chal raha hai (v58/v59 ka confusion khatam).
-    print(f"🚀 Starting ToolVault / Utility Duniya Super Bot ({BOT_VERSION})")
+    print(f"🚀 Starting Utility Duniya Bot ({BOT_VERSION.split('|')[0].strip()})")
     print(f"   commit {_GIT_COMMIT} | pid {os.getpid()} | {socket.gethostname()}")
     try:
         _startup_selfcheck()
     except Exception as _e:                                      # noqa: BLE001
         log.warning("self-check skip (crash nahi): %s", str(_e)[:120])
-    try:                                           # v74.4: board live-watch (har 6h)
-        threading.Thread(target=_board_watch_loop, args=(app,), daemon=True).start()
-    except Exception:                              # noqa: BLE001
-        pass
-    # ---------- v47+: WEBHOOK MODE (Render par sabse safe) ----------
-    # Polling me har deploy par 10-20 second tak do instance ek saath getUpdates
-    # karte hain -> Telegram "Conflict: terminated by other getUpdates request".
-    # Webhook me Telegram khud update bhejta hai, getUpdates hota hi nahi -> Conflict kabhi nahi.
+
+    # ---------------- WEBHOOK ----------------
     if WEBHOOK_URL:
         from modules.render_health import install_webhook_health_routes
         install_webhook_health_routes(health_html)
@@ -11757,14 +2355,12 @@ def main():
         secret = (os.environ.get("WEBHOOK_SECRET") or BOT_TOKEN.split(":")[-1]).strip("/")
         path = f"/webhook/{secret}"
         full_url = WEBHOOK_URL.rstrip("/") + path
-        # Secret webhook path ko logs me kabhi print na karein.
-        log.info("WEBHOOK MODE ON — polling OFF (Conflict ka koi chance nahi) | "
-                 "instance=%s pid=%s", socket.gethostname(), os.getpid())
-        try:                                           # v74.4: webhook self-heal
+        log.info("WEBHOOK MODE ON — polling OFF | instance=%s pid=%s",
+                 socket.gethostname(), os.getpid())
+        try:
             threading.Thread(target=_webhook_watchdog,
                              args=(WEBHOOK_URL, path), daemon=True).start()
-            log.info("WEBHOOK watchdog ON — har 15 min self-check (permanent ilaaj)")
-        except Exception:                              # noqa: BLE001
+        except Exception:                                        # noqa: BLE001
             pass
         try:
             app.run_webhook(
@@ -11777,37 +2373,41 @@ def main():
                 secret_token=(os.environ.get("WEBHOOK_SECRET_TOKEN") or None) or None,
             )
             return
-        except Exception as e:                                  # noqa: BLE001
-            # v49.4: webhook fail (DNS/Telegram error) — bot band NAHI hoga, polling par switch
-            log.error("Webhook fail ho gaya (%s: %s) — ab POLLING par switch kar raha hoon",
+        except Exception as e:                                   # noqa: BLE001
+            log.error("Webhook fail (%s: %s) — POLLING par switch",
                       type(e).__name__, str(e)[:200])
-            # v82: PEHLE ka bug: event loop run_webhook ne band kar diya tha, usi me polling
-            #      chalane se "Event loop is closed" aata tha. Ab saaf process restart (polling mode).
             if os.environ.get("UDB_FORCE_POLLING") != "1":
                 _hard_restart(f"webhook fail ({type(e).__name__}) → polling", delay=3.0,
                               extra_env={"UDB_FORCE_POLLING": "1"})
             try:
                 app.bot.delete_webhook(drop_pending_updates=True)
-            except Exception:                                   # noqa: BLE001
+            except Exception:                                    # noqa: BLE001
                 pass
 
-    # v59.9: agar pehle webhook lagi thi to hata do — warna getUpdates
-    # "Conflict: can't use getUpdates method while webhook is active" dega.
+    # ---------------- POLLING ----------------
+    # v108 FIX: pehle yahan `_Bot(...).delete_webhook(...)` BINA await ke tha —
+    # PTB v21+ me ye ek coroutine hai, isliye wo kabhi CHALTA HI NAHI tha
+    # (logs me sirf "coroutine was never awaited" warning aati thi). Matlab
+    # purani webhook lagi reh jaati thi aur Telegram getUpdates par
+    # "Conflict: can't use getUpdates while webhook is active" de deta tha.
+    # Ab sach me delete hoti hai.
     try:
         from telegram import Bot as _Bot
-        _Bot(BOT_TOKEN).delete_webhook(drop_pending_updates=True)
-        log.info("Purani webhook (agar thi) hata di — safai OK")
+
+        async def _drop_wh():
+            _b = _Bot(BOT_TOKEN)
+            async with _b:
+                await _b.delete_webhook(drop_pending_updates=True)
+
+        asyncio.run(_drop_wh())
+        log.info("Purani webhook (agar thi) hata di — getUpdates ab saaf chalega")
     except Exception as _e:                                      # noqa: BLE001
         log.debug("webhook cleanup skip: %s", str(_e)[:80])
 
     log.warning("STARTING POLLING | instance=%s pid=%s | only ONE instance must run",
                 socket.gethostname(), os.getpid())
-    # v66: 🛡️ POLLING ab KABHI "give up" nahi karti.
-    #  Pehle: 5 try ke baad `raise` -> supervisor -> main() dobara -> phir fail
-    #         -> Render restart -> user ko lagta tha "bot crash ho gaya".
-    #  Ab   : Conflict aaye to bas intezaar (backoff), chalta rahega.
     _try = 0
-    _bad_streak = [0]              # v82: lagataar non-conflict fail → saaf restart
+    _bad_streak = [0]
     while True:
         _try += 1
         try:
@@ -11816,7 +2416,7 @@ def main():
             log.warning("Polling ruk gayi (normal return) — dobara shuru kar raha hoon")
             time.sleep(3)
             continue
-        except Exception as e:                                  # noqa: BLE001
+        except Exception as e:                                   # noqa: BLE001
             _msg = str(e).lower()
             log.error("Polling band hui (%s: %s)", type(e).__name__, str(e)[:200])
             if "conflict" not in _msg:
@@ -11825,23 +2425,20 @@ def main():
                     _hard_restart(f"polling fail x3 ({type(e).__name__})", delay=5.0)
                     _bad_streak[0] = 0
             if "conflict" in _msg:
-                # purana instance band hone ka intezaar — webhook try bhi karo
                 if _force_webhook_after_conflict(app):
                     return
                 wait = min(300, 15 * _try)
                 log.warning("Do instance ek saath chal rahe hain — %ss baad dobara "
-                            "koshish (try #%s). Bot chalta rahega, koi crash nahi.", wait, _try)
+                            "koshish (try #%s). Bot chalta rahega.", wait, _try)
                 time.sleep(wait)
                 continue
             wait = min(60, 5 * _try)
-            log.warning("%ss baad dobara koshish (try #%s) — bot crash NAHI hoga",
-                        wait, _try)
+            log.warning("%ss baad dobara koshish (try #%s) — bot crash NAHI hoga", wait, _try)
             time.sleep(wait)
             continue
 
 
 if __name__ == "__main__":
-    # --check = sirf self-check chalao (deploy verify ke liye), warna supervisor
     if "--check" in sys.argv:
         _startup_selfcheck()
         sys.exit(0)

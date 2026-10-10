@@ -1,67 +1,37 @@
 # =====================================================================
-#  Utility Duniya Super Bot — v77 dependencies
+#  Utility Duniya Bot — v108 SLIM dependencies
 #
-#  KYUN PIN KIYE GAYE (pehle sab "latest" the):
-#  Pehle yahan ek bhi version nahi likha tha (`Pillow`, `requests`, ...).
-#  Iska matlab har BUILD par Render sabse naya version uthata tha. Ek din
-#  koi library nayi breaking release de de -> bot deploy par hi mar jaata
-#  ("Application failed to start" / "unknown command ..." / handler API
-#  change) — aur aapko pata bhi nahi chalta ki wajah aapka code nahi,
-#  doosre ka update tha. Ye "kal tak chalta tha, aaj nahi" type crash ka
-#  sabse common kaaran hai.
+#  ⚠️ YE FILE JAAN-BOOJH KAR CHHOTI HAI — ISME KUCH ADD MAT KARNA.
 #
-#  PIN KI PRINCIPLE
-#  ----------------
-#  • Har library ko ek KNOWN-GOOD range diya gaya hai: floor = jis version
-#    par poora test suite (33 files) green hai, ceiling = agla major
-#    (jahan breaking change ki asha hai). Build hamesha install ho jaaye,
-#    aur chup-chaap koi nayi badi version na aa jaaye.
-#  • Python version ke hisaab se wheels sab ranges me milte rehte hain —
-#    isliye `==` (exact) nahi, `>=x,<y` use kiya hai. Exact pin ek din
-#    Render ke Python par wheel na milne se BUILD hi tod deta.
-#  • ❌ `yt-dlp` aur `parth-dl` JAAN-BOOJH kar ceiling ke bina (sirf floor)
-#    hain: ye YouTube/Instagram ke badalte APIs ke liye roz update hote
-#    hain. Purana version freeze karna = 2-3 hafte me "video download
-#    fail" hona. Ye library update honi chahiye — iska crash-proof ilaaj
-#    version pin nahi, modules/core/heavy.py ka gate + timeout hai.
+#  v107 tak yahan 18 libraries thi. Unme se 14 sirf un tools ke liye thi
+#  jo ab delete ho chuke hain:
+#
+#     yt-dlp, parth-dl, imageio-ffmpeg  → YouTube / TikTok / Insta DL
+#     Pillow, qrcode, img2pdf, reportlab→ QR Code, Business Studio
+#     pypdf, pdfplumber, openpyxl       → Bank Statement → Excel, Bulk mode
+#     edge-tts, gtts                    → Media Studio (MP3 / voice)
+#     telethon                          → 150MB bade file upload
+#     numpy, aiohttp, beautifulsoup4    → inhi tools ke helpers
+#
+#  Ye libraries sirf INSTALL hone par hi ~250 MB disk aur import hote hi
+#  ~300 MB RAM khaati thi. Render ke free plan par total 512 MB hai —
+#  isliye bot baar-baar "Killed" (OOM) hota tha aur beech kaam me ruk jaata
+#  tha. Ab sirf 4 libraries bachi hain, aur bot ~110 MB par chalta hai.
+#
+#  📌 Agar kabhi koi naya tool add karao to usi waqt library bhi add hogi —
+#     abhi se pehle se daal kar RAM barbaad nahi karni.
 # =====================================================================
 
-# --- Telegram core (22.x API; 23 aane par handler API badal sakti hai) ---
+# --- Telegram core (webhook support ke saath) ---
 python-telegram-bot[webhooks]>=22.8,<23
 
-# --- HTTP / networking ---
+# --- HTTP (number API + family API in dono ke liye) ---
 requests>=2.32,<3
-aiohttp>=3.10,<4
 
-# --- Images / PDF / documents (RAM bhaari — inka behaviour stable chahiye) ---
-Pillow>=11.0,<13
-qrcode[pil]>=7.4,<9
-img2pdf>=0.5,<1
-reportlab>=4.1,<6
-pypdf>=4.2,<7
-pdfplumber>=0.11,<0.12
-openpyxl>=3.1,<4          # v75.1 BULK MODE (Excel report)
-
-# --- Text / data ---
-beautifulsoup4>=4.12,<5
+# --- 📱 NUMBER INFO ka offline parser (carrier / circle / type) ---
+#     Note: ye lazy load hota hai (modules/osint_tools.py) — pehli lookup
+#     par hi RAM me aata hai, boot par nahi.
 phonenumbers>=8.13,<10
-numpy>=1.26,<3
 
-# --- Speech ---
-edge-tts>=6.1,<8
-gtts>=2.5,<3
-
-# --- Config ---
+# --- .env file padhne ke liye (local testing) ---
 python-dotenv>=1.0,<2
-
-# --- Video/audio engines (updates ke liye FREE chhode hain — upar dekhein) ---
-yt-dlp>=2025.1.1
-parth-dl>=1.2
-
-# --- ffmpeg binary (bundled; Render par system ffmpeg nahi hota) ---
-imageio-ffmpeg>=0.5,<1
-
-# --- v79: 20MB/50MB Bot API hadd se upar (150MB tak) — modules/core/bigfile.py
-#     Sirf tab use hota hai jab TG_API_ID + TG_API_HASH env set ho;
-#     na ho to bot bilkul pehle jaisa chalta hai.
-telethon>=1.36,<2

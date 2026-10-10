@@ -56,3 +56,36 @@ API ke paas us number ka record **Nahi** hai to bot offline card dikhata hai
 **Kanoon wali baat:** Aadhaar number bot **hamesha mask** karke dikhata hai
 (`XXXX-XXXX-1234`). Poora Aadhaar dikhana kanoon ke khilaaf hai — isliye bot
 me ye lock hai, koi khol nahi sakta. 🔒
+
+---
+
+## 👪 FAMILY INFO ka bhi wahi tarika
+
+Family Info tool bhi **pehle se laga hai** — kuch karne ki zaroorat nahi.
+Check karne ke liye bot ko bhejo:
+
+```
+/famapi
+/famapi 123456789012
+```
+
+Key badalni ho to Render → Environment me ye daalo (bilkul upar wale steps
+jaise hi):
+
+| Key | Kya hai |
+|---|---|
+| `FAMINFO_API_URL` | family API ka endpoint (khali = built-in default) |
+| `FAMINFO_API_KEY` | family API ki key |
+| `FAMINFO_API_TIMEOUT` | `40` (second) |
+
+Yahan bhi Aadhaar **hamesha masked** rehta hai, aur ek baar me **zyada se zyada
+12 members** dikhte hain (card bahut lamba na ho jaye isliye).
+
+---
+
+## 🆕 v108 note
+
+Bot ab **SLIM** version par hai — sirf ye 2 tools bache hain, isliye RAM
+450+ MB se girkar **~62 MB** ho gayi. In dono tools ka code **ek line bhi nahi
+badla**, to jo pehle kaam karta tha wo ab bhi bilkul waise hi karega — bas ab
+bot beech me rukega nahi.
