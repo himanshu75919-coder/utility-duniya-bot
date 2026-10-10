@@ -2,8 +2,10 @@
 """
 joinwall.py — 🔐 FORCE-JOIN WALL (pehle channel join, phir bot)
 
-User ki hiring (8 Oct 2026): "Force join gate banao". Channel = `FORCE_CHANNEL`
-(aapke case me @CypherGrid / -1004331054356), link = `FORCE_CHANNEL_LINK`.
+User ki hiring (8 Oct 2026): "Force join gate banao". v105.1 (11 Oct):
+channel REPLACE hua — ab DEFAULT = @osint_xpert / -1004393596502,
+link = https://t.me/osint_xpert (purana @CypherGrid gaya). Env se kisi bhi
+waqt badla ja sakta hai: FORCE_CHANNEL / FORCE_CHANNEL_LINK.
 
 Design rules (ye jaan-boojh ke aise banaya hai):
   1) **Fail-open**: channel id galat ho, bot admin na ho, Telegram timeout ho jaye —
@@ -19,8 +21,9 @@ Design rules (ye jaan-boojh ke aise banaya hai):
      (purana menu waise hi rehta hai — join karke wahi button dobara dabao).
 
 Env knobs:
-  FORCE_CHANNEL          = @CypherGrid | CypherGrid | -1004331054356   (khali = wall off)
-  FORCE_CHANNEL_LINK     = https://t.me/CypherGrid                     (khali = khud banata hai)
+  FORCE_CHANNEL          = @osint_xpert | -1004393596502  (khali = wall off;
+                          key hi set na ho to code-default osint_xpert chalta)
+  FORCE_CHANNEL_LINK     = https://t.me/osint_xpert                    (khali = khud banata hai)
   FORCE_JOIN             = auto | on | off      (default auto = channel ho to ON)
   FORCE_JOIN_GROUPS      = off                  (on karo to group chats me bhi gate)
   FORCE_JOIN_EXEMPT      = 12345,67890          (extra ids, comma se)
@@ -80,8 +83,17 @@ def normalize_channel(raw: str) -> Any:
     return "@" + c                         # username
 
 
+# v105.1 (user order 11 Oct): purana @CypherGrid HATAA — naya channel.
+# Key HI na set ho to ye default chalta hai; explicit khali value ("" set
+# karna) ab bhi wall OFF rakhti hai (backward compatible + test-locked).
+DEFAULT_CHANNEL = "-1004393596502"
+DEFAULT_LINK = "https://t.me/osint_xpert"
+
+
 def channel() -> Any:
-    """Channel jisme join karana hai ("" = koi nahi)."""
+    """Channel jisme join karana hai ("" = koi nahi). Key missing → default."""
+    if "FORCE_CHANNEL" not in os.environ:
+        return normalize_channel(DEFAULT_CHANNEL)
     return normalize_channel(_env("FORCE_CHANNEL"))
 
 
@@ -93,6 +105,8 @@ def link() -> str:
     ch = channel()
     if isinstance(ch, str) and ch.startswith("@"):
         return "https://t.me/" + ch[1:]
+    if "FORCE_CHANNEL" not in os.environ:
+        return DEFAULT_LINK     # v105.1: default channel ka link
     return ""
 
 

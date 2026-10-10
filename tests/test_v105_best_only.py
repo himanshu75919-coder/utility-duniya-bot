@@ -100,7 +100,7 @@ ok("story ke liye bhi _ig_jina_hd try hota hai (base list)",
 
 print("\n== 7) Version head ==")
 ok("BOT_VERSION v105.0 BEST-ONLY",
-   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.0 BEST-ONLY', BOT_SRC) is not None)
+   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.[01]', BOT_SRC) is not None)
 
 print("\n" + ("🎉 v105 SELFTEST: SAB PASSED" if not FAIL else "❌ FAILURES: " + "; ".join(FAIL)))
 sys.exit(1 if FAIL else 0)
