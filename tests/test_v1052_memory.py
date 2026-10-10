@@ -150,8 +150,9 @@ ok("guard has earlier soft/hard fractions", "soft = limit_mb * 0.76" in GUARD_SR
 ok("Render blueprint defaults to one heavy slot + 48MB media cap",
    'key: HEAVY_MAX_SLOTS\n        value: "1"' in open("render.yaml", encoding="utf-8").read()
    and 'key: MAX_TG_MB\n        value: "48"' in open("render.yaml", encoding="utf-8").read())
-ok("version is v105.2 and preserves wall replacement history",
-   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.2 RAM-SAVER', BOT_SRC) is not None
+ok("version v107+ hai aur purani wall history preserved hai",
+   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v107\.0 PRO-SPEED', BOT_SRC) is not None
+   and "v105.2 RAM-SAVER" in BOT_SRC
    and "v105.1 WALL-OSINT" in BOT_SRC)
 
 print("\n" + (f"🎉 v105.2 MEMORY SELFTEST: PASS {PASS} | FAIL 0" if not FAIL

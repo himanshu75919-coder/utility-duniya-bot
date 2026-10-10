@@ -80,8 +80,8 @@ ok("bot.py FORCE_CHANNEL default osint id",
    'FORCE_CHANNEL = os.getenv("FORCE_CHANNEL", "-1004393596502").strip()' in BOT_SRC)
 ok("bot.py FORCE_CHANNEL_LINK default",
    'FORCE_CHANNEL_LINK = os.getenv("FORCE_CHANNEL_LINK", "https://t.me/osint_xpert").strip()' in BOT_SRC)
-ok("v105.1 WALL-OSINT history retained under v105.2",
-   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.2 RAM-SAVER', BOT_SRC) is not None
+ok("v105.1 WALL-OSINT history retained under v107",
+   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v107\.0 PRO-SPEED', BOT_SRC) is not None
    and 'v105.1 WALL-OSINT' in BOT_SRC)
 ok("owner-exempt design intact (ADMIN_ID/ADMINS/FORCE_JOIN_EXEMPT)",
    "FORCE_JOIN_EXEMPT" in open(os.path.join(_ROOT, "modules", "core",

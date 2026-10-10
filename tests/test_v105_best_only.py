@@ -75,7 +75,7 @@ ok("h264 ho to re-encode SKIP", "Video:\\s*h264" in _pl)
 ok("VP9/HEVC → h264 re-encode (Telegram streaming)", "libx264" in _pl)
 _d = inspect.getsource(MD.download_instagram_media)
 ok("loader-ig race me wire hai", "_ig_loader_reel(clean" in _d)
-ok("reel budget 55s (job 12-45s ke liye)", "55.0" in _d)
+ok("reel budget 40s (v107: loader-ig 30s rescue + margin)", "40.0" in _d)
 
 print("\n== 4) parth-dl — wapas zinda, ab meta ke saath ==")
 _pt = inspect.getsource(MD._ig_parth)
@@ -99,8 +99,8 @@ ok("story ke liye bhi _ig_jina_hd try hota hai (base list)",
    "_ig_jina_hd" in _src_jf and "_hd_then_og" in _src_jf)
 
 print("\n== 7) Version head ==")
-ok("BOT_VERSION v105.2 RAM-SAVER",
-   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.2 RAM-SAVER', BOT_SRC) is not None)
+ok("BOT_VERSION v107.0 PRO-SPEED",
+   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v107\.0 PRO-SPEED', BOT_SRC) is not None)
 
 print("\n" + ("🎉 v105 SELFTEST: SAB PASSED" if not FAIL else "❌ FAILURES: " + "; ".join(FAIL)))
 sys.exit(1 if FAIL else 0)

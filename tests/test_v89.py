@@ -194,8 +194,8 @@ check("_ig_embed naya 4th engine maujood hai", callable(getattr(MD, "_ig_embed",
 _src_dl = inspect.getsource(MD.download_instagram_media)
 for eng in ("_ig_parth", "_ig_ytdlp", "_ig_embed", "_og_scrape"):
     check(f"pipeline me engine {eng}", eng in _src_dl)
-check("v105: reel/video 55s (loader-ig) + photo 34s (jina-HD)",
-      "55.0" in _src_dl and "34.0" in _src_dl)
+check("v107: reel/video 40s (loader-ig rescue) + photo 26s (fast engines)",
+      "40.0" in _src_dl and "26.0" in _src_dl)
 check("v85: _ig_embed_album 5th engine (photo posts par race me)",
       callable(getattr(MD, "_ig_embed_album", None)) and "_ig_embed_album" in _src_dl)
 check("v86: want_video me story NAHI (photo-story bhi chalegi)",

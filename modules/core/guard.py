@@ -468,6 +468,14 @@ def mem_mb() -> float:
         return 0.0
 
 
+def limit_mb_hint() -> float:
+    """v107: RAM limit (MB) — env MEMORY_LIMIT_MB, default 512 (Render free)."""
+    try:
+        return float(os.environ.get("MEMORY_LIMIT_MB") or 512)
+    except Exception:                                            # noqa: BLE001
+        return 512.0
+
+
 def register_gc_trigger(fn: Callable) -> None:
     """Ye function memory pressure me call hoga (cache clear karne ke liye).
     bot.py apne caches isme daalta hai."""
@@ -568,6 +576,19 @@ def free_memory(aggressive: bool = False) -> dict:
         except Exception:                                          # noqa: BLE001
             pass
         malloc_trim()
+        # v107: EMERGENCY RAM VALVE — safai ke baad bhi RAM hard limit ke paas ho
+        # to phonenumbers ka geocoder (~95 MB) wapas OS ko lauta do. Agli phone
+        # lookup par wo dobara import ho jaata hai; OOM-kill se behtar hai.
+        try:
+            if mem_mb() >= limit_mb_hint() * 0.80:
+                from modules import osint_tools as _osn
+                if _osn.drop_geocoder():
+                    gc.collect()
+                    malloc_trim()
+                    log.warning("🩸 v107 RAM valve: phonenumbers geocoder (~95 MB) "
+                                "drop kiya — agle number lookup par wapas aa jayega")
+        except Exception:                                          # noqa: BLE001
+            pass
     after = mem_mb()
     freed = max(0.0, before - after)
     with _LOCK:

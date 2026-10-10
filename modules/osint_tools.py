@@ -28,8 +28,62 @@ except Exception:            # pragma: no cover - core na ho to bina cache chale
     _INFO = None
     _CACHED = False
 
-import phonenumbers
-from phonenumbers import geocoder, carrier, timezone, number_type, PhoneNumberType
+# v107 RAM-SAVER-II — phonenumbers boot par +112 MB RSS khaata tha
+# (core 3 MB + carrier 10 MB + GEOCODER 95 MB!). Boot 224 MB → Render free
+# 512 MB plan par watchdog thrash + OOM risk. Ab LAZY import: pehli phone
+# lookup par ek baar (~1s), output bilkul SAME. Emergency me guard.free_memory
+# geocoder wapas drop kar sakta hai (drop_geocoder) — 95 MB turant wapas.
+import threading as _thd
+_PN_LOCK = _thd.Lock()
+phonenumbers = None
+geocoder = None
+carrier = None
+timezone = None
+number_type = None
+PhoneNumberType = None
+PN_LOADED = False
+
+
+def _pn_load(heavy: bool = True):
+    """Lazy loader — core+carrier+timezone ek baar, geocoder (95 MB) bhi ek baar."""
+    global phonenumbers, carrier, timezone, number_type, PhoneNumberType
+    global geocoder, PN_LOADED
+    with _PN_LOCK:
+        if phonenumbers is None:
+            import phonenumbers as _p
+            from phonenumbers import carrier as _ca, timezone as _tz
+            phonenumbers = _p
+            carrier, timezone = _ca, _tz
+            number_type = _p.number_type
+            PhoneNumberType = _p.PhoneNumberType
+        if heavy and geocoder is None:
+            try:
+                from phonenumbers import geocoder as _gc
+                geocoder = _gc
+            except Exception:                                      # noqa: BLE001
+                geocoder = None
+        PN_LOADED = phonenumbers is not None
+    return phonenumbers
+
+
+def drop_geocoder() -> bool:
+    """ Emergency RAM valve: geocoder module (~95 MB) wapas OS ko lautaao.
+
+    guard.free_memory(aggressive) ise tab call karta hai jab safai ke baad bhi
+    RAM hard limit ke paas ho. Agli phone lookup par geocoder dobara import
+    ho jaata hai (~1s) — result par koi farq nahi (worst case: circle me
+    'India' dikhta hai agar import usi din fail ho).
+    """
+    global geocoder
+    import sys as _sys
+    with _PN_LOCK:
+        if geocoder is None:
+            return False
+        geocoder = None
+        _sys.modules.pop("phonenumbers.geocoder", None)
+        import gc as _gcmod
+        _gcmod.collect()
+        return True
 
 
 def _cget(key):
@@ -166,6 +220,7 @@ def lookup_phone_info(number_str: str) -> dict:
         else:
             clean = "+" + clean
 
+    _pn_load()          # v107: lazy phonenumbers (boot RAM bachat)
     try:
         parsed = phonenumbers.parse(clean, None)
     except Exception as e:
@@ -189,7 +244,7 @@ def lookup_phone_info(number_str: str) -> dict:
     }
     ntype = ntype_map.get(number_type(parsed), "❔ Unknown")
 
-    country = geocoder.description_for_number(parsed, "en") or "India"
+    country = (geocoder.description_for_number(parsed, "en") if geocoder else "") or "India"
     operator = carrier.name_for_number(parsed, "en") or ""
     zones = ", ".join(timezone.time_zones_for_number(parsed)) or "Asia/Kolkata"
     e164 = phonenumbers.format_number(parsed, phonenumbers.PhoneNumberFormat.E164)

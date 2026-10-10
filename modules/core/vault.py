@@ -866,6 +866,18 @@ class Vault:
                 else:
                     result["github_err"] = str(resp)[:200]
                     log.warning("GitHub backup fail: %s", str(resp)[:160])
+                    # v107: 401 = token mara/revoke hua — user ko log me hi
+                    # poora ilaaj likha mil jaye (Render env step-by-step).
+                    if "401" in str(resp) or "Bad credentials" in str(resp):
+                        result["github_err"] = (
+                            "GitHub token expire/revoke ho chuka hai (HTTP 401). "
+                            "ILAAJ: Render dashboard → ye service → Environment → "
+                            "VAULT_GITHUB_TOKEN (ya GITHUB_TOKEN) me NAYA personal "
+                            "access token daalo (repo scope) → Save → service "
+                            "restart karo. Tab tak Telegram backup chalta rahega.")
+                        log.warning("🔑 v107: GitHub token 401 — Render env me "
+                                    "VAULT_GITHUB_TOKEN/GITHUB_TOKEN update karo "
+                                    "(naya PAT, repo scope), phir restart")
             else:
                 result["github"] = "off (VAULT_GITHUB_REPO / token set nahi)"
 

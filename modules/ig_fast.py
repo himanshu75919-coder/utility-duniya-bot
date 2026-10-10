@@ -81,6 +81,34 @@ _SESSION = None
 
 _CD = 90                 # 429 ke baad cooldown seconds (baad me dheere badhta hai)
 
+# v107: LOGIN-WALL BACKOFF — datacenter IPs (Render) par Instagram ye API
+# bina cookie ke aksar 302/403 (login-wall) deta hai (live audit: 0.4-0.6s me
+# fail). 3 lagataar wall ke baad 10 minute ka break — har request par bekar
+# call nahi, aur IP par hammer bhi nahi. Cookie lagi ho to wall hota hi nahi.
+_WALL_UNTIL = 0.0
+_WALL_STREAK = 0
+_WALL_STAT = 0
+
+
+def wall_active() -> bool:
+    return time.time() < _WALL_UNTIL
+
+
+def _wall_mark() -> None:
+    global _WALL_UNTIL, _WALL_STREAK, _WALL_STAT
+    with _LOCK:
+        _WALL_STREAK += 1
+        _WALL_STAT += 1
+        if _WALL_STREAK >= 3:
+            _WALL_UNTIL = time.time() + 600
+            _WALL_STREAK = 0
+
+
+def _wall_reset() -> None:
+    global _WALL_STREAK
+    with _LOCK:
+        _WALL_STREAK = 0
+
 
 # ---------------------------------------------------------------------
 # SESSION (ek hi keep-alive pool — fast + kam TLS handshake)
@@ -381,11 +409,16 @@ def fetch_post(code: str, media_cat: str):
     """Post/Reel/IGTV shortcode → result (1 API call + file download)."""
     if not code or cool_active():
         return None
+    if wall_active() and not has_login_cookie():
+        return None                     # v107: login-wall break chal raha hai
     mid = shortcode_to_media_id(code)
     if not mid:
         return None
     j, st = _api_get(f"/media/{mid}/info/")
     if st == 429:
+        return None
+    if st in (301, 302, 401, 403):      # v107: login-wall → backoff counter
+        _wall_mark()
         return None
     if not j:
         return None
@@ -394,6 +427,8 @@ def fetch_post(code: str, media_cat: str):
         if not items:
             return None
         res = _item_to_result(items[0], media_cat)
+        if res:
+            _wall_reset()
         with _LOCK:
             STATS["hits" if res else "miss"] += 1
         return res
@@ -405,6 +440,8 @@ def fetch_profile_pic(username: str):
     """Profile link → HD profile photo."""
     if not username or cool_active():
         return None
+    if wall_active() and not has_login_cookie():
+        return None                     # v107: login-wall break
     j, st = _api_get("/users/web_profile_info/", params={"username": username})
     if st == 429 or not j:
         return None
@@ -523,6 +560,8 @@ def diagnostics() -> dict:
     return {
         "enabled": requests is not None,
         "cooldown": cool_active(),
+        "wall": wall_active(),          # v107: login-wall break chalu hai?
+        "wall_hits": _WALL_STAT,
         "cookie": has_login_cookie(),
         **STATS,
     }

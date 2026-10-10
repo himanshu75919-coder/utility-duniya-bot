@@ -500,6 +500,12 @@ _DL_ERR_MAP = (
      "  2️⃣ 1-2 minute ruk ke <b>dobara try</b> karo (YouTube ka check khud hat jata hai)\n"
      "  3️⃣ Admin: <code>/cookies</code> se apni YouTube cookies bhej dein = pakka ilaaj\n"
      "💳 <b>Aapka credit nahi kata.</b>"),
+    # ---- v107: carousel slide-index wali galat upstream error ----
+    (("out of range", "media number"),
+     "📸 <b>Ye link carousel ki ek specific slide ka tha</b> jo post me ab "
+     "available nahi (Instagram ne slide hata di ya index purana hai).\\n"
+     "✅ Poore post ka link bhejo — <b>poori album</b> aa jayegi. "
+     "<b>Credit nahi kata.</b>"),
     # ---- login / private ----
     (("sign in to confirm your age", "age-restricted", "inappropriate for some users"),
      "🔞 <b>Ye video age-restricted hai</b> (YouTube login maangta hai).\n"
@@ -564,6 +570,35 @@ def friendly_dl_error(raw: str = "", platform: str = "") -> str:
             "💳 <b>Koi credit nahi kata.</b>")
 
 
+# v107: user ko KABHI bhi raw technical/upstream string nahi dikhni chahiye
+# (10 Oct ko user ko "Media number out of range." jaisa upstream kachra dikha
+# tha). Jo message pehle se saaf Hinglish/emoji wala hai wahi pass hota hai,
+# baaki sab friendly_dl_error se hokar jaata hai.
+_SAFE_MARKS = ("🔐", "⚠️", "🔒", "❌", "✅", "🌐", "🤖", "🚫", "👑",
+               "📦", "🎞️", "🔗", "⏳", "🛡️", "🔴", "🌍", "📸",
+               "💳", "🩸", "🎯", "📥", "🔥", "🧲", "📌")
+
+
+def user_safe_error(reason: str = "", platform: str = "") -> str:
+    """Raw upstream error → user-safe Hinglish. Saaf message ko chhedta nahi.
+
+    Jo message pehle se Hinglish/emoji wala hai (hamara khud ka likha hua) wo
+    jaisa hai waisa jaata hai; raw upstream kachra ("Media number out of
+    range.", "HTTP 403: {...}") friendly message me badal jaata hai.
+    """
+    r = (reason or "").strip()
+    if not r:
+        return friendly_dl_error("", platform)
+    if any(m in r for m in _SAFE_MARKS):
+        return r
+    try:  # Devanagari (Hindi) text = hamara likha hua = safe
+        if any("\u0900" <= ch <= "\u097F" for ch in r):
+            return r
+    except Exception:                                              # noqa: BLE001
+        pass
+    return friendly_dl_error(r, platform)
+
+
 # ======================================================================
 #  v65: 🚀 SPEED + 🤖 YOUTUBE BOT-CHECK FIX
 # ======================================================================
@@ -606,7 +641,7 @@ _CLIENT_LOCK = threading.Lock()
 _DL_MEM = {}                         # url-key -> (bytes, meta, ts)
 _DL_MEM_ORDER = []                   # LRU order (key list)
 _DL_MEM_BYTES = 0
-_DL_MEM_MAX_BYTES = 20 * 1024 * 1024       # v82: 20 MB (512 MB RAM plan ka OOM fix; bada file disk cache sambhalta hai)
+_DL_MEM_MAX_BYTES = 12 * 1024 * 1024       # v107: 20→12 MB (512 MB RAM plan; bada file disk cache sambhalta hai)
 _DL_MEM_TTL = 2 * 3600                     # 2 ghante
 _DL_MEM_LOCK = threading.Lock()
 
@@ -1943,7 +1978,7 @@ def download_instagram_media(url: str) -> dict:
             return _pp
         _pu = _ig_profile_user(clean) or "ye"
         return {"ok": False, "category": "profile",
-                "error": (f"@{_pu} ki profile photo nahi mili — account private/deleted ho "
+                "error": (f"📸 @{_pu} ki profile photo nahi mili — account private/deleted ho "
                           "sakta hai, ya username me spelling mistake. Public profile ka sahi link bhejo.")}
     # v106: STORY FAST-FAIL — Instagram story bina LOGIN cookie ke koi bhi
     # service nahi de sakti (IG ki apni privacy limit). Pehle 30-55 second ki
@@ -2034,27 +2069,35 @@ def download_instagram_media(url: str) -> dict:
     # v106: ⚡ IG FAST ENGINE SABSE PEHLE — Instagram ke apne JSON API se
     # post/reel/TV/carousel 1-5s me (pehle race 20-55s leta tha). 429 cooldown
     # par ye 0.001s me None deta hai, phir purane engines waise hi chalte hain.
+    # v107: 📊 LIVE AUDIT (10 Oct 2026, datacenter IP se naap kar):
+    #   parth-dl      1.5-1.7s ✅ (carousel 6 items + reel video 6.6 MB)
+    #   embed_album   0.7-1.2s ✅ (carousel; reel par sirf cover photo)
+    #   og_scrape     ~1.1s    ✅ (photo only, low-res)
+    #   ig_fast API   0.4-0.6s ❌ (datacenter IP par login-wall — cookie ke bina)
+    #   yt-dlp        3-5s     ❌ (IG par login-wall; "No video formats")
+    #   loader-ig     ~30s     ✅ (reel video — LAST RESCUE, slow par zinda)
+    #   wayback/jina  0-9s     ❌ (null)
+    #   ⇒ order = jo asal me jeetta hai pehle; slow rescue aakhir me.
+    #   Budget: video 55→40s (loader 30s rescue + margin), post 34→26s.
     _fns = []
     if IGF is not None:
         _fns.append(_eng(lambda: IGF.fetch_media(clean, media_cat)))
-    _fns.extend([_eng(lambda: _ig_parth(clean, media_cat)),
-                 _eng(lambda: _ig_embed(clean, media_cat))])
     if want_video:
-        _fns.extend([_eng(lambda: _ig_loader_reel(clean, media_cat)),
-                     _eng(_hd_then_og)])
-        # v103: archive + r.jina fallback; uske baad hi yt-dlp (lazy/heavy).
-        _fns.extend([_eng(lambda: _ig_wayback(clean, media_cat)),
-                     _eng(lambda: _ig_jina(clean, media_cat)),
+        _fns.extend([_eng(lambda: _ig_parth(clean, media_cat)),
+                     _eng(lambda: _ig_embed(clean, media_cat)),
+                     _eng(lambda: _ig_ytdlp(clean, media_cat)),
+                     _eng(lambda: _ig_loader_reel(clean, media_cat)),
                      _eng(lambda: _ig_jina_hd(clean, media_cat)),
-                     _eng(lambda: _ig_ytdlp(clean, media_cat))])
-        _budget = 55.0   # v105: loader-ig job (12-45s) + fetch ko waqt
-                         # v106: budget wahi — jeet ab fast engine 1-5s me hi jaata hai;
-                         # budget sirf tab kaam aata hai jab SAARE fast raaste fail hon.
+                     _eng(lambda: _ig_wayback(clean, media_cat))])
+        _budget = 40.0   # v107: 55→40 (loader-ig 30s rescue + 10s margin)
     else:
-        _fns.extend([_eng(_hd_then_og),
+        _fns.extend([_eng(lambda: _ig_parth(clean, media_cat)),
                      _eng(lambda: _ig_embed_album(clean, media_cat)),
-                     _eng(lambda: _ig_ytdlp(clean, media_cat))])
-        _budget = 34.0   # v104: jina render (cold ~20s) ko mauka
+                     _eng(lambda: _ig_embed(clean, media_cat)),
+                     _eng(_hd_then_og),
+                     _eng(lambda: _ig_ytdlp(clean, media_cat)),
+                     _eng(lambda: _ig_jina_hd(clean, media_cat))])
+        _budget = 26.0   # v107: 34→26 (photo engines sab <2s me jeet-te hain)
 
     try:
         from modules.core import heavy as _hg
@@ -2093,7 +2136,7 @@ def download_instagram_media(url: str) -> dict:
 
     if media_cat == "story":
         return {"ok": False, "category": "story",
-                "error": ("Instagram Story nahi mili. 3 wajah ho sakti hain: (1) Story 24 ghante "
+                "error": ("📸 Instagram Story nahi mili. 3 wajah ho sakti hain: (1) Story 24 ghante "
                           "me expire ho gayi, (2) account private hai, (3) Instagram ne bina-login "
                           "story block kar di. Reel/photo post ka link bhejo — wo pakka chalega.")}
     if media_cat == "reel":
@@ -2104,7 +2147,7 @@ def download_instagram_media(url: str) -> dict:
                           "ℹ️ Reel par kabhi galat cheez (cover photo) nahi bhejenge — "
                           "isliye ye error dikh raha hai. Post/story ka link hamesha chalega.")}
     return {"ok": False, "category": media_cat,
-            "error": "Media nahi nikal paya — dekho post public hai kya (private/age-restrict post nahi chalti)."}
+            "error": "📸 Media nahi nikal paya — dekho post public hai kya (private/age-restrict post nahi chalti)."}
 
 
 def _read_response_capped(r, cap_bytes: int, minimum: int = 1001):

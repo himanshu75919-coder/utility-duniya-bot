@@ -459,7 +459,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v105.2 RAM-SAVER — 🧠 Render free 512MB: lazy imports + max 1 heavy job + bounded media downloads; bina premium | v105.1 WALL-OSINT — 🔐 force-join channel REPLACE: ab @osint_xpert (id -1004393596502, link t.me/osint_xpert) — purana @CypherGrid hataa; code-default bana diya (env missing ho to bhi naya channel) | v105.0 BEST-ONLY — 🚀 YouTube: QUALITY-PICKER HATAA — link bhejo = seedha server-ki-best HD (0 taps) + 🎬 IG reels/videos LIVE (loader-ig engine, 12-19s) + parth-dl wala aaya (720p reels, full-quality albums) | v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v107.0 PRO-SPEED — ⚡ IG engines LIVE-AUDIT order (parth/embed pehle, 30s loader aakhir me; budget 40/26s) + 🩸 RAM-SAVER-III (phonenumbers geocoder 95MB lazy + emergency valve; boot 224→~120MB) + 🧼 raw upstream errors user ko kabhi nahi (\"Media number out of range\" fix) + 🛠️ self-check fix | v106 IG-FAST | v105.2 RAM-SAVER — 🧠 Render free 512MB: lazy imports + max 1 heavy job + bounded media downloads; bina premium | v105.1 WALL-OSINT — 🔐 force-join channel REPLACE: ab @osint_xpert (id -1004393596502, link t.me/osint_xpert) — purana @CypherGrid hataa; code-default bana diya (env missing ho to bhi naya channel) | v105.0 BEST-ONLY — 🚀 YouTube: QUALITY-PICKER HATAA — link bhejo = seedha server-ki-best HD (0 taps) + 🎬 IG reels/videos LIVE (loader-ig engine, 12-19s) + parth-dl wala aaya (720p reels, full-quality albums) | v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -2732,7 +2732,7 @@ def _startup_selfcheck() -> bool:
     # --- modules ---
     import importlib as _il
     _bad = []
-    for _mn in ("api_hub", "channel_cloner", "desi_tools", "general_tools", "gaming_tools",
+    for _mn in ("api_hub", "channel_cloner", "desi_tools", "general_tools",
                 "imei_lookup", "media_downloader", "mynum_api", "osint_hub",
                 "osint_tools", "payguard", "render_health", "temp_mail",
                 "toolkit_extras", "tutorial_hub", "vip_payment"):
@@ -8293,7 +8293,10 @@ async def on_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                                  "baar cache se TURANT milega.\n💳 Credit nahi katta.")}
 
         if not res.get("ok"):
-            reason = str(res.get("error", "Could not extract the media."))
+            # v107: raw upstream kachra ("Media number out of range." jaisa)
+            # user ko KABHI nahi dikhega — saaf Hinglish me badal jaata hai.
+            reason = MD.user_safe_error(
+                str(res.get("error", "") or "Could not extract the media."), plat)
             await _st_edit(st, update, 
                 fail_msg(f"{plat.upper()} DOWNLOAD FAILED", reason)
                 + "\n\n💡 <b>What to do:</b>\n"

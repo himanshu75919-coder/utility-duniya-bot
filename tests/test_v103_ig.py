@@ -78,9 +78,9 @@ finally:
 print("\n== 3) NAYE ENGINES maujood + crash-free ==")
 ok("_ig_wayback defined", callable(getattr(MD, "_ig_embed", None)) and callable(getattr(MD, "_ig_wayback", None)))
 ok("_ig_jina defined", callable(getattr(MD, "_ig_jina", None)))
-ok("reel race me dono add hote hain (source-lock)",
-   "_ig_wayback(clean, media_cat)" in src_full and "_ig_jina(clean, media_cat)" in src_full)
-ok("video budget 55s (v105 loader-ig ke liye)", "55.0" in src_full)
+ok("v107: wayback rescue video list me aakhir me, jina function zinda",
+   "_ig_wayback(clean, media_cat)" in src_full and callable(MD._ig_jina))
+ok("video budget 40s (v107: loader-ig 30s rescue + 10s margin)", "40.0" in src_full)
 ok("naye engine fake code par None dete hain (crash nahi)",
    MD._ig_wayback("https://www.instagram.com/p/ZzFAKEzz123", "reel") in (None,)
    or True)  # network chal bhi gaya to None/miss acceptable; crash test upar

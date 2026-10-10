@@ -94,9 +94,9 @@ ok("profile picture/rsrc junk skip", "profile_pic" in _j and "rsrc.php" in _j)
 ok("2+ photos = carousel contract (items list)", '"type": "carousel"' in _j and '"items": items' in _j)
 _d = inspect.getsource(MD.download_instagram_media)
 ok("og slot ab _hd_then_og (HD-first, phir og)", "_hd_then_og" in _d and "_ig_jina_hd" in _d)
-ok("reel race me bhi _ig_jina_hd juda (wrapper + video engine = 2 jagah)",
-   _d.count("_ig_jina_hd(clean") >= 2 and "_ig_jina(clean" in _d)
-ok("photo budget 34s (jina cold render ke liye)", "34.0" in _d)
+ok("v107: _ig_jina_hd photo race me aakhri fallback (hd_then_og wrapper bhi zinda)",
+   _d.count("_ig_jina_hd(clean") >= 1 and "_hd_then_og" in _d)
+ok("photo budget 26s (v107: photo engines <2s me jeet-te hain)", "26.0" in _d)
 ok("private par honest 🔒 note lagta hai", "PRIVATE account" in _d)
 
 print("\n== 6) _ig_efg_res live-verified URLs par ==")

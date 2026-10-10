@@ -117,7 +117,7 @@ for k in ("numinfo", "familyinfo", "terabox", "vahan", "imei",
     check(f"zinda tool: {k} prompt intact", k in B.PROMPTS and "━" in B.PROMPTS[k])
 check("cloner + vahan (RC/CHALLAN) premium list me zinda",
       "cloner" in B.PREMIUM_TOOLS and "vahan" in B.PREMIUM_TOOLS)
-check("BOT_VERSION current head (v104+)", B.BOT_VERSION.startswith("v105.2 RAM-SAVER"), B.BOT_VERSION[:40])
+check("BOT_VERSION current head (v107+)", B.BOT_VERSION.startswith("v107.0 PRO-SPEED"), B.BOT_VERSION[:40])
 
 print("\n== RESULT ==")
 if FAIL:
