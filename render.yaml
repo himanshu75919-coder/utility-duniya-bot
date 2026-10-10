@@ -114,9 +114,17 @@ services:
       # ---------- v60: 🛡️ CRASH SHIELD ----------
       # Render free plan me sirf 512 MB RAM milti hai. Video + ffmpeg + PDF
       # ek saath chalein to process "Killed" ho jata hai (aapko crash dikhta
-      # hai). Memory watchdog 400 MB par khud cache saaf karta hai.
+      # hai). v105.2 watchdog ~389MB par trim, ~420MB par hard clean karta hai.
       - key: MEMORY_LIMIT_MB
         value: "512"           # plan ki RAM (Starter=512, Standard=2048)
+      - key: MEM_RESTART_MB
+        value: "429"           # clean restart threshold; code physical limit se neeche clamp karta hai
+      - key: MEM_RESTART_UPTIME_S
+        value: "900"           # pehle 15 min me unnecessary restart na ho
+      - key: MAX_TG_MB
+        value: "48"            # free 512MB par video buffer cap; bade files ke liye fallback/direct URL
+      - key: BIGFILE_WARM
+        value: "off"           # Telethon pehli badi file par lazy-load = idle RAM kam
 
       # ==================================================================
       #  v77: 🏗️ HEAVY GATE + 🚦 UPDATE GATE  (yaahi "baar-baar crash" ka ilaaj)
@@ -126,7 +134,7 @@ services:
       # Do naye layers:
       #
       #  1) HEAVY GATE — video download / ffmpeg / PDF jaise bhaari kaam ek
-      #     saath kitne chalein. 2 free plan ke liye safe number hai.
+      #     saath kitne chalein. v105.2 se free 512MB par sirf ek job allowed.
       #     Bheed me user ko saaf "busy" jawab milta hai, bot marta nahi.
       #  2) UPDATE GATE — PTB ka default ek time par EK update process karta
       #     hai: ek user ka 30-second video tool baaki sabko block kar deta
@@ -135,7 +143,7 @@ services:
       #     (wizard flows safe), aur Telegram ka dobara bheja hua update drop
       #     ho jaata hai (dohra kaam / dohra credit nahi).
       - key: HEAVY_MAX_SLOTS
-        value: "2"             # ek saath bhaari kaam (Starter/Standard par 3-4 kar sakte ho)
+        value: "1"             # free 512MB par ek media/PDF kaam; code me bhi clamp
       - key: HEAVY_WAIT_SECONDS
         value: "25"            # queue me kitni der rukein, phar "busy" jawab
       - key: HEAVY_GATE

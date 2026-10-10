@@ -202,7 +202,7 @@ check("v86: want_video me story NAHI (photo-story bhi chalegi)",
       'media_cat in ("reel", "video", "igtv")' in _src_dl and '"/reel" in clean' in _src_dl
       and '("reel", "video", "igtv", "story")' not in _src_dl)
 check("cache ab bhi laga hai (2nd try TURANT)", '_mem_get(clean, "ig")' in _src_dl)
-check("MAX_TG_MB ab dynamic hai (MTProto on = 96MB tak download)",
+check("MAX_TG_MB free-plan safe cap 48MB + bigger-memory dynamic",
       "MAX_TG_MB = _tg_cap_mb()" in inspect.getsource(MD))
 check("yt-dlp direct-link fallback ab bhi hai (badi file ka raasta)",
       callable(getattr(MD, "_ytdlp_direct_link", None)))
@@ -464,7 +464,7 @@ check("_post_init BF.warm() ko BACKGROUND task me daalta hai (startup block nahi
 check("warm call bhi try/except me hai (boot kabhi na ruke)",
       "except Exception as _we" in _post_w)
 check("warm-up BIGFILE_WARM knob se off ho sakta hai (memory trade-off user ke haath)",
-      '_env_bool("BIGFILE_WARM", True)' in _post_w and "warm-up OFF" in _post_w)
+      '_env_bool("BIGFILE_WARM", False)' in _post_w and "lazy warm-up" in _post_w)
 _src_bf = open(os.path.join(_ROOT, "modules", "core", "bigfile.py"), encoding="utf-8").read()
 check("warm-off par bhi feature nahi marta (caps creds se hi chalte hain)",
       "def cap_in_mb" in _src_bf and "def cap_out_mb" in _src_bf)

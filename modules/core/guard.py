@@ -24,9 +24,9 @@ Ye file usi ke liye hai. Ye 6 alag-alag "crash ke raaste" band karti hai:
      Render free plan = sirf 512 MB RAM. Video download + ffmpeg + PDF +
      Pillow + 20 user ek saath -> RAM khatam -> Render bot ko "OOM KILL" kar
      deta hai -> log me sirf "Killed" dikhta hai aur boot hota rehta hai.
-     Ab: memory watchdog har 60 second RAM dekhta hai. 78% cross hone par
-     khud cache saaf karta hai aur garbage collect karta hai. 88% par
-     aggressive mode. Isliye OOM kill bahut rare ho gaya.
+     Ab: memory watchdog har 15 second RAM dekhta hai. 76% cross hone par
+     cache/garbage collect karta hai; 82% par aggressive cleanup aur idle-only
+     safe restart limit se pehle. Isliye OOM kill bahut rare ho gaya.
 
   5. 🧟 HUNG EVENT LOOP (chup-chaap maut)
      Kabhi koi tool aisa atak jata hai jo loop ko block kar de -> bot "zinda"
@@ -99,6 +99,23 @@ _mem_state: dict = {"peak_mb": 0.0, "last_mb": 0.0, "gc_runs": 0, "aggressive": 
 GC_TRIGGERS: list = []
 
 
+def _effective_restart_mb(limit_mb: float) -> float:
+    """Configured restart point ko actual memory limit se pehle cap karo.
+
+    Purana Render env MEM_RESTART_MB=470 tha, jabki free tier 512MB hai.
+    Ab default/max 84% (about 430MB), explicit 0 se opt-out ab bhi possible.
+    """
+    ceiling = max(64.0, float(limit_mb) * 0.84)
+    raw = os.environ.get("MEM_RESTART_MB")
+    if raw is None or not str(raw).strip():
+        return ceiling
+    try:
+        value = float(raw)
+    except Exception:                                            # noqa: BLE001
+        return ceiling
+    return 0.0 if value <= 0 else min(value, ceiling)
+
+
 def crash_state() -> dict:
     """Bot kitni baar bacha, kitni baar mara — /health aur /sys ke liye."""
     with _LOCK:
@@ -120,7 +137,8 @@ def guard_stats() -> dict:
             "mem_mb": _mem_state["last_mb"], "mem_peak_mb": _mem_state["peak_mb"],
             "gc_runs": _mem_state["gc_runs"], "aggressive": _mem_state["aggressive"],
             "restarts": int(_mem_state.get("restarts", 0)),
-            "restart_at_mb": float(os.environ.get("MEM_RESTART_MB") or 0),
+            "restart_at_mb": _effective_restart_mb(
+                float(os.environ.get("MEMORY_LIMIT_MB") or 512)),
             "trim_runs": int(_mem_state.get("trim_runs", 0)),
             "trim_released": int(_mem_state.get("trim_released", 0)),
             "last_freed_mb": float(_mem_state.get("last_freed_mb", 0.0)),
@@ -563,18 +581,19 @@ def free_memory(aggressive: bool = False) -> dict:
             "freed_mb": round(freed, 1), "trim": trimmed}
 
 
-def start_memory_watchdog(limit_mb: float = 0.0, interval: float = 60.0) -> None:
-    """RAM monitor. Render free = 512 MB; hum 400 MB par safai shuru karte hain.
+def start_memory_watchdog(limit_mb: float = 0.0, interval: float = 15.0) -> None:
+    """RAM monitor. Render free=512MB par 389MB me trim, 420MB me hard clean.
 
-    LIMIT env se badla ja sakta hai: MEMORY_LIMIT_MB=512
+    15s poll purane 60s se tezi se spikes pakadta hai. Restart threshold physical
+    limit se neeche cap hai, aur restart sirf idle process par hota hai.
     """
     try:
         if limit_mb <= 0:
             limit_mb = float(os.environ.get("MEMORY_LIMIT_MB") or 512)
     except Exception:                                            # noqa: BLE001
         limit_mb = 512.0
-    soft = limit_mb * 0.78
-    hard = limit_mb * 0.88
+    soft = limit_mb * 0.76
+    hard = limit_mb * 0.82
 
     def _loop():
         # boot par thoda ruk kar asli baseline lo
@@ -598,7 +617,7 @@ def start_memory_watchdog(limit_mb: float = 0.0, interval: float = 60.0) -> None
                     # 'zombie' (throttled) rehta hai. Isliye planned clean restart — par
                     # sirf tab jab koi kaam chal hi na raha ho (is_idle()).
                     try:
-                        rat = float(os.environ.get("MEM_RESTART_MB") or 0)
+                        rat = _effective_restart_mb(limit_mb)
                         min_up = float(os.environ.get("MEM_RESTART_UPTIME_S") or 900)
                         up = time.time() - _START
                         if (rat > 0 and m >= rat and up >= min_up
@@ -627,8 +646,8 @@ def start_memory_watchdog(limit_mb: float = 0.0, interval: float = 60.0) -> None
 
     t = threading.Thread(target=_loop, daemon=True, name="memory-watchdog")
     t.start()
-    log.info("💀 Memory watchdog ON — soft %.0f MB / hard %.0f MB (limit %.0f MB)",
-             soft, hard, limit_mb)
+    log.info("💀 Memory watchdog ON — soft %.0f MB / hard %.0f MB / idle-restart %.0f MB (limit %.0f MB)",
+             soft, hard, _effective_restart_mb(limit_mb), limit_mb)
 
 
 # =====================================================================

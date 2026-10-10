@@ -79,7 +79,7 @@ ok("reel budget 55s (job 12-45s ke liye)", "55.0" in _d)
 
 print("\n== 4) parth-dl — wapas zinda, ab meta ke saath ==")
 _pt = inspect.getsource(MD._ig_parth)
-ok("video return par duration+quality naap", "_probe_data(r_v.content)" in _pt
+ok("video return par duration+quality naap", "_probe_data(_rv)" in _pt
    and '"duration": int(_dv or 0)' in _pt)
 ok("album 20 photos tak (v86 cap bacha)", "entries[:20]" in _pt)
 
@@ -99,8 +99,8 @@ ok("story ke liye bhi _ig_jina_hd try hota hai (base list)",
    "_ig_jina_hd" in _src_jf and "_hd_then_og" in _src_jf)
 
 print("\n== 7) Version head ==")
-ok("BOT_VERSION v105.0 BEST-ONLY",
-   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.[01]', BOT_SRC) is not None)
+ok("BOT_VERSION v105.2 RAM-SAVER",
+   re.search(r'BOT_VERSION\s*=\s*\(?\s*"v105\.2 RAM-SAVER', BOT_SRC) is not None)
 
 print("\n" + ("🎉 v105 SELFTEST: SAB PASSED" if not FAIL else "❌ FAILURES: " + "; ".join(FAIL)))
 sys.exit(1 if FAIL else 0)

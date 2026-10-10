@@ -459,7 +459,7 @@ BAN_MSG = f"🚫 Aapka account ban hai. Admin se baat karo: {SUPPORT_LINK}"
 # NOTE: purane keywords (FREE4ALL / NO-GYAAN / SPEED) jaan-boojh kar rakhe
 # gaye hain — bot ke apne test suite (v59-v81) inhe version guard ki tarah
 # check karte hain, taaki koi bhi feature chup-chaap na hatt jaye.
-BOT_VERSION = ("v105.1 WALL-OSINT — 🔐 force-join channel REPLACE: ab @osint_xpert (id -1004393596502, link t.me/osint_xpert) — purana @CypherGrid hataa; code-default bana diya (env missing ho to bhi naya channel) | v105.0 BEST-ONLY — 🚀 YouTube: QUALITY-PICKER HATAA — link bhejo = seedha server-ki-best HD (0 taps) + 🎬 IG reels/videos LIVE (loader-ig engine, 12-19s) + parth-dl wala aaya (720p reels, full-quality albums) | v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
+BOT_VERSION = ("v105.2 RAM-SAVER — 🧠 Render free 512MB: lazy imports + max 1 heavy job + bounded media downloads; bina premium | v105.1 WALL-OSINT — 🔐 force-join channel REPLACE: ab @osint_xpert (id -1004393596502, link t.me/osint_xpert) — purana @CypherGrid hataa; code-default bana diya (env missing ho to bhi naya channel) | v105.0 BEST-ONLY — 🚀 YouTube: QUALITY-PICKER HATAA — link bhejo = seedha server-ki-best HD (0 taps) + 🎬 IG reels/videos LIVE (loader-ig engine, 12-19s) + parth-dl wala aaya (720p reels, full-quality albums) | v104.0 HD-TRUTH — 🏆 YouTube: jo dabao wahi NAAP-KI asli quality (360/480/720/1080), nakli-HD/upscale AB KABHI NAHI + IG-posts: HD engines pehle (public = poori album 1080-3072px) + 🔒 private-account honest note | v103.0 IG-PRO — 🎯 reel/post/story SMART: video-intent original-URL se, cache-referee (galat media kabhi nahi), 🌐 wayback+jina engines, honest reel errors | v102.0 CLEAN-STYLE — 🎨 OSINT-plain fonts + ━ spaced cards + 🚫 4 tools PERMANENTLY deleted | v101.0 MENU-CLEAN — ✂️ 8 tools removed + ⏳ wait-few-seconds + 🔝 info tools top | v100.0 FAMILY-INFO — 👪 Aadhaar → ration family card + sakht Aadhaar mask | v99.0 MYNUM-API — 📱 purane number API delete + tumhara number API live | v98.0 | v97.0 | v96.0 | v95.0 IG-CAROUSEL-FIX | v94.0 MERGED-PRO — v93 + v86 | v93.0 FULL-ALBUM-PRO — 📸 chunk + ☁️ Terabox report + 🧯 HTML net — v86.0 ULTRA-PRO — 📸 INSTA-MEGA + 📷 QR SCANNER + 🛡️ CRASH-SWEEP-II — v85.0 ULTRA-PRO — 📸 FULL-ALBUM FIX + 🔗 LINK SANITIZER + 🛡️ FORTRESS-II — v84.0 SMART INSTANT-REPEAT KEY — v83.0 ULTRA-PRO — 🎯 DEAD-BUTTON + YT-PICKER FIX + STALE-BUTTON GUARD — v82.0 ZERO-CRASH PRO — 🛡️ SEND-FAILED false alarm band + Terabox token flow + "
                "Instagram img_index + saaf self-restart + RAM safety | "
                "v77.0 FREE4ALL — 🚦 NEVER-QUEUE UPGRADE: HEAVY GATE (ek saath sirf 2 "
                "bhaari kaam = OOM/crash khatam) + 🚦 UPDATE GATE (ek user ka slow tool "
@@ -2745,12 +2745,16 @@ def _startup_selfcheck() -> bool:
         print(f"   ❌ modules FAIL ({len(_bad)}): {', '.join(_bad[:4])}")
     else:
         print("   ✅ modules: sab OK")
-    # --- optional deps (jo bina bhi bot chalta hai) ---
+    # --- optional deps (availability check, IMPORT nahi) ---
+    # v105.2: importing yt_dlp/PDF/TTS at boot wasted RAM on the 512MB free plan.
+    # find_spec only checks installation; feature modules load only on first use.
+    from importlib.util import find_spec as _find_spec
     _miss = []
     for _dep in ("telegram", "requests", "PIL", "qrcode", "phonenumbers",
                  "yt_dlp", "bs4", "pypdf", "img2pdf", "edge_tts"):
         try:
-            _il.import_module(_dep)
+            if _find_spec(_dep) is None:
+                _miss.append(_dep)
         except Exception:                                        # noqa: BLE001
             _miss.append(_dep)
     print(f"   ✅ optional deps: {'sab OK' if not _miss else 'missing ' + ', '.join(_miss)}")
@@ -10789,17 +10793,16 @@ async def _post_init(app: Application):
     await app.bot.set_my_commands(commands)
     log.info("Commands set ho gaye ✅")
 
-    # v80.2: 🐘 MTProto (bade-file) ka handshake boot par hi — taaki pehle user ko
-    # 5-8 second ka login wait na mile, aur /health par `MTProto ON` dikhe (proof).
-    # Creds na ho to BF.warm() chup-chaap False deta hai. Background task hai,
-    # isliye startup block nahi hota aur crash bhi nahi ho sakta.
-    if _env_bool("BIGFILE_WARM", True):
+    # v105.2: MTProto/Telethon boot par eagerly import/login nahi — idle RAM kam.
+    # Badi file aane par BF.mt_send() lazily start karega; BIGFILE_WARM=on se
+    # purana pre-login behavior optional hai.
+    if _env_bool("BIGFILE_WARM", False):
         try:
             asyncio.create_task(BF.warm())
         except Exception as _we:                                 # noqa: BLE001
             log.warning("bigfile warmup skip: %s", str(_we)[:120])
     else:
-        print("   🐘 bigfile: warm-up OFF (BIGFILE_WARM=off) — login pehli badi file par hoga")
+        print("   🐘 bigfile: lazy warm-up (BIGFILE_WARM=on to pre-login) — idle RAM bachi rahegi")
 
 
 # ---------------- v49.7 KEEPALIVE PINGER (hub ko ping -> dono 24/7 jaagte hain) ----------------
@@ -11340,9 +11343,8 @@ def _memtrace_boot() -> None:
 def _mem_relief(tag: str = "") -> None:
     """Bhaari kaam ke baad RAM foran wapas lao (OS ko pages lautao).
 
-    Kyun: guard ka watchdog har 60 second chalta hai — 4 tool ek minute me chal gaye
-    to RSS 378 MB (throttle line) ke upar chipak jaata tha, gate "allowed=1" par
-    aa jaata, aur agla user "bot dead" samajh leta. free_memory() ab malloc_trim
+    Kyun: guard ka watchdog ab har 15s chalta hai — RAM 389MB cross hote hi cache
+    trim hota hai, aur 410MB par naye heavy jobs rok diye jaate hain. free_memory() ab malloc_trim
     bhi karta hai, isliye RSS sach me girta hai (pehle gc_runs=3 par bhi 0 MB gira
     tha — 8 Oct ko yahi napa tha).
     """

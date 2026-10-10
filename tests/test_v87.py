@@ -76,7 +76,7 @@ print("\n=== A. 🏗️ HEAVY GATE (OOM se bachao) ===")
 from modules.core import heavy                                    # noqa: E402
 
 heavy.reset_stats()
-check("module import + default slots 2", heavy.max_slots() >= 1)
+check("module import + free-plan safe slot available", heavy.max_slots() >= 1)
 
 # A1: concurrency cap sach me obey hoti hai
 observed = {"now": 0, "peak": 0}

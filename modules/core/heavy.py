@@ -15,8 +15,9 @@ Bot ka bhaari kaam (video download + ffmpeg encode + PDF banana) ek-dusre se
       -> Linux OOM killer bot ka process MAR deta hai
       -> Render log me sirf "Killed", user ko bot "hang/crash" lagta hai
 
-Is file ke baad: ek saath sirf `HEAVY_MAX_SLOTS` (default 2) bhaari kaam
-chalte hain. Baaki queue me khade hote hain, aur queue bhi hamesha ke liye
+Is file ke baad: 512MB free plan par ek samay me sirf ek heavy kaam
+(default 1; code purane env value 2 ko bhi clamp karta hai). Larger RAM par
+`HEAVY_MAX_SLOTS` env se zyada parallel jobs allow ho sakte hain. Baaki queue me khade hote hain, aur queue bhi hamesha ke liye
 nahi — `HEAVY_WAIT_SECONDS` (default 25s) se zyada intezaar to user ko
 saaf jawab milta hai ("server busy, abhi try karo") aur worker thread
 **chhoo-ta hai** ( Render ke 0.1 CPU par worker thread ko ghanton tak atke
@@ -24,8 +25,8 @@ rehne dena hi ek aur tarah ka hang hai).
 
 Do aur cheezein
 ---------------
-1. **RAM dekha jaata hai**: 512 MB me se `HEAVY_THROTTLE_MB` (default 380)
-   cross -> ek time par sirf EK bhaari kaam. `HEAVY_DENY_MB` (default 435)
+1. **RAM dekha jaata hai**: 512 MB me se `HEAVY_THROTTLE_MB` (~379 default)
+   cross -> ek time par sirf EK bhaari kaam. `HEAVY_DENY_MB` (~410 default)
    cross -> naya bhaari kaam shuru hi nahi hota (pehle se chalte hue ko
    nahi maarte; sirf naye ko mana karte hain). Isse "peak" memory kabhi
    chhat ko chhoo-ti hi nahi, aur cache-safai ko waqt mil jaata hai.
@@ -85,14 +86,20 @@ def _env_int(name: str, default: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, val))
 
 
-# kitne bhaari kaam ek saath (Render free = 2; Starter+ = 3-4 theek)
-_MAX_SLOTS_CFG = _env_int("HEAVY_MAX_SLOTS", 2, 1, 8)
+# RAM limit pehle load karo, phir 512MB free instance par concurrency hard-cap 1.
+# Purana Render env HEAVY_MAX_SLOTS=2 ho tab bhi free plan safe rahe.
+_LIMIT = _env_int("MEMORY_LIMIT_MB", 512, 128, 32768)
+_MAX_SLOTS_CFG = _env_int("HEAVY_MAX_SLOTS", 1, 1, 8)
+if _LIMIT <= 512:
+    _MAX_SLOTS_CFG = min(_MAX_SLOTS_CFG, 1)
 # queue me kitni der intezar (is se zyada -> saaf busy message, worker free)
 _WAIT_CFG = _env_int("HEAVY_WAIT_SECONDS", 25, 2, 300)
-# RAM thresholds (MB). MEMORY_LIMIT_MB (v60) ka fallback use karte hain.
-_LIMIT = _env_int("MEMORY_LIMIT_MB", 512, 128, 32768)
-_THROTTLE = _env_int("HEAVY_THROTTLE_MB", int(_LIMIT * 0.74), 64, 32768)  # ~380 of 512
-_DENY = _env_int("HEAVY_DENY_MB", int(_LIMIT * 0.85), 64, 32768)          # ~435 of 512
+# 512MB par naya kaam 410MB ke aas-paas rokna: active job ko headroom mile.
+_THROTTLE = _env_int("HEAVY_THROTTLE_MB", int(_LIMIT * 0.74), 64, 32768)
+_DENY = _env_int("HEAVY_DENY_MB", int(_LIMIT * 0.80), 64, 32768)
+if _LIMIT <= 512:
+    _THROTTLE = min(_THROTTLE, int(_LIMIT * 0.74))
+    _DENY = min(_DENY, int(_LIMIT * 0.80))
 _ENABLED = (os.environ.get("HEAVY_GATE", "on").strip().lower()
             not in ("off", "0", "no", "false"))
 

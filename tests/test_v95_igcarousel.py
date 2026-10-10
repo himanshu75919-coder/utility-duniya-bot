@@ -116,6 +116,11 @@ class _FakeResp:
     def __init__(self, code, body):
         self.status_code = code
         self.content = body
+        self.headers = {"content-type": "image/jpeg"}
+    def iter_content(self, chunk_size):
+        yield self.content
+    def close(self):
+        pass
 
 
 _real_get = MD.httpio.get

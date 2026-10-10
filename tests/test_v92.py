@@ -99,8 +99,9 @@ st = G.guard_stats()
 for k in ("gc_runs", "trim_runs", "trim_released", "last_freed_mb", "restarts",
           "restart_at_mb", "mem_mb", "mem_peak_mb"):
     check(f"guard_stats['{k}']", k in st, str(sorted(st))[:200])
-check("restart_at_mb = env se (off = 0)",
-      st["restart_at_mb"] == float(os.environ.get("MEM_RESTART_MB") or 0), repr(st["restart_at_mb"]))
+check("restart_at_mb configured/env se effective safe ceiling ke saath",
+      st["restart_at_mb"] == G._effective_restart_mb(
+          float(os.environ.get("MEMORY_LIMIT_MB") or 512)), repr(st["restart_at_mb"]))
 n0 = st["trim_runs"]
 G.free_memory()
 check("har safai par trim_runs badhta hai", G.guard_stats()["trim_runs"] >= n0,
@@ -135,8 +136,8 @@ print("\n[5] planned restart ka faisla (OOM-kill se pehle, kaam ke beech kabhi n
 hard = re.search(r"if m >= hard:(.*?)time\.sleep", G_SRC, re.S)
 check("watchdog ka hard-branch mila", bool(hard))
 hb = hard.group(1) if hard else ""
-check("MEM_RESTART_MB padha (0 = off — default par koi restart nahi)",
-      'os.environ.get("MEM_RESTART_MB") or 0' in hb)
+check("MEM_RESTART_MB physical limit se neeche clamp hota hai",
+      "_effective_restart_mb(limit_mb)" in hb and "rat > 0" in hb)
 check("restart se pehle is_idle() poocha jaata hai", "is_idle()" in hb)
 check("uptime bhi (boot ke turant baad restart nahi)", "min_up" in hb and "up >=" in hb)
 check("safai ke baad bhi RAM high ho tabhi restart", 'r["after_mb"] >= rat * 0.985' in hb)

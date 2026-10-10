@@ -62,10 +62,33 @@ try:
 except ImportError:
     parth_dl = None
 
-try:
-    import yt_dlp
-except ImportError:
-    yt_dlp = None
+# v105.2: yt_dlp LAZY — boot me ~39 MB RAM nahi khata. Pehli download
+# par import hota hai. Lock se concurrent first-use par adhoora None nahi milega.
+yt_dlp = None
+_yt_dlp_tried = False
+_YTDLP_LOCK = threading.Lock()
+
+
+def _ytdlp():
+    """Pehli zaroorat par thread-safe import; fail par None (hamesha safe)."""
+    global yt_dlp, _yt_dlp_tried
+    if yt_dlp is not None:
+        return yt_dlp
+    if _yt_dlp_tried:
+        return None
+    with _YTDLP_LOCK:
+        if yt_dlp is not None:
+            return yt_dlp
+        if _yt_dlp_tried:
+            return None
+        try:
+            import yt_dlp as _m
+            yt_dlp = _m
+        except ImportError:
+            yt_dlp = None
+        finally:
+            _yt_dlp_tried = True
+    return yt_dlp
 
 DESKTOP_UA = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -77,23 +100,28 @@ FB_UA = {
     "User-Agent": "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)"
 }
 
-# v79: Bot API ki upload hadd ~50MB hai, isliye pehle 48 par atak jaati thi.
-# MTProto (modules/core/bigfile) ready ho — yani TG_API_ID + TG_API_HASH env —
-# to 96 MB tak download karke badi file MTProto se bhej dete hain. MAX_TG_MB
-# env se dono case badal sakte hain (20…400).
+# v105.2: 512MB Render free instance me ek media result RAM me rehta hai;
+# safe default/cap 48MB. Bigger-memory hosts can raise it via MEMORY_LIMIT_MB.
+# Explicit MAX_TG_MB bhi 512MB par 48 par clamp hota hai (buffer/encode/upload peak).
 def _tg_cap_mb() -> int:
+    try:
+        _limit = int(float(os.environ.get("MEMORY_LIMIT_MB") or 512))
+    except Exception:                                            # noqa: BLE001
+        _limit = 512
+    _free_safe = _limit <= 512
     try:
         _raw = (os.environ.get("MAX_TG_MB") or "").strip()
         if _raw:
-            return max(20, min(400, int(_raw)))
+            _requested = max(20, min(400, int(_raw)))
+            return min(_requested, 48) if _free_safe else _requested
     except Exception:                                            # noqa: BLE001
         pass
     try:
         from modules.core import bigfile as _BF
-        return 96 if _BF.enabled() else 48
+        _default = 96 if _BF.enabled() else 48
     except Exception:                                            # noqa: BLE001
-        return 48
-
+        _default = 48
+    return min(_default, 48) if _free_safe else _default
 
 MAX_TG_MB = _tg_cap_mb()
 
@@ -359,23 +387,26 @@ def _ig_parth(clean: str, media_cat: str):
                 e_kind = entry.get("kind", "")
                 e_formats = entry.get("formats", [])
                 if e_kind == "video" and e_formats:
-                    r_v = httpio.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=15)
-                    # v86: 15MB se bada item skip (20 items x bada video = OOM)
-                    if r_v.status_code == 200 and 1000 < len(r_v.content or b"") <= 15 * 1048576:
-                        items.append({"type": "video", "bytes": r_v.content})
+                    # v105.2: stream + size cap BEFORE buffering.
+                    _cv = _http_get_capped(e_formats[0].get("url"), 15,
+                                           headers=DESKTOP_UA, timeout=15, want="video")
+                    if _cv and len(_cv) > 1000:
+                        items.append({"type": "video", "bytes": _cv})
                 elif e_formats:
-                    r_img = httpio.get(e_formats[0].get("url"), headers=DESKTOP_UA, timeout=12)
-                    if r_img.status_code == 200:
-                        _jb = _jpeg_fit(r_img.content)   # v86: size-capped JPEG
+                    _ci = _http_get_capped(e_formats[0].get("url"), 15,
+                                           headers=DESKTOP_UA, timeout=12, want="image")
+                    if _ci:
+                        _jb = _jpeg_fit(_ci)   # v86: size-capped JPEG
                         if _jb:
                             items.append({"type": "photo", "bytes": _jb})
             if not items and info.get("images"):
                 for img_obj in info.get("images", [])[:20]:   # v86: 20 tak
                     u = img_obj.get("url")
                     if u:
-                        r_img = httpio.get(u, headers=DESKTOP_UA, timeout=12)
-                        if r_img.status_code == 200:
-                            _jb2 = _jpeg_fit(r_img.content)   # v86: size-capped JPEG
+                        _ci2 = _http_get_capped(u, 15, headers=DESKTOP_UA,
+                                                timeout=12, want="image")
+                        if _ci2:
+                            _jb2 = _jpeg_fit(_ci2)   # v86: size-capped JPEG
                             if _jb2:
                                 items.append({"type": "photo", "bytes": _jb2})
             if items:
@@ -387,11 +418,12 @@ def _ig_parth(clean: str, media_cat: str):
             formats = info.get("formats", [])
             v_url = formats[0].get("url") if formats else None
             if v_url:
-                r_v = httpio.get(v_url, headers=DESKTOP_UA, timeout=25)
-                if r_v.status_code == 200 and len(r_v.content) > 1000:
-                    _dv, _dw, _dh = _probe_data(r_v.content)   # v105: asli naap
+                _rv = _http_get_capped(v_url, MAX_TG_MB, headers=DESKTOP_UA,
+                                       timeout=25, want="video")
+                if _rv and len(_rv) > 1000:
+                    _dv, _dw, _dh = _probe_data(_rv)   # v105: asli naap
                     return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
-                            "title": title, "bytes": r_v.content, "size_mb": _size_mb(r_v.content),
+                            "title": title, "bytes": _rv, "size_mb": _size_mb(_rv),
                             "duration": int(_dv or 0),
                             "quality": f"{_dh}p" if _dh else None,
                             "platform": "Instagram", "engine": "parth-dl"}
@@ -400,14 +432,14 @@ def _ig_parth(clean: str, media_cat: str):
         if m_type in ("image", "photo") or (info.get("images") and len(info["images"]) > 0):
             img_url = info["images"][0].get("url") if info.get("images") else None
             if img_url:
-                r_img = httpio.get(img_url, headers=DESKTOP_UA, timeout=12)
-                if r_img.status_code == 200 and len(r_img.content) > 1000:
-                    im = Image.open(io.BytesIO(r_img.content)).convert("RGB")
-                    buf = io.BytesIO()
-                    im.save(buf, format="JPEG", quality=95)
-                    return {"ok": True, "type": "photo", "category": "post", "title": title,
-                            "bytes": buf.getvalue(), "size_mb": _size_mb(buf.getvalue()),
-                            "platform": "Instagram", "engine": "parth-dl"}
+                _ri = _http_get_capped(img_url, 15, headers=DESKTOP_UA,
+                                       timeout=12, want="image")
+                if _ri and len(_ri) > 1000:
+                    _photo = _jpeg_fit(_ri, max_px=2400, quality=94)
+                    if _photo:
+                        return {"ok": True, "type": "photo", "category": "post", "title": title,
+                                "bytes": _photo, "size_mb": _size_mb(_photo),
+                                "platform": "Instagram", "engine": "parth-dl"}
     except Exception:
         return None
     return None
@@ -774,8 +806,13 @@ def disk_cache_stats() -> dict:
 #  v74.3: 🏁 PARALLEL RACE — jo engine pehle result de, wahi jeete (sum ki jagah max)
 # =====================================================================================
 def _race(fns, timeout: float = 25.0):
-    """Parallel race: saare engines ek saath chalao, pehla SUCCESS wala jeeta."""
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    """Memory-safe race: max 2 engines active; next starts only after a failure.
+
+    Old code ek saath 8 engines kholta tha; ek hi link ke multiple full video
+    downloads + background losers Render free ki 512MB limit paar kara sakte the.
+    Winner milte hi queued engines cancel; fallback list/quality intact.
+    """
+    from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
     fns = [f for f in (fns or []) if callable(f)]
     if not fns:
         return None
@@ -785,21 +822,51 @@ def _race(fns, timeout: float = 25.0):
             return r if (r and r.get("ok")) else None
         except Exception:                                        # noqa: BLE001
             return None
-    ex = ThreadPoolExecutor(max_workers=len(fns))
+    workers = min(2, len(fns))
+    ex = ThreadPoolExecutor(max_workers=workers)
+    todo = iter(fns)
+    active = {}
+    deadline = time.monotonic() + max(0.1, float(timeout))
     try:
-        futs = [ex.submit(f) for f in fns]
-        try:
-            for f in as_completed(futs, timeout=timeout):
+        for _ in range(workers):
+            try:
+                fn = next(todo)
+            except StopIteration:
+                break
+            active[ex.submit(fn)] = fn
+        while active:
+            remain = deadline - time.monotonic()
+            if remain <= 0:
+                break
+            done, _ = wait(tuple(active), timeout=remain, return_when=FIRST_COMPLETED)
+            if not done:
+                break
+            winner = None
+            for fut in done:
+                active.pop(fut, None)
                 try:
-                    r = f.result()
+                    result = fut.result()
                 except Exception:                                # noqa: BLE001
-                    r = None
-                if r and r.get("ok"):
-                    return r
-        except Exception:                                        # noqa: BLE001
-            pass
+                    result = None
+                if result and result.get("ok"):
+                    winner = result
+                    break
+                try:
+                    fn = next(todo)
+                except StopIteration:
+                    continue
+                active[ex.submit(fn)] = fn
+            if winner is not None:
+                return winner
+    except Exception:                                            # noqa: BLE001
+        pass
     finally:
-        ex.shutdown(wait=False)          # baaki engines background me khatam
+        for fut in active:
+            fut.cancel()
+        try:
+            ex.shutdown(wait=False, cancel_futures=True)
+        except TypeError:                                        # Python <3.9 fallback
+            ex.shutdown(wait=False)
     return None
 
 
@@ -843,6 +910,8 @@ def _ytdlp_opts(extra=None, clients=None):
 
 def _info_one(url: str, clients):
     """Ek client set se info — thread me chalta hai."""
+    if not _ytdlp():
+        return None
     try:
         with yt_dlp.YoutubeDL(_ytdlp_opts({"skip_download": True},
                                           clients=clients)) as ydl:
@@ -859,7 +928,7 @@ def _ytdlp_info(url: str, clients=None):
     v68: 🚀 ab clients EK SAATH (parallel) try hote hain — jo pehle safal
     wahi jeeta. Pehle ek-ek karke 4 x 3s = 12s barbaad hota tha.
     """
-    if not yt_dlp:
+    if not _ytdlp():
         return None
     _u = (url or "").lower()
     _is_yt = ("youtube.com" in _u) or ("youtu.be" in _u)
@@ -896,7 +965,7 @@ def _ytdlp_info(url: str, clients=None):
 
 def _ytdlp_download_bytes(url: str, max_mb: int = MAX_TG_MB):
     """yt-dlp se download karke bytes deta hai. Bada file ho to (None, meta) deta hai."""
-    if not yt_dlp:
+    if not _ytdlp():
         return None, None
     tmp = tempfile.mkdtemp(prefix="udl_")
     try:
@@ -1074,11 +1143,11 @@ def _ig_ytdlp(clean: str, media_cat: str):
                         "bytes": data, "size_mb": _size_mb(data),
                         "platform": "Instagram", "engine": "yt-dlp"}
             try:
-                im = Image.open(io.BytesIO(data)).convert("RGB")
-                buf = io.BytesIO()
-                im.save(buf, format="JPEG", quality=95)
+                _photo = _jpeg_fit(data, max_px=2400, quality=94)
+                if not _photo:
+                    return None
                 return {"ok": True, "type": "photo", "category": "post", "title": info.get("title") or "",
-                        "bytes": buf.getvalue(), "size_mb": _size_mb(buf.getvalue()),
+                        "bytes": _photo, "size_mb": _size_mb(_photo),
                         "platform": "Instagram", "engine": "yt-dlp"}
             except Exception:
                 return None
@@ -1100,15 +1169,34 @@ def _og_scrape(clean: str, media_cat: str, allow_photo: bool = True):
     """
     for headers in (FB_UA, BOT_UA, DESKTOP_UA):
         try:
-            r = httpio.get(clean, headers=headers, timeout=15, allow_redirects=True)
-            if r.status_code != 200 or len(r.content) < 500:
+            r = httpio.get(clean, headers=headers, timeout=15,
+                           allow_redirects=True, stream=True)
+            if r.status_code != 200:
+                try: r.close()
+                except Exception: pass
                 continue
-            ctype = r.headers.get("content-type", "")
-            if "video" in ctype or b"ftyp" in r.content[:20]:
+            ctype = str(r.headers.get("content-type", "") or "").lower()
+            if "video" in ctype or "octet-stream" in ctype:
+                _raw_direct = _read_response_capped(r, MAX_TG_MB * 1048576)
+                try: r.close()
+                except Exception: pass
+                if _raw_direct and ("video" in ctype or b"ftyp" in _raw_direct[:32]):
+                    return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
+                            "bytes": _raw_direct, "size_mb": _size_mb(_raw_direct),
+                            "title": "", "platform": "Instagram", "engine": "direct-scrape"}
+                continue
+            _page = _read_response_capped(r, 2 * 1048576, minimum=500)
+            _encoding = getattr(r, "encoding", None) or "utf-8"
+            try: r.close()
+            except Exception: pass
+            if not _page:
+                continue
+            if b"ftyp" in _page[:32]:
                 return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
-                        "bytes": r.content, "size_mb": _size_mb(r.content),
+                        "bytes": _page, "size_mb": _size_mb(_page),
                         "title": "", "platform": "Instagram", "engine": "direct-scrape"}
-            soup = BeautifulSoup(r.text, "html.parser")
+            _html = _page.decode(_encoding, errors="replace")
+            soup = BeautifulSoup(_html, "html.parser")
             og_video = (soup.find("meta", {"property": "og:video"})
                         or soup.find("meta", {"property": "og:video:secure_url"})
                         or soup.find("meta", {"name": "twitter:player:stream"}))
@@ -1116,25 +1204,22 @@ def _og_scrape(clean: str, media_cat: str, allow_photo: bool = True):
             title_m = soup.find("meta", {"property": "og:title"})
             title = title_m.get("content", "")[:80] if title_m else ""
             if og_video and og_video.get("content"):
-                r_v = httpio.get(og_video["content"], headers=DESKTOP_UA, timeout=20)
-                if r_v.status_code == 200 and len(r_v.content) > 1000:
+                _rv = _http_get_capped(og_video["content"], MAX_TG_MB,
+                                       headers=DESKTOP_UA, timeout=20, want="video")
+                if _rv and len(_rv) > 1000:
                     return {"ok": True, "type": "video", "category": "reel" if media_cat == "reel" else "video",
-                            "bytes": r_v.content, "size_mb": _size_mb(r_v.content), "title": title,
+                            "bytes": _rv, "size_mb": _size_mb(_rv), "title": title,
                             "platform": "Instagram", "engine": "og:video"}
             if not allow_photo:
                 continue        # video chahiye tha — cover frame se kaam nahi
             if og_image and og_image.get("content"):
-                r_i = httpio.get(og_image["content"], headers=DESKTOP_UA, timeout=15)
-                if r_i.status_code == 200 and len(r_i.content) > 1000:
-                    try:
-                        im = Image.open(io.BytesIO(r_i.content)).convert("RGB")
-                        buf = io.BytesIO()
-                        im.save(buf, format="JPEG", quality=95)
-                        return {"ok": True, "type": "photo", "category": media_cat, "title": title,
-                                "bytes": buf.getvalue(), "size_mb": _size_mb(buf.getvalue()),
-                                "platform": "Instagram", "engine": "og:image"}
-                    except Exception:
-                        pass
+                _ri = _http_get_capped(og_image["content"], 15,
+                                       headers=DESKTOP_UA, timeout=15, want="image")
+                _photo = _jpeg_fit(_ri, max_px=2400, quality=94) if _ri else None
+                if _photo:
+                    return {"ok": True, "type": "photo", "category": media_cat, "title": title,
+                            "bytes": _photo, "size_mb": _size_mb(_photo),
+                            "platform": "Instagram", "engine": "og:image"}
         except Exception:
             continue
     return None
@@ -1193,11 +1278,12 @@ def _ig_embed(clean: str, media_cat: str):
                 continue                       # HLS ko sirf yt-dlp pack kar sakta hai
             hdr = dict(DESKTOP_UA)
             hdr["Referer"] = "https://www.instagram.com/"
-            rv = httpio.get(v_url, headers=hdr, timeout=30)
-            if rv.status_code in (200, 206) and len(rv.content) > 20000:
+            _rv = _http_get_capped(v_url, MAX_TG_MB, headers=hdr,
+                                   timeout=30, want="video")
+            if _rv and len(_rv) > 20000:
                 t_m = re.search(r'"title":"([^"]{0,80})"', html)
                 return {"ok": True, "type": "video", "category": cat,
-                        "bytes": rv.content, "size_mb": _size_mb(rv.content),
+                        "bytes": _rv, "size_mb": _size_mb(_rv),
                         "title": (t_m.group(1) if t_m else ""),
                         "platform": "Instagram", "engine": "embed-mp4"}
         except Exception:                                          # noqa: BLE001
@@ -1239,12 +1325,13 @@ def _ig_wayback(clean: str, media_cat: str):
                         try:
                             hdr = dict(DESKTOP_UA)
                             hdr["Referer"] = "https://web.archive.org/"
-                            rv = httpio.get(cand, headers=hdr, timeout=35)
-                            if rv.status_code in (200, 206) and len(rv.content) > 20000:
+                            _rv = _http_get_capped(cand, MAX_TG_MB, headers=hdr,
+                                                   timeout=35, want="video")
+                            if _rv and len(_rv) > 20000:
                                 return {"ok": True, "type": "video",
                                         "category": media_cat or "reel",
-                                        "bytes": rv.content,
-                                        "size_mb": _size_mb(rv.content),
+                                        "bytes": _rv,
+                                        "size_mb": _size_mb(_rv),
                                         "title": "", "platform": "Instagram",
                                         "engine": "wayback"}
                         except Exception:                        # noqa: BLE001
@@ -1255,8 +1342,9 @@ def _ig_wayback(clean: str, media_cat: str):
                     for cand in (mi.group(1),
                                  "https://web.archive.org/web/2if_/" + mi.group(1)):
                         try:
-                            ri = httpio.get(cand, headers=DESKTOP_UA, timeout=20)
-                            jb = _jpeg_fit(ri.content) if ri.status_code == 200 else None
+                            _ri = _http_get_capped(cand, 15, headers=DESKTOP_UA,
+                                                   timeout=20, want="image")
+                            jb = _jpeg_fit(_ri) if _ri else None
                             if jb:
                                 return {"ok": True, "type": "photo",
                                         "category": media_cat or "post", "bytes": jb,
@@ -1287,10 +1375,11 @@ def _ig_jina(clean: str, media_cat: str):
             return None
         hdr = dict(DESKTOP_UA)
         hdr["Referer"] = "https://www.instagram.com/"
-        rv = httpio.get(mv.group(1), headers=hdr, timeout=35)
-        if rv.status_code in (200, 206) and len(rv.content) > 20000:
+        _rv = _http_get_capped(mv.group(1), MAX_TG_MB, headers=hdr,
+                               timeout=35, want="video")
+        if _rv and len(_rv) > 20000:
             return {"ok": True, "type": "video", "category": media_cat or "reel",
-                    "bytes": rv.content, "size_mb": _size_mb(rv.content),
+                    "bytes": _rv, "size_mb": _size_mb(_rv),
                     "title": "", "platform": "Instagram", "engine": "jina-embed"}
     except Exception:                                            # noqa: BLE001
         return None
@@ -1527,13 +1616,15 @@ def _jpeg_fit(raw: bytes, max_px: int = 2160, quality: int = 94):  # v105: q90�
     try:
         if not raw or len(raw) < 200:
             return None
-        im = Image.open(io.BytesIO(raw)).convert("RGB")
-        try:
-            w, h = im.size
-            if max(w, h) > max_px:
-                im.thumbnail((max_px, max_px), Image.LANCZOS)
-        except Exception:  # noqa: BLE001
-            pass
+        im = Image.open(io.BytesIO(raw))
+        w, h = im.size                  # header read: pixels not decoded yet
+        # 40MP hard stop avoids a compressed giant image expanding past free RAM.
+        if w <= 0 or h <= 0 or w * h > 40_000_000:
+            return None
+        # Resize BEFORE RGB decode; JPEG draft/thumbnail path can keep the peak small.
+        if max(w, h) > max_px:
+            im.thumbnail((max_px, max_px), Image.LANCZOS)
+        im = im.convert("RGB")
         buf = io.BytesIO()
         im.save(buf, format="JPEG", quality=quality)
         out = buf.getvalue()
@@ -1677,9 +1768,10 @@ def _ytdlp_direct_image_bytes(info):
             try:
                 if not _u or not str(_u).startswith("http"):
                     continue
-                _r = httpio.get(str(_u), headers=DESKTOP_UA, timeout=12)
-                if _r.status_code == 200 and len(_r.content or b"") > 1000:
-                    return _r.content
+                _r = _http_get_capped(str(_u), 15, headers=DESKTOP_UA,
+                                      timeout=12, want="image")
+                if _r and len(_r) > 1000:
+                    return _r
             except Exception:  # noqa: BLE001
                 continue
     except Exception:  # noqa: BLE001
@@ -1712,10 +1804,11 @@ def _ig_embed_album(clean: str, media_cat: str):
                 items = []
                 for u in urls[:20]:
                     try:
-                        ri = httpio.get(u, headers=DESKTOP_UA, timeout=10)
-                        if ri.status_code != 200 or len(ri.content or b"") < 2000:
+                        _ri = _http_get_capped(u, 15, headers=DESKTOP_UA,
+                                               timeout=10, want="image")
+                        if not _ri or len(_ri) < 2000:
                             continue
-                        jb = _jpeg_fit(ri.content)
+                        jb = _jpeg_fit(_ri)
                         if jb:
                             items.append({"type": "photo", "bytes": jb})
                         if len(items) >= 20:
@@ -1770,10 +1863,11 @@ def _ig_profile_pic(clean: str, username: str = ""):
                     continue
             else:
                 _url = m.group(1)
-            ri = httpio.get(_url, headers=DESKTOP_UA, timeout=15)
-            if ri.status_code != 200 or len(ri.content or b"") < 2000:
+            _ri = _http_get_capped(_url, 15, headers=DESKTOP_UA,
+                                   timeout=15, want="image")
+            if not _ri or len(_ri) < 2000:
                 continue
-            jb = _jpeg_fit(ri.content)
+            jb = _jpeg_fit(_ri)
             if not jb:
                 continue
             _nm = re.search(r'"full_name"\s*:\s*"([^"]{0,60})"', html)
@@ -1972,6 +2066,20 @@ def download_instagram_media(url: str) -> dict:
             "error": "Media nahi nikal paya — dekho post public hai kya (private/age-restrict post nahi chalti)."}
 
 
+def _read_response_capped(r, cap_bytes: int, minimum: int = 1001):
+    """Existing streamed response -> bounded bytes; caller closes response."""
+    try:
+        _buf = bytearray()
+        for chunk in r.iter_content(262144):
+            if chunk:
+                _buf += chunk
+            if len(_buf) > int(cap_bytes):
+                return None
+        return bytes(_buf) if len(_buf) >= int(minimum) else None
+    except Exception:                                            # noqa: BLE001
+        return None
+
+
 def _http_get_capped(url: str, max_mb: int, headers=None, timeout: int = 40,
                      want: str = "video"):
     """v96: URL se bytes (size cap + content-type guard). Fail → None (kabhi exception nahi)."""
@@ -1993,13 +2101,8 @@ def _http_get_capped(url: str, max_mb: int, headers=None, timeout: int = 40,
                 return None
             if want == "image" and ct and ("image" not in ct) and ("octet-stream" not in ct):
                 return None
-            data = b""
-            for chunk in r.iter_content(262144):
-                if chunk:
-                    data += chunk
-                if len(data) > cap:
-                    return None
-            return data if len(data) > 1000 else None
+            # v105.2: bytearray in-place grow; full cap is checked while streaming.
+            return _read_response_capped(r, cap, minimum=1001)
         finally:
             try:
                 r.close()
@@ -2548,7 +2651,7 @@ def _download_video_media_raw(url: str, max_mb: int = MAX_TG_MB) -> dict:
         if _fb and _fb.get("ok"):
             return _fb
     # --- Baaki platforms: yt-dlp ---
-    if not yt_dlp:
+    if not _ytdlp():
         return {"ok": False, "error": "yt-dlp engine load nahi hua (requirements.txt install check karo)."}
 
     # v74.3: 🚀 pehle DOWNLOAD hi try karo — pehle info (3-10s) phir download (3-10s)
@@ -2712,19 +2815,21 @@ def _hub_youtube_download(url: str, max_mb: int) -> dict:
                 except Exception:  # noqa: BLE001
                     pass
                 continue
-            data = b""
+            _buf = bytearray()
             too_big = False
             for chunk in r.iter_content(262144):
-                data += chunk
-                if len(data) > cap:                     # limit cross → truncated file NAHI bhejenge
+                if chunk:
+                    _buf += chunk
+                if len(_buf) > cap:                     # limit cross → truncated file NAHI bhejenge
                     too_big = True
                     break
             try:
                 r.close()
             except Exception:  # noqa: BLE001
                 pass
-            if too_big or len(data) <= 10_000:
+            if too_big or len(_buf) <= 10_000:
                 continue
+            data = bytes(_buf)
             return {"ok": True, "type": "video", "platform": "YouTube",
                     "title": info.get("title") or "", "bytes": data, "size_mb": _size_mb(data),
                     "duration": info.get("duration") or 0,
@@ -2839,7 +2944,7 @@ def yt_available_qualities(url: str) -> list:
     Sirf metadata fetch hota hai (video download NAHI) — fast hai.
     Koi option nahi mila to khali list (caller default 1080 use karega).
     """
-    if not yt_dlp:
+    if not _ytdlp():
         return []
     try:
         info = _ytdlp_info(url)
@@ -3058,7 +3163,7 @@ def yt_download_at_height(url: str, height: int, max_mb: int = MAX_TG_MB):
 
     Returns (bytes|None, info|None) — _ytdlp_download_bytes jaisa contract.
     """
-    if not yt_dlp:
+    if not _ytdlp():
         return None, None
     tmp = tempfile.mkdtemp(prefix="udl_q_")
     try:
